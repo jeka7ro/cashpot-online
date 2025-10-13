@@ -109,10 +109,10 @@ const Locations = () => {
       sortable: true,
       render: (item) => (
         <div className="space-y-1">
-          <div className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-green-700 dark:group-hover:text-green-400 transition-colors">
+          <div className="text-slate-900 dark:text-slate-100 group-hover:text-green-700 dark:group-hover:text-green-400 transition-colors">
             {item.name}
           </div>
-          <div className="text-slate-600 dark:text-slate-400 text-sm">
+          <div className="text-slate-600 dark:text-slate-400">
             {item.address}
           </div>
         </div>
@@ -124,21 +124,21 @@ const Locations = () => {
       sortable: true,
       render: (item) => (
         <div className="space-y-1">
-              <span className="text-blue-800 dark:text-blue-300 text-xs font-bold">
+              <span className="text-blue-800 dark:text-blue-300">
             {item.company}
           </span>
           <div className="flex items-center space-x-2">
             {item.contact_person ? (
               <>
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-xs shadow-lg">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white shadow-lg">
                   {item.contact_person.charAt(0).toUpperCase()}
                 </div>
-                <span className="text-xs font-medium text-slate-700">
+                <span className="text-slate-700">
                   {item.contact_person}
                 </span>
               </>
             ) : (
-              <span className="text-slate-400 dark:text-slate-500 text-xs italic">Nu este setată</span>
+              <span className="text-slate-400 dark:text-slate-500 italic">Nu este setată</span>
             )}
           </div>
         </div>
@@ -149,7 +149,7 @@ const Locations = () => {
           label: 'Suprafață (m²)',
           sortable: true,
           render: (item) => (
-            <div className="text-slate-600 text-sm font-sans">
+            <div className="text-slate-600">
               {item.surface ? `${item.surface} m²` : 'N/A'}
             </div>
           )
@@ -159,7 +159,7 @@ const Locations = () => {
           label: 'Capacitate (Sloturi)',
           sortable: true,
           render: (item) => (
-            <div className="text-slate-600 text-sm font-sans">
+            <div className="text-slate-600">
               {item.capacity || 0} sloturi
             </div>
           )
@@ -173,7 +173,7 @@ const Locations = () => {
             
             if (costPerM2 === null) {
               return (
-                <span className="text-slate-400 dark:text-slate-500 text-sm italic">
+                <span className="text-slate-400 dark:text-slate-500 italic">
                   N/A
                 </span>
               )
@@ -181,10 +181,10 @@ const Locations = () => {
 
             return (
               <div className="flex items-center space-x-1">
-                <span className="font-bold text-blue-600 dark:text-blue-400">
+                <span className="text-blue-600 dark:text-blue-400">
                   {costPerM2}
                 </span>
-                <span className="text-xs text-slate-500 dark:text-slate-400">
+                <span className="text-slate-500 dark:text-slate-400">
                   RON/m²
                 </span>
               </div>
@@ -236,7 +236,7 @@ const Locations = () => {
         
         if (daysRemaining === null) {
           return (
-            <span className="text-slate-400 dark:text-slate-500 text-sm italic">
+            <span className="text-slate-400 dark:text-slate-500 italic">
               Fără contract activ
             </span>
           )
@@ -246,17 +246,17 @@ const Locations = () => {
         const isExpiringSoon = daysRemaining <= 30 && daysRemaining >= 0
         
         return (
-          <div className={`flex items-center space-x-2 ${
+          <div className={`flex items-center space-x-1 ${
             isExpired 
-              ? 'text-red-600 dark:text-red-400 font-semibold' 
+              ? 'text-red-600 dark:text-red-400' 
               : isExpiringSoon 
-              ? 'text-orange-600 dark:text-orange-400 font-semibold' 
+              ? 'text-orange-600 dark:text-orange-400' 
               : 'text-green-600 dark:text-green-400'
           }`}>
-            <span className="font-bold text-lg">
+            <span>
               {isExpired ? Math.abs(daysRemaining) : daysRemaining}
             </span>
-            <span className="text-xs">
+            <span>
               {isExpired ? 'zile expirat' : 'zile rămase'}
             </span>
           </div>
@@ -268,7 +268,7 @@ const Locations = () => {
       label: 'Data Creare',
       sortable: true,
       render: (item) => (
-        <div className="text-sm text-slate-600 dark:text-slate-400">
+        <div className="text-slate-600 dark:text-slate-400">
           {new Date(item.created_at).toLocaleDateString('ro-RO')}
         </div>
       )
