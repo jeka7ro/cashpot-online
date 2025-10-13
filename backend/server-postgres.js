@@ -1621,8 +1621,21 @@ app.delete('/api/gameMixes/:id', async (req, res) => {
 // Users routes
 app.get('/api/users', async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, username, full_name, email, role, avatar, created_at, updated_at FROM users ORDER BY created_at DESC')
+    const result = await pool.query('SELECT id, username, full_name, email, role, avatar, preferences, created_at, updated_at FROM users ORDER BY created_at DESC')
     res.json(result.rows)
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+app.get('/api/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const result = await pool.query('SELECT id, username, full_name, email, role, avatar, preferences, created_at, updated_at FROM users WHERE id = $1', [id])
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'User not found' })
+    }
+    res.json(result.rows[0])
   } catch (error) {
     res.status(500).json({ success: false, error: error.message })
   }
