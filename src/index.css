@@ -1,0 +1,587 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-slate-200;
+  }
+  
+  body {
+    @apply bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 font-sans antialiased;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Force system fonts for all inputs, selects, and form elements */
+  input, select, textarea, button {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  }
+
+  /* Specifically target date and datetime inputs */
+  input[type="date"], 
+  input[type="datetime-local"], 
+  input[type="time"], 
+  input[type="month"], 
+  input[type="week"] {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  }
+
+  /* Force system fonts for table elements */
+  table, th, td, tr {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  }
+
+  /* Force system fonts for all text elements */
+  p, span, div, label, h1, h2, h3, h4, h5, h6 {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  }
+
+  /* Override any potential custom fonts - NUCLEAR LEVEL */
+  *, *::before, *::after {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  }
+
+  /* FORCE system fonts on ALL elements - no exceptions */
+  html, body, div, span, applet, object, iframe,
+  h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+  a, abbr, acronym, address, big, cite, code,
+  del, dfn, em, img, ins, kbd, q, s, samp,
+  small, strike, strong, sub, sup, tt, var,
+  b, u, i, center,
+  dl, dt, dd, ol, ul, li,
+  fieldset, form, label, legend,
+  table, caption, tbody, tfoot, thead, tr, th, td,
+  article, aside, canvas, details, embed, 
+  figure, figcaption, footer, header, hgroup, 
+  menu, nav, output, ruby, section, summary,
+  time, mark, audio, video, input, select, textarea, button {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  }
+
+  /* NUCLEAR OVERRIDE - Force system font on EVERYTHING */
+  [class*="font-"], [style*="font-family"], [style*="font"] {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  }
+
+  /* Override browser default fonts for specific elements */
+  code, pre, kbd, samp, tt {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  }
+}
+
+@layer utilities {
+  /* ULTIMATE FONT OVERRIDE - Highest priority */
+  .font-sans, .font-serif, .font-mono {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/80 backdrop-blur-xl border border-white/30;
+  }
+  
+  .glass-dark {
+    @apply bg-slate-900/80 backdrop-blur-xl border border-slate-700/30;
+  }
+  
+  .gradient-primary {
+    @apply bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600;
+  }
+  
+  .gradient-success {
+    @apply bg-gradient-to-r from-green-500 to-emerald-500;
+  }
+  
+  .gradient-warning {
+    @apply bg-gradient-to-r from-yellow-500 to-orange-500;
+  }
+  
+  .gradient-error {
+    @apply bg-gradient-to-r from-red-500 to-pink-500;
+  }
+  
+  .btn-primary {
+    @apply px-6 py-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-blue-500/25 transition-all duration-200 hover:scale-105 active:scale-95;
+  }
+  
+  .btn-secondary {
+    @apply px-6 py-3 bg-gradient-to-r from-slate-100 to-gray-100 text-slate-700 rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95;
+  }
+
+  .dark .btn-secondary {
+    background: rgb(71 85 105) !important;
+    color: rgb(241 245 249) !important;
+    border: none !important;
+  }
+
+  .dark .btn-secondary:hover {
+    background: rgb(51 65 85) !important;
+  }
+  
+  .btn-success {
+    @apply px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl font-semibold shadow-lg hover:shadow-green-500/25 transition-all duration-200 hover:scale-105 active:scale-95;
+  }
+  
+  .btn-warning {
+    @apply px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-2xl font-semibold shadow-lg hover:shadow-yellow-500/25 transition-all duration-200 hover:scale-105 active:scale-95;
+  }
+  
+  .btn-error {
+    @apply px-6 py-3 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-2xl font-semibold shadow-lg hover:shadow-red-500/25 transition-all duration-200 hover:scale-105 active:scale-95;
+  }
+  
+  .input-field {
+    @apply w-full border-2 border-slate-200 rounded-2xl px-4 py-3 bg-white/80 backdrop-blur-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all duration-200 shadow-lg;
+  }
+  
+  .card {
+    @apply bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-slate-500/10 border border-white/30;
+  }
+  
+  .table-header {
+    @apply bg-gradient-to-r from-slate-50 via-blue-50 to-indigo-50 border-b border-slate-200/50;
+  }
+  
+  .table-row {
+    @apply hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-indigo-50/50 transition-all duration-200 border-b border-slate-100/50;
+  }
+  
+  .status-active {
+    @apply px-4 py-2 rounded-2xl text-xs font-bold shadow-lg bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-green-500/25;
+  }
+  
+  .status-inactive {
+    @apply px-4 py-2 rounded-2xl text-xs font-bold shadow-lg bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-red-500/25;
+  }
+  
+  .status-maintenance {
+    @apply px-4 py-2 rounded-2xl text-xs font-bold shadow-lg bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-yellow-500/25;
+  }
+  
+  .status-pending {
+    @apply px-4 py-2 rounded-2xl text-xs font-bold shadow-lg bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-blue-500/25;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-slate-800 via-slate-700 to-slate-600 bg-clip-text text-transparent;
+  }
+  
+  .text-gradient-primary {
+    @apply bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent;
+  }
+  
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Force sidebar scroll to work */
+  .sidebar-scroll {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(59, 130, 246, 0.3) transparent;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar-thumb {
+    background-color: rgba(59, 130, 246, 0.3);
+    border-radius: 3px;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(59, 130, 246, 0.5);
+  }
+}
+
+/* Dark Mode Styles */
+.dark {
+  color-scheme: dark;
+}
+
+.dark * {
+  @apply border-slate-700;
+}
+
+/* Dark mode card styles */
+.dark .card {
+  @apply bg-slate-800 border-slate-700 text-slate-100;
+}
+
+/* Dark mode input styles */
+.dark input, .dark select, .dark textarea {
+  @apply bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400;
+}
+
+.dark input:focus, .dark select:focus, .dark textarea:focus {
+  @apply border-blue-500 ring-blue-500;
+}
+
+/* Dark mode table styles */
+.dark table {
+  @apply bg-slate-800;
+}
+
+.dark th {
+  @apply bg-slate-700 text-slate-200 border-slate-600;
+}
+
+.dark td {
+  @apply bg-slate-800 text-slate-100 border-slate-700;
+}
+
+.dark tr:nth-child(even) td {
+  @apply bg-slate-750;
+}
+
+.dark tr:hover td {
+  @apply bg-slate-700;
+}
+
+/* Dark mode button styles */
+.dark .btn-primary {
+  @apply bg-blue-600 hover:bg-blue-700 text-white;
+}
+
+.dark .btn-secondary {
+  @apply bg-slate-600 hover:bg-slate-700 text-slate-100;
+}
+
+/* Dark mode text styles */
+.dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+  @apply text-slate-100;
+}
+
+.dark p, .dark span, .dark div {
+  @apply text-slate-300;
+}
+
+.dark .text-muted {
+  @apply text-slate-400;
+}
+
+/* Global Dark Mode Text Overrides - Auto-convert all text colors */
+.dark .text-slate-900 {
+  @apply text-slate-100 !important;
+}
+
+.dark .text-slate-800 {
+  @apply text-slate-200 !important;
+}
+
+.dark .text-slate-700 {
+  @apply text-slate-300 !important;
+}
+
+.dark .text-slate-600 {
+  @apply text-slate-400 !important;
+}
+
+.dark .text-slate-500 {
+  @apply text-slate-400 !important;
+}
+
+/* Removed circular dependency rule */
+
+/* Dark mode icon colors */
+.dark .text-blue-600 {
+  @apply text-blue-400 !important;
+}
+
+.dark .text-green-600 {
+  @apply text-green-400 !important;
+}
+
+.dark .text-purple-600 {
+  @apply text-purple-400 !important;
+}
+
+.dark .text-orange-600 {
+  @apply text-orange-400 !important;
+}
+
+.dark .text-red-600 {
+  @apply text-red-400 !important;
+}
+
+.dark .text-yellow-600 {
+  @apply text-yellow-400 !important;
+}
+
+.dark .text-indigo-600 {
+  @apply text-indigo-400 !important;
+}
+
+.dark .text-pink-600 {
+  @apply text-pink-400 !important;
+}
+
+.dark .text-cyan-600 {
+  @apply text-cyan-400 !important;
+}
+
+/* Dark mode backgrounds */
+.dark .bg-slate-50 {
+  @apply bg-slate-800/50 !important;
+}
+
+.dark .bg-slate-100 {
+  @apply bg-slate-700 !important;
+}
+
+.dark .bg-white {
+  @apply bg-slate-800 !important;
+}
+
+/* Dark mode badge backgrounds - Auto-convert all badge colors */
+.dark .bg-blue-100 {
+  @apply bg-blue-900/30 !important;
+}
+
+.dark .bg-green-100 {
+  @apply bg-green-900/30 !important;
+}
+
+.dark .bg-red-100 {
+  @apply bg-red-900/30 !important;
+}
+
+.dark .bg-yellow-100 {
+  @apply bg-yellow-900/30 !important;
+}
+
+.dark .bg-purple-100 {
+  @apply bg-purple-900/30 !important;
+}
+
+.dark .bg-orange-100 {
+  @apply bg-orange-900/30 !important;
+}
+
+.dark .bg-indigo-100 {
+  @apply bg-indigo-900/30 !important;
+}
+
+.dark .bg-pink-100 {
+  @apply bg-pink-900/30 !important;
+}
+
+.dark .bg-cyan-100 {
+  @apply bg-cyan-900/30 !important;
+}
+
+/* Dark mode gradient backgrounds */
+.dark .bg-gradient-to-r.from-blue-100 {
+  @apply from-blue-900/30 !important;
+}
+
+.dark .bg-gradient-to-r.from-green-100 {
+  @apply from-green-900/30 !important;
+}
+
+.dark .bg-gradient-to-r.from-red-100 {
+  @apply from-red-900/30 !important;
+}
+
+.dark .bg-gradient-to-r.from-yellow-100 {
+  @apply from-yellow-900/30 !important;
+}
+
+.dark .bg-gradient-to-r.from-purple-100 {
+  @apply from-purple-900/30 !important;
+}
+
+.dark .bg-gradient-to-r.from-orange-100 {
+  @apply from-orange-900/30 !important;
+}
+
+.dark .bg-gradient-to-r.from-indigo-100 {
+  @apply from-indigo-900/30 !important;
+}
+
+.dark .bg-gradient-to-r.from-pink-100 {
+  @apply from-pink-900/30 !important;
+}
+
+.dark .bg-gradient-to-r.from-cyan-100 {
+  @apply from-cyan-900/30 !important;
+}
+
+.dark .bg-gradient-to-r.to-indigo-100 {
+  @apply to-indigo-900/30 !important;
+}
+
+.dark .bg-gradient-to-r.to-emerald-100 {
+  @apply to-emerald-900/30 !important;
+}
+
+.dark .bg-gradient-to-r.to-pink-100 {
+  @apply to-pink-900/30 !important;
+}
+
+/* ============================================
+   SMART DASHBOARD GRID SYSTEM - FĂRĂ GOLURI
+   ============================================ */
+
+/* Dashboard Stats Grid - Grid fix responsive fără goluri */
+.dashboard-grid-stats {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 1rem;
+  width: 100%;
+}
+
+/* Dashboard Widgets Grid - Grid fix responsive fără goluri */
+.dashboard-grid-widgets {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 1rem;
+  width: 100%;
+}
+
+/* Card Sizes pentru Stats - cu span precis */
+.dashboard-card-xs {
+  grid-column: span 2;
+}
+
+.dashboard-card-small {
+  grid-column: span 3;
+}
+
+.dashboard-card-medium {
+  grid-column: span 4;
+}
+
+.dashboard-card-large {
+  grid-column: span 6;
+}
+
+.dashboard-card-xl {
+  grid-column: span 12;
+}
+
+/* Widget Sizes - cu span precis */
+.dashboard-widget-xs {
+  grid-column: span 3;
+}
+
+.dashboard-widget-small {
+  grid-column: span 4;
+}
+
+.dashboard-widget-medium {
+  grid-column: span 4;
+}
+
+.dashboard-widget-large {
+  grid-column: span 6;
+}
+
+.dashboard-widget-xl {
+  grid-column: span 12;
+}
+
+/* Responsive breakpoints - ajustare automată */
+@media (max-width: 640px) {
+  .dashboard-card-xs,
+  .dashboard-card-small,
+  .dashboard-card-medium,
+  .dashboard-card-large,
+  .dashboard-card-xl,
+  .dashboard-widget-xs,
+  .dashboard-widget-small,
+  .dashboard-widget-medium,
+  .dashboard-widget-large,
+  .dashboard-widget-xl {
+    grid-column: span 12 !important;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+  .dashboard-card-xs {
+    grid-column: span 3;
+  }
+  
+  .dashboard-card-small {
+    grid-column: span 4;
+  }
+  
+  .dashboard-card-medium {
+    grid-column: span 6;
+  }
+  
+  .dashboard-card-large,
+  .dashboard-card-xl {
+    grid-column: span 12;
+  }
+  
+  .dashboard-widget-xs,
+  .dashboard-widget-small {
+    grid-column: span 6;
+  }
+  
+  .dashboard-widget-medium,
+  .dashboard-widget-large,
+  .dashboard-widget-xl {
+    grid-column: span 12;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .dashboard-card-xs {
+    grid-column: span 2;
+  }
+  
+  .dashboard-card-small {
+    grid-column: span 3;
+  }
+  
+  .dashboard-card-medium {
+    grid-column: span 4;
+  }
+  
+  .dashboard-card-large {
+    grid-column: span 6;
+  }
+  
+  .dashboard-card-xl {
+    grid-column: span 12;
+  }
+  
+  .dashboard-widget-xs {
+    grid-column: span 4;
+  }
+  
+  .dashboard-widget-small {
+    grid-column: span 4;
+  }
+  
+  .dashboard-widget-medium {
+    grid-column: span 6;
+  }
+  
+  .dashboard-widget-large {
+    grid-column: span 6;
+  }
+  
+  .dashboard-widget-xl {
+    grid-column: span 12;
+  }
+}

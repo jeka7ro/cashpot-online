@@ -1,0 +1,15 @@
+node_modules/
+.env
+.env.local
+.env.production
+.DS_Store
+*.log
+backend/.env
+backend/uploads/*
+backend/temp/*
+backend/cashpot.db
+
+mongodb-macos-x86_64-8.2.0/
+mongodb-macos-x86_64-8.2.0.tgz
+*.tgz
+*.zip
