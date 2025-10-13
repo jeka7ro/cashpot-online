@@ -211,6 +211,26 @@ const Layout = ({ children }) => {
             </div>
           </div>
           <div className="flex items-center space-x-2 md:space-x-4">
+            {/* Data și ora actuală */}
+            <div className="hidden md:block text-right">
+              <div className="text-white font-semibold text-sm">
+                {new Date().toLocaleString('ro-RO', {
+                  day: '2-digit',
+                  month: '2-digit', 
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit'
+                })}
+              </div>
+              <div className="text-white/70 text-xs">
+                {window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+                  ? '🖥️ Local' 
+                  : '☁️ Online'
+                }
+              </div>
+            </div>
+            
             {/* Dark Mode Toggle */}
             <button 
               onClick={toggleTheme}
@@ -243,6 +263,21 @@ const Layout = ({ children }) => {
               <div className="text-sm md:text-base hidden sm:block">
                 <div className="font-semibold text-white">{user?.fullName || user?.username || 'Admin'}</div>
                 <div className="text-white/80 text-xs md:text-sm">{user?.role || 'Administrator'}</div>
+                <div className="text-white/60 text-xs mt-1">
+                  {new Date().toLocaleString('ro-RO', {
+                    day: '2-digit',
+                    month: '2-digit', 
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </div>
+                <div className="text-white/50 text-xs">
+                  {window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+                    ? '🖥️ Local' 
+                    : '☁️ Online'
+                  }
+                </div>
               </div>
             </div>
             <button 
