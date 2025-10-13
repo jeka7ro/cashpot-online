@@ -9,7 +9,7 @@ import LocationProprietari from '../components/LocationProprietari'
 import { MapPin, Plus, Search, Upload, Download, FileText, Edit, Trash2, Building2, Eye, X } from 'lucide-react'
 
 const Locations = () => {
-  const { locations, contracts, createItem, updateItem, deleteItem, exportData, loading } = useData()
+  const { locations, contracts, slots, createItem, updateItem, deleteItem, exportData, loading } = useData()
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -69,6 +69,12 @@ const Locations = () => {
     location.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     location.contact_person?.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  // Helper function to calculate number of slots for a location
+  const getSlotCount = (locationId) => {
+    const locationSlots = slots.filter(s => s.location_id === locationId && s.status !== 'Depozit')
+    return locationSlots.length
+  }
 
   // Helper function to calculate days until contract expiration
   const getDaysUntilExpiration = (locationId) => {
@@ -158,11 +164,14 @@ const Locations = () => {
           key: 'capacity',
           label: 'Capacitate (Sloturi)',
           sortable: true,
-          render: (item) => (
-            <div className="text-slate-600">
-              {item.capacity || 0} sloturi
-            </div>
-          )
+          render: (item) => {
+            const slotCount = getSlotCount(item.id)
+            return (
+              <div className="text-slate-600">
+                {slotCount} sloturi
+              </div>
+            )
+          }
         },
         {
           key: 'cost_per_m2',
