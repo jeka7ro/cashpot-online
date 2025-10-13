@@ -1583,8 +1583,8 @@ app.put('/api/gameMixes/:id', async (req, res) => {
     const cleanMaxBet = max_bet === '' ? null : max_bet
     const cleanGamingPlaces = gaming_places === '' ? null : gaming_places
     
-    await pool.query(
-      'UPDATE game_mixes SET name = $1, provider = $2, games = $3, rtp = $4, denomination = $5, max_bet = $6, gaming_places = $7, status = $8, notes = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10',
+    const result = await pool.query(
+      'UPDATE game_mixes SET name = $1, provider = $2, games = $3, rtp = $4, denomination = $5, max_bet = $6, gaming_places = $7, status = $8, notes = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10 RETURNING *',
       [name, provider, JSON.stringify(games), cleanRtp, cleanDenomination, cleanMaxBet, cleanGamingPlaces, status, notes, id]
     )
     
@@ -1597,7 +1597,7 @@ app.put('/api/gameMixes/:id', async (req, res) => {
       console.log(`Updated game mix name from "${oldName}" to "${name}" in slots`)
     }
     
-    res.json({ success: true, message: 'Game mix updated successfully' })
+    res.json(result.rows[0])
   } catch (error) {
     res.status(500).json({ success: false, error: error.message })
   }
@@ -1645,20 +1645,27 @@ app.put('/api/users/:id', async (req, res) => {
     const { id } = req.params
     const { username, password, fullName, full_name, email, role, avatar } = req.body
     
+    let result
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10)
-      await pool.query(
-        'UPDATE users SET username = $1, password = $2, full_name = $3, email = $4, role = $5, avatar = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7',
+      result = await pool.query(
+        'UPDATE users SET username = $1, password = $2, full_name = $3, email = $4, role = $5, avatar = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *',
         [username, hashedPassword, fullName || full_name, email, role, avatar, id]
       )
     } else {
-      await pool.query(
-        'UPDATE users SET username = $1, full_name = $2, email = $3, role = $4, avatar = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6',
+      result = await pool.query(
+        'UPDATE users SET username = $1, full_name = $2, email = $3, role = $4, avatar = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *',
         [username, fullName || full_name, email, role, avatar, id]
       )
     }
     
-    res.json({ success: true, message: 'User updated successfully' })
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'User not found' })
+    }
+    
+    // Don't return password in response
+    const { password: _, ...userWithoutPassword } = result.rows[0]
+    res.json(userWithoutPassword)
   } catch (error) {
     res.status(500).json({ success: false, error: error.message })
   }
