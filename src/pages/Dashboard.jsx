@@ -136,14 +136,14 @@ const Dashboard = () => {
 
   // Salvează preferințele pe server
   const saveDashboardConfig = async () => {
+    const configToSave = {
+      ...dashboardConfig,
+      statCards: defaultDashboardConfig.statCards, // Forțează cardurile să fie OFF
+      cardSizes,
+      widgetSizes
+    }
+    
     try {
-      const configToSave = {
-        ...dashboardConfig,
-        statCards: defaultDashboardConfig.statCards, // Forțează cardurile să fie OFF
-        cardSizes,
-        widgetSizes
-      }
-      
       // Salvează pe server
       await axios.put(`/api/users/${user.id}/preferences`, {
         preferences: {
