@@ -72,7 +72,7 @@ const Locations = () => {
 
   // Helper function to calculate days until contract expiration
   const getDaysUntilExpiration = (locationId) => {
-    const locationContracts = contracts.filter(c => c.location_id === locationId && c.status === 'Activ')
+    const locationContracts = contracts.filter(c => c.location_id === locationId && c.status === 'Active')
     if (locationContracts.length === 0) return null
 
     // Get the most recent active contract
@@ -90,7 +90,7 @@ const Locations = () => {
 
   // Helper function to calculate cost per m²
   const getCostPerM2 = (locationId, surface) => {
-    const locationContracts = contracts.filter(c => c.location_id === locationId && c.status === 'Activ')
+    const locationContracts = contracts.filter(c => c.location_id === locationId && c.status === 'Active')
     if (locationContracts.length === 0 || !surface) return null
 
     // Get the most recent active contract
