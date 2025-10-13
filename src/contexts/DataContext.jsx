@@ -32,6 +32,7 @@ export const DataProvider = ({ children }) => {
   const [users, setUsers] = useState([])
   const [games, setGames] = useState([])
   const [proprietari, setProprietari] = useState([])
+  const [contracts, setContracts] = useState([])
   const [loading, setLoading] = useState(false)
 
   // Calculate statistics
@@ -69,7 +70,8 @@ export const DataProvider = ({ children }) => {
     legalDocuments: { state: legalDocuments, setState: setLegalDocuments },
     users: { state: users, setState: setUsers },
     games: { state: games, setState: setGames },
-    proprietari: { state: proprietari, setState: setProprietari }
+    proprietari: { state: proprietari, setState: setProprietari },
+    contracts: { state: contracts, setState: setContracts }
   }
 
   // Fetch all data with batching
@@ -204,6 +206,7 @@ export const DataProvider = ({ children }) => {
     users,
     games,
     proprietari,
+    contracts,
     loading,
     statistics,
     createItem,
