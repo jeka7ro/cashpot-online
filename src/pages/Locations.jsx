@@ -88,6 +88,20 @@ const Locations = () => {
     return diffDays
   }
 
+  // Helper function to calculate cost per m²
+  const getCostPerM2 = (locationId, surface) => {
+    const locationContracts = contracts.filter(c => c.location_id === locationId && c.status === 'Activ')
+    if (locationContracts.length === 0 || !surface) return null
+
+    // Get the most recent active contract
+    const activeContract = locationContracts.sort((a, b) => new Date(b.end_date) - new Date(a.end_date))[0]
+    
+    if (!activeContract.monthly_rent) return null
+
+    const costPerM2 = activeContract.monthly_rent / surface
+    return costPerM2.toFixed(2)
+  }
+
   const columns = [
     {
       key: 'name',
@@ -149,6 +163,33 @@ const Locations = () => {
               {item.capacity || 0} sloturi
             </div>
           )
+        },
+        {
+          key: 'cost_per_m2',
+          label: 'Cost/m²',
+          sortable: false,
+          render: (item) => {
+            const costPerM2 = getCostPerM2(item.id, item.surface)
+            
+            if (costPerM2 === null) {
+              return (
+                <span className="text-slate-400 dark:text-slate-500 text-sm italic">
+                  N/A
+                </span>
+              )
+            }
+
+            return (
+              <div className="flex items-center space-x-1">
+                <span className="font-bold text-blue-600 dark:text-blue-400">
+                  {costPerM2}
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  RON/m²
+                </span>
+              </div>
+            )
+          }
         },
     {
       key: 'plan_file',
