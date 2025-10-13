@@ -723,6 +723,8 @@ const storage = multer.diskStorage({
       uploadDir = 'uploads/invoices'
     } else if (req.originalUrl.includes('/companies')) {
       uploadDir = 'uploads/companies'
+    } else if (req.originalUrl.includes('/locations')) {
+      uploadDir = 'uploads/locations'
     }
     
     if (!fs.existsSync(uploadDir)) {
@@ -732,7 +734,12 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
-    const prefix = req.originalUrl.includes('/companies') ? 'company-doc' : 'invoice'
+    let prefix = 'invoice'
+    if (req.originalUrl.includes('/companies')) {
+      prefix = 'company-doc'
+    } else if (req.originalUrl.includes('/locations')) {
+      prefix = 'location-plan'
+    }
     cb(null, `${prefix}-${uniqueSuffix}${path.extname(file.originalname)}`)
   }
 })
@@ -740,10 +747,12 @@ const storage = multer.diskStorage({
 const upload = multer({ 
   storage: storage,
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'application/pdf') {
+    // Allow PDF and image files
+    const allowedMimes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/gif']
+    if (allowedMimes.includes(file.mimetype)) {
       cb(null, true)
     } else {
-      cb(new Error('Doar fișierele PDF sunt permise'), false)
+      cb(new Error('Doar fișierele PDF, JPG, PNG sunt permise'), false)
     }
   },
   limits: {
@@ -1028,12 +1037,13 @@ app.get('/api/locations', async (req, res) => {
   }
 })
 
-app.post('/api/locations', async (req, res) => {
+app.post('/api/locations', upload.single('planFile'), async (req, res) => {
   try {
-    const { name, address, company, surface, status, coordinates, contact_person, plan_file, notes } = req.body
+    const { name, address, company, surface, status, coordinates, contact_person, notes } = req.body
+    const planFile = req.file ? `/uploads/locations/${req.file.filename}` : null
     const result = await pool.query(
       'INSERT INTO locations (name, address, company, surface, status, coordinates, contact_person, plan_file, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
-      [name, address, company, surface, status || 'Active', coordinates, contact_person, plan_file, notes]
+      [name, address, company, surface, status || 'Active', coordinates, contact_person, planFile, notes]
     )
     const newLocation = { ...result.rows[0], capacity: 0 }
     res.json(newLocation)
@@ -1042,14 +1052,24 @@ app.post('/api/locations', async (req, res) => {
   }
 })
 
-app.put('/api/locations/:id', async (req, res) => {
+app.put('/api/locations/:id', upload.single('planFile'), async (req, res) => {
   try {
     const { id } = req.params
-    const { name, address, company, surface, status, coordinates, contact_person, plan_file, notes } = req.body
-    const result = await pool.query(
-      'UPDATE locations SET name = $1, address = $2, company = $3, surface = $4, status = $5, coordinates = $6, contact_person = $7, plan_file = $8, notes = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10 RETURNING *',
-      [name, address, company, surface, status, coordinates, contact_person, plan_file, notes, id]
-    )
+    const { name, address, company, surface, status, coordinates, contact_person, notes } = req.body
+    const planFile = req.file ? `/uploads/locations/${req.file.filename}` : undefined
+    
+    // If a new file is uploaded, use it; otherwise keep the existing one
+    let updateQuery
+    let queryParams
+    if (planFile) {
+      updateQuery = 'UPDATE locations SET name = $1, address = $2, company = $3, surface = $4, status = $5, coordinates = $6, contact_person = $7, plan_file = $8, notes = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10 RETURNING *'
+      queryParams = [name, address, company, surface, status, coordinates, contact_person, planFile, notes, id]
+    } else {
+      updateQuery = 'UPDATE locations SET name = $1, address = $2, company = $3, surface = $4, status = $5, coordinates = $6, contact_person = $7, notes = $8, updated_at = CURRENT_TIMESTAMP WHERE id = $9 RETURNING *'
+      queryParams = [name, address, company, surface, status, coordinates, contact_person, notes, id]
+    }
+    
+    const result = await pool.query(updateQuery, queryParams)
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Location not found' })
     }

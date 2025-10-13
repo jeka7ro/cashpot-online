@@ -316,13 +316,43 @@ const Locations = () => {
   }
 
   const handleSave = async (data) => {
-    if (editingItem) {
-      await updateItem('locations', editingItem.id, data)
-    } else {
-      await createItem('locations', data)
+    try {
+      const formData = new FormData()
+      
+      // Add all fields to FormData
+      Object.keys(data).forEach(key => {
+        if (key === 'planFile' && data[key] instanceof File) {
+          formData.append('planFile', data[key])
+        } else if (key !== 'planFile') {
+          formData.append(key, data[key])
+        }
+      })
+      
+      if (editingItem) {
+        // Update existing location
+        const response = await fetch(`/api/locations/${editingItem.id}`, {
+          method: 'PUT',
+          body: formData
+        })
+        if (!response.ok) throw new Error('Failed to update location')
+      } else {
+        // Create new location
+        const response = await fetch('/api/locations', {
+          method: 'POST',
+          body: formData
+        })
+        if (!response.ok) throw new Error('Failed to create location')
+      }
+      
+      // Refresh data
+      window.location.reload()
+      
+      setShowModal(false)
+      setEditingItem(null)
+    } catch (error) {
+      console.error('Error saving location:', error)
+      alert('Eroare la salvare locație')
     }
-    setShowModal(false)
-    setEditingItem(null)
   }
 
   const handleExport = async () => {
