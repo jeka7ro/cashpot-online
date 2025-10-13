@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
@@ -31,6 +31,7 @@ import {
 
 const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [currentTime, setCurrentTime] = useState(new Date())
   const { user, logout } = useAuth()
   const { companies, locations, providers, platforms, cabinets, gameMixes, slots, warehouse, metrology, jackpots, invoices, onjnReports, legalDocuments, users } = useData()
   const { theme, toggleTheme } = useTheme()
@@ -55,6 +56,15 @@ const Layout = ({ children }) => {
         appSubtitle: parsed.appSubtitle || settings.appSubtitle
       })
     }
+  }, [])
+
+  // Update time every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000)
+
+    return () => clearInterval(timer)
   }, [])
 
   const menuItems = [
@@ -184,7 +194,7 @@ const Layout = ({ children }) => {
   return (
     <div className="flex h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       {/* Glassmorphism Header */}
-      <div className={`fixed top-0 left-0 right-0 backdrop-blur-xl border-b text-white px-4 md:px-6 py-3 md:py-4 z-30 shadow-2xl ${theme === 'dark' ? 'border-slate-700/50 shadow-slate-900/20' : 'border-white/20 shadow-blue-500/10'}`} style={headerStyle}>
+      <div className={`fixed top-0 left-0 right-0 backdrop-blur-xl border-b text-white px-4 md:px-6 py-2 md:py-3 z-30 shadow-2xl ${theme === 'dark' ? 'border-slate-700/50 shadow-slate-900/20' : 'border-white/20 shadow-blue-500/10'}`} style={headerStyle}>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2 md:space-x-4">
             <button 
@@ -214,7 +224,7 @@ const Layout = ({ children }) => {
             {/* Data și ora actuală */}
             <div className="hidden md:block text-right">
               <div className="text-white font-semibold text-sm">
-                {new Date().toLocaleString('ro-RO', {
+                {currentTime.toLocaleString('ro-RO', {
                   day: '2-digit',
                   month: '2-digit', 
                   year: 'numeric',
@@ -262,22 +272,6 @@ const Layout = ({ children }) => {
               )}
               <div className="text-sm md:text-base hidden sm:block">
                 <div className="font-semibold text-white">{user?.fullName || user?.username || 'Admin'}</div>
-                <div className="text-white/80 text-xs md:text-sm">{user?.role || 'Administrator'}</div>
-                <div className="text-white/60 text-xs mt-1">
-                  {new Date().toLocaleString('ro-RO', {
-                    day: '2-digit',
-                    month: '2-digit', 
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </div>
-                <div className="text-white/50 text-xs">
-                  {window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-                    ? '🖥️ Local' 
-                    : '☁️ Online'
-                  }
-                </div>
               </div>
             </div>
             <button 
