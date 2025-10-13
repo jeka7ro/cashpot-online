@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Eye, EyeOff } from 'lucide-react'
 
 const Login = () => {
+  const navigate = useNavigate()
   const { login, isAuthenticated, loading } = useAuth()
   const [formData, setFormData] = useState({
     username: '',
@@ -65,9 +66,9 @@ const Login = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      window.location.href = '/dashboard'
+      navigate('/dashboard', { replace: true })
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, navigate])
 
   const handleChange = (e) => {
     setFormData({
@@ -94,7 +95,7 @@ const Login = () => {
         localStorage.removeItem('savedCredentials')
       }
       
-      window.location.href = '/dashboard'
+      navigate('/dashboard', { replace: true })
     }
     
     setIsSubmitting(false)

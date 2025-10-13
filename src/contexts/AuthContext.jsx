@@ -70,12 +70,12 @@ export const AuthProvider = ({ children }) => {
           setToken(null)
           setUser(null)
           // Redirect to login if auth fails
-          window.location.href = '/login'
+          window.location.replace('/login')
         }
       } else {
         // No token, only redirect if not already on login page
         if (window.location.pathname !== '/login') {
-          window.location.href = '/login'
+          window.location.replace('/login')
         }
       }
       setLoading(false)

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { useData } from '../contexts/DataContext'
+import { useAuth } from '../contexts/AuthContext'
+import axios from 'axios'
 import { BarChart3, Plus, Search, Upload, Download, Edit, Trash2, Eye, Filter, Activity, AlertCircle, CheckCircle, Wrench, History } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import SlotModal from '../components/modals/SlotModal'
@@ -10,6 +12,7 @@ import { toast } from 'react-hot-toast'
 
 const Slots = () => {
   const { slots, invoices, warehouse, loading, createItem, updateItem, deleteItem, exportData } = useData()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -29,6 +32,44 @@ const Slots = () => {
     ownedSlots: false,
     rentedSlots: false
   })
+
+  // Încarcă preferințele de pe server
+  useEffect(() => {
+    const loadPreferences = async () => {
+      if (user?.id) {
+        try {
+          const response = await axios.get(`/api/users/${user.id}`)
+          const userData = response.data
+          const preferences = userData.preferences || {}
+          
+          if (preferences.slots?.cardVisibility) {
+            setCardVisibility(preferences.slots.cardVisibility)
+          }
+        } catch (error) {
+          console.error('Error loading slots preferences:', error)
+        }
+      }
+    }
+    
+    loadPreferences()
+  }, [user?.id])
+
+  // Salvează preferințele pe server
+  const saveCardVisibility = async (newVisibility) => {
+    if (user?.id) {
+      try {
+        await axios.put(`/api/users/${user.id}/preferences`, {
+          preferences: {
+            slots: {
+              cardVisibility: newVisibility
+            }
+          }
+        })
+      } catch (error) {
+        console.error('Error saving slots preferences:', error)
+      }
+    }
+  }
   const [showCardSettings, setShowCardSettings] = useState(false)
 
   // Update showBulkActions based on selectedItems
@@ -39,36 +80,42 @@ const Slots = () => {
   // Card visibility settings are not saved - always default OFF
   // No localStorage loading/saving for card visibility
 
-  // Toggle card visibility (no saving)
+  // Toggle card visibility (saves to server)
   const toggleCardVisibility = (cardKey) => {
-    setCardVisibility(prev => ({
-      ...prev,
-      [cardKey]: !prev[cardKey]
-    }))
+    const newVisibility = {
+      ...cardVisibility,
+      [cardKey]: !cardVisibility[cardKey]
+    }
+    setCardVisibility(newVisibility)
+    saveCardVisibility(newVisibility)
   }
 
   // Select all cards
   const selectAllCards = () => {
-    setCardVisibility({
+    const newVisibility = {
       totalSlots: true,
       activeSlots: true,
       inactiveSlots: true,
       maintenanceSlots: true,
       ownedSlots: true,
       rentedSlots: true
-    })
+    }
+    setCardVisibility(newVisibility)
+    saveCardVisibility(newVisibility)
   }
 
   // Deselect all cards
   const deselectAllCards = () => {
-    setCardVisibility({
+    const newVisibility = {
       totalSlots: false,
       activeSlots: false,
       inactiveSlots: false,
       maintenanceSlots: false,
       ownedSlots: false,
       rentedSlots: false
-    })
+    }
+    setCardVisibility(newVisibility)
+    saveCardVisibility(newVisibility)
   }
 
   // Filter and search logic

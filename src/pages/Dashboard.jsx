@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
+import axios from 'axios'
 import Layout from '../components/Layout'
 import StatCard from '../components/StatCard'
 import QuickActions from '../components/QuickActions'
@@ -101,22 +102,69 @@ const Dashboard = () => {
     ]
   }
 
-  // Cardurile sunt mereu default OFF - nu se salvează în localStorage
+  // Încarcă preferințele de pe server sau folosește default
   useEffect(() => {
-    setDashboardConfig(defaultDashboardConfig)
-  }, [])
-
-  // Cardurile nu se salvează - sunt mereu default OFF
-  const saveDashboardConfig = () => {
-    // Nu salvăm cardurile - doar widget-urile
-    const configToSave = {
-      ...dashboardConfig,
-      statCards: defaultDashboardConfig.statCards // Forțează cardurile să fie OFF
+    const loadPreferences = async () => {
+      if (user?.id) {
+        try {
+          const response = await axios.get(`/api/users/${user.id}`)
+          const userData = response.data
+          const preferences = userData.preferences || {}
+          
+          if (preferences.dashboard) {
+            setDashboardConfig(preferences.dashboard)
+            if (preferences.dashboard.cardSizes) {
+              setCardSizes(preferences.dashboard.cardSizes)
+            }
+            if (preferences.dashboard.widgetSizes) {
+              setWidgetSizes(preferences.dashboard.widgetSizes)
+            }
+          } else {
+            setDashboardConfig(defaultDashboardConfig)
+          }
+        } catch (error) {
+          console.error('Error loading preferences:', error)
+          setDashboardConfig(defaultDashboardConfig)
+        }
+      } else {
+        setDashboardConfig(defaultDashboardConfig)
+      }
     }
-    localStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
-    setIsEditing(false)
-    setSelectedCards([])
-    setSelectedWidgets([])
+    
+    loadPreferences()
+  }, [user?.id])
+
+  // Salvează preferințele pe server
+  const saveDashboardConfig = async () => {
+    try {
+      const configToSave = {
+        ...dashboardConfig,
+        statCards: defaultDashboardConfig.statCards, // Forțează cardurile să fie OFF
+        cardSizes,
+        widgetSizes
+      }
+      
+      // Salvează pe server
+      await axios.put(`/api/users/${user.id}/preferences`, {
+        preferences: {
+          dashboard: configToSave
+        }
+      })
+      
+      // Salvează și local pentru backup
+      localStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
+      
+      setIsEditing(false)
+      setSelectedCards([])
+      setSelectedWidgets([])
+    } catch (error) {
+      console.error('Error saving dashboard preferences:', error)
+      // Fallback la localStorage dacă serverul nu funcționează
+      localStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
+      setIsEditing(false)
+      setSelectedCards([])
+      setSelectedWidgets([])
+    }
   }
 
   // Resetează configurația la implicită
