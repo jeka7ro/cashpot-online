@@ -986,7 +986,7 @@ app.put('/api/companies/:id', async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Company not found' })
     }
-    res.json({ success: true, message: 'Company updated successfully' })
+    res.json(result.rows[0])
   } catch (error) {
     console.error('Companies PUT error:', error)
     res.status(500).json({ success: false, error: error.message })
@@ -1044,11 +1044,14 @@ app.put('/api/locations/:id', async (req, res) => {
   try {
     const { id } = req.params
     const { name, address, company, surface, status, coordinates, contact_person, plan_file, notes } = req.body
-    await pool.query(
-      'UPDATE locations SET name = $1, address = $2, company = $3, surface = $4, status = $5, coordinates = $6, contact_person = $7, plan_file = $8, notes = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10',
+    const result = await pool.query(
+      'UPDATE locations SET name = $1, address = $2, company = $3, surface = $4, status = $5, coordinates = $6, contact_person = $7, plan_file = $8, notes = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10 RETURNING *',
       [name, address, company, surface, status, coordinates, contact_person, plan_file, notes, id]
     )
-    res.json({ success: true, message: 'Location updated successfully' })
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Location not found' })
+    }
+    res.json(result.rows[0])
   } catch (error) {
     res.status(500).json({ success: false, error: error.message })
   }
