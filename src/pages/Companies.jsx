@@ -4,11 +4,14 @@ import { useData } from '../contexts/DataContext'
 import Layout from '../components/Layout'
 import DataTable from '../components/DataTable'
 import CompanyModal from '../components/modals/CompanyModal'
+import ConfirmModal from '../components/modals/ConfirmModal'
+import useConfirm from '../hooks/useConfirm'
 import { Building2, Plus, Search, Upload, Download, Eye, Phone, Mail, User, Edit, Trash2 } from 'lucide-react'
 
 const Companies = () => {
   const navigate = useNavigate()
   const { companies, createItem, updateItem, deleteItem, exportData, loading } = useData()
+  const { confirmState, confirm, close } = useConfirm()
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -186,7 +189,12 @@ const Companies = () => {
   }
 
   const handleDelete = async (item) => {
-    if (window.confirm(`Sigur doriți să ștergeți compania "${item.name}"?`)) {
+    const confirmed = await confirm({
+      title: 'Șterge Companie',
+      message: `Sigur doriți să ștergeți compania "${item.name}"?`,
+      type: 'danger'
+    })
+    if (confirmed) {
       await deleteItem('companies', item.id)
     }
   }
@@ -211,7 +219,12 @@ const Companies = () => {
   const handleBulkDelete = async () => {
     if (selectedItems.length === 0) return
     
-    if (window.confirm(`Ești sigur că vrei să ștergi ${selectedItems.length} companii?`)) {
+    const confirmed = await confirm({
+      title: 'Șterge Companiile',
+      message: `Ești sigur că vrei să ștergi ${selectedItems.length} companii?`,
+      type: 'danger'
+    })
+    if (confirmed) {
       try {
         for (const id of selectedItems) {
           await deleteItem('companies', id)
@@ -345,6 +358,18 @@ const Companies = () => {
             onSave={handleSave}
           />
         )}
+
+        {/* Confirm Modal */}
+        <ConfirmModal
+          isOpen={confirmState.isOpen}
+          onClose={close}
+          onConfirm={confirmState.onConfirm}
+          title={confirmState.title}
+          message={confirmState.message}
+          confirmText={confirmState.confirmText}
+          cancelText={confirmState.cancelText}
+          type={confirmState.type}
+        />
       </div>
     </Layout>
   )
