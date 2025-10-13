@@ -178,52 +178,56 @@ const DataTable = ({
                 ))}
                 {(onEdit || onDelete || onView || onViewContracts || onViewProprietari) && (
                   <td className="p-6">
-                    <div className="flex space-x-2">
-                      {onView && (
-                        <button 
-                          onClick={() => onView(item)} 
-                          className="p-3 text-blue-600 dark:text-blue-400 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-800/40 dark:hover:to-indigo-800/40 rounded-2xl shadow-lg hover:shadow-blue-500/25 transition-all duration-200 group/btn"
-                          title="Previzualizează"
-                        >
-                          <Eye size={16} className="group-hover/btn:scale-110 transition-transform" />
-                        </button>
-                      )}
-                      {onViewContracts && (
-                        <button 
-                          onClick={() => onViewContracts(item)} 
-                          className="p-3 text-green-600 dark:text-green-400 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 hover:from-green-100 hover:to-emerald-100 dark:hover:from-green-800/40 dark:hover:to-emerald-800/40 rounded-2xl shadow-lg hover:shadow-green-500/25 transition-all duration-200 group/btn"
-                          title="Vezi contracte"
-                        >
-                          <FileText size={16} className="group-hover/btn:scale-110 transition-transform" />
-                        </button>
-                      )}
-                      {onViewProprietari && (
-                        <button 
-                          onClick={() => onViewProprietari(item)} 
-                          className="p-3 text-purple-600 dark:text-purple-400 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/30 dark:to-violet-900/30 hover:from-purple-100 hover:to-violet-100 dark:hover:from-purple-800/40 dark:hover:to-violet-800/40 rounded-2xl shadow-lg hover:shadow-purple-500/25 transition-all duration-200 group/btn"
-                          title="Vezi proprietari"
-                        >
-                          <Building2 size={16} className="group-hover/btn:scale-110 transition-transform" />
-                        </button>
-                      )}
-                      {onEdit && (
-                        <button 
-                          onClick={() => onEdit(item)} 
-                          className="p-3 text-emerald-600 dark:text-emerald-400 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/30 dark:to-green-900/30 hover:from-emerald-100 hover:to-green-100 dark:hover:from-emerald-800/40 dark:hover:to-green-800/40 rounded-2xl shadow-lg hover:shadow-emerald-500/25 transition-all duration-200 group/btn"
-                          title="Editează"
-                        >
-                          <Edit size={16} className="group-hover/btn:scale-110 transition-transform" />
-                        </button>
-                      )}
-                      {onDelete && (
-                        <button 
-                          onClick={() => onDelete(item)} 
-                          className="p-3 text-red-600 dark:text-red-400 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/30 dark:to-pink-900/30 hover:from-red-100 hover:to-pink-100 dark:hover:from-red-800/40 dark:hover:to-pink-800/40 rounded-2xl shadow-lg hover:shadow-red-500/25 transition-all duration-200 group/btn"
-                          title="Șterge"
-                        >
-                          <Trash2 size={16} className="group-hover/btn:scale-110 transition-transform" />
-                        </button>
-                      )}
+                    <div className="flex flex-col space-y-2">
+                      <div className="flex space-x-2">
+                        {onView && (
+                          <button 
+                            onClick={() => onView(item)} 
+                            className="p-2 text-blue-600 dark:text-blue-400 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-800/40 dark:hover:to-indigo-800/40 rounded-xl shadow-lg hover:shadow-blue-500/25 transition-all duration-200 group/btn"
+                            title="Previzualizează"
+                          >
+                            <Eye size={14} className="group-hover/btn:scale-110 transition-transform" />
+                          </button>
+                        )}
+                        {onViewContracts && (
+                          <button 
+                            onClick={() => onViewContracts(item)} 
+                            className="p-2 text-green-600 dark:text-green-400 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 hover:from-green-100 hover:to-emerald-100 dark:hover:from-green-800/40 dark:hover:to-emerald-800/40 rounded-xl shadow-lg hover:shadow-green-500/25 transition-all duration-200 group/btn"
+                            title="Vezi contracte"
+                          >
+                            <FileText size={14} className="group-hover/btn:scale-110 transition-transform" />
+                          </button>
+                        )}
+                        {onViewProprietari && (
+                          <button 
+                            onClick={() => onViewProprietari(item)} 
+                            className="p-2 text-purple-600 dark:text-purple-400 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/30 dark:to-violet-900/30 hover:from-purple-100 hover:to-violet-100 dark:hover:from-purple-800/40 dark:hover:to-violet-800/40 rounded-xl shadow-lg hover:shadow-purple-500/25 transition-all duration-200 group/btn"
+                            title="Vezi proprietari"
+                          >
+                            <Building2 size={14} className="group-hover/btn:scale-110 transition-transform" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex space-x-2">
+                        {onEdit && (
+                          <button 
+                            onClick={() => onEdit(item)} 
+                            className="p-2 text-emerald-600 dark:text-emerald-400 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/30 dark:to-green-900/30 hover:from-emerald-100 hover:to-green-100 dark:hover:from-emerald-800/40 dark:hover:to-green-800/40 rounded-xl shadow-lg hover:shadow-emerald-500/25 transition-all duration-200 group/btn"
+                            title="Editează"
+                          >
+                            <Edit size={14} className="group-hover/btn:scale-110 transition-transform" />
+                          </button>
+                        )}
+                        {onDelete && (
+                          <button 
+                            onClick={() => onDelete(item)} 
+                            className="p-2 text-red-600 dark:text-red-400 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/30 dark:to-pink-900/30 hover:from-red-100 hover:to-pink-100 dark:hover:from-red-800/40 dark:hover:to-pink-800/40 rounded-xl shadow-lg hover:shadow-red-500/25 transition-all duration-200 group/btn"
+                            title="Șterge"
+                          >
+                            <Trash2 size={14} className="group-hover/btn:scale-110 transition-transform" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </td>
                 )}

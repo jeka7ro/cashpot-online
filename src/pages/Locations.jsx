@@ -115,9 +115,12 @@ const Locations = () => {
       sortable: true,
       render: (item) => (
         <div className="space-y-1">
-          <div className="text-slate-900 dark:text-slate-100 group-hover:text-green-700 dark:group-hover:text-green-400 transition-colors">
+          <button
+            onClick={() => navigate(`/locations/${item.id}`)}
+            className="text-slate-900 dark:text-slate-100 hover:text-green-700 dark:hover:text-green-400 transition-colors text-left font-medium"
+          >
             {item.name}
-          </div>
+          </button>
           <div className="text-slate-600 dark:text-slate-400">
             {item.address}
           </div>
@@ -272,31 +275,6 @@ const Locations = () => {
         )
       }
     },
-    {
-      key: 'created_at',
-      label: 'Data Creare',
-      sortable: true,
-      render: (item) => (
-        <div className="text-slate-600 dark:text-slate-400">
-          {new Date(item.created_at).toLocaleDateString('ro-RO')}
-        </div>
-      )
-    },
-    {
-      key: 'created_by',
-      label: 'Creat de',
-      sortable: true,
-      render: (item) => (
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-xs shadow-lg">
-            {item.created_by?.charAt(0)?.toUpperCase() || 'A'}
-          </div>
-          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-            {item.created_by || 'Sistem'}
-          </span>
-        </div>
-      )
-    }
   ]
 
   const handleAdd = () => {
