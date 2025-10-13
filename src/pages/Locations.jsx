@@ -9,7 +9,7 @@ import LocationProprietari from '../components/LocationProprietari'
 import { MapPin, Plus, Search, Upload, Download, FileText, Edit, Trash2, Building2, Eye, X } from 'lucide-react'
 
 const Locations = () => {
-  const { locations, createItem, updateItem, deleteItem, exportData, loading } = useData()
+  const { locations, contracts, createItem, updateItem, deleteItem, exportData, loading } = useData()
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -69,6 +69,24 @@ const Locations = () => {
     location.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     location.contact_person?.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  // Helper function to calculate days until contract expiration
+  const getDaysUntilExpiration = (locationId) => {
+    const locationContracts = contracts.filter(c => c.location_id === locationId && c.status === 'Activ')
+    if (locationContracts.length === 0) return null
+
+    // Get the most recent active contract
+    const activeContract = locationContracts.sort((a, b) => new Date(b.end_date) - new Date(a.end_date))[0]
+    
+    if (!activeContract.end_date) return null
+
+    const today = new Date()
+    const expirationDate = new Date(activeContract.end_date)
+    const diffTime = expirationDate - today
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+    return diffDays
+  }
 
   const columns = [
     {
@@ -167,6 +185,42 @@ const Locations = () => {
           )}
         </div>
       )
+    },
+    {
+      key: 'contract_expiration',
+      label: 'Zile Rămase Contract',
+      sortable: false,
+      render: (item) => {
+        const daysRemaining = getDaysUntilExpiration(item.id)
+        
+        if (daysRemaining === null) {
+          return (
+            <span className="text-slate-400 dark:text-slate-500 text-sm italic">
+              Fără contract activ
+            </span>
+          )
+        }
+
+        const isExpired = daysRemaining < 0
+        const isExpiringSoon = daysRemaining <= 30 && daysRemaining >= 0
+        
+        return (
+          <div className={`flex items-center space-x-2 ${
+            isExpired 
+              ? 'text-red-600 dark:text-red-400 font-semibold' 
+              : isExpiringSoon 
+              ? 'text-orange-600 dark:text-orange-400 font-semibold' 
+              : 'text-green-600 dark:text-green-400'
+          }`}>
+            <span className="font-bold text-lg">
+              {isExpired ? Math.abs(daysRemaining) : daysRemaining}
+            </span>
+            <span className="text-xs">
+              {isExpired ? 'zile expirat' : 'zile rămase'}
+            </span>
+          </div>
+        )
+      }
     },
     {
       key: 'created_at',
