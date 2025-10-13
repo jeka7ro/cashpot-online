@@ -5,7 +5,7 @@
   "main": "server-postgres.js",
   "type": "module",
   "scripts": {
-    "start": "node server-postgres.js",
+    "start": "./start-debug.sh",
     "dev": "nodemon server-postgres.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
