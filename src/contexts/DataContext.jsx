@@ -31,6 +31,7 @@ export const DataProvider = ({ children }) => {
   const [legalDocuments, setLegalDocuments] = useState([])
   const [users, setUsers] = useState([])
   const [games, setGames] = useState([])
+  const [proprietari, setProprietari] = useState([])
   const [loading, setLoading] = useState(false)
 
   // Calculate statistics
@@ -67,7 +68,8 @@ export const DataProvider = ({ children }) => {
     onjnReports: { state: onjnReports, setState: setOnjnReports },
     legalDocuments: { state: legalDocuments, setState: setLegalDocuments },
     users: { state: users, setState: setUsers },
-    games: { state: games, setState: setGames }
+    games: { state: games, setState: setGames },
+    proprietari: { state: proprietari, setState: setProprietari }
   }
 
   // Fetch all data with batching
@@ -201,6 +203,7 @@ export const DataProvider = ({ children }) => {
     legalDocuments,
     users,
     games,
+    proprietari,
     loading,
     statistics,
     createItem,

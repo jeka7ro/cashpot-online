@@ -1846,6 +1846,56 @@ app.post('/api/proprietari', async (req, res) => {
   }
 })
 
+app.put('/api/proprietari/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { 
+      name, 
+      contact_person, 
+      email, 
+      phone, 
+      address, 
+      cnp_cui, 
+      type, 
+      status, 
+      notes 
+    } = req.body
+    
+    const result = await pool.query(`
+      UPDATE proprietari 
+      SET name = $1, contact_person = $2, email = $3, phone = $4, address = $5, 
+          cnp_cui = $6, type = $7, status = $8, notes = $9, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $10
+      RETURNING *
+    `, [name, contact_person, email, phone, address, cnp_cui, type, status, notes, id])
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Proprietar not found' })
+    }
+    
+    res.json(result.rows[0])
+  } catch (error) {
+    console.error('Proprietari PUT error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+app.delete('/api/proprietari/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const result = await pool.query('DELETE FROM proprietari WHERE id = $1 RETURNING *', [id])
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Proprietar not found' })
+    }
+    
+    res.json({ success: true, message: 'Proprietar deleted successfully' })
+  } catch (error) {
+    console.error('Proprietari DELETE error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 // Platforms API
 app.get('/api/platforms', async (req, res) => {
   try {
