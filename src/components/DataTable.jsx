@@ -15,11 +15,66 @@ const DataTable = ({
   itemsPerPage = 15,
   selectedItems = [],
   onSelectAll,
-  onSelectItem
+  onSelectItem,
+  moduleColor = 'blue' // New prop for module color
 }) => {
   const [currentPage, setCurrentPage] = useState(1)
   const [sortField, setSortField] = useState('')
   const [sortDirection, setSortDirection] = useState('asc')
+
+  // Module color schemes - subtle versions for table headers
+  const moduleColors = {
+    blue: {
+      header: 'from-blue-50/80 to-blue-100/80 dark:from-blue-900/20 dark:to-blue-800/20',
+      text: 'text-blue-800 dark:text-blue-200',
+      hover: 'hover:bg-blue-100/60 dark:hover:bg-blue-700/30',
+      accent: 'text-blue-600'
+    },
+    green: {
+      header: 'from-emerald-50/80 to-emerald-100/80 dark:from-emerald-900/20 dark:to-emerald-800/20',
+      text: 'text-emerald-800 dark:text-emerald-200',
+      hover: 'hover:bg-emerald-100/60 dark:hover:bg-emerald-700/30',
+      accent: 'text-emerald-600'
+    },
+    purple: {
+      header: 'from-purple-50/80 to-purple-100/80 dark:from-purple-900/20 dark:to-purple-800/20',
+      text: 'text-purple-800 dark:text-purple-200',
+      hover: 'hover:bg-purple-100/60 dark:hover:bg-purple-700/30',
+      accent: 'text-purple-600'
+    },
+    orange: {
+      header: 'from-orange-50/80 to-orange-100/80 dark:from-orange-900/20 dark:to-orange-800/20',
+      text: 'text-orange-800 dark:text-orange-200',
+      hover: 'hover:bg-orange-100/60 dark:hover:bg-orange-700/30',
+      accent: 'text-orange-600'
+    },
+    red: {
+      header: 'from-red-50/80 to-red-100/80 dark:from-red-900/20 dark:to-red-800/20',
+      text: 'text-red-800 dark:text-red-200',
+      hover: 'hover:bg-red-100/60 dark:hover:bg-red-700/30',
+      accent: 'text-red-600'
+    },
+    indigo: {
+      header: 'from-indigo-50/80 to-indigo-100/80 dark:from-indigo-900/20 dark:to-indigo-800/20',
+      text: 'text-indigo-800 dark:text-indigo-200',
+      hover: 'hover:bg-indigo-100/60 dark:hover:bg-indigo-700/30',
+      accent: 'text-indigo-600'
+    },
+    teal: {
+      header: 'from-teal-50/80 to-teal-100/80 dark:from-teal-900/20 dark:to-teal-800/20',
+      text: 'text-teal-800 dark:text-teal-200',
+      hover: 'hover:bg-teal-100/60 dark:hover:bg-teal-700/30',
+      accent: 'text-teal-600'
+    },
+    pink: {
+      header: 'from-pink-50/80 to-pink-100/80 dark:from-pink-900/20 dark:to-pink-800/20',
+      text: 'text-pink-800 dark:text-pink-200',
+      hover: 'hover:bg-pink-100/60 dark:hover:bg-pink-700/30',
+      accent: 'text-pink-600'
+    }
+  }
+
+  const currentColor = moduleColors[moduleColor] || moduleColors.blue
 
   const totalPages = Math.ceil(data.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
@@ -66,7 +121,7 @@ const DataTable = ({
     <div className="card overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[800px] bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700">
-          <thead className="table-header bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-800">
+          <thead className={`table-header bg-gradient-to-r ${currentColor.header}`}>
             <tr>
               <th className="p-6 w-12">
                 <div className="flex items-center justify-center">
@@ -78,26 +133,26 @@ const DataTable = ({
                   />
                 </div>
               </th>
-              <th className="text-left p-6 font-bold text-slate-700 dark:text-slate-200 text-sm uppercase tracking-wider w-16">#</th>
+              <th className={`text-left p-6 font-bold ${currentColor.text} text-sm uppercase tracking-wider w-16`}>#</th>
               {columns.map((column) => (
                 <th 
                   key={column.key}
-                  className={`text-left p-6 font-bold text-slate-700 dark:text-slate-200 text-sm uppercase tracking-wider ${
-                    column.sortable ? 'cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors' : ''
+                  className={`text-left p-6 font-bold ${currentColor.text} text-sm uppercase tracking-wider ${
+                    column.sortable ? `cursor-pointer ${currentColor.hover} transition-colors` : ''
                   }`}
                   onClick={() => column.sortable && handleSort(column.key)}
                 >
                   <div className="flex items-center space-x-2">
                     <span>{column.label}</span>
                     {column.sortable && sortField === column.key && (
-                      <span className="text-blue-600">
+                      <span className={currentColor.accent}>
                         {sortDirection === 'asc' ? '↑' : '↓'}
                       </span>
                     )}
                   </div>
                 </th>
               ))}
-              <th className="text-left p-6 font-bold text-slate-700 dark:text-slate-200 text-sm uppercase tracking-wider">Acțiuni</th>
+              <th className={`text-left p-6 font-bold ${currentColor.text} text-sm uppercase tracking-wider`}>Acțiuni</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200/50 dark:divide-slate-700/50">

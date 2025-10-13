@@ -278,6 +278,7 @@ const Providers = () => {
           selectedItems={selectedItems}
           onSelectAll={handleSelectAll}
           onSelectItem={handleSelectItem}
+          moduleColor="purple"
         />
 
         {/* Modal */}

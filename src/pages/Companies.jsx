@@ -345,6 +345,7 @@ const Companies = () => {
           selectedItems={selectedItems}
           onSelectAll={handleSelectAll}
           onSelectItem={handleSelectItem}
+          moduleColor="blue"
         />
 
         {/* Modal */}

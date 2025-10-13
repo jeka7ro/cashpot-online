@@ -380,6 +380,7 @@ const Locations = () => {
           selectedItems={selectedItems}
           onSelectAll={handleSelectAll}
           onSelectItem={handleSelectItem}
+          moduleColor="green"
         />
 
             {/* Modal */}

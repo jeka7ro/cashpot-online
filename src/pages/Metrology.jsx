@@ -681,6 +681,7 @@ const Metrology = () => {
                 selectedItems={selectedItems}
                 onSelectAll={handleSelectAll}
                 onSelectItem={handleSelectItem}
+          moduleColor="blue"
               />
             )}
           </div>

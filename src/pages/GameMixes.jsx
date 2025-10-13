@@ -328,6 +328,7 @@ const GameMixes = () => {
                 selectedItems={selectedItems}
                 onSelectAll={handleSelectAll}
                 onSelectItem={handleSelectItem}
+          moduleColor="indigo"
               />
             </div>
           </>

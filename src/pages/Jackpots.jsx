@@ -200,6 +200,7 @@ const Jackpots = () => {
               selectedItems={selectedItems}
               onSelectAll={handleSelectAll}
               onSelectItem={handleSelectItem}
+          moduleColor="orange"
             />
           )}
         </div>
