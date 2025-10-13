@@ -7,6 +7,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Companies from './pages/Companies'
 import Locations from './pages/Locations'
+import LocationDetail from './pages/LocationDetail'
 import Providers from './pages/Providers'
 import Cabinets from './pages/Cabinets'
 import GameMixes from './pages/GameMixes'
@@ -38,6 +39,7 @@ function App() {
             <Route path="/companies" element={<Companies />} />
             <Route path="/companies/:id" element={<CompanyDetail />} />
             <Route path="/locations" element={<Locations />} />
+            <Route path="/locations/:id" element={<LocationDetail />} />
             <Route path="/providers" element={<Providers />} />
             <Route path="/cabinets" element={<Cabinets />} />
             <Route path="/game-mixes" element={<GameMixes />} />

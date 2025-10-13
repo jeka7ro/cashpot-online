@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import Layout from '../components/Layout'
 import PDFViewer from '../components/PDFViewer'
@@ -9,6 +10,7 @@ import LocationProprietari from '../components/LocationProprietari'
 import { MapPin, Plus, Search, Upload, Download, FileText, Edit, Trash2, Building2, Eye, X } from 'lucide-react'
 
 const Locations = () => {
+  const navigate = useNavigate()
   const { locations, contracts, slots, createItem, updateItem, deleteItem, exportData, loading } = useData()
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
