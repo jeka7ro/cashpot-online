@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "CASHPOT ERP - Gaming Management System",
   "scripts": {
-    "start": "cd backend && npm start",
+    "start": "./start.sh",
     "build": "cd backend && npm install",
     "dev": "cd backend && npm run dev"
   },
