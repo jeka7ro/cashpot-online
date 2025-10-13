@@ -62,6 +62,8 @@ const initializeDatabase = async () => {
         full_name VARCHAR(255),
         email VARCHAR(255),
         role VARCHAR(50) DEFAULT 'admin',
+        avatar TEXT,
+        preferences JSONB DEFAULT '{}',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -1643,19 +1645,19 @@ app.post('/api/users', async (req, res) => {
 app.put('/api/users/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { username, password, fullName, full_name, email, role, avatar } = req.body
+    const { username, password, fullName, full_name, email, role, avatar, preferences } = req.body
     
     let result
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10)
       result = await pool.query(
-        'UPDATE users SET username = $1, password = $2, full_name = $3, email = $4, role = $5, avatar = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *',
-        [username, hashedPassword, fullName || full_name, email, role, avatar, id]
+        'UPDATE users SET username = $1, password = $2, full_name = $3, email = $4, role = $5, avatar = $6, preferences = $7, updated_at = CURRENT_TIMESTAMP WHERE id = $8 RETURNING *',
+        [username, hashedPassword, fullName || full_name, email, role, avatar, JSON.stringify(preferences || {}), id]
       )
     } else {
       result = await pool.query(
-        'UPDATE users SET username = $1, full_name = $2, email = $3, role = $4, avatar = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *',
-        [username, fullName || full_name, email, role, avatar, id]
+        'UPDATE users SET username = $1, full_name = $2, email = $3, role = $4, avatar = $5, preferences = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *',
+        [username, fullName || full_name, email, role, avatar, JSON.stringify(preferences || {}), id]
       )
     }
     
@@ -1666,6 +1668,27 @@ app.put('/api/users/:id', async (req, res) => {
     // Don't return password in response
     const { password: _, ...userWithoutPassword } = result.rows[0]
     res.json(userWithoutPassword)
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Update user preferences
+app.put('/api/users/:id/preferences', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { preferences } = req.body
+    
+    const result = await pool.query(
+      'UPDATE users SET preferences = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, preferences',
+      [JSON.stringify(preferences), id]
+    )
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'User not found' })
+    }
+    
+    res.json({ success: true, preferences: result.rows[0].preferences })
   } catch (error) {
     res.status(500).json({ success: false, error: error.message })
   }

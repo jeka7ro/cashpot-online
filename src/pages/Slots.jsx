@@ -20,14 +20,14 @@ const Slots = () => {
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
   
-  // Card visibility settings
+  // Card visibility settings - default OFF
   const [cardVisibility, setCardVisibility] = useState({
-    totalSlots: true,
-    activeSlots: true,
-    inactiveSlots: true,
-    maintenanceSlots: true,
-    ownedSlots: true,
-    rentedSlots: true
+    totalSlots: false,
+    activeSlots: false,
+    inactiveSlots: false,
+    maintenanceSlots: false,
+    ownedSlots: false,
+    rentedSlots: false
   })
   const [showCardSettings, setShowCardSettings] = useState(false)
 
@@ -36,53 +36,39 @@ const Slots = () => {
     setShowBulkActions(selectedItems.length > 0)
   }, [selectedItems])
 
-  // Load card visibility settings from localStorage
-  useEffect(() => {
-    const savedVisibility = localStorage.getItem('slots-card-visibility')
-    if (savedVisibility) {
-      setCardVisibility(JSON.parse(savedVisibility))
-    }
-  }, [])
+  // Card visibility settings are not saved - always default OFF
+  // No localStorage loading/saving for card visibility
 
-  // Save card visibility settings to localStorage
-  const saveCardVisibility = (newVisibility) => {
-    setCardVisibility(newVisibility)
-    localStorage.setItem('slots-card-visibility', JSON.stringify(newVisibility))
-  }
-
-  // Toggle card visibility
+  // Toggle card visibility (no saving)
   const toggleCardVisibility = (cardKey) => {
-    const newVisibility = {
-      ...cardVisibility,
-      [cardKey]: !cardVisibility[cardKey]
-    }
-    saveCardVisibility(newVisibility)
+    setCardVisibility(prev => ({
+      ...prev,
+      [cardKey]: !prev[cardKey]
+    }))
   }
 
   // Select all cards
   const selectAllCards = () => {
-    const newVisibility = {
+    setCardVisibility({
       totalSlots: true,
       activeSlots: true,
       inactiveSlots: true,
       maintenanceSlots: true,
       ownedSlots: true,
       rentedSlots: true
-    }
-    saveCardVisibility(newVisibility)
+    })
   }
 
   // Deselect all cards
   const deselectAllCards = () => {
-    const newVisibility = {
+    setCardVisibility({
       totalSlots: false,
       activeSlots: false,
       inactiveSlots: false,
       maintenanceSlots: false,
       ownedSlots: false,
       rentedSlots: false
-    }
-    saveCardVisibility(newVisibility)
+    })
   }
 
   // Filter and search logic

@@ -71,23 +71,23 @@ const Dashboard = () => {
     }
   })
 
-  // Configurația implicită pentru dashboard
+  // Configurația implicită pentru dashboard - cardurile sunt OFF by default
   const defaultDashboardConfig = {
     statCards: [
-      { id: 'companies', title: 'Companii', visible: true, order: 1 },
-      { id: 'locations', title: 'Locații', visible: true, order: 2 },
-      { id: 'providers', title: 'Furnizori', visible: true, order: 3 },
-      { id: 'cabinets', title: 'Cabinete', visible: true, order: 4 },
-      { id: 'gameMixes', title: 'Game Mixes', visible: true, order: 5 },
-      { id: 'slots', title: 'Sloturi', visible: true, order: 6 },
-      { id: 'games', title: 'Librărie Jocuri', visible: true, order: 7 },
-      { id: 'warehouse', title: 'Depozit', visible: true, order: 8 },
-      { id: 'metrology', title: 'Metrologie', visible: true, order: 9 },
-      { id: 'jackpots', title: 'Jackpots', visible: true, order: 10 },
-      { id: 'invoices', title: 'Facturi', visible: true, order: 11 },
-      { id: 'onjnReports', title: 'Rapoarte ONJN', visible: true, order: 12 },
-      { id: 'legalDocuments', title: 'Documente Legale', visible: true, order: 13 },
-      { id: 'users', title: 'Utilizatori', visible: true, order: 14 }
+      { id: 'companies', title: 'Companii', visible: false, order: 1 },
+      { id: 'locations', title: 'Locații', visible: false, order: 2 },
+      { id: 'providers', title: 'Furnizori', visible: false, order: 3 },
+      { id: 'cabinets', title: 'Cabinete', visible: false, order: 4 },
+      { id: 'gameMixes', title: 'Game Mixes', visible: false, order: 5 },
+      { id: 'slots', title: 'Sloturi', visible: false, order: 6 },
+      { id: 'games', title: 'Librărie Jocuri', visible: false, order: 7 },
+      { id: 'warehouse', title: 'Depozit', visible: false, order: 8 },
+      { id: 'metrology', title: 'Metrologie', visible: false, order: 9 },
+      { id: 'jackpots', title: 'Jackpots', visible: false, order: 10 },
+      { id: 'invoices', title: 'Facturi', visible: false, order: 11 },
+      { id: 'onjnReports', title: 'Rapoarte ONJN', visible: false, order: 12 },
+      { id: 'legalDocuments', title: 'Documente Legale', visible: false, order: 13 },
+      { id: 'users', title: 'Utilizatori', visible: false, order: 14 }
     ],
     widgets: [
       { id: 'quickActions', title: 'Acțiuni Rapide', visible: true, order: 1 },
@@ -101,28 +101,19 @@ const Dashboard = () => {
     ]
   }
 
-  // Încarcă configurația din localStorage
+  // Cardurile sunt mereu default OFF - nu se salvează în localStorage
   useEffect(() => {
-    const savedConfig = localStorage.getItem('dashboardConfig')
-    if (savedConfig) {
-      const parsed = JSON.parse(savedConfig)
-      // Merge cu configurația implicită pentru a adăuga widget-uri noi
-      const mergedConfig = {
-        statCards: parsed.statCards || defaultDashboardConfig.statCards,
-        widgets: defaultDashboardConfig.widgets.map(defaultWidget => {
-          const savedWidget = parsed.widgets?.find(w => w.id === defaultWidget.id)
-          return savedWidget || defaultWidget
-        })
-      }
-      setDashboardConfig(mergedConfig)
-    } else {
-      setDashboardConfig(defaultDashboardConfig)
-    }
+    setDashboardConfig(defaultDashboardConfig)
   }, [])
 
-  // Salvează configurația în localStorage
+  // Cardurile nu se salvează - sunt mereu default OFF
   const saveDashboardConfig = () => {
-    localStorage.setItem('dashboardConfig', JSON.stringify(dashboardConfig))
+    // Nu salvăm cardurile - doar widget-urile
+    const configToSave = {
+      ...dashboardConfig,
+      statCards: defaultDashboardConfig.statCards // Forțează cardurile să fie OFF
+    }
+    localStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
     setIsEditing(false)
     setSelectedCards([])
     setSelectedWidgets([])
