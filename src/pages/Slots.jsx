@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { useData } from '../contexts/DataContext'
-import { BarChart3, Plus, Search, Upload, Download, Edit, Trash2, Eye, Filter, Activity, AlertCircle, CheckCircle, Wrench } from 'lucide-react'
+import { BarChart3, Plus, Search, Upload, Download, Edit, Trash2, Eye, Filter, Activity, AlertCircle, CheckCircle, Wrench, History } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import SlotModal from '../components/modals/SlotModal'
 import StatCard from '../components/StatCard'
@@ -472,6 +472,13 @@ const Slots = () => {
                     </button>
                   </>
                 )}
+                <button
+                  onClick={() => navigate('/slots/history')}
+                  className="btn-secondary flex items-center space-x-2"
+                >
+                  <History className="w-4 h-4" />
+                  <span>Istoric Sloturi</span>
+                </button>
                 <button
                   onClick={handleCreate}
                   className="btn-primary flex items-center space-x-2"

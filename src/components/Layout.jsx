@@ -118,13 +118,6 @@ const Layout = ({ children }) => {
       count: slots.length
     },
     { 
-      id: 'slots-history', 
-      label: 'Istoric Sloturi', 
-      icon: History, 
-      path: '/slots/history',
-      count: null
-    },
-    { 
       id: 'warehouse', 
       label: 'Depozit', 
       icon: Package, 
