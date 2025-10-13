@@ -73,8 +73,8 @@ const Locations = () => {
   )
 
   // Helper function to calculate number of slots for a location
-  const getSlotCount = (locationId) => {
-    const locationSlots = slots.filter(s => s.location_id === locationId && s.status !== 'Depozit')
+  const getSlotCount = (locationName) => {
+    const locationSlots = slots.filter(s => s.location === locationName && s.status !== 'Depozit')
     return locationSlots.length
   }
 
@@ -170,7 +170,7 @@ const Locations = () => {
           label: 'Capacitate (Sloturi)',
           sortable: true,
           render: (item) => {
-            const slotCount = getSlotCount(item.id)
+            const slotCount = getSlotCount(item.name)
             return (
               <div className="text-slate-600">
                 {slotCount} sloturi

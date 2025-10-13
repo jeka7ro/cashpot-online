@@ -39,7 +39,7 @@ const LocationDetail = () => {
 
   // Get related data
   const locationContracts = contracts.filter(c => c.location_id === location.id)
-  const locationSlots = slots.filter(s => s.location_id === location.id && s.status !== 'Depozit')
+  const locationSlots = slots.filter(s => s.location === location.name && s.status !== 'Depozit')
   const locationCabinets = cabinets.filter(c => c.location_id === location.id)
   const locationCompany = companies.find(c => c.name === location.company)
 
@@ -270,6 +270,7 @@ const LocationDetail = () => {
                           <th className="text-left p-4 font-bold text-green-800 dark:text-green-200 text-sm uppercase">Perioadă</th>
                           <th className="text-left p-4 font-bold text-green-800 dark:text-green-200 text-sm uppercase">Chirie Lunară</th>
                           <th className="text-left p-4 font-bold text-green-800 dark:text-green-200 text-sm uppercase">Status</th>
+                          <th className="text-left p-4 font-bold text-green-800 dark:text-green-200 text-sm uppercase">Contract PDF</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
@@ -288,6 +289,33 @@ const LocationDetail = () => {
                               }`}>
                                 {contract.status}
                               </span>
+                            </td>
+                            <td className="p-4">
+                              {contract.file_path ? (
+                                <div className="flex space-x-2">
+                                  <button
+                                    onClick={() => window.open(`https://www.w1n.ro${contract.file_path}`, '_blank')}
+                                    className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                                    title="Vizualizează PDF"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      const link = document.createElement('a')
+                                      link.href = `https://www.w1n.ro${contract.file_path}`
+                                      link.download = `contract-${contract.contract_number}.pdf`
+                                      link.click()
+                                    }}
+                                    className="p-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+                                    title="Descarcă PDF"
+                                  >
+                                    <Download className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 italic">N/A</span>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -308,10 +336,14 @@ const LocationDetail = () => {
                     <table className="w-full">
                       <thead className="bg-gradient-to-r from-purple-50/80 to-violet-50/80 dark:from-purple-900/20 dark:to-violet-800/20">
                         <tr>
+                          <th className="text-left p-4 font-bold text-purple-800 dark:text-purple-200 text-sm uppercase">ID</th>
                           <th className="text-left p-4 font-bold text-purple-800 dark:text-purple-200 text-sm uppercase">Număr Serie</th>
                           <th className="text-left p-4 font-bold text-purple-800 dark:text-purple-200 text-sm uppercase">Denumire</th>
-                          <th className="text-left p-4 font-bold text-purple-800 dark:text-purple-200 text-sm uppercase">Producător</th>
+                          <th className="text-left p-4 font-bold text-purple-800 dark:text-purple-200 text-sm uppercase">Furnizor</th>
+                          <th className="text-left p-4 font-bold text-purple-800 dark:text-purple-200 text-sm uppercase">Cabinet</th>
                           <th className="text-left p-4 font-bold text-purple-800 dark:text-purple-200 text-sm uppercase">Game Mix</th>
+                          <th className="text-left p-4 font-bold text-purple-800 dark:text-purple-200 text-sm uppercase">Data Licență</th>
+                          <th className="text-left p-4 font-bold text-purple-800 dark:text-purple-200 text-sm uppercase">Data CVT</th>
                           <th className="text-left p-4 font-bold text-purple-800 dark:text-purple-200 text-sm uppercase">Status</th>
                           <th className="text-left p-4 font-bold text-purple-800 dark:text-purple-200 text-sm uppercase">Tip Proprietate</th>
                         </tr>
@@ -319,10 +351,14 @@ const LocationDetail = () => {
                       <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                         {locationSlots.map((slot) => (
                           <tr key={slot.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                            <td className="p-4 font-semibold">{slot.id}</td>
                             <td className="p-4 font-semibold">{slot.serial_number}</td>
                             <td className="p-4">{slot.name}</td>
-                            <td className="p-4">{slot.manufacturer}</td>
+                            <td className="p-4">{slot.provider}</td>
+                            <td className="p-4">{slot.cabinet}</td>
                             <td className="p-4">{slot.game_mix}</td>
+                            <td className="p-4">{slot.license_date ? new Date(slot.license_date).toLocaleDateString('ro-RO') : 'N/A'}</td>
+                            <td className="p-4">{slot.cvt_date ? new Date(slot.cvt_date).toLocaleDateString('ro-RO') : 'N/A'}</td>
                             <td className="p-4">
                               <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                                 slot.status === 'Activ' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800'
