@@ -194,9 +194,9 @@ const Slots = () => {
         // Dacă avem factură asociată, folosim tipul din factură
         if (relatedInvoice && relatedInvoice.invoice_type) {
           if (relatedInvoice.invoice_type === 'Vânzare') {
-            propertyType = 'Owned'
+            propertyType = 'Proprietate'
           } else if (relatedInvoice.invoice_type === 'Chirie') {
-            propertyType = 'Rented'
+            propertyType = 'Închiriat'
           } else {
             propertyType = relatedInvoice.invoice_type
           }
@@ -306,13 +306,13 @@ const Slots = () => {
           <div className="flex items-center space-x-2">
             <button
               onClick={handleStatusToggle}
-              className={`relative inline-flex h-8 w-16 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
+              className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
                 isActive ? 'bg-green-500' : 'bg-gray-300'
               }`}
             >
               <span
-                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                  isActive ? 'translate-x-9' : 'translate-x-1'
+                className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                  isActive ? 'translate-x-6' : 'translate-x-1'
                 }`}
               />
             </button>
@@ -622,9 +622,9 @@ const Slots = () => {
 
         {/* Advanced Search and Filters */}
         <div className="card p-6">
-          <div className="space-y-4">
-            {/* Search Bar */}
-            <div className="relative">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center space-y-4 lg:space-y-0 lg:space-x-4">
+            {/* Search Bar - narrower */}
+            <div className="relative flex-1 lg:max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
               <input
                 type="text"
@@ -635,8 +635,8 @@ const Slots = () => {
               />
             </div>
             
-            {/* Advanced Filters */}
-            <div className="flex flex-col lg:flex-row items-start lg:items-center space-y-4 lg:space-y-0 lg:space-x-4">
+            {/* Advanced Filters - moved to the right */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
               <div className="flex items-center space-x-2">
                 <Filter className="w-4 h-4 text-slate-500" />
                 <span className="text-sm font-semibold text-slate-700">Filtre:</span>
