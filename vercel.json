@@ -6,6 +6,8 @@
   "routes": [
     { "src": "/api/(.*)", "dest": "https://cashpot-backend.onrender.com/api/$1" },
     { "src": "/uploads/(.*)", "dest": "https://cashpot-backend.onrender.com/uploads/$1" },
+    { "src": "/assets/(.*)", "dest": "/assets/$1" },
+    { "src": "/favicon.svg", "dest": "/favicon.svg" },
     { "src": "/(.*)", "dest": "/index.html" }
   ],
   "env": {
