@@ -3,7 +3,9 @@ export default {
   darkMode: 'class',
   content: [
     "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    // IMPORTANT: This config file lives inside `src/`, so we must NOT prefix with ./src
+    // Scan all project source files to ensure Tailwind doesn't purge our classes
+    "./**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {
