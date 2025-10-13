@@ -4,24 +4,26 @@ services:
     env: node
     plan: free
     buildCommand: cd backend && npm install
-    startCommand: cd backend && node server-postgres.js
+    startCommand: cd backend && npm start
+    healthCheckPath: /health
     envVars:
+      - key: DATABASE_URL
+        value: postgresql://cashpot_user:V8Usuj5Do5KKQzMPHfQU3RXKLbnYSJ4X@dpg-d3ee3s6r433s73eijgig-a.frankfurt-postgres.render.com/cashpot
+      - key: PORT
+        value: 5001
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 10000
-      - key: DATABASE_URL
-        fromDatabase:
-          name: cashpot-db
-          property: connectionString
-    healthCheckPath: /health
-
-  - type: web
-    name: cashpot-frontend
-    env: static
-    buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
-    envVars:
-      - key: VITE_API_URL
-        value: https://cashpot-backend.onrender.com
-
+      - key: JWT_SECRET
+        value: cashpot-secret-key-2024-very-secure
+      - key: CORS_ORIGIN
+        value: https://cashpot-frontend.vercel.app
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        value: eu-central-1
+      - key: S3_BUCKET_NAME
+        value: cashpot-documents
+      - key: S3_PUBLIC_BASE_URL
+        value: https://cashpot-documents.s3.eu-central-1.amazonaws.com
