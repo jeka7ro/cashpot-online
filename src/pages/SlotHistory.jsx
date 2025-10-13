@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { History, Filter, Search, Download, Calendar, User, ArrowLeft, Clock, Database } from 'lucide-react'
+import { History, Filter, Search, Download, Calendar, User, ArrowLeft, Clock, Database, X } from 'lucide-react'
 import Layout from '../components/Layout'
 import { useData } from '../contexts/DataContext'
 import { useNavigate } from 'react-router-dom'
@@ -13,6 +13,7 @@ const SlotHistory = () => {
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [showFilters, setShowFilters] = useState(false)
   const [filters, setFilters] = useState({
     slot_id: '',
     serial_number: '',
@@ -295,8 +296,35 @@ const SlotHistory = () => {
           </button>
         </div>
 
-        {/* Filter and Search Section */}
-        <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg shadow-inner mb-6">
+        {/* Search Bar and Filter Button */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+            <input
+              type="text"
+              name="serial_number"
+              value={filters.serial_number}
+              onChange={handleFilterChange}
+              placeholder="Caută după număr serie slot..."
+              className="w-full pl-10 pr-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-800 dark:text-slate-200"
+            />
+          </div>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`p-3 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl ${
+              showFilters
+                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-blue-500 text-white hover:bg-blue-600'
+            }`}
+            title="Filtre"
+          >
+            <Filter className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Filters Sidebar/Panel */}
+        {showFilters && (
+          <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg shadow-inner mb-6">
           {/* Quick Date Filters */}
           <div className="mb-4">
             <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Filtre rapide:</h3>
@@ -454,7 +482,8 @@ const SlotHistory = () => {
               />
             </div>
           </div>
-        </div>
+          </div>
+        )}
 
         {/* Statistics */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
