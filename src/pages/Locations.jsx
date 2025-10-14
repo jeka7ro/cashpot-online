@@ -8,6 +8,7 @@ import LocationModal from '../components/modals/LocationModal'
 import LocationContracts from '../components/LocationContracts'
 import LocationProprietari from '../components/LocationProprietari'
 import { MapPin, Plus, Search, Upload, Download, FileText, Edit, Trash2, Building2, Eye, X } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 
 const Locations = () => {
   const navigate = useNavigate()
@@ -290,8 +291,13 @@ const Locations = () => {
   }
 
   const handleDelete = async (item) => {
-    if (window.confirm(`Sigur doriți să ștergeți locația "${item.name}"?`)) {
-      await deleteItem('locations', item.id)
+    if (confirm(`Sigur doriți să ștergeți locația "${item.name}"?`)) {
+      try {
+        await deleteItem('locations', item.id)
+        toast.success('Locația a fost ștearsă cu succes!')
+      } catch (error) {
+        toast.error('Eroare la ștergerea locației')
+      }
     }
   }
 
@@ -350,10 +356,11 @@ const Locations = () => {
       
       setShowModal(false)
       setEditingItem(null)
+      toast.success(editingItem ? 'Locația a fost actualizată cu succes!' : 'Locația a fost creată cu succes!')
     } catch (error) {
       console.error('Error saving location:', error)
       console.error('Error details:', error.message)
-      window.confirm(`Eroare la salvare locație: ${error.message}`)
+      toast.error(`Eroare la salvare locație: ${error.message}`)
     }
   }
 
