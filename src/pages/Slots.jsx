@@ -235,9 +235,16 @@ const Slots = () => {
           }
         }
         
+        // Mapează valorile pentru afișare
+        const displayPropertyType = propertyType === 'Owned' ? 'Proprietate' : 
+                                   propertyType === 'Rented' ? 'Închiriat' : 
+                                   propertyType === 'Proprietate' ? 'Proprietate' :
+                                   propertyType === 'Închiriat' ? 'Închiriat' :
+                                   propertyType
+        
         return (
           <div className="text-slate-800 dark:text-slate-200 font-medium text-sm">
-            {propertyType}
+            {displayPropertyType}
           </div>
         )
       }
