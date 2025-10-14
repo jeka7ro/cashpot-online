@@ -87,7 +87,7 @@ export const DataProvider = ({ children }) => {
       
       // Fetch priority entities first (for dashboard)
       const priorityRequests = priorityEntities.map(entity => 
-        axios.get(`/api/${entity}`, { timeout: 30000 }).catch((error) => {
+        axios.get(`/api/${entity}`, { timeout: 10000 }).catch((error) => {
           console.error(`❌ Error fetching ${entity}:`, error)
           return { data: [] }
         })
@@ -107,7 +107,7 @@ export const DataProvider = ({ children }) => {
       
       // Fetch remaining entities in background
       const regularRequests = regularEntities.map(entity => 
-        axios.get(`/api/${entity}`, { timeout: 30000 }).catch((error) => {
+        axios.get(`/api/${entity}`, { timeout: 10000 }).catch((error) => {
           console.error(`❌ Error fetching ${entity}:`, error)
           return { data: [] }
         })
@@ -134,12 +134,8 @@ export const DataProvider = ({ children }) => {
 
   useEffect(() => {
     console.log('🚀 DataContext useEffect triggered')
-    // Delay data fetching to allow login to complete first
-    const timer = setTimeout(() => {
-      fetchAllData()
-    }, 500)
-    
-    return () => clearTimeout(timer)
+    // Fetch data immediately - no delay!
+    fetchAllData()
   }, [])
 
   // Create item
