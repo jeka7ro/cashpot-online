@@ -103,12 +103,26 @@ const Dashboard = () => {
     ]
   }
 
-  // Încarcă preferințele de pe server sau folosește default
+  // Încarcă preferințele de pe server sau folosește localStorage
   useEffect(() => {
     const loadPreferences = async () => {
+      // Încearcă mai întâi localStorage (pentru sincronizare rapidă)
+      const localConfig = localStorage.getItem('dashboardConfig')
+      if (localConfig) {
+        try {
+          const config = JSON.parse(localConfig)
+          setDashboardConfig(config)
+          if (config.cardSizes) setCardSizes(config.cardSizes)
+          if (config.widgetSizes) setWidgetSizes(config.widgetSizes)
+        } catch (e) {
+          console.error('Error parsing localStorage config:', e)
+        }
+      }
+      
+      // Apoi încearcă să încarce de pe server (pentru sincronizare cross-device)
       if (user?.id) {
         try {
-          const response = await axios.get(`/api/users/${user.id}`)
+          const response = await axios.get(`/api/users/${user.id}`, { timeout: 5000 })
           const userData = response.data
           const preferences = userData.preferences || {}
           
@@ -120,15 +134,20 @@ const Dashboard = () => {
             if (preferences.dashboard.widgetSizes) {
               setWidgetSizes(preferences.dashboard.widgetSizes)
             }
-          } else {
-            setDashboardConfig(defaultDashboardConfig)
+            // Actualizează localStorage cu datele de pe server
+            localStorage.setItem('dashboardConfig', JSON.stringify(preferences.dashboard))
           }
         } catch (error) {
-          console.error('Error loading preferences:', error)
-          setDashboardConfig(defaultDashboardConfig)
+          console.error('Error loading preferences from server:', error)
+          // Folosește localStorage dacă serverul nu răspunde
+          if (!localConfig) {
+            setDashboardConfig(defaultDashboardConfig)
+          }
         }
       } else {
-        setDashboardConfig(defaultDashboardConfig)
+        if (!localConfig) {
+          setDashboardConfig(defaultDashboardConfig)
+        }
       }
     }
     
