@@ -6,7 +6,7 @@ import ProviderModal from '../components/modals/ProviderModal'
 import { Users, Plus, Search, Upload, Download, Edit, Trash2 } from 'lucide-react'
 
 const Providers = () => {
-  const { providers, games, createItem, updateItem, deleteItem, exportData, loading } = useData()
+  const { providers, games, createItem, updateItem, deleteItem, exportToExcel, exportToPDF, loading } = useData()
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -207,7 +207,7 @@ const Providers = () => {
   }
 
   const handleExport = async () => {
-    await exportData('providers', 'excel')
+    await exportToExcel, exportToPDF('providers', 'excel')
   }
 
   const handleImport = () => {
@@ -237,13 +237,11 @@ const Providers = () => {
               <Upload size={16} />
               <span>Importă</span>
             </button>
-            <button 
-              onClick={handleExport}
-              className="btn-secondary flex items-center space-x-2"
-            >
-              <Download size={16} />
-              <span>Exportă</span>
-            </button>
+            <ExportButtons 
+                onExportExcel={handleExportExcel}
+                onExportPDF={handleExportPDF}
+                entity="providers"
+              />
             {showBulkActions && (
               <>
                 <button onClick={handleBulkEdit} className="btn-secondary flex items-center space-x-2">

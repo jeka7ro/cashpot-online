@@ -12,7 +12,7 @@ import { toast } from 'react-hot-toast'
 
 const Locations = () => {
   const navigate = useNavigate()
-  const { locations, contracts, slots, createItem, updateItem, deleteItem, exportData, loading } = useData()
+  const { locations, contracts, slots, createItem, updateItem, deleteItem, exportToExcel, exportToPDF, loading } = useData()
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -365,7 +365,7 @@ const Locations = () => {
   }
 
   const handleExport = async () => {
-    await exportData('locations', 'excel')
+    await exportToExcel, exportToPDF('locations', 'excel')
   }
 
   const handleImport = () => {
@@ -480,13 +480,11 @@ const Locations = () => {
                 <Upload size={16} />
                 <span>Importă</span>
               </button>
-              <button 
-                onClick={handleExport}
-                className="btn-secondary flex items-center space-x-2"
-              >
-                <Download size={16} />
-                <span>Exportă</span>
-              </button>
+              <ExportButtons 
+                onExportExcel={handleExportExcel}
+                onExportPDF={handleExportPDF}
+                entity="locations"
+              />
               {showBulkActions && (
                 <>
                   <button onClick={handleBulkEdit} className="btn-secondary flex items-center space-x-2">

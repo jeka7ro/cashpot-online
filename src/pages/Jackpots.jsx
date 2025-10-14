@@ -6,7 +6,7 @@ import DataTable from '../components/DataTable'
 import JackpotModal from '../components/modals/JackpotModal'
 
 const Jackpots = () => {
-  const { jackpots, loading, createItem, updateItem, deleteItem, exportData } = useData()
+  const { jackpots, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
@@ -108,8 +108,20 @@ const Jackpots = () => {
     setEditingItem(null)
   }
 
-  const handleExport = () => {
-    exportData('jackpots')
+  const handleExportExcel = () => {
+    try {
+      exportToExcel('jackpots')
+    } catch (error) {
+      console.error('Error exporting to Excel:', error)
+    }
+  }
+
+  const handleExportPDF = () => {
+    try {
+      exportToPDF('jackpots')
+    } catch (error) {
+      console.error('Error exporting to PDF:', error)
+    }
   }
 
   return (
@@ -128,13 +140,11 @@ const Jackpots = () => {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <button
-                onClick={handleExport}
-                className="btn-secondary flex items-center space-x-2"
-              >
-                <Download className="w-4 h-4" />
-                <span>Exportă</span>
-              </button>
+              <ExportButtons 
+                onExportExcel={handleExportExcel}
+                onExportPDF={handleExportPDF}
+                entity="jackpots"
+              />
               {showBulkActions && (
                 <>
                   <button onClick={handleBulkEdit} className="btn-secondary flex items-center space-x-2">

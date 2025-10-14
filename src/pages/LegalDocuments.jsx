@@ -6,7 +6,7 @@ import DataTable from '../components/DataTable'
 import LegalDocumentModal from '../components/modals/LegalDocumentModal'
 
 const LegalDocuments = () => {
-  const { legalDocuments, loading, createItem, updateItem, deleteItem, exportData } = useData()
+  const { legalDocuments, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
@@ -111,8 +111,20 @@ const LegalDocuments = () => {
     setEditingItem(null)
   }
 
-  const handleExport = () => {
-    exportData('legalDocuments')
+  const handleExportExcel = () => {
+    try {
+      exportToExcel('legaldocuments')
+    } catch (error) {
+      console.error('Error exporting to Excel:', error)
+    }
+  }
+
+  const handleExportPDF = () => {
+    try {
+      exportToPDF('legaldocuments')
+    } catch (error) {
+      console.error('Error exporting to PDF:', error)
+    }
   }
 
   return (
@@ -131,13 +143,11 @@ const LegalDocuments = () => {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <button
-                onClick={handleExport}
-                className="btn-secondary flex items-center space-x-2"
-              >
-                <Download className="w-4 h-4" />
-                <span>Exportă</span>
-              </button>
+              <ExportButtons 
+                onExportExcel={handleExportExcel}
+                onExportPDF={handleExportPDF}
+                entity="legaldocuments"
+              />
               {showBulkActions && (
                 <>
                   <button onClick={handleBulkEdit} className="btn-secondary flex items-center space-x-2">

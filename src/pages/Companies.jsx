@@ -10,7 +10,7 @@ import { Building2, Plus, Search, Upload, Download, Eye, Phone, Mail, User, Edit
 
 const Companies = () => {
   const navigate = useNavigate()
-  const { companies, createItem, updateItem, deleteItem, exportData, loading } = useData()
+  const { companies, createItem, updateItem, deleteItem, exportToExcel, exportToPDF, loading } = useData()
   const { confirmState, confirm, close } = useConfirm()
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
@@ -253,7 +253,7 @@ const Companies = () => {
   }
 
   const handleExport = async () => {
-    await exportData('companies', 'excel')
+    await exportToExcel, exportToPDF('companies', 'excel')
   }
 
   const handleImport = () => {
@@ -295,13 +295,11 @@ const Companies = () => {
                 <Upload size={16} />
                 <span>Importă</span>
               </button>
-              <button 
-                onClick={handleExport}
-                className="btn-secondary flex items-center space-x-2"
-              >
-                <Download size={16} />
-                <span>Exportă</span>
-              </button>
+              <ExportButtons 
+                onExportExcel={handleExportExcel}
+                onExportPDF={handleExportPDF}
+                entity="companies"
+              />
               <div className="flex space-x-3">
                 {showBulkActions && (
                   <>

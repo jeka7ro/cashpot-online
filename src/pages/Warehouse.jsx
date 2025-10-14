@@ -8,7 +8,7 @@ import StatCard from '../components/StatCard'
 import { toast } from 'react-hot-toast'
 
 const Warehouse = () => {
-  const { warehouse, slots, loading, createItem, updateItem, deleteItem, exportData } = useData()
+  const { warehouse, slots, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
@@ -254,8 +254,20 @@ const Warehouse = () => {
     }
   }
 
-  const handleExport = () => {
-    exportData('warehouse')
+  const handleExportExcel = () => {
+    try {
+      exportToExcel('warehouse')
+    } catch (error) {
+      console.error('Error exporting to Excel:', error)
+    }
+  }
+
+  const handleExportPDF = () => {
+    try {
+      exportToPDF('warehouse')
+    } catch (error) {
+      console.error('Error exporting to PDF:', error)
+    }
   }
 
   return (
@@ -274,13 +286,11 @@ const Warehouse = () => {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <button
-                onClick={handleExport}
-                className="btn-secondary flex items-center space-x-2"
-              >
-                <Download className="w-4 h-4" />
-                <span>Exportă</span>
-              </button>
+              <ExportButtons 
+                onExportExcel={handleExportExcel}
+                onExportPDF={handleExportPDF}
+                entity="warehouse"
+              />
               {showBulkActions && (
                 <>
                   <button onClick={handleBulkEdit} className="btn-secondary flex items-center space-x-2">

@@ -8,7 +8,7 @@ import InvoiceModal from '../components/modals/InvoiceModal'
 
 const Invoices = () => {
   const navigate = useNavigate()
-  const { invoices, loading, createItem, updateItem, deleteItem, exportData } = useData()
+  const { invoices, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
@@ -120,8 +120,20 @@ const Invoices = () => {
     setEditingItem(null)
   }
 
-  const handleExport = () => {
-    exportData('invoices')
+  const handleExportExcel = () => {
+    try {
+      exportToExcel('invoices')
+    } catch (error) {
+      console.error('Error exporting to Excel:', error)
+    }
+  }
+
+  const handleExportPDF = () => {
+    try {
+      exportToPDF('invoices')
+    } catch (error) {
+      console.error('Error exporting to PDF:', error)
+    }
   }
 
   return (
@@ -140,13 +152,11 @@ const Invoices = () => {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <button
-                onClick={handleExport}
-                className="btn-secondary flex items-center space-x-2"
-              >
-                <Download className="w-4 h-4" />
-                <span>Exportă</span>
-              </button>
+              <ExportButtons 
+                onExportExcel={handleExportExcel}
+                onExportPDF={handleExportPDF}
+                entity="invoices"
+              />
               {showBulkActions && (
                 <>
                   <button onClick={handleBulkEdit} className="btn-secondary flex items-center space-x-2">

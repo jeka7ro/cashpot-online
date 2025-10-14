@@ -8,10 +8,11 @@ import { BarChart3, Plus, Search, Upload, Download, Edit, Trash2, Eye, Filter, A
 import DataTable from '../components/DataTable'
 import SlotModal from '../components/modals/SlotModal'
 import StatCard from '../components/StatCard'
+import ExportButtons from '../components/ExportButtons'
 import { toast } from 'react-hot-toast'
 
 const Slots = () => {
-  const { slots, invoices, warehouse, loading, createItem, updateItem, deleteItem, exportData } = useData()
+  const { slots, invoices, warehouse, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
   const { user } = useAuth()
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState('')
@@ -462,13 +463,21 @@ const Slots = () => {
     }
   }
 
-  const handleExport = () => {
+  const handleExportExcel = () => {
     try {
-      exportData('slots')
-      toast.success('Datele au fost exportate cu succes!')
+      exportToExcel('slots')
     } catch (error) {
-      toast.error('Eroare la exportarea datelor')
-      console.error('Error exporting data:', error)
+      toast.error('Eroare la exportarea în Excel')
+      console.error('Error exporting to Excel:', error)
+    }
+  }
+
+  const handleExportPDF = () => {
+    try {
+      exportToPDF('slots')
+    } catch (error) {
+      toast.error('Eroare la exportarea în PDF')
+      console.error('Error exporting to PDF:', error)
     }
   }
 
@@ -500,13 +509,11 @@ const Slots = () => {
                 <Filter className="w-4 h-4" />
                 <span>Setări Carduri</span>
               </button>
-              <button
-                onClick={handleExport}
-                className="btn-secondary flex items-center space-x-2"
-              >
-                <Download className="w-4 h-4" />
-                <span>Exportă</span>
-              </button>
+              <ExportButtons 
+                onExportExcel={handleExportExcel}
+                onExportPDF={handleExportPDF}
+                entity="slots"
+              />
               <div className="flex space-x-3">
                 {showBulkActions && (
                   <>

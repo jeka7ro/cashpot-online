@@ -6,7 +6,7 @@ import DataTable from '../components/DataTable'
 import UserModal from '../components/modals/UserModal'
 
 const Users = () => {
-  const { users, loading, createItem, updateItem, deleteItem, exportData } = useData()
+  const { users, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
@@ -134,8 +134,20 @@ const Users = () => {
     setEditingItem(null)
   }
 
-  const handleExport = () => {
-    exportData('users')
+  const handleExportExcel = () => {
+    try {
+      exportToExcel('users')
+    } catch (error) {
+      console.error('Error exporting to Excel:', error)
+    }
+  }
+
+  const handleExportPDF = () => {
+    try {
+      exportToPDF('users')
+    } catch (error) {
+      console.error('Error exporting to PDF:', error)
+    }
   }
 
   return (
@@ -154,13 +166,11 @@ const Users = () => {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <button
-                onClick={handleExport}
-                className="btn-secondary flex items-center space-x-2"
-              >
-                <Download className="w-4 h-4" />
-                <span>Exportă</span>
-              </button>
+              <ExportButtons 
+                onExportExcel={handleExportExcel}
+                onExportPDF={handleExportPDF}
+                entity="users"
+              />
               <div className="flex space-x-3">
                 {showBulkActions && (
                   <>

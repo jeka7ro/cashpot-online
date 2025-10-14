@@ -6,7 +6,7 @@ import DataTable from '../components/DataTable'
 import ONJNReportModal from '../components/modals/ONJNReportModal'
 
 const ONJNReports = () => {
-  const { onjnReports, loading, createItem, updateItem, deleteItem, exportData } = useData()
+  const { onjnReports, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
@@ -107,8 +107,20 @@ const ONJNReports = () => {
     setEditingItem(null)
   }
 
-  const handleExport = () => {
-    exportData('onjnReports')
+  const handleExportExcel = () => {
+    try {
+      exportToExcel('onjnreports')
+    } catch (error) {
+      console.error('Error exporting to Excel:', error)
+    }
+  }
+
+  const handleExportPDF = () => {
+    try {
+      exportToPDF('onjnreports')
+    } catch (error) {
+      console.error('Error exporting to PDF:', error)
+    }
   }
 
   return (
@@ -127,13 +139,11 @@ const ONJNReports = () => {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <button
-                onClick={handleExport}
-                className="btn-secondary flex items-center space-x-2"
-              >
-                <Download className="w-4 h-4" />
-                <span>Exportă</span>
-              </button>
+              <ExportButtons 
+                onExportExcel={handleExportExcel}
+                onExportPDF={handleExportPDF}
+                entity="onjnreports"
+              />
               {showBulkActions && (
                 <>
                   <button onClick={handleBulkEdit} className="btn-secondary flex items-center space-x-2">

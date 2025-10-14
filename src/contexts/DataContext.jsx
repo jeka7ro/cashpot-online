@@ -163,17 +163,105 @@ export const DataProvider = ({ children }) => {
     }
   }
 
-  // Export data
-  const exportData = (entity) => {
+  // Export data to Excel
+  const exportToExcel = (entity) => {
     const data = entityConfig[entity].state
-    const json = JSON.stringify(data, null, 2)
-    const blob = new Blob([json], { type: 'application/json' })
+    const headers = Object.keys(data[0] || {})
+    
+    // Create CSV content
+    const csvHeaders = headers.join(',')
+    const csvRows = data.map(row => 
+      headers.map(header => {
+        const value = row[header]
+        // Handle null, undefined, and objects
+        if (value === null || value === undefined) return ''
+        if (typeof value === 'object') return JSON.stringify(value)
+        // Escape commas and quotes
+        return `"${String(value).replace(/"/g, '""')}"`
+      }).join(',')
+    )
+    
+    const csvContent = [csvHeaders, ...csvRows].join('\n')
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${entity}-${new Date().toISOString().split('T')[0]}.json`
+    a.download = `${entity}-${new Date().toISOString().split('T')[0]}.csv`
     a.click()
-    toast.success('Exportat cu succes!')
+    URL.revokeObjectURL(url)
+    toast.success('Exportat în Excel cu succes!')
+  }
+
+  // Export data to PDF
+  const exportToPDF = (entity) => {
+    const data = entityConfig[entity].state
+    const headers = Object.keys(data[0] || {})
+    
+    // Create HTML table
+    let html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          h1 { color: #333; }
+          table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+          th { background-color: #4CAF50; color: white; padding: 12px; text-align: left; border: 1px solid #ddd; }
+          td { padding: 10px; border: 1px solid #ddd; }
+          tr:nth-child(even) { background-color: #f2f2f2; }
+          .footer { margin-top: 20px; text-align: center; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <h1>Raport ${entity.toUpperCase()}</h1>
+        <p>Generat la: ${new Date().toLocaleString('ro-RO')}</p>
+        <table>
+          <thead>
+            <tr>
+              ${headers.map(h => `<th>${h}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+    `
+    
+    data.forEach(row => {
+      html += '<tr>'
+      headers.forEach(header => {
+        const value = row[header]
+        const displayValue = value === null || value === undefined ? '' : 
+                           typeof value === 'object' ? JSON.stringify(value) : 
+                           String(value)
+        html += `<td>${displayValue}</td>`
+      })
+      html += '</tr>'
+    })
+    
+    html += `
+          </tbody>
+        </table>
+        <div class="footer">
+          Total înregistrări: ${data.length}
+        </div>
+      </body>
+      </html>
+    `
+    
+    // Open in new window for printing
+    const printWindow = window.open('', '', 'width=1200,height=800')
+    printWindow.document.write(html)
+    printWindow.document.close()
+    
+    // Wait for content to load, then print
+    setTimeout(() => {
+      printWindow.print()
+      toast.success('PDF generat! Folosește "Salvează ca PDF" în dialogul de printare.')
+    }, 250)
+  }
+
+  // Legacy export (JSON) - kept for backward compatibility
+  const exportData = (entity) => {
+    exportToExcel(entity)
   }
 
   const value = {
@@ -200,6 +288,8 @@ export const DataProvider = ({ children }) => {
     updateItem,
     deleteItem,
     exportData,
+    exportToExcel,
+    exportToPDF,
     refreshData: fetchAllData
   }
 

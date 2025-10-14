@@ -12,7 +12,7 @@ import AuthorityModal from '../components/modals/AuthorityModal'
 import ONJNCalendarModal from '../components/modals/ONJNCalendarModal'
 
 const Metrology = () => {
-  const { metrology, providers, cabinets, gameMixes, loading, createItem, updateItem, deleteItem, exportData } = useData()
+  const { metrology, providers, cabinets, gameMixes, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
@@ -538,8 +538,20 @@ const Metrology = () => {
     }
   ]
 
-  const handleExport = () => {
-    exportData('metrology')
+  const handleExportExcel = () => {
+    try {
+      exportToExcel('metrology')
+    } catch (error) {
+      console.error('Error exporting to Excel:', error)
+    }
+  }
+
+  const handleExportPDF = () => {
+    try {
+      exportToPDF('metrology')
+    } catch (error) {
+      console.error('Error exporting to PDF:', error)
+    }
   }
 
   return (
@@ -558,13 +570,11 @@ const Metrology = () => {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <button
-                onClick={handleExport}
-                className="btn-secondary flex items-center space-x-2"
-              >
-                <Download className="w-4 h-4" />
-                <span>Exportă</span>
-              </button>
+              <ExportButtons 
+                onExportExcel={handleExportExcel}
+                onExportPDF={handleExportPDF}
+                entity="metrology"
+              />
               {showBulkActions && (
                 <>
                   <button onClick={handleBulkEdit} className="btn-secondary flex items-center space-x-2">
