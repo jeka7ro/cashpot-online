@@ -34,8 +34,8 @@ export const AuthProvider = ({ children }) => {
     const checkAuth = async () => {
       if (token) {
         try {
-          // Fetch real user data from database
-          const response = await axios.get('/api/users')
+          // Fetch real user data from database with timeout
+          const response = await axios.get('/api/users', { timeout: 30000 })
           const users = response.data
           const realUser = users.find(u => u.username === 'admin') || users[0]
           
@@ -66,11 +66,13 @@ export const AuthProvider = ({ children }) => {
           }
         } catch (error) {
           console.error('Auth verification failed:', error)
+          // Don't clear token on timeout, just show error
+          if (error.code === 'ECONNABORTED') {
+            toast.error('Timeout la verificare autentificare')
+          }
           localStorage.removeItem('token')
           setToken(null)
           setUser(null)
-          // Redirect to login if auth fails
-          window.location.replace('/login')
         }
       } else {
         // No token, only redirect if not already on login page

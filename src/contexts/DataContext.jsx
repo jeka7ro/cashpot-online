@@ -74,49 +74,36 @@ export const DataProvider = ({ children }) => {
     contracts: { state: contracts, setState: setContracts }
   }
 
-  // Fetch all data with batching
+  // Fetch all data in parallel for maximum speed
   const fetchAllData = async () => {
-    console.log('🔄 Starting to fetch all data...')
+    console.log('🚀 Starting to fetch all data in parallel...')
     setLoading(true)
     try {
       const entities = Object.keys(entityConfig)
       
-      // Batch requests in groups of 3 to avoid overwhelming the server
-      const batchSize = 3
-      const batches = []
-      
-      for (let i = 0; i < entities.length; i += batchSize) {
-        batches.push(entities.slice(i, i + batchSize))
-      }
-      
-      for (const batch of batches) {
-        console.log(`🔄 Fetching batch: ${batch.join(', ')}`)
-        const requests = batch.map(entity => 
-          axios.get(`/api/${entity}`, { timeout: 10000 }).catch((error) => {
-            console.error(`❌ Error fetching ${entity}:`, error)
-            return { data: [] }
-          })
-        )
-        
-        const responses = await Promise.all(requests)
-        
-        responses.forEach((response, index) => {
-          const entity = batch[index]
-          const data = Array.isArray(response.data) ? response.data : []
-          console.log(`✅ ${entity}: ${data.length} items`)
-          entityConfig[entity].setState(data)
+      // Fetch ALL entities in parallel - no batching, no delays!
+      const requests = entities.map(entity => 
+        axios.get(`/api/${entity}`, { timeout: 30000 }).catch((error) => {
+          console.error(`❌ Error fetching ${entity}:`, error)
+          return { data: [] }
         })
-        
-        // Small delay between batches
-        if (batches.indexOf(batch) < batches.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100))
-        }
-      }
+      )
+      
+      console.log(`📡 Making ${requests.length} parallel requests...`)
+      const responses = await Promise.all(requests)
+      
+      responses.forEach((response, index) => {
+        const entity = entities[index]
+        const data = Array.isArray(response.data) ? response.data : []
+        console.log(`✅ ${entity}: ${data.length} items`)
+        entityConfig[entity].setState(data)
+      })
+      
+      console.log('⚡ All data loaded in parallel!')
     } catch (error) {
       console.error('Error fetching data:', error)
       toast.error('Eroare la încărcarea datelor')
     } finally {
-      console.log('✅ Data fetching completed')
       setLoading(false)
     }
   }
