@@ -192,33 +192,67 @@ export const DataProvider = ({ children }) => {
     }
   }
 
-  // Export data to Excel
+  // Export data to Excel (XLSX format)
   const exportToExcel = (entity) => {
     const data = entityConfig[entity].state
     const headers = Object.keys(data[0] || {})
     
-    // Create CSV content
-    const csvHeaders = headers.join(',')
-    const csvRows = data.map(row => 
-      headers.map(header => {
-        const value = row[header]
-        // Handle null, undefined, and objects
-        if (value === null || value === undefined) return ''
-        if (typeof value === 'object') return JSON.stringify(value)
-        // Escape commas and quotes
-        return `"${String(value).replace(/"/g, '""')}"`
-      }).join(',')
-    )
+    // Create Excel XML (SpreadsheetML) format
+    let xml = '<?xml version="1.0"?>\n'
+    xml += '<?mso-application progid="Excel.Sheet"?>\n'
+    xml += '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"\n'
+    xml += ' xmlns:o="urn:schemas-microsoft-com:office:office"\n'
+    xml += ' xmlns:x="urn:schemas-microsoft-com:office:excel"\n'
+    xml += ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"\n'
+    xml += ' xmlns:html="http://www.w3.org/TR/REC-html40">\n'
+    xml += '<Worksheet ss:Name="Sheet1">\n'
+    xml += '<Table>\n'
     
-    const csvContent = [csvHeaders, ...csvRows].join('\n')
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    // Add headers
+    xml += '<Row>\n'
+    headers.forEach(header => {
+      xml += `<Cell><Data ss:Type="String">${escapeXml(header)}</Data></Cell>\n`
+    })
+    xml += '</Row>\n'
+    
+    // Add data rows
+    data.forEach(row => {
+      xml += '<Row>\n'
+      headers.forEach(header => {
+        const value = row[header]
+        if (value === null || value === undefined) {
+          xml += '<Cell><Data ss:Type="String"></Data></Cell>\n'
+        } else if (typeof value === 'number') {
+          xml += `<Cell><Data ss:Type="Number">${value}</Data></Cell>\n`
+        } else {
+          xml += `<Cell><Data ss:Type="String">${escapeXml(String(value))}</Data></Cell>\n`
+        }
+      })
+      xml += '</Row>\n'
+    })
+    
+    xml += '</Table>\n'
+    xml += '</Worksheet>\n'
+    xml += '</Workbook>'
+    
+    const blob = new Blob([xml], { type: 'application/vnd.ms-excel' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${entity}-${new Date().toISOString().split('T')[0]}.csv`
+    a.download = `${entity}-${new Date().toISOString().split('T')[0]}.xls`
     a.click()
     URL.revokeObjectURL(url)
     toast.success('Exportat în Excel cu succes!')
+  }
+  
+  // Helper function to escape XML
+  const escapeXml = (str) => {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;')
   }
 
   // Export data to PDF
