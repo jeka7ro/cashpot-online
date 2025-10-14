@@ -331,7 +331,8 @@ const Locations = () => {
       setEditingItem(null)
     } catch (error) {
       console.error('Error saving location:', error)
-      alert('Eroare la salvare locație')
+      console.error('Error details:', error.message)
+      window.confirm(`Eroare la salvare locație: ${error.message}`)
     }
   }
 
