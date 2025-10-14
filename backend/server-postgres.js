@@ -1055,6 +1055,8 @@ app.post('/api/locations', upload.single('planFile'), async (req, res) => {
 app.put('/api/locations/:id', upload.single('planFile'), async (req, res) => {
   try {
     const { id } = req.params
+    console.log('PUT /api/locations/:id - req.body:', req.body)
+    console.log('PUT /api/locations/:id - req.file:', req.file)
     const { name, address, company, surface, status, coordinates, contact_person, notes } = req.body
     const planFile = req.file ? `/uploads/locations/${req.file.filename}` : undefined
     
