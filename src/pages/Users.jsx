@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
+import ExportButtons from '../components/ExportButtons'
 import { useData } from '../contexts/DataContext'
 import { Users as UsersIcon, Plus, Search, Upload, Download, Edit, Trash2 } from 'lucide-react'
 import DataTable from '../components/DataTable'

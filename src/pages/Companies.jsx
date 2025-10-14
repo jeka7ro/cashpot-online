@@ -5,6 +5,7 @@ import Layout from '../components/Layout'
 import DataTable from '../components/DataTable'
 import CompanyModal from '../components/modals/CompanyModal'
 import ConfirmModal from '../components/modals/ConfirmModal'
+import ExportButtons from '../components/ExportButtons'
 import useConfirm from '../hooks/useConfirm'
 import { Building2, Plus, Search, Upload, Download, Eye, Phone, Mail, User, Edit, Trash2 } from 'lucide-react'
 

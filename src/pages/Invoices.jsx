@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
+import ExportButtons from '../components/ExportButtons'
 import { useData } from '../contexts/DataContext'
 import { FileText, Plus, Search, Upload, Download, Edit, Trash2 } from 'lucide-react'
 import DataTable from '../components/DataTable'
