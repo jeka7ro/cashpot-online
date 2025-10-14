@@ -383,14 +383,28 @@ const Metrology = () => {
           {item.cvtFile ? (
             <>
               <button
-                onClick={() => window.open(`http://localhost:5001/api/cvt-pdf/${item.id}`, '_blank')}
+                onClick={() => {
+                  if (item.cvtFile) {
+                    const link = document.createElement('a')
+                    link.href = item.cvtFile
+                    link.download = `CVT-${item.cvt_number}.pdf`
+                    link.click()
+                  }
+                }}
                 className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
                 title="Vizualizează documentul CVT"
               >
                 <Eye className="w-4 h-4" />
               </button>
               <button
-                onClick={() => window.open(`http://localhost:5001/api/cvt-pdf/${item.id}`, '_blank')}
+                onClick={() => {
+                  if (item.cvtFile) {
+                    const link = document.createElement('a')
+                    link.href = item.cvtFile
+                    link.download = `CVT-${item.cvt_number}.pdf`
+                    link.click()
+                  }
+                }}
                 className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
                 title="Descarcă documentul CVT"
               >

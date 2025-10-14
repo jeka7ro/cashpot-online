@@ -206,7 +206,14 @@ const CompanyDetail = () => {
                       {company.cuiFile && (
                         <div className="mt-2 flex items-center space-x-2">
                           <button
-                            onClick={() => window.open(`http://localhost:5001/api/pdf/${company.id}`, '_blank')}
+                            onClick={() => {
+                              if (company.cui_file) {
+                                const link = document.createElement('a')
+                                link.href = company.cui_file
+                                link.download = `CUI-${company.name}.pdf`
+                                link.click()
+                              }
+                            }}
                             className="inline-flex items-center px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors text-sm font-medium"
                             title="Previzualizează CUI"
                           >
@@ -214,7 +221,14 @@ const CompanyDetail = () => {
                             Vezi Document
                           </button>
                           <button
-                            onClick={() => window.open(`http://localhost:5001/api/pdf/${company.id}`, '_blank')}
+                            onClick={() => {
+                              if (company.cui_file) {
+                                const link = document.createElement('a')
+                                link.href = company.cui_file
+                                link.download = `CUI-${company.name}.pdf`
+                                link.click()
+                              }
+                            }}
                             className="inline-flex items-center px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium"
                             title="Descarcă CUI"
                           >
@@ -332,9 +346,12 @@ const CompanyDetail = () => {
                           </p>
                           <button
                             onClick={() => {
-                              if (company.cuiFile) {
-                                window.open(`http://localhost:5001/api/pdf/${company.id}`, '_blank')
-                              } else {
+                              if (company.cui_file) {
+                                const link = document.createElement('a')
+                                link.href = company.cui_file
+                                link.download = `CUI-${company.name}.pdf`
+                                link.click()
+                              } else if (company.documents && company.documents[0]) {
                                 handleDownloadDocument(company.documents[0])
                               }
                             }}

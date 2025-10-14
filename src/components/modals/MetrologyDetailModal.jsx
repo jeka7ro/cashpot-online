@@ -160,7 +160,7 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                   Document CVT
                 </h4>
                 <PDFViewer 
-                  pdfUrl={item.cvtFile ? `http://localhost:5001/api/cvt-pdf/${item.id}` : null}
+                  pdfUrl={item.cvtFile || null}
                   title="CVT Document"
                   placeholder="Nu există document CVT"
                   placeholderSubtext="Atașează documentul CVT pentru vizualizare"
