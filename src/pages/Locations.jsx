@@ -365,8 +365,20 @@ const Locations = () => {
     }
   }
 
-  const handleExport = async () => {
-    await exportToExcel, exportToPDF('locations', 'excel')
+  const handleExportExcel = () => {
+    try {
+      exportToExcel('locations')
+    } catch (error) {
+      console.error('Error exporting to Excel:', error)
+    }
+  }
+
+  const handleExportPDF = () => {
+    try {
+      exportToPDF('locations')
+    } catch (error) {
+      console.error('Error exporting to PDF:', error)
+    }
   }
 
   const handleImport = () => {

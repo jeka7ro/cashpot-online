@@ -207,8 +207,20 @@ const Providers = () => {
     setEditingItem(null)
   }
 
-  const handleExport = async () => {
-    await exportToExcel, exportToPDF('providers', 'excel')
+  const handleExportExcel = () => {
+    try {
+      exportToExcel('providers')
+    } catch (error) {
+      console.error('Error exporting to Excel:', error)
+    }
+  }
+
+  const handleExportPDF = () => {
+    try {
+      exportToPDF('providers')
+    } catch (error) {
+      console.error('Error exporting to PDF:', error)
+    }
   }
 
   const handleImport = () => {
