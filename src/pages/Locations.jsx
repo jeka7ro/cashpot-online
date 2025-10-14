@@ -297,31 +297,52 @@ const Locations = () => {
 
   const handleSave = async (data) => {
     try {
-      const formData = new FormData()
+      const hasFile = data.planFile && data.planFile instanceof File
       
-      // Add all fields to FormData
-      Object.keys(data).forEach(key => {
-        if (key === 'planFile' && data[key] instanceof File) {
-          formData.append('planFile', data[key])
-        } else if (key !== 'planFile') {
-          formData.append(key, data[key])
+      if (hasFile) {
+        // Use FormData when there's a file
+        const formData = new FormData()
+        Object.keys(data).forEach(key => {
+          if (key === 'planFile' && data[key] instanceof File) {
+            formData.append('planFile', data[key])
+          } else if (key !== 'planFile') {
+            formData.append(key, data[key])
+          }
+        })
+        
+        if (editingItem) {
+          const response = await fetch(`/api/locations/${editingItem.id}`, {
+            method: 'PUT',
+            body: formData
+          })
+          if (!response.ok) throw new Error('Failed to update location')
+        } else {
+          const response = await fetch('/api/locations', {
+            method: 'POST',
+            body: formData
+          })
+          if (!response.ok) throw new Error('Failed to create location')
         }
-      })
-      
-      if (editingItem) {
-        // Update existing location
-        const response = await fetch(`/api/locations/${editingItem.id}`, {
-          method: 'PUT',
-          body: formData
-        })
-        if (!response.ok) throw new Error('Failed to update location')
       } else {
-        // Create new location
-        const response = await fetch('/api/locations', {
-          method: 'POST',
-          body: formData
-        })
-        if (!response.ok) throw new Error('Failed to create location')
+        // Use JSON when there's no file
+        const jsonData = { ...data }
+        delete jsonData.planFile
+        
+        if (editingItem) {
+          const response = await fetch(`/api/locations/${editingItem.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(jsonData)
+          })
+          if (!response.ok) throw new Error('Failed to update location')
+        } else {
+          const response = await fetch('/api/locations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(jsonData)
+          })
+          if (!response.ok) throw new Error('Failed to create location')
+        }
       }
       
       // Refresh data
