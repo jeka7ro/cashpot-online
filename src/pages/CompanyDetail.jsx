@@ -320,7 +320,7 @@ const CompanyDetail = () => {
                         </h3>
                         <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-4 mb-4">
                           <PDFViewer 
-                            pdfUrl={company.cui_file ? `http://localhost:5001/api/pdf/${company.id}` : (company.documents && company.documents[0]?.file_path ? company.documents[0].file_path : null)}
+                            pdfUrl={company.cui_file || (company.documents && company.documents[0]?.file_path ? company.documents[0].file_path : null)}
                             title={company.cui_file ? `CUI Document ${company.name}` : (company.documents && company.documents[0] ? `PDF ${company.documents[0].name}` : "Document PDF")}
                             placeholder="Nu există documente de afișat"
                             placeholderSubtext="Atașează primul document sau CUI pentru a începe"
