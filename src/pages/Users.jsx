@@ -115,8 +115,17 @@ const Users = () => {
   }
 
   const handleDelete = async (id) => {
-    if (window.confirm('Sigur vrei să ștergi acest utilizator?')) {
-      await deleteItem('users', id)
+    const confirmed = window.confirm('Sigur vrei să ștergi acest utilizator?')
+    if (!confirmed) return
+    
+    try {
+      const result = await deleteItem('users', id)
+      if (!result.success) {
+        toast.error('Eroare la ștergerea utilizatorului')
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      toast.error('Eroare la ștergerea utilizatorului')
     }
   }
 
