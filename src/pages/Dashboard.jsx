@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
+import { toast } from 'react-hot-toast'
 import Layout from '../components/Layout'
 import StatCard from '../components/StatCard'
 import QuickActions from '../components/QuickActions'
@@ -138,7 +139,6 @@ const Dashboard = () => {
   const saveDashboardConfig = async () => {
     const configToSave = {
       ...dashboardConfig,
-      statCards: defaultDashboardConfig.statCards, // Forțează cardurile să fie OFF
       cardSizes,
       widgetSizes
     }
@@ -154,6 +154,7 @@ const Dashboard = () => {
       // Salvează și local pentru backup
       localStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
       
+      toast.success('Configurația dashboard-ului a fost salvată cu succes!')
       setIsEditing(false)
       setSelectedCards([])
       setSelectedWidgets([])
@@ -161,6 +162,7 @@ const Dashboard = () => {
       console.error('Error saving dashboard preferences:', error)
       // Fallback la localStorage dacă serverul nu funcționează
       localStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
+      toast.success('Configurația a fost salvată local!')
       setIsEditing(false)
       setSelectedCards([])
       setSelectedWidgets([])
