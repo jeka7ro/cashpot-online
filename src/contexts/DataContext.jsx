@@ -81,25 +81,49 @@ export const DataProvider = ({ children }) => {
     try {
       const entities = Object.keys(entityConfig)
       
-      // Fetch ALL entities in parallel - no batching, no delays!
-      const requests = entities.map(entity => 
+      // Priority entities - load first
+      const priorityEntities = ['companies', 'locations', 'providers', 'slots']
+      const regularEntities = entities.filter(e => !priorityEntities.includes(e))
+      
+      // Fetch priority entities first (for dashboard)
+      const priorityRequests = priorityEntities.map(entity => 
         axios.get(`/api/${entity}`, { timeout: 30000 }).catch((error) => {
           console.error(`❌ Error fetching ${entity}:`, error)
           return { data: [] }
         })
       )
       
-      console.log(`📡 Making ${requests.length} parallel requests...`)
-      const responses = await Promise.all(requests)
+      console.log(`📡 Making ${priorityRequests.length} priority requests...`)
+      const priorityResponses = await Promise.all(priorityRequests)
       
-      responses.forEach((response, index) => {
-        const entity = entities[index]
+      priorityResponses.forEach((response, index) => {
+        const entity = priorityEntities[index]
         const data = Array.isArray(response.data) ? response.data : []
         console.log(`✅ ${entity}: ${data.length} items`)
         entityConfig[entity].setState(data)
       })
       
-      console.log('⚡ All data loaded in parallel!')
+      console.log('⚡ Priority data loaded!')
+      
+      // Fetch remaining entities in background
+      const regularRequests = regularEntities.map(entity => 
+        axios.get(`/api/${entity}`, { timeout: 30000 }).catch((error) => {
+          console.error(`❌ Error fetching ${entity}:`, error)
+          return { data: [] }
+        })
+      )
+      
+      console.log(`📡 Loading ${regularRequests.length} remaining entities in background...`)
+      const regularResponses = await Promise.all(regularRequests)
+      
+      regularResponses.forEach((response, index) => {
+        const entity = regularEntities[index]
+        const data = Array.isArray(response.data) ? response.data : []
+        console.log(`✅ ${entity}: ${data.length} items`)
+        entityConfig[entity].setState(data)
+      })
+      
+      console.log('⚡ All data loaded!')
     } catch (error) {
       console.error('Error fetching data:', error)
       toast.error('Eroare la încărcarea datelor')
@@ -110,7 +134,12 @@ export const DataProvider = ({ children }) => {
 
   useEffect(() => {
     console.log('🚀 DataContext useEffect triggered')
-    fetchAllData()
+    // Delay data fetching to allow login to complete first
+    const timer = setTimeout(() => {
+      fetchAllData()
+    }, 500)
+    
+    return () => clearTimeout(timer)
   }, [])
 
   // Create item
