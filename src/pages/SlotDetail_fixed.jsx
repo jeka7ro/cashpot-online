@@ -16,7 +16,7 @@ const SlotDetail = () => {
   const slot = slots?.find(s => s.id === id || s.serial_number === id)
 
   useEffect(() => {
-    const savedShowAttachments = localStorage.getItem('showAttachments')
+    const savedShowAttachments = // localStorage REMOVED - using server only.getItem('showAttachments')
     if (savedShowAttachments !== null) {
       setShowAttachments(JSON.parse(savedShowAttachments))
     }
@@ -24,7 +24,7 @@ const SlotDetail = () => {
 
   const saveAttachmentSettings = (value) => {
     setShowAttachments(value)
-    localStorage.setItem('showAttachments', JSON.stringify(value))
+    // localStorage REMOVED - using server only.setItem('showAttachments', JSON.stringify(value))
   }
 
   const getLocationName = (locationId) => {

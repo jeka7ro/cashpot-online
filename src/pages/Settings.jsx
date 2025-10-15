@@ -84,13 +84,7 @@ const Settings = () => {
         }
       }
     } catch (error) {
-      console.log('⚠️ Could not load settings from server, using localStorage')
-    }
-    
-    // Fallback to localStorage
-    const savedSettings = localStorage.getItem('appSettings')
-    if (savedSettings) {
-      setSettings(JSON.parse(savedSettings))
+      console.log('⚠️ Could not load settings from server')
     }
   }
 
@@ -245,7 +239,7 @@ const Settings = () => {
 
   const handleSave = async () => {
     try {
-      // Save to server first
+      // Save to server only
       const response = await axios.get('/api/auth/verify')
       if (response.data.success && response.data.user) {
         await axios.put(`/api/users/${response.data.user.id}/preferences`, {
@@ -257,10 +251,9 @@ const Settings = () => {
       }
     } catch (error) {
       console.error('❌ Error saving to server:', error)
+      alert('Eroare la salvarea setărilor pe server!')
+      return
     }
-    
-    // Also save to localStorage as backup
-    localStorage.setItem('appSettings', JSON.stringify(settings))
     
     // Update favicon in HTML if it exists
     if (settings.favicon.file) {
@@ -307,7 +300,22 @@ const Settings = () => {
         }
       }
       setSettings(defaultSettings)
-      localStorage.removeItem('appSettings')
+      
+      // Save reset settings to server
+      try {
+        const response = await axios.get('/api/auth/verify')
+        if (response.data.success && response.data.user) {
+          await axios.put(`/api/users/${response.data.user.id}/preferences`, {
+            preferences: {
+              appSettings: defaultSettings
+            }
+          })
+          console.log('✅ Reset settings saved to server')
+        }
+      } catch (error) {
+        console.error('❌ Error saving reset settings to server:', error)
+      }
+      
       document.body.style.backgroundColor = '#f1f5f9'
       document.body.style.backgroundImage = 'none'
       alert('Setările au fost resetate!')

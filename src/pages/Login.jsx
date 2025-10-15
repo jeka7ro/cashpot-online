@@ -37,8 +37,8 @@ const Login = () => {
   })
 
   useEffect(() => {
-    // Load settings from localStorage
-    const savedSettings = localStorage.getItem('appSettings')
+    // Load settings from // localStorage REMOVED - using server only
+    const savedSettings = // localStorage REMOVED - using server only.getItem('appSettings')
     if (savedSettings) {
       const parsed = JSON.parse(savedSettings)
       setSettings({
@@ -53,7 +53,7 @@ const Login = () => {
     }
 
     // Load saved credentials
-    const savedCredentials = localStorage.getItem('savedCredentials')
+    const savedCredentials = // localStorage REMOVED - using server only.getItem('savedCredentials')
     if (savedCredentials) {
       const credentials = JSON.parse(savedCredentials)
       setFormData({
@@ -86,13 +86,13 @@ const Login = () => {
     if (result.success) {
       // Save credentials if remember password is checked
       if (rememberPassword) {
-        localStorage.setItem('savedCredentials', JSON.stringify({
+        // localStorage REMOVED - using server only.setItem('savedCredentials', JSON.stringify({
           username: formData.username,
           password: formData.password
         }))
       } else {
         // Remove saved credentials if remember password is unchecked
-        localStorage.removeItem('savedCredentials')
+        // localStorage REMOVED - using server only.removeItem('savedCredentials')
       }
       
       navigate('/dashboard', { replace: true })

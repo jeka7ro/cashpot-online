@@ -78,34 +78,7 @@ const Layout = ({ children }) => {
         }
       }
     } catch (error) {
-      console.log('⚠️ Could not load settings from server in Layout, using localStorage')
-    }
-    
-    // Fallback to localStorage
-    const savedSettings = localStorage.getItem('appSettings')
-    if (savedSettings) {
-      const parsed = JSON.parse(savedSettings)
-      setSettings({
-        logo: parsed.logo || settings.logo,
-        headerColor: parsed.headerColor || settings.headerColor,
-        appTitle: parsed.appTitle || settings.appTitle,
-        appSubtitle: parsed.appSubtitle || settings.appSubtitle,
-        favicon: parsed.favicon || settings.favicon
-      })
-      
-      // Update favicon from localStorage
-      if (parsed.favicon && parsed.favicon.file) {
-        const link = document.querySelector("link[rel~='icon']")
-        if (link) {
-          link.href = parsed.favicon.file
-        } else {
-          const faviconLink = document.createElement('link')
-          faviconLink.rel = 'icon'
-          faviconLink.type = 'image/x-icon'
-          faviconLink.href = parsed.favicon.file
-          document.head.appendChild(faviconLink)
-        }
-      }
+      console.log('⚠️ Could not load settings from server in Layout')
     }
   }, [])
 
