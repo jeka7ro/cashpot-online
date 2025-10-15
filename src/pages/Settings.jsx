@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
+import axios from 'axios'
 import DatabaseBackup from '../components/DatabaseBackup'
 import { Settings as SettingsIcon, Upload, Link as LinkIcon, Save, RefreshCw, Palette, Image, Monitor, Layout as LayoutIcon, LogIn, Database } from 'lucide-react'
 
@@ -67,11 +68,31 @@ const Settings = () => {
   })
 
   useEffect(() => {
+    // Load settings from server first, then localStorage as fallback
+    loadSettingsFromServer()
+  }, [])
+
+  const loadSettingsFromServer = async () => {
+    try {
+      const response = await axios.get('/api/auth/verify')
+      if (response.data.success && response.data.user) {
+        const preferences = response.data.user.preferences || {}
+        if (preferences.appSettings) {
+          setSettings(preferences.appSettings)
+          console.log('✅ Loaded app settings from server')
+          return
+        }
+      }
+    } catch (error) {
+      console.log('⚠️ Could not load settings from server, using localStorage')
+    }
+    
+    // Fallback to localStorage
     const savedSettings = localStorage.getItem('appSettings')
     if (savedSettings) {
       setSettings(JSON.parse(savedSettings))
     }
-  }, [])
+  }
 
   const handleLogoTypeChange = (type) => {
     setSettings({
@@ -222,8 +243,40 @@ const Settings = () => {
     })
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    try {
+      // Save to server first
+      const response = await axios.get('/api/auth/verify')
+      if (response.data.success && response.data.user) {
+        await axios.put(`/api/users/${response.data.user.id}/preferences`, {
+          preferences: {
+            appSettings: settings
+          }
+        })
+        console.log('✅ App settings saved to server')
+      }
+    } catch (error) {
+      console.error('❌ Error saving to server:', error)
+    }
+    
+    // Also save to localStorage as backup
     localStorage.setItem('appSettings', JSON.stringify(settings))
+    
+    // Update favicon in HTML if it exists
+    if (settings.favicon.file) {
+      const link = document.querySelector("link[rel~='icon']")
+      if (link) {
+        link.href = settings.favicon.file
+      } else {
+        // Create favicon link if it doesn't exist
+        const faviconLink = document.createElement('link')
+        faviconLink.rel = 'icon'
+        faviconLink.type = 'image/x-icon'
+        faviconLink.href = settings.favicon.file
+        document.head.appendChild(faviconLink)
+      }
+    }
+    
     applySettings()
     alert('Setările au fost salvate cu succes!')
   }

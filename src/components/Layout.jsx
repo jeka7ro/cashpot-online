@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import axios from 'axios'
 import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useTheme } from '../contexts/ThemeContext'
@@ -46,6 +47,41 @@ const Layout = ({ children }) => {
   })
 
   React.useEffect(() => {
+    // Load settings from server first, then localStorage as fallback
+    loadSettingsFromServer()
+  }, [])
+
+  const loadSettingsFromServer = async () => {
+    try {
+      const response = await axios.get('/api/auth/verify')
+      if (response.data.success && response.data.user) {
+        const preferences = response.data.user.preferences || {}
+        if (preferences.appSettings) {
+          setSettings(preferences.appSettings)
+          
+          // Update favicon if it exists
+          if (preferences.appSettings.favicon && preferences.appSettings.favicon.file) {
+            const link = document.querySelector("link[rel~='icon']")
+            if (link) {
+              link.href = preferences.appSettings.favicon.file
+            } else {
+              const faviconLink = document.createElement('link')
+              faviconLink.rel = 'icon'
+              faviconLink.type = 'image/x-icon'
+              faviconLink.href = preferences.appSettings.favicon.file
+              document.head.appendChild(faviconLink)
+            }
+          }
+          
+          console.log('✅ Loaded app settings in Layout from server')
+          return
+        }
+      }
+    } catch (error) {
+      console.log('⚠️ Could not load settings from server in Layout, using localStorage')
+    }
+    
+    // Fallback to localStorage
     const savedSettings = localStorage.getItem('appSettings')
     if (savedSettings) {
       const parsed = JSON.parse(savedSettings)
@@ -53,8 +89,23 @@ const Layout = ({ children }) => {
         logo: parsed.logo || settings.logo,
         headerColor: parsed.headerColor || settings.headerColor,
         appTitle: parsed.appTitle || settings.appTitle,
-        appSubtitle: parsed.appSubtitle || settings.appSubtitle
+        appSubtitle: parsed.appSubtitle || settings.appSubtitle,
+        favicon: parsed.favicon || settings.favicon
       })
+      
+      // Update favicon from localStorage
+      if (parsed.favicon && parsed.favicon.file) {
+        const link = document.querySelector("link[rel~='icon']")
+        if (link) {
+          link.href = parsed.favicon.file
+        } else {
+          const faviconLink = document.createElement('link')
+          faviconLink.rel = 'icon'
+          faviconLink.type = 'image/x-icon'
+          faviconLink.href = parsed.favicon.file
+          document.head.appendChild(faviconLink)
+        }
+      }
     }
   }, [])
 
