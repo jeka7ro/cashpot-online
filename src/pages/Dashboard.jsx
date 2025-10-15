@@ -619,9 +619,6 @@ const Dashboard = () => {
               <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent mb-2">
                 Bun venit, {user?.fullName || 'Administrator'}!
               </h1>
-              <p className="text-slate-600 dark:text-slate-400 text-lg">
-                Panoul principal al sistemului CASHPOT V7
-              </p>
               
               {/* Update Time Popup */}
               {showUpdateTime && (
