@@ -26,6 +26,7 @@ const Slots = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
   const [deleteItemId, setDeleteItemId] = useState(null)
+  const [showCyberImportModal, setShowCyberImportModal] = useState(false)
   
   // Card visibility settings - default OFF
   const [cardVisibility, setCardVisibility] = useState({

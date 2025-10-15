@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { Download, Upload, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 import axios from 'axios'
+import Layout from '../components/Layout'
 
 const CyberImport = () => {
   const [cyberSlots, setCyberSlots] = useState([])
@@ -16,7 +18,7 @@ const CyberImport = () => {
       console.log('✅ Cyber slots loaded:', response.data.length)
     } catch (error) {
       console.error('❌ Error fetching Cyber slots:', error)
-      alert('Eroare la încărcarea datelor Cyber: ' + error.message)
+      toast.error('Eroare la încărcarea datelor Cyber: ' + error.message)
     } finally {
       setLoading(false)
     }
@@ -47,7 +49,7 @@ const CyberImport = () => {
       
     } catch (error) {
       console.error('❌ Error importing slot:', error)
-      alert(`Eroare la importul slotului ${slot.serial_number}: ${error.response?.data?.error || error.message}`)
+      toast.error(`Eroare la importul slotului ${slot.serial_number}: ${error.response?.data?.error || error.message}`)
     } finally {
       setImporting(prev => ({ ...prev, [slot.id]: false }))
     }
@@ -65,13 +67,13 @@ const CyberImport = () => {
       try {
         await importSlot(slot)
         successCount++
-      } catch (error) {
+    } catch (error) {
         console.error('Failed to import slot:', slot.serial_number, error)
       }
     }
     
     setLoading(false)
-    alert(`Import complet! ${successCount} sloturi importate cu succes.`)
+    toast.success(`Import complet! ${successCount} sloturi importate cu succes.`)
     fetchCyberSlots() // Refresh the list
   }
 
@@ -147,17 +149,18 @@ const CyberImport = () => {
   ]
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <Layout>
+      <div className="space-y-6">
+        {/* Header */}
       <div className="card p-6">
         <div className="flex items-center justify-between">
-          <div>
+            <div>
             <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 mb-2">
               Import Cyber → CASHPOT
-            </h1>
-            <p className="text-slate-600 dark:text-slate-400">
+              </h1>
+              <p className="text-slate-600 dark:text-slate-400">
               Importă sloturile din sistemul Cyber în CASHPOT
-            </p>
+              </p>
           </div>
           <div className="flex space-x-4">
             <button
@@ -180,20 +183,20 @@ const CyberImport = () => {
             )}
           </div>
         </div>
-        
+
         {/* Stats */}
         <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-blue-100 dark:bg-blue-800/40 rounded-lg">
                 <AlertCircle className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-              </div>
+            </div>
               <div>
                 <p className="text-sm text-slate-600 dark:text-slate-400">Disponibile</p>
                 <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                   {cyberSlots.length}
                 </p>
-              </div>
+            </div>
             </div>
           </div>
           
@@ -201,7 +204,7 @@ const CyberImport = () => {
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-green-100 dark:bg-green-800/40 rounded-lg">
                 <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
-              </div>
+        </div>
               <div>
                 <p className="text-sm text-slate-600 dark:text-slate-400">Importate</p>
                 <p className="text-2xl font-bold text-green-600 dark:text-green-400">
@@ -210,13 +213,13 @@ const CyberImport = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-purple-100 dark:bg-purple-800/40 rounded-lg">
                 <Upload className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-              </div>
-              <div>
+                    </div>
+                    <div>
                 <p className="text-sm text-slate-600 dark:text-slate-400">Progres</p>
                 <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                   {cyberSlots.length > 0 ? Math.round((importedCount / (cyberSlots.length + importedCount)) * 100) : 0}%
@@ -224,47 +227,47 @@ const CyberImport = () => {
               </div>
             </div>
           </div>
+          </div>
         </div>
-      </div>
 
       {/* Table */}
       <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
+          <div className="overflow-x-auto">
           <table className="w-full min-w-[800px] bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700">
             <thead className="table-header bg-gradient-to-r from-blue-50/80 to-blue-100/80 dark:from-blue-900/20 dark:to-blue-800/20">
-              <tr>
+                <tr>
                 <th className="text-left p-6 font-bold text-blue-800 dark:text-blue-200 text-base uppercase tracking-wider w-16">#</th>
                 {columns.map((column) => (
-                  <th 
-                    key={column.key}
+                    <th
+                      key={column.key}
                     className="text-left p-6 font-bold text-blue-800 dark:text-blue-200 text-base uppercase tracking-wider cursor-pointer hover:bg-blue-100/60 dark:hover:bg-blue-700/30 transition-colors"
-                  >
+                    >
                     {column.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
             <tbody className="divide-y divide-slate-200/50 dark:divide-slate-700/50">
-              {loading ? (
-                <tr>
+                {loading ? (
+                  <tr>
                   <td colSpan={columns.length + 1} className="p-8 text-center">
                     <div className="flex items-center justify-center space-x-3">
                       <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
                       <span className="text-slate-600 dark:text-slate-400">Se încarcă sloturile Cyber...</span>
-                    </div>
-                  </td>
-                </tr>
+                      </div>
+                    </td>
+                  </tr>
               ) : cyberSlots.length === 0 ? (
-                <tr>
+                  <tr>
                   <td colSpan={columns.length + 1} className="p-8 text-center">
-                    <div className="text-slate-500 dark:text-slate-400">
+                      <div className="text-slate-500 dark:text-slate-400">
                       <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
                       <p className="text-lg">Nu există sloturi Cyber disponibile</p>
                       <p className="text-sm">Apasă Refresh pentru a încărca datele</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
                 cyberSlots.map((item, idx) => (
                   <tr key={item.id} className="table-row hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors">
                     <td className="p-6 text-slate-600 dark:text-slate-400 font-semibold text-base">
@@ -272,17 +275,18 @@ const CyberImport = () => {
                     </td>
                     {columns.map((column) => (
                       <td key={column.key} className="p-6 text-base font-medium text-slate-700 dark:text-slate-300">
-                        {column.render ? column.render(item) : item[column.key]}
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                          {column.render ? column.render(item) : item[column.key]}
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
         </div>
       </div>
-    </div>
+      </div>
+    </Layout>
   )
 }
 
