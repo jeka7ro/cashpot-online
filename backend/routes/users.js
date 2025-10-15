@@ -15,6 +15,34 @@ router.get('/', async (req, res) => {
   }
 })
 
+// GET /api/users/:id
+router.get('/:id', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('-password')
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' })
+    res.json(user)
+  } catch (error) {
+    console.error('Error fetching user:', error)
+    res.status(500).json({ success: false, message: 'Error fetching user' })
+  }
+})
+
+// PUT /api/users/:id/preferences (for dashboard sync)
+router.put('/:id/preferences', async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { preferences: req.body },
+      { new: true, runValidators: true }
+    ).select('-password')
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' })
+    res.json(user)
+  } catch (error) {
+    console.error('Error updating preferences:', error)
+    res.status(500).json({ success: false, message: 'Error updating preferences' })
+  }
+})
+
 // POST /api/users
 router.post(
   '/',

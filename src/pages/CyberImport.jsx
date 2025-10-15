@@ -70,18 +70,20 @@ const CyberImport = () => {
     setLoading(true)
     try {
       const response = await axios.get('/api/cyber/slots', { timeout: 5000 })
-      setCyberData(response.data)
-      setFilteredData(response.data)
-      toast.success(`Încărcate ${response.data.length} sloturi din Cyber`)
+      const data = Array.isArray(response.data) ? response.data : []
+      setCyberData(data)
+      setFilteredData(data)
+      toast.success(`Încărcate ${data.length} sloturi din Cyber`)
     } catch (error) {
       console.error('Error fetching Cyber slots from API, loading from JSON file:', error)
       
       // Fallback to real data from JSON file
       try {
         const response = await axios.get('/cyber-slots.json')
-        setCyberData(response.data)
-        setFilteredData(response.data)
-        toast.success(`Încărcate ${response.data.length} sloturi din fișierul Cyber`)
+        const data = Array.isArray(response.data) ? response.data : []
+        setCyberData(data)
+        setFilteredData(data)
+        toast.success(`Încărcate ${data.length} sloturi din fișierul Cyber`)
       } catch (fileError) {
         console.error('Error loading from JSON file, using demo data:', fileError)
         
@@ -136,18 +138,20 @@ const CyberImport = () => {
     setLoading(true)
     try {
       const response = await axios.get('/api/cyber/locations', { timeout: 5000 })
-      setCyberLocations(response.data)
-      setFilteredLocations(response.data)
-      toast.success(`Încărcate ${response.data.length} locații din Cyber`)
+      const data = Array.isArray(response.data) ? response.data : []
+      setCyberLocations(data)
+      setFilteredLocations(data)
+      toast.success(`Încărcate ${data.length} locații din Cyber`)
     } catch (error) {
       console.error('Error fetching Cyber locations from API, loading from JSON file:', error)
       
       // Fallback to real data from JSON file
       try {
         const response = await axios.get('/cyber-locations.json')
-        setCyberLocations(response.data)
-        setFilteredLocations(response.data)
-        toast.success(`Încărcate ${response.data.length} locații din fișierul Cyber`)
+        const data = Array.isArray(response.data) ? response.data : []
+        setCyberLocations(data)
+        setFilteredLocations(data)
+        toast.success(`Încărcate ${data.length} locații din fișierul Cyber`)
       } catch (fileError) {
         console.error('Error loading from JSON file, using demo data:', fileError)
         
