@@ -1,5 +1,4 @@
 import express from 'express'
-import Company from '../models/Company.js'
 import { body, validationResult } from 'express-validator'
 import XLSX from 'xlsx'
 
@@ -10,210 +9,161 @@ router.get('/', async (req, res) => {
   try {
     const { search, status, page = 1, limit = 15 } = req.query
     
-    let query = {}
-    
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ error: 'Database connection not available' })
+    }
+
+    let query = 'SELECT * FROM companies WHERE 1=1'
+    let params = []
+    let paramCount = 0
+
     if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { license: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { contactPerson: { $regex: search, $options: 'i' } }
-      ]
+      paramCount++
+      query += ` AND (name ILIKE $${paramCount} OR cui ILIKE $${paramCount} OR email ILIKE $${paramCount} OR contact_person ILIKE $${paramCount})`
+      params.push(`%${search}%`)
     }
-    
+
     if (status) {
-      query.status = status
+      paramCount++
+      query += ` AND status = $${paramCount}`
+      params.push(status)
     }
+
+    // Add pagination
+    const offset = (page - 1) * limit
+    paramCount++
+    query += ` ORDER BY created_at DESC LIMIT $${paramCount}`
+    params.push(limit)
     
-    const companies = await Company.find(query)
-      .populate('createdBy', 'username fullName')
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-    
-    const total = await Company.countDocuments(query)
-    
-    res.json(companies)
+    paramCount++
+    query += ` OFFSET $${paramCount}`
+    params.push(offset)
+
+    const result = await pool.query(query, params)
+    res.json(result.rows)
+
   } catch (error) {
-    console.error('Get companies error:', error)
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching companies'
-    })
+    console.error('Error fetching companies:', error)
+    res.status(500).json({ error: error.message })
   }
 })
 
-// Get single company
+// Get company by ID
 router.get('/:id', async (req, res) => {
   try {
-    const company = await Company.findById(req.params.id)
-      .populate('createdBy', 'username fullName')
-    
-    if (!company) {
-      return res.status(404).json({
-        success: false,
-        message: 'Company not found'
-      })
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ error: 'Database connection not available' })
     }
+
+    const result = await pool.query('SELECT * FROM companies WHERE id = $1', [req.params.id])
     
-    res.json(company)
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Company not found' })
+    }
+
+    res.json(result.rows[0])
+
   } catch (error) {
-    console.error('Get company error:', error)
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching company'
-    })
+    console.error('Error fetching company:', error)
+    res.status(500).json({ error: error.message })
   }
 })
 
-// Create company
+// Create new company
 router.post('/', [
   body('name').notEmpty().withMessage('Company name is required'),
-  body('license').notEmpty().withMessage('License number is required'),
-  body('email').isEmail().withMessage('Valid email is required'),
-  body('phone').notEmpty().withMessage('Phone number is required'),
-  body('address').notEmpty().withMessage('Address is required'),
-  body('contactPerson').notEmpty().withMessage('Contact person is required')
+  body('cui').notEmpty().withMessage('CUI is required'),
+  body('email').isEmail().withMessage('Valid email is required')
 ], async (req, res) => {
   try {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation error',
-        errors: errors.array()
-      })
+      return res.status(400).json({ errors: errors.array() })
     }
 
-    const companyData = {
-      ...req.body,
-      createdBy: req.user?.id || '000000000000000000000000' // Default admin ID
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ error: 'Database connection not available' })
     }
 
-    const company = new Company(companyData)
-    await company.save()
-    
-    res.status(201).json(company)
+    const { name, cui, registrationNumber, address, city, county, phone, email, website, contactPerson, documents } = req.body
+
+    const result = await pool.query(
+      `INSERT INTO companies (name, cui, registration_number, address, city, county, phone, email, website, contact_person, documents, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+       RETURNING *`,
+      [name, cui, registrationNumber, address, city, county, phone, email, website, contactPerson, documents || []]
+    )
+
+    res.status(201).json(result.rows[0])
+
   } catch (error) {
-    console.error('Create company error:', error)
-    if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: 'Company with this license already exists'
-      })
-    }
-    res.status(500).json({
-      success: false,
-      message: 'Error creating company'
-    })
+    console.error('Error creating company:', error)
+    res.status(500).json({ error: error.message })
   }
 })
 
 // Update company
 router.put('/:id', [
-  body('name').optional().notEmpty().withMessage('Company name cannot be empty'),
-  body('license').optional().notEmpty().withMessage('License number cannot be empty'),
-  body('email').optional().isEmail().withMessage('Valid email is required'),
-  body('phone').optional().notEmpty().withMessage('Phone number cannot be empty'),
-  body('address').optional().notEmpty().withMessage('Address cannot be empty'),
-  body('contactPerson').optional().notEmpty().withMessage('Contact person cannot be empty')
+  body('name').notEmpty().withMessage('Company name is required'),
+  body('cui').notEmpty().withMessage('CUI is required'),
+  body('email').isEmail().withMessage('Valid email is required')
 ], async (req, res) => {
   try {
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation error',
-        errors: errors.array()
-      })
+      return res.status(400).json({ errors: errors.array() })
     }
 
-    const company = await Company.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ error: 'Database connection not available' })
+    }
+
+    const { name, cui, registrationNumber, address, city, county, phone, email, website, contactPerson, documents } = req.body
+
+    const result = await pool.query(
+      `UPDATE companies SET 
+       name = $1, cui = $2, registration_number = $3, address = $4, city = $5, county = $6, 
+       phone = $7, email = $8, website = $9, contact_person = $10, documents = $11, updated_at = NOW()
+       WHERE id = $12
+       RETURNING *`,
+      [name, cui, registrationNumber, address, city, county, phone, email, website, contactPerson, documents || [], req.params.id]
     )
-    
-    if (!company) {
-      return res.status(404).json({
-        success: false,
-        message: 'Company not found'
-      })
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Company not found' })
     }
-    
-    res.json(company)
+
+    res.json(result.rows[0])
+
   } catch (error) {
-    console.error('Update company error:', error)
-    if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: 'Company with this license already exists'
-      })
-    }
-    res.status(500).json({
-      success: false,
-      message: 'Error updating company'
-    })
+    console.error('Error updating company:', error)
+    res.status(500).json({ error: error.message })
   }
 })
 
 // Delete company
 router.delete('/:id', async (req, res) => {
   try {
-    const company = await Company.findByIdAndDelete(req.params.id)
-    
-    if (!company) {
-      return res.status(404).json({
-        success: false,
-        message: 'Company not found'
-      })
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ error: 'Database connection not available' })
     }
-    
-    res.json({
-      success: true,
-      message: 'Company deleted successfully'
-    })
-  } catch (error) {
-    console.error('Delete company error:', error)
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting company'
-    })
-  }
-})
 
-// Export companies
-router.get('/export/excel', async (req, res) => {
-  try {
-    const companies = await Company.find().populate('createdBy', 'username fullName')
-    
-    const data = companies.map(company => ({
-      'Nume Companie': company.name,
-      'Licență': company.license,
-      'Email': company.email,
-      'Telefon': company.phone,
-      'Adresă': company.address,
-      'Contact': company.contactPerson,
-      'Status': company.status,
-      'Creat de': company.createdBy?.fullName || 'N/A',
-      'Data Creării': company.createdAt.toLocaleDateString('ro-RO')
-    }))
-    
-    const worksheet = XLSX.utils.json_to_sheet(data)
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Companii')
-    
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' })
-    
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    res.setHeader('Content-Disposition', 'attachment; filename=companii.xlsx')
-    res.send(buffer)
+    const result = await pool.query('DELETE FROM companies WHERE id = $1 RETURNING *', [req.params.id])
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Company not found' })
+    }
+
+    res.json({ message: 'Company deleted successfully' })
+
   } catch (error) {
-    console.error('Export companies error:', error)
-    res.status(500).json({
-      success: false,
-      message: 'Error exporting companies'
-    })
+    console.error('Error deleting company:', error)
+    res.status(500).json({ error: error.message })
   }
 })
 
