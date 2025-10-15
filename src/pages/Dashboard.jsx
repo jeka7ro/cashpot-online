@@ -12,6 +12,7 @@ import ONJNCalendar from '../components/ONJNCalendar'
 import DatabaseBackup from '../components/DatabaseBackup'
 import ONJNCurrencyRate from '../components/ONJNCurrencyRate'
 import GamesLibraryWidget from '../components/GamesLibraryWidget'
+import { getVersion, getBuild, getBuildDate } from '../utils/version'
 import { 
   Building2, 
   MapPin, 
@@ -665,10 +666,10 @@ const Dashboard = () => {
             </div>
             <div className="text-right">
               <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-                v7.0.1
+                v{getVersion()}
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400">
-                Build: 29.09.2025, 11:15
+                Build #{getBuild()}: {getBuildDate()}
                 </div>
               </div>
             </div>
