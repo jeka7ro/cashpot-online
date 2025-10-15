@@ -37,7 +37,7 @@ dotenv.config()
 
 const { Pool } = pg
 const app = express()
-const PORT = process.env.PORT || 5000
+const PORT = process.env.PORT || 5001
 
 // Make pool available to routes
 app.set('pool', pool)

@@ -16,7 +16,7 @@ services:
       - key: JWT_SECRET
         value: cashpot-secret-key-2024-very-secure
       - key: CORS_ORIGIN
-        value: https://cashpot-frontend.vercel.app
+        value: https://w1n.ro
       - key: AWS_ACCESS_KEY_ID
         sync: false
       - key: AWS_SECRET_ACCESS_KEY
