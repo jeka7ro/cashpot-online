@@ -11,10 +11,7 @@ export const useTheme = () => {
 }
 
 export const ThemeProvider = ({ children }) => {
-  const [theme, setTheme] = useState(() => {
-    // localStorage REMOVED - using server only
-    return 'light'
-  })
+  const [theme, setTheme] = useState('light')
 
   useEffect(() => {
     // localStorage REMOVED - using server only
