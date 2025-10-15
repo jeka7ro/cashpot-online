@@ -67,6 +67,9 @@ const initializeDatabase = async () => {
         email VARCHAR(255),
         role VARCHAR(50) DEFAULT 'admin',
         avatar TEXT,
+        permissions JSONB DEFAULT '{}',
+        notes TEXT,
+        status VARCHAR(50) DEFAULT 'active',
         preferences JSONB DEFAULT '{}',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -719,6 +722,16 @@ const initializeDatabase = async () => {
       console.log('⚠️ Approvals new fields may already exist:', error.message)
     }
 
+    // Add new fields to users table
+    try {
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT \'{}\'')
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS notes TEXT')
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT \'active\'')
+      console.log('✅ Users table updated with new fields')
+    } catch (error) {
+      console.log('⚠️ Users new fields may already exist:', error.message)
+    }
+
     console.log('✅ Database schema initialized')
   } catch (error) {
     console.error('❌ Database initialization error:', error)
@@ -956,14 +969,66 @@ app.post('/api/auth/login', async (req, res) => {
       success: true,
       token,
       user: {
+        id: user.id,
         username: user.username,
         fullName: user.full_name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        avatar: user.avatar,
+        permissions: user.permissions,
+        notes: user.notes,
+        status: user.status
       }
     })
   } catch (error) {
     res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Verify token
+app.get('/api/auth/verify', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1]
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'No token provided'
+      })
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'cashpot-secret-key-2024')
+    const result = await pool.query('SELECT * FROM users WHERE id = $1', [decoded.userId])
+    
+    if (result.rows.length === 0) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not found'
+      })
+    }
+
+    const user = result.rows[0]
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        fullName: user.full_name,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar,
+        permissions: user.permissions,
+        notes: user.notes,
+        status: user.status
+      }
+    })
+  } catch (error) {
+    console.error('Token verification error:', error)
+    res.status(401).json({
+      success: false,
+      message: 'Invalid token'
+    })
   }
 })
 
