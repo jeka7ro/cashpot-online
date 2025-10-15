@@ -1,10 +1,10 @@
 import express from 'express'
-import { getMarinaConnection } from '../config/marina.js'
+import { getCyberConnection } from '../config/cyber.js'
 
 const router = express.Router()
 
-// Import slots from Marina
-router.post('/slots/import-marina', async (req, res) => {
+// Import slots from Cyber
+router.post('/slots/import-cyber', async (req, res) => {
   try {
     const { items } = req.body
     
@@ -12,8 +12,8 @@ router.post('/slots/import-marina', async (req, res) => {
       return res.status(400).json({ error: 'Items array is required' })
     }
 
-    const marinaPool = getMarinaConnection()
-    const connection = await marinaPool.getConnection()
+    const cyberPool = getCyberConnection()
+    const connection = await cyberPool.getConnection()
     
     let imported = 0
     let errors = []
@@ -94,8 +94,8 @@ router.post('/locations/import-marina', async (req, res) => {
       return res.status(400).json({ error: 'Items array is required' })
     }
 
-    const marinaPool = getMarinaConnection()
-    const connection = await marinaPool.getConnection()
+    const cyberPool = getCyberConnection()
+    const connection = await cyberPool.getConnection()
     
     let imported = 0
     let errors = []
