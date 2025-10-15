@@ -2504,13 +2504,26 @@ app.get('/api/cyber/slots', async (req, res) => {
   try {
     console.log('🔄 Loading slots from JSON (Render mode)')
     const slotsPath = path.join(__dirname, 'cyber-data', 'slots.json')
+    console.log('📁 Looking for slots.json at:', slotsPath)
+    console.log('📁 File exists:', fs.existsSync(slotsPath))
+    
     if (fs.existsSync(slotsPath)) {
       const slots = JSON.parse(fs.readFileSync(slotsPath, 'utf8'))
       console.log(`✅ Loaded ${slots.length} slots from JSON`)
       res.json(slots)
     } else {
-      console.log('❌ slots.json not found')
-      res.json([])
+      console.log('❌ slots.json not found at:', slotsPath)
+      // Try alternative path
+      const altPath = path.join(process.cwd(), 'backend', 'cyber-data', 'slots.json')
+      console.log('📁 Trying alternative path:', altPath)
+      if (fs.existsSync(altPath)) {
+        const slots = JSON.parse(fs.readFileSync(altPath, 'utf8'))
+        console.log(`✅ Loaded ${slots.length} slots from alternative path`)
+        res.json(slots)
+      } else {
+        console.log('❌ slots.json not found at alternative path either')
+        res.json([])
+      }
     }
   } catch (error) {
     console.error('❌ Error loading slots:', error.message)
@@ -2522,12 +2535,21 @@ app.get('/api/cyber/locations', async (req, res) => {
   try {
     console.log('🔄 Loading locations from JSON (Render mode)')
     const locationsPath = path.join(__dirname, 'cyber-data', 'locations.json')
+    console.log('📁 Looking for locations.json at:', locationsPath)
+    
     if (fs.existsSync(locationsPath)) {
       const locations = JSON.parse(fs.readFileSync(locationsPath, 'utf8'))
       console.log(`✅ Loaded ${locations.length} locations from JSON`)
       res.json(locations)
     } else {
-      res.json([])
+      const altPath = path.join(process.cwd(), 'backend', 'cyber-data', 'locations.json')
+      if (fs.existsSync(altPath)) {
+        const locations = JSON.parse(fs.readFileSync(altPath, 'utf8'))
+        console.log(`✅ Loaded ${locations.length} locations from alternative path`)
+        res.json(locations)
+      } else {
+        res.json([])
+      }
     }
   } catch (error) {
     console.error('❌ Error loading locations:', error.message)
