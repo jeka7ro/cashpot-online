@@ -255,7 +255,7 @@ const Users = () => {
               selectedItems={selectedItems}
               onSelectAll={handleSelectAll}
               onSelectItem={handleSelectItem}
-          moduleColor="purple"
+          moduleColor="blue"
             />
           )}
         </div>

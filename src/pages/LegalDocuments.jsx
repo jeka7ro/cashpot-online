@@ -214,7 +214,7 @@ const LegalDocuments = () => {
               selectedItems={selectedItems}
               onSelectAll={handleSelectAll}
               onSelectItem={handleSelectItem}
-          moduleColor="teal"
+          moduleColor="blue"
             />
           )}
         </div>

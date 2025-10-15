@@ -223,7 +223,7 @@ const Invoices = () => {
               selectedItems={selectedItems}
               onSelectAll={handleSelectAll}
               onSelectItem={handleSelectItem}
-          moduleColor="pink"
+          moduleColor="blue"
             />
           )}
         </div>

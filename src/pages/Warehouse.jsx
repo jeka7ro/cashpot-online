@@ -380,7 +380,7 @@ const Warehouse = () => {
               selectedItems={selectedItems}
               onSelectAll={handleSelectAll}
               onSelectItem={handleSelectItem}
-          moduleColor="red"
+          moduleColor="blue"
             />
           )}
         </div>
