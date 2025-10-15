@@ -23,6 +23,9 @@ const Slots = () => {
   const [editingSlot, setEditingSlot] = useState(null)
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
+  const [deleteItemId, setDeleteItemId] = useState(null)
   
   // Card visibility settings - default OFF
   const [cardVisibility, setCardVisibility] = useState({
@@ -411,19 +414,21 @@ const Slots = () => {
 
   const handleBulkDelete = async () => {
     if (selectedItems.length === 0) return
-    
-    if (window.confirm(`Ești sigur că vrei să ștergi ${selectedItems.length} sloturi?`)) {
-      try {
-        for (const id of selectedItems) {
-          await deleteItem('slots', id)
-        }
-        setSelectedItems([])
-        setShowBulkActions(false)
-        toast.success(`${selectedItems.length} sloturi șterse cu succes!`)
-      } catch (error) {
-        console.error('Error bulk deleting slots:', error)
-        toast.error('Eroare la ștergerea sloturilor!')
+    setShowBulkDeleteModal(true)
+  }
+
+  const confirmBulkDelete = async () => {
+    try {
+      for (const id of selectedItems) {
+        await deleteItem('slots', id)
       }
+      setSelectedItems([])
+      setShowBulkActions(false)
+      setShowBulkDeleteModal(false)
+      toast.success(`${selectedItems.length} sloturi șterse cu succes!`)
+    } catch (error) {
+      console.error('Error bulk deleting slots:', error)
+      toast.error('Eroare la ștergerea sloturilor!')
     }
   }
 
@@ -435,14 +440,19 @@ const Slots = () => {
   }
 
   const handleDelete = async (id) => {
-    if (window.confirm('Sigur vrei să ștergi acest slot?')) {
-      try {
-        await deleteItem('slots', id)
-        toast.success('Slot șters cu succes!')
-      } catch (error) {
-        toast.error('Eroare la ștergerea slotului')
-        console.error('Error deleting slot:', error)
-      }
+    setDeleteItemId(id)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDelete = async () => {
+    try {
+      await deleteItem('slots', deleteItemId)
+      setShowDeleteModal(false)
+      setDeleteItemId(null)
+      toast.success('Slot șters cu succes!')
+    } catch (error) {
+      toast.error('Eroare la ștergerea slotului')
+      console.error('Error deleting slot:', error)
     }
   }
 
@@ -780,6 +790,89 @@ const Slots = () => {
             onClose={() => setShowModal(false)}
             onSave={handleSave}
           />
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-md w-full mx-4">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="flex-shrink-0">
+                  <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                    <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                    Șterge Slot
+                  </h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Această acțiune nu poate fi anulată
+                  </p>
+                </div>
+              </div>
+              <p className="text-slate-700 dark:text-slate-300 mb-6">
+                Ești sigur că vrei să ștergi acest slot? Toate datele asociate vor fi șterse permanent.
+              </p>
+              <div className="flex space-x-3 justify-end">
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false)
+                    setDeleteItemId(null)
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors"
+                >
+                  Anulează
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                >
+                  Șterge
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk Delete Confirmation Modal */}
+        {showBulkDeleteModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-md w-full mx-4">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="flex-shrink-0">
+                  <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                    <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                    Șterge {selectedItems.length} Sloturi
+                  </h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Această acțiune nu poate fi anulată
+                  </p>
+                </div>
+              </div>
+              <p className="text-slate-700 dark:text-slate-300 mb-6">
+                Ești sigur că vrei să ștergi {selectedItems.length} sloturi selectate? Toate datele asociate vor fi șterse permanent.
+              </p>
+              <div className="flex space-x-3 justify-end">
+                <button
+                  onClick={() => setShowBulkDeleteModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors"
+                >
+                  Anulează
+                </button>
+                <button
+                  onClick={confirmBulkDelete}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                >
+                  Șterge {selectedItems.length} Sloturi
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </Layout>
