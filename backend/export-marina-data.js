@@ -58,6 +58,7 @@ async function exportMarinaData() {
       SELECT 
         l.id,
         l.code as name,
+        l.code as location,
         l.address,
         l.city,
         c.name as company,

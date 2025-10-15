@@ -1,5 +1,11 @@
 import express from 'express'
 import { getMarinaConnection, testMarinaConnection } from '../config/marina.js'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 const router = express.Router()
 
@@ -8,23 +14,23 @@ router.get('/test', async (req, res) => {
   try {
     const result = await testMarinaConnection()
     if (result) {
-      res.json({ success: true, message: 'Marina database connection successful' })
+      res.json({ success: true, message: 'Cyber database connection successful' })
     } else {
-      res.status(500).json({ success: false, message: 'Marina database connection failed' })
+      res.status(500).json({ success: false, message: 'Cyber database connection failed' })
     }
   } catch (error) {
-    console.error('Marina connection test error:', error)
+    console.error('Cyber connection test error:', error)
     res.status(500).json({ success: false, message: error.message })
   }
 })
 
-// Get all slots from Marina
+// Get all slots from Cyber (with fallback to JSON file)
 router.get('/slots', async (req, res) => {
   try {
     const marinaPool = getMarinaConnection()
     const connection = await marinaPool.getConnection()
     
-    // Query to get machines (slots) from Marina database with correct table structure
+    // Query to get machines (slots) from Cyber database with correct table structure
     const query = `
       SELECT 
         m.id,
@@ -36,7 +42,7 @@ router.get('/slots', async (req, res) => {
           WHEN m.active = 1 THEN 'Active'
           ELSE 'Inactive'
         END as status,
-        l.address as location,
+        l.code as location,
         m.updated_at as last_updated,
         m.created_at
       FROM machines m
@@ -54,22 +60,37 @@ router.get('/slots', async (req, res) => {
     
     res.json(rows)
   } catch (error) {
-    console.error('Error fetching Marina slots:', error)
-    res.status(500).json({ error: 'Failed to fetch slots from Marina' })
+    console.error('Error fetching Cyber slots from database, trying JSON file...', error.message)
+    
+    // Fallback to JSON file if database connection fails
+    try {
+      const jsonPath = path.join(__dirname, '..', 'marina-slots.json')
+      if (fs.existsSync(jsonPath)) {
+        const jsonData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'))
+        console.log(`✅ Loaded ${jsonData.length} slots from JSON file`)
+        res.json(jsonData)
+      } else {
+        res.status(500).json({ error: 'Failed to fetch slots from Cyber and no local file available' })
+      }
+    } catch (fileError) {
+      console.error('Error reading JSON file:', fileError)
+      res.status(500).json({ error: 'Failed to fetch slots from Cyber' })
+    }
   }
 })
 
-// Get all locations from Marina
+// Get all locations from Cyber (with fallback to JSON file)
 router.get('/locations', async (req, res) => {
   try {
     const marinaPool = getMarinaConnection()
     const connection = await marinaPool.getConnection()
     
-    // Query to get locations from Marina database
+    // Query to get locations from Cyber database
     const query = `
       SELECT 
         l.id,
         l.code as name,
+        l.code as location,
         l.address,
         l.city,
         c.name as company,
@@ -91,8 +112,22 @@ router.get('/locations', async (req, res) => {
     
     res.json(rows)
   } catch (error) {
-    console.error('Error fetching Marina locations:', error)
-    res.status(500).json({ error: 'Failed to fetch locations from Marina' })
+    console.error('Error fetching Cyber locations from database, trying JSON file...', error.message)
+    
+    // Fallback to JSON file if database connection fails
+    try {
+      const jsonPath = path.join(__dirname, '..', 'marina-locations.json')
+      if (fs.existsSync(jsonPath)) {
+        const jsonData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'))
+        console.log(`✅ Loaded ${jsonData.length} locations from JSON file`)
+        res.json(jsonData)
+      } else {
+        res.status(500).json({ error: 'Failed to fetch locations from Cyber and no local file available' })
+      }
+    } catch (fileError) {
+      console.error('Error reading JSON file:', fileError)
+      res.status(500).json({ error: 'Failed to fetch locations from Cyber' })
+    }
   }
 })
 

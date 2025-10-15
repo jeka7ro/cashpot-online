@@ -2,6 +2,7 @@
   {
     "id": 12,
     "name": "Ploiesti (nord) E.S",
+    "location": "Ploiesti (nord) E.S",
     "address": "Sos. Nordului Nr.1",
     "city": "Ploiești",
     "company": "ENTERTAINMENT SOLUTIONS SRL",
@@ -13,6 +14,7 @@
   {
     "id": 11,
     "name": "Ploiesti (centru) E.S",
+    "location": "Ploiesti (centru) E.S",
     "address": "Bld Republicii Nr.21, Bloc A5",
     "city": "Ploiești",
     "company": "ENTERTAINMENT SOLUTIONS SRL",
@@ -24,6 +26,7 @@
   {
     "id": 10,
     "name": "Craiova E.S",
+    "location": "Craiova E.S",
     "address": "Str. Infratirii, Nr.2",
     "city": "Craiova",
     "company": "ENTERTAINMENT SOLUTIONS SRL",
@@ -35,6 +38,7 @@
   {
     "id": 9,
     "name": "Valcea E.S",
+    "location": "Valcea E.S",
     "address": "Str. General Magheru , Nr.16 , Bl. H",
     "city": "Ramnicu Valcea",
     "company": "ENTERTAINMENT SOLUTIONS SRL",
@@ -46,6 +50,7 @@
   {
     "id": 8,
     "name": "Pitesti E.S",
+    "location": "Pitesti E.S",
     "address": "Str. Ion C. Bratianu Bl.D1",
     "city": "Pitesti",
     "company": "ENTERTAINMENT SOLUTIONS SRL",
@@ -57,6 +62,7 @@
   {
     "id": 7,
     "name": "Ploiesti (nord)",
+    "location": "Ploiesti (nord)",
     "address": "Sos. Nordului Nr.1",
     "city": "Ploiești",
     "company": "SMARTFLIX SRL",
@@ -68,6 +74,7 @@
   {
     "id": 6,
     "name": "Ploiesti (centru)",
+    "location": "Ploiesti (centru)",
     "address": "Bld Republicii Nr.21, Bloc A5",
     "city": "Ploiești",
     "company": "SMARTFLIX SRL",
@@ -79,6 +86,7 @@
   {
     "id": 5,
     "name": "Craiova",
+    "location": "Craiova",
     "address": "Str. Infratirii, Nr.2",
     "city": "Craiova",
     "company": "SMARTFLIX SRL",
@@ -90,6 +98,7 @@
   {
     "id": 4,
     "name": "Valcea",
+    "location": "Valcea",
     "address": "Str. General Magheru , Nr.16 , Bl. H",
     "city": "Râmnicu Vâlcea",
     "company": "SMARTFLIX SRL",
@@ -101,6 +110,7 @@
   {
     "id": 3,
     "name": "Depozit",
+    "location": "Depozit",
     "address": "Charlles de Gaulle 3-5",
     "city": "Bucuresti",
     "company": "SMARTFLIX SRL",
@@ -112,6 +122,7 @@
   {
     "id": 1,
     "name": "Pitesti",
+    "location": "Pitesti",
     "address": "str. Ion C. Bratianu, Bl. D1,P",
     "city": "Pitești",
     "company": "SMARTFLIX SRL",

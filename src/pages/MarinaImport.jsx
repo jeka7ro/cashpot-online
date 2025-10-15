@@ -65,51 +65,43 @@ const MarinaImport = () => {
     reader.readAsText(file)
   }
 
-  // Fetch slots data from Marina server
+  // Fetch slots data from Cyber server
   const fetchMarinaData = async () => {
     setLoading(true)
     try {
       const response = await axios.get('/api/marina/slots', { timeout: 30000 })
       setMarinaData(response.data)
       setFilteredData(response.data)
-      toast.success(`Încărcate ${response.data.length} sloturi din Marina`)
+      toast.success(`Încărcate ${response.data.length} sloturi din Cyber`)
     } catch (error) {
-      console.error('Error fetching Marina slots:', error)
-      if (error.response?.status === 404) {
-        toast.error('Serverul Marina nu este configurat. Folosește import din fișier.')
-        setUseFileImport(true)
-      } else if (error.code === 'ECONNREFUSED' || error.message.includes('timeout')) {
-        toast.error('Serverul Marina nu este accesibil. Folosește import din fișier.')
-        setUseFileImport(true)
-      } else {
-        toast.error('Eroare la conectarea la serverul Marina pentru sloturi')
-      }
+      console.error('Error fetching Cyber slots:', error)
+      toast.error('Nu s-au putut încărca datele. Folosește butonul "Încarcă JSON"')
     } finally {
       setLoading(false)
     }
   }
 
-  // Fetch locations data from Marina server
+  // Fetch locations data from Cyber server
   const fetchMarinaLocations = async () => {
     setLoading(true)
     try {
       const response = await axios.get('/api/marina/locations', { timeout: 30000 })
       setMarinaLocations(response.data)
       setFilteredLocations(response.data)
-      toast.success(`Încărcate ${response.data.length} locații din Marina`)
+      toast.success(`Încărcate ${response.data.length} locații din Cyber`)
     } catch (error) {
-      console.error('Error fetching Marina locations:', error)
-      if (error.response?.status === 404) {
-        toast.error('Serverul Marina nu este configurat. Verifică configurarea firewall-ului.')
-      } else if (error.code === 'ECONNREFUSED' || error.message.includes('timeout')) {
-        toast.error('Serverul Marina nu este accesibil. Verifică dacă IP-ul Render este permis în firewall.')
-      } else {
-        toast.error('Eroare la conectarea la serverul Marina pentru locații')
-      }
+      console.error('Error fetching Cyber locations:', error)
+      toast.error('Nu s-au putut încărca datele. Folosește butonul "Încarcă JSON"')
     } finally {
       setLoading(false)
     }
   }
+
+  // Auto-load data on component mount
+  useEffect(() => {
+    fetchMarinaData()
+    fetchMarinaLocations()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Filter slots data based on search and filters
   useEffect(() => {
@@ -533,10 +525,10 @@ const MarinaImport = () => {
             <div>
               <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-200 flex items-center space-x-2">
                 <Database className="w-6 h-6" />
-                <span>Import Marina</span>
+                <span>Import Cyber</span>
               </h1>
               <p className="text-slate-600 dark:text-slate-400">
-                Importează datele din serverul Marina
+                Importează datele din serverul Cyber
               </p>
             </div>
           </div>
@@ -564,7 +556,7 @@ const MarinaImport = () => {
               className="btn-secondary flex items-center space-x-2"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span>Marina DB</span>
+              <span>Refresh Cyber DB</span>
             </button>
           </div>
         </div>
