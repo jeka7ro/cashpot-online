@@ -47,7 +47,7 @@ function App() {
             <Route path="/games/:gameId" element={<GameDetail />} />
             <Route path="/slots" element={<Slots />} />
             <Route path="/slots/history" element={<SlotHistory />} />
-            <Route path="/slots/marina-import" element={<CyberImport />} />
+            <Route path="/slots/cyber-import" element={<CyberImport />} />
             <Route path="/slots/:id" element={<SlotDetail />} />
             <Route path="/warehouse" element={<Warehouse />} />
             <Route path="/metrology" element={<Metrology />} />

@@ -2438,7 +2438,7 @@ app.use('/api/slot-history', slotHistoryRoutes)
 
 // Marina routes
 // Marina/Cyber routes with fallback
-app.get('/api/marina/slots', (req, res) => {
+app.get('/api/cyber/slots', (req, res) => {
   const fallbackData = [
     {
       id: 1,
@@ -2477,7 +2477,7 @@ app.get('/api/marina/slots', (req, res) => {
   res.json(fallbackData)
 })
 
-app.get('/api/marina/locations', (req, res) => {
+app.get('/api/cyber/locations', (req, res) => {
   const fallbackData = [
     {
       id: 1,
@@ -2519,7 +2519,7 @@ app.get('/api/marina/locations', (req, res) => {
   res.json(fallbackData)
 })
 
-app.use('/api/marina', marinaRoutes)
+app.use('/api/cyber', marinaRoutes)
 app.use('/api', importMarinaRoutes)
 
 // Serve static files (PDFs)

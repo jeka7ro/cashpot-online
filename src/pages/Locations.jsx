@@ -516,7 +516,7 @@ const Locations = () => {
                 </>
               )}
                 <button
-                  onClick={() => navigate('/slots/marina-import')}
+                  onClick={() => navigate('/slots/cyber-import')}
                   className="btn-success flex items-center space-x-2"
                 >
                   <Database className="w-4 h-4" />
