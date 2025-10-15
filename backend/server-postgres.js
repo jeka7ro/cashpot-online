@@ -9,6 +9,7 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import pg from 'pg'
+import mysql from 'mysql2/promise'
 import uploadRoutes from './routes/upload.js'
 import compressRoutes from './routes/compress.js'
 import backupRoutes from './routes/backup.js'
@@ -2501,7 +2502,62 @@ app.use('/api/users', usersRoutes)
 app.use('/api/cyber', cyberRoutes)
 app.use('/api', importCyberRoutes)
 
-// Cyber endpoints are now handled by cyberRoutes above
+// DIRECT Cyber database endpoints (no JSON fallback needed)
+const cyberDB = mysql.createPool({
+  host: '161.97.133.165',
+  port: 3306,
+  user: 'eugen',
+  password: '(@Ee0wRHVohZww33',
+  database: 'cyberslot_dbn',
+  connectionLimit: 10
+})
+
+// Get slots directly from Cyber database
+app.get('/api/cyber-direct/slots', async (req, res) => {
+  try {
+    const connection = await cyberDB.getConnection()
+    const query = `
+      SELECT 
+        m.id,
+        m.slot_machine_id as serial_number,
+        mm.name as provider,
+        mct.name as cabinet,
+        gt.name as game_mix,
+        CASE WHEN m.active = 1 THEN 'Active' ELSE 'Inactive' END as status,
+        l.code as location,
+        m.updated_at as last_updated,
+        m.created_at
+      FROM machines m
+      LEFT JOIN machine_types mt ON m.machine_type_id = mt.id
+      LEFT JOIN machine_manufacturers mm ON mt.manufacturer_id = mm.id
+      LEFT JOIN machine_cabinet_types mct ON m.cabinet_type_id = mct.id
+      LEFT JOIN machine_game_templates gt ON m.game_template_id = gt.id
+      LEFT JOIN locations l ON m.location_id = l.id
+      WHERE m.deleted_at IS NULL
+      ORDER BY m.created_at DESC
+    `
+    const [rows] = await connection.execute(query)
+    connection.release()
+    res.json(rows)
+  } catch (error) {
+    console.error('Error fetching from Cyber DB:', error.message)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// Get locations directly from Cyber database
+app.get('/api/cyber-direct/locations', async (req, res) => {
+  try {
+    const connection = await cyberDB.getConnection()
+    const query = `SELECT id, code, name, address, city FROM locations WHERE deleted_at IS NULL`
+    const [rows] = await connection.execute(query)
+    connection.release()
+    res.json(rows)
+  } catch (error) {
+    console.error('Error fetching locations from Cyber DB:', error.message)
+    res.status(500).json({ error: error.message })
+  }
+})
 
 // Serve static files (PDFs)
 app.use('/uploads', express.static('uploads'))
