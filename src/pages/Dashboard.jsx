@@ -29,7 +29,8 @@ import {
   Eye,
   EyeOff,
   Save,
-  RotateCcw
+  RotateCcw,
+  RefreshCw
 } from 'lucide-react'
 
 const Dashboard = () => {
@@ -106,20 +107,7 @@ const Dashboard = () => {
   // Încarcă preferințele de pe server sau folosește localStorage
   useEffect(() => {
     const loadPreferences = async () => {
-      // Încearcă mai întâi localStorage (pentru sincronizare rapidă)
-      const localConfig = localStorage.getItem('dashboardConfig')
-      if (localConfig) {
-        try {
-          const config = JSON.parse(localConfig)
-          setDashboardConfig(config)
-          if (config.cardSizes) setCardSizes(config.cardSizes)
-          if (config.widgetSizes) setWidgetSizes(config.widgetSizes)
-        } catch (e) {
-          console.error('Error parsing localStorage config:', e)
-        }
-      }
-      
-      // Apoi încearcă să încarce de pe server (pentru sincronizare cross-device)
+      // Încearcă mai întâi de pe server (pentru sincronizare cross-device)
       if (user?.id) {
         try {
           const response = await axios.get(`/api/users/${user.id}`, { timeout: 5000 })
@@ -127,6 +115,7 @@ const Dashboard = () => {
           const preferences = userData.preferences || {}
           
           if (preferences.dashboard) {
+            console.log('✅ Loaded dashboard preferences from server:', preferences.dashboard)
             setDashboardConfig(preferences.dashboard)
             if (preferences.dashboard.cardSizes) {
               setCardSizes(preferences.dashboard.cardSizes)
@@ -136,18 +125,29 @@ const Dashboard = () => {
             }
             // Actualizează localStorage cu datele de pe server
             localStorage.setItem('dashboardConfig', JSON.stringify(preferences.dashboard))
+            return // Ieși din funcție dacă s-au încărcat datele de pe server
           }
         } catch (error) {
           console.error('Error loading preferences from server:', error)
-          // Folosește localStorage dacă serverul nu răspunde
-          if (!localConfig) {
-            setDashboardConfig(defaultDashboardConfig)
-          }
         }
-      } else {
-        if (!localConfig) {
+      }
+      
+      // Fallback la localStorage dacă serverul nu funcționează sau nu există preferințe pe server
+      const localConfig = localStorage.getItem('dashboardConfig')
+      if (localConfig) {
+        try {
+          const config = JSON.parse(localConfig)
+          console.log('📱 Loaded dashboard preferences from localStorage:', config)
+          setDashboardConfig(config)
+          if (config.cardSizes) setCardSizes(config.cardSizes)
+          if (config.widgetSizes) setWidgetSizes(config.widgetSizes)
+        } catch (e) {
+          console.error('Error parsing localStorage config:', e)
           setDashboardConfig(defaultDashboardConfig)
         }
+      } else {
+        console.log('🆕 Using default dashboard configuration')
+        setDashboardConfig(defaultDashboardConfig)
       }
     }
     
@@ -164,6 +164,7 @@ const Dashboard = () => {
     
     try {
       // Salvează pe server
+      console.log('💾 Saving dashboard preferences to server for user:', user.id)
       await axios.put(`/api/users/${user.id}/preferences`, {
         preferences: {
           dashboard: configToSave
@@ -173,12 +174,13 @@ const Dashboard = () => {
       // Salvează și local pentru backup
       localStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
       
+      console.log('✅ Dashboard preferences saved successfully!')
       toast.success('Configurația dashboard-ului a fost salvată cu succes!')
       setIsEditing(false)
       setSelectedCards([])
       setSelectedWidgets([])
     } catch (error) {
-      console.error('Error saving dashboard preferences:', error)
+      console.error('❌ Error saving dashboard preferences:', error)
       // Fallback la localStorage dacă serverul nu funcționează
       localStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
       toast.success('Configurația a fost salvată local!')
@@ -211,6 +213,38 @@ const Dashboard = () => {
     })
     localStorage.removeItem('cardSizes')
     setIsEditing(false)
+  }
+
+  // Forțează sincronizarea preferințelor de pe server
+  const forceSyncPreferences = async () => {
+    if (!user?.id) return
+    
+    try {
+      console.log('🔄 Force syncing preferences from server...')
+      const response = await axios.get(`/api/users/${user.id}`, { timeout: 5000 })
+      const userData = response.data
+      const preferences = userData.preferences || {}
+      
+      if (preferences.dashboard) {
+        console.log('✅ Force loaded dashboard preferences from server:', preferences.dashboard)
+        setDashboardConfig(preferences.dashboard)
+        if (preferences.dashboard.cardSizes) {
+          setCardSizes(preferences.dashboard.cardSizes)
+        }
+        if (preferences.dashboard.widgetSizes) {
+          setWidgetSizes(preferences.dashboard.widgetSizes)
+        }
+        // Actualizează localStorage cu datele de pe server
+        localStorage.setItem('dashboardConfig', JSON.stringify(preferences.dashboard))
+        toast.success('Preferințele au fost sincronizate de pe server!')
+      } else {
+        console.log('ℹ️ No dashboard preferences found on server')
+        toast.info('Nu există preferințe salvate pe server')
+      }
+    } catch (error) {
+      console.error('❌ Error force syncing preferences:', error)
+      toast.error('Eroare la sincronizarea preferințelor de pe server')
+    }
   }
 
   // Toggle vizibilitatea unui card
@@ -581,13 +615,23 @@ const Dashboard = () => {
               {/* Dashboard Configuration Buttons */}
               <div className="flex items-center space-x-2">
                 {!isEditing ? (
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <Settings className="w-4 h-4" />
-                    <span>Configurează Dashboard</span>
-                  </button>
+                  <>
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <Settings className="w-4 h-4" />
+                      <span>Configurează Dashboard</span>
+                    </button>
+                    <button
+                      onClick={forceSyncPreferences}
+                      className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      title="Sincronizează preferințele de pe server"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      <span>Sincronizează</span>
+                    </button>
+                  </>
                 ) : (
                   dashboardConfig && (
                     <div className="flex items-center space-x-2">
