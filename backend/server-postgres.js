@@ -2535,6 +2535,9 @@ app.get('/api/cyber/slots', async (req, res) => {
     // Load real slots data from JSON file
     const slotsPath = path.join(__dirname, 'cyber-data', 'slots.json')
     console.log('📁 Looking for slots.json at:', slotsPath)
+    console.log('📁 Current directory:', __dirname)
+    console.log('📁 Files in directory:', fs.readdirSync(__dirname))
+    console.log('📁 cyber-data directory exists:', fs.existsSync(path.join(__dirname, 'cyber-data')))
     
     if (fs.existsSync(slotsPath)) {
       const slots = JSON.parse(fs.readFileSync(slotsPath, 'utf8'))
@@ -2542,7 +2545,25 @@ app.get('/api/cyber/slots', async (req, res) => {
       res.json(slots)
     } else {
       console.log('❌ slots.json not found at:', slotsPath)
-      res.status(404).json({ error: 'Slots data not found' })
+      // Try alternative paths
+      const altPaths = [
+        path.join(process.cwd(), 'backend', 'cyber-data', 'slots.json'),
+        path.join(process.cwd(), 'cyber-data', 'slots.json'),
+        './cyber-data/slots.json',
+        './backend/cyber-data/slots.json'
+      ]
+      
+      for (const altPath of altPaths) {
+        console.log('📁 Trying alternative path:', altPath)
+        if (fs.existsSync(altPath)) {
+          const slots = JSON.parse(fs.readFileSync(altPath, 'utf8'))
+          console.log(`✅ Loaded ${slots.length} REAL slots from alternative path`)
+          res.json(slots)
+          return
+        }
+      }
+      
+      res.status(404).json({ error: 'Slots data not found in any location' })
     }
   } catch (error) {
     console.error('❌ Error loading real slots:', error.message)
