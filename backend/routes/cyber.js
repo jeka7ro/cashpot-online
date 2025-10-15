@@ -1,5 +1,5 @@
 import express from 'express'
-import { getMarinaConnection, testMarinaConnection } from '../config/marina.js'
+import { getCyberConnection, testCyberConnection } from '../config/cyber.js'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -24,10 +24,10 @@ const loadExportedData = (filename) => {
   return []
 }
 
-// Test Marina database connection
+// Test Cyber database connection
 router.get('/test', async (req, res) => {
   try {
-    const result = await testMarinaConnection()
+    const result = await testCyberConnection()
     if (result) {
       res.json({ success: true, message: 'Cyber database connection successful' })
     } else {
@@ -42,8 +42,8 @@ router.get('/test', async (req, res) => {
 // Get all slots from Cyber (with fallback to JSON file)
 router.get('/slots', async (req, res) => {
   try {
-    const marinaPool = getMarinaConnection()
-    const connection = await marinaPool.getConnection()
+    const cyberPool = getCyberConnection()
+    const connection = await cyberPool.getConnection()
     
     // Query to get machines (slots) from Cyber database with correct table structure
     const query = `
@@ -84,8 +84,8 @@ router.get('/slots', async (req, res) => {
 // Get all locations from Cyber (with fallback to hardcoded data)
 router.get('/locations', async (req, res) => {
   try {
-    const marinaPool = getMarinaConnection()
-    const connection = await marinaPool.getConnection()
+    const cyberPool = getCyberConnection()
+    const connection = await cyberPool.getConnection()
     
     // Query to get locations from Cyber database
     const query = `
@@ -123,8 +123,8 @@ router.get('/locations', async (req, res) => {
 // Get all cabinets from Cyber
 router.get('/cabinets', async (req, res) => {
   try {
-    const marinaPool = getMarinaConnection()
-    const connection = await marinaPool.getConnection()
+    const cyberPool = getCyberConnection()
+    const connection = await cyberPool.getConnection()
     
     const query = `
       SELECT 
@@ -152,8 +152,8 @@ router.get('/cabinets', async (req, res) => {
 // Get all game mixes from Cyber
 router.get('/game-mixes', async (req, res) => {
   try {
-    const marinaPool = getMarinaConnection()
-    const connection = await marinaPool.getConnection()
+    const cyberPool = getCyberConnection()
+    const connection = await cyberPool.getConnection()
     
     const query = `
       SELECT 
@@ -181,8 +181,8 @@ router.get('/game-mixes', async (req, res) => {
 // Get all providers from Cyber
 router.get('/providers', async (req, res) => {
   try {
-    const marinaPool = getMarinaConnection()
-    const connection = await marinaPool.getConnection()
+    const cyberPool = getCyberConnection()
+    const connection = await cyberPool.getConnection()
     
     const query = `
       SELECT 
@@ -209,8 +209,8 @@ router.get('/providers', async (req, res) => {
 // Get Marina database schema info
 router.get('/schema', async (req, res) => {
   try {
-    const marinaPool = getMarinaConnection()
-    const connection = await marinaPool.getConnection()
+    const cyberPool = getCyberConnection()
+    const connection = await cyberPool.getConnection()
     
     // Get all tables
     const tablesQuery = `

@@ -14,8 +14,8 @@ import compressRoutes from './routes/compress.js'
 import backupRoutes from './routes/backup.js'
 import gamesRoutes from './routes/games.js'
 import slotHistoryRoutes from './routes/slotHistory.js'
-import marinaRoutes from './routes/marina.js'
-import importMarinaRoutes from './routes/importMarina.js'
+import cyberRoutes from './routes/cyber.js'
+import importCyberRoutes from './routes/importCyber.js'
 import usersRoutes from './routes/users.js'
 import { scheduleBackups } from './backup.js'
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
@@ -2497,11 +2497,11 @@ app.use('/api/games', gamesRoutes)
 app.use('/api/slot-history', slotHistoryRoutes)
 app.use('/api/users', usersRoutes)
 
-// marinaRoutes enabled for cyber endpoints
-app.use('/api/cyber', marinaRoutes)
-app.use('/api', importMarinaRoutes)
+// Cyber routes enabled
+app.use('/api/cyber', cyberRoutes)
+app.use('/api', importCyberRoutes)
 
-// Cyber endpoints are now handled by marinaRoutes above
+// Cyber endpoints are now handled by cyberRoutes above
 
 // Serve static files (PDFs)
 app.use('/uploads', express.static('uploads'))
