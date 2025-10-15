@@ -43,6 +43,8 @@ const Dashboard = () => {
   const [selectedWidgets, setSelectedWidgets] = useState([])
   const [showUpdateTime, setShowUpdateTime] = useState(true)
   const [isFadingOut, setIsFadingOut] = useState(false)
+  const [showWelcome, setShowWelcome] = useState(true)
+  const [isWelcomeFadingOut, setIsWelcomeFadingOut] = useState(false)
   const [cardSizes, setCardSizes] = useState(() => {
     const saved = localStorage.getItem('cardSizes')
     return saved ? JSON.parse(saved) : {
@@ -106,6 +108,18 @@ const Dashboard = () => {
       { id: 'performanceCharts', title: 'Grafice Performanță', visible: true, order: 8 }
     ]
   }
+
+  // Auto-hide welcome popup after 3 seconds
+  useEffect(() => {
+    const welcomeTimer = setTimeout(() => {
+      setIsWelcomeFadingOut(true)
+      setTimeout(() => {
+        setShowWelcome(false)
+      }, 500) // Wait for fade-out animation
+    }, 3000)
+
+    return () => clearTimeout(welcomeTimer)
+  }, [])
 
   // Auto-hide update time popup after 3 seconds
   useEffect(() => {
@@ -616,9 +630,18 @@ const Dashboard = () => {
         <div className="card p-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent mb-2">
-                Bun venit, {user?.fullName || 'Administrator'}!
-              </h1>
+              {/* Welcome Popup */}
+              {showWelcome && (
+                <div className={`transition-all duration-500 ${
+                  isWelcomeFadingOut 
+                    ? 'opacity-0 transform -translate-y-2' 
+                    : 'opacity-100 transform translate-y-0'
+                }`}>
+                  <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent mb-4">
+                    Bun venit, {user?.fullName || 'Administrator'}!
+                  </h1>
+                </div>
+              )}
               
               {/* Update Time Popup */}
               {showUpdateTime && (
