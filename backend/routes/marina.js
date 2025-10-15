@@ -131,6 +131,89 @@ router.get('/locations', async (req, res) => {
   }
 })
 
+// Get all cabinets from Cyber
+router.get('/cabinets', async (req, res) => {
+  try {
+    const marinaPool = getMarinaConnection()
+    const connection = await marinaPool.getConnection()
+    
+    const query = `
+      SELECT 
+        id,
+        name,
+        description,
+        created_at,
+        updated_at
+      FROM machine_cabinet_types
+      WHERE deleted_at IS NULL
+      ORDER BY name ASC
+    `
+    
+    const [rows] = await connection.execute(query)
+    connection.release()
+    
+    res.json(rows)
+  } catch (error) {
+    console.error('Error fetching Cyber cabinets from database:', error.message)
+    res.status(500).json({ error: 'Failed to fetch cabinets from Cyber' })
+  }
+})
+
+// Get all game mixes from Cyber
+router.get('/game-mixes', async (req, res) => {
+  try {
+    const marinaPool = getMarinaConnection()
+    const connection = await marinaPool.getConnection()
+    
+    const query = `
+      SELECT 
+        id,
+        name,
+        description,
+        created_at,
+        updated_at
+      FROM machine_game_templates
+      WHERE deleted_at IS NULL
+      ORDER BY name ASC
+    `
+    
+    const [rows] = await connection.execute(query)
+    connection.release()
+    
+    res.json(rows)
+  } catch (error) {
+    console.error('Error fetching Cyber game mixes from database:', error.message)
+    res.status(500).json({ error: 'Failed to fetch game mixes from Cyber' })
+  }
+})
+
+// Get all providers from Cyber
+router.get('/providers', async (req, res) => {
+  try {
+    const marinaPool = getMarinaConnection()
+    const connection = await marinaPool.getConnection()
+    
+    const query = `
+      SELECT 
+        id,
+        name,
+        created_at,
+        updated_at
+      FROM machine_manufacturers
+      WHERE deleted_at IS NULL
+      ORDER BY name ASC
+    `
+    
+    const [rows] = await connection.execute(query)
+    connection.release()
+    
+    res.json(rows)
+  } catch (error) {
+    console.error('Error fetching Cyber providers from database:', error.message)
+    res.status(500).json({ error: 'Failed to fetch providers from Cyber' })
+  }
+})
+
 // Get Marina database schema info
 router.get('/schema', async (req, res) => {
   try {

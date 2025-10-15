@@ -10,14 +10,23 @@ const CyberImport = () => {
   const fileInputRef = useRef(null)
   const [cyberData, setCyberData] = useState([])
   const [cyberLocations, setCyberLocations] = useState([])
+  const [cyberCabinets, setCyberCabinets] = useState([])
+  const [cyberGameMixes, setCyberGameMixes] = useState([])
+  const [cyberProviders, setCyberProviders] = useState([])
   const [filteredData, setFilteredData] = useState([])
   const [filteredLocations, setFilteredLocations] = useState([])
+  const [filteredCabinets, setFilteredCabinets] = useState([])
+  const [filteredGameMixes, setFilteredGameMixes] = useState([])
+  const [filteredProviders, setFilteredProviders] = useState([])
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItems, setSelectedItems] = useState(new Set())
   const [selectedLocations, setSelectedLocations] = useState(new Set())
+  const [selectedCabinets, setSelectedCabinets] = useState(new Set())
+  const [selectedGameMixes, setSelectedGameMixes] = useState(new Set())
+  const [selectedProviders, setSelectedProviders] = useState(new Set())
   const [showFilters, setShowFilters] = useState(false)
-  const [activeTab, setActiveTab] = useState('slots') // 'slots' or 'locations'
+  const [activeTab, setActiveTab] = useState('slots') // 'slots', 'locations', 'cabinets', 'gameMixes', 'providers'
   const [useFileImport, setUseFileImport] = useState(true) // Default to file import
   const [filters, setFilters] = useState({
     provider: '',
@@ -199,6 +208,63 @@ const CyberImport = () => {
         setFilteredLocations(fallbackData)
         toast.success(`Încărcate ${fallbackData.length} locații (date demo)`)
       }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Fetch cabinets data from Cyber server
+  const fetchCyberCabinets = async () => {
+    setLoading(true)
+    try {
+      const response = await axios.get('/api/cyber/cabinets', { timeout: 5000 })
+      const data = Array.isArray(response.data) ? response.data : []
+      setCyberCabinets(data)
+      setFilteredCabinets(data)
+      toast.success(`Încărcate ${data.length} cabinete din Cyber`)
+    } catch (error) {
+      console.error('Error fetching Cyber cabinets:', error)
+      toast.error('Eroare la încărcarea cabinetelor din Cyber')
+      setCyberCabinets([])
+      setFilteredCabinets([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Fetch game mixes data from Cyber server
+  const fetchCyberGameMixes = async () => {
+    setLoading(true)
+    try {
+      const response = await axios.get('/api/cyber/game-mixes', { timeout: 5000 })
+      const data = Array.isArray(response.data) ? response.data : []
+      setCyberGameMixes(data)
+      setFilteredGameMixes(data)
+      toast.success(`Încărcate ${data.length} game mix-uri din Cyber`)
+    } catch (error) {
+      console.error('Error fetching Cyber game mixes:', error)
+      toast.error('Eroare la încărcarea game mix-urilor din Cyber')
+      setCyberGameMixes([])
+      setFilteredGameMixes([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Fetch providers data from Cyber server
+  const fetchCyberProviders = async () => {
+    setLoading(true)
+    try {
+      const response = await axios.get('/api/cyber/providers', { timeout: 5000 })
+      const data = Array.isArray(response.data) ? response.data : []
+      setCyberProviders(data)
+      setFilteredProviders(data)
+      toast.success(`Încărcați ${data.length} furnizori din Cyber`)
+    } catch (error) {
+      console.error('Error fetching Cyber providers:', error)
+      toast.error('Eroare la încărcarea furnizorilor din Cyber')
+      setCyberProviders([])
+      setFilteredProviders([])
     } finally {
       setLoading(false)
     }
@@ -657,14 +723,20 @@ const CyberImport = () => {
               className="hidden"
             />
             
-            <button
-              onClick={activeTab === 'slots' ? fetchCyberData : fetchCyberLocations}
-              disabled={loading}
-              className="btn-secondary flex items-center space-x-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span>Refresh Cyber DB</span>
-            </button>
+          <button
+            onClick={() => {
+              if (activeTab === 'slots') fetchCyberData()
+              else if (activeTab === 'locations') fetchCyberLocations()
+              else if (activeTab === 'cabinets') fetchCyberCabinets()
+              else if (activeTab === 'gameMixes') fetchCyberGameMixes()
+              else if (activeTab === 'providers') fetchCyberProviders()
+            }}
+            disabled={loading}
+            className="btn-secondary flex items-center space-x-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refresh Cyber DB</span>
+          </button>
           </div>
         </div>
 
@@ -691,6 +763,36 @@ const CyberImport = () => {
                 }`}
               >
                 Locații ({cyberLocations.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('cabinets')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'cabinets'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                Cabinete ({cyberCabinets.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('gameMixes')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'gameMixes'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                Game Mixes ({cyberGameMixes.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('providers')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'providers'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                Furnizori ({cyberProviders.length})
               </button>
             </nav>
           </div>
