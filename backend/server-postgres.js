@@ -2497,9 +2497,9 @@ app.use('/api/games', gamesRoutes)
 app.use('/api/slot-history', slotHistoryRoutes)
 app.use('/api/users', usersRoutes)
 
-// Also keep marinaRoutes for future use
-app.use('/api/cyber', marinaRoutes)
-app.use('/api', importMarinaRoutes)
+// marinaRoutes temporarily disabled to fix cyber endpoints
+// app.use('/api/cyber', marinaRoutes)
+// app.use('/api', importMarinaRoutes)
 
 // Cyber routes - direct implementation for Render (after marinaRoutes)
 app.get('/api/cyber/slots', (req, res) => {
