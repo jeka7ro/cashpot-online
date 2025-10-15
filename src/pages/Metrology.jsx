@@ -220,10 +220,18 @@ const Metrology = () => {
     }
   }
 
-  const handleApprovalDelete = async (item) => {
-    if (window.confirm('Sigur vrei să ștergi această aprobare?')) {
+  const [showDeleteApprovalModal, setShowDeleteApprovalModal] = useState(false)
+  const [deletingApproval, setDeletingApproval] = useState(null)
+
+  const handleApprovalDelete = (item) => {
+    setDeletingApproval(item)
+    setShowDeleteApprovalModal(true)
+  }
+
+  const confirmApprovalDelete = async () => {
+    if (deletingApproval) {
       try {
-        const response = await fetch(`/api/approvals/${item.id}`, { method: 'DELETE' })
+        const response = await fetch(`/api/approvals/${deletingApproval.id}`, { method: 'DELETE' })
         if (response.ok) {
           const newData = await fetch('/api/approvals')
           const data = await newData.json()
@@ -233,6 +241,8 @@ const Metrology = () => {
         console.error('Error deleting approval:', error)
       }
     }
+    setShowDeleteApprovalModal(false)
+    setDeletingApproval(null)
   }
 
   const handleCommissionDelete = async (item) => {
@@ -439,6 +449,21 @@ const Metrology = () => {
     { key: 'name', label: 'NUMELE', sortable: true },
     { key: 'provider', label: 'FURNIZOR', sortable: true },
     { key: 'cabinet', label: 'CABINET', sortable: true },
+    { key: 'game_mix', label: 'GAME MIX', sortable: true, render: (item) => (
+      <div className="text-slate-700 text-sm">
+        {item.game_mix || '-'}
+      </div>
+    )},
+    { key: 'checksum_md5', label: 'CHECKSUM MD5', sortable: true, render: (item) => (
+      <div className="text-slate-600 text-xs font-mono">
+        {item.checksum_md5 ? `${item.checksum_md5.substring(0, 8)}...` : '-'}
+      </div>
+    )},
+    { key: 'checksum_sha256', label: 'CHECKSUM SHA256', sortable: true, render: (item) => (
+      <div className="text-slate-600 text-xs font-mono">
+        {item.checksum_sha256 ? `${item.checksum_sha256.substring(0, 8)}...` : '-'}
+      </div>
+    )},
     { key: 'created_by', label: 'CREAT DE', sortable: true, render: (item) => (
       <div className="text-slate-800 font-medium text-base">
         {item.created_by || 'N/A'}
@@ -997,6 +1022,50 @@ const Metrology = () => {
             isOpen={showONJNCalendar}
             onClose={() => setShowONJNCalendar(false)}
           />
+        )}
+
+        {/* Delete Approval Confirmation Modal */}
+        {showDeleteApprovalModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+              <div className="p-6">
+                <div className="flex items-center space-x-4 mb-6">
+                  <div className="p-3 bg-red-100 rounded-2xl">
+                    <FileCheck className="w-6 h-6 text-red-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-800">Șterge Aprobarea</h3>
+                    <p className="text-slate-600">Această acțiune nu poate fi anulată</p>
+                  </div>
+                </div>
+                
+                <div className="bg-slate-50 rounded-lg p-4 mb-6">
+                  <p className="text-slate-700">
+                    <span className="font-semibold">Numele:</span> {deletingApproval?.name}
+                  </p>
+                  <p className="text-slate-600 text-sm mt-1">
+                    <span className="font-semibold">Furnizor:</span> {deletingApproval?.provider} | 
+                    <span className="font-semibold"> Cabinet:</span> {deletingApproval?.cabinet}
+                  </p>
+                </div>
+
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={() => setShowDeleteApprovalModal(false)}
+                    className="px-6 py-3 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                  >
+                    Anulează
+                  </button>
+                  <button
+                    onClick={confirmApprovalDelete}
+                    className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    Șterge
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </Layout>

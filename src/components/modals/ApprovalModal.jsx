@@ -3,12 +3,15 @@ import { X, Save, FileCheck } from 'lucide-react'
 import { useData } from '../../contexts/DataContext'
 
 const ApprovalModal = ({ item, onClose, onSave }) => {
-  const { providers, cabinets } = useData()
+  const { providers, cabinets, gameMixes } = useData()
   
   const [formData, setFormData] = useState({
     name: '',
     provider: '',
     cabinet: '',
+    gameMix: '',
+    checksumMD5: '',
+    checksumSHA256: '',
     notes: ''
   })
 
@@ -18,6 +21,9 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
         name: item.name || '',
         provider: item.provider || '',
         cabinet: item.cabinet || '',
+        gameMix: item.gameMix || '',
+        checksumMD5: item.checksumMD5 || '',
+        checksumSHA256: item.checksumSHA256 || '',
         notes: item.notes || ''
       })
     }
@@ -25,11 +31,27 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
+    setFormData(prev => {
+      const newData = {
+        ...prev,
+        [name]: value
+      }
+      
+      // Reset gameMix when provider or cabinet changes
+      if (name === 'provider' || name === 'cabinet') {
+        newData.gameMix = ''
+      }
+      
+      return newData
+    })
   }
+  
+  // Filter game mixes based on selected provider and cabinet
+  const filteredGameMixes = gameMixes.filter(gm => {
+    if (!formData.provider || !formData.cabinet) return false
+    // Add your filtering logic here based on your data structure
+    return true // For now, show all game mixes
+  })
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -105,7 +127,7 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
             </div>
 
             {/* Cabinet */}
-            <div className="space-y-2 md:col-span-2">
+            <div className="space-y-2">
               <label className="block text-sm font-semibold text-slate-700">
                 Cabinet *
               </label>
@@ -125,6 +147,60 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
                     </option>
                   ))}
               </select>
+            </div>
+
+            {/* Game Mix */}
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-700">
+                Game Mix
+              </label>
+              <select
+                name="gameMix"
+                value={formData.gameMix}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                disabled={!formData.provider || !formData.cabinet}
+              >
+                <option value="">Selectează game mix-ul</option>
+                {filteredGameMixes.map(gameMix => (
+                  <option key={gameMix.id} value={gameMix.name}>
+                    {gameMix.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Checksums */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Checksum MD5 */}
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-700">
+                Checksum MD5
+              </label>
+              <input
+                type="text"
+                name="checksumMD5"
+                value={formData.checksumMD5}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="Introdu checksum MD5"
+              />
+            </div>
+
+            {/* Checksum SHA256 */}
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-700">
+                Checksum SHA256
+              </label>
+              <input
+                type="text"
+                name="checksumSHA256"
+                value={formData.checksumSHA256}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="Introdu checksum SHA256"
+              />
             </div>
           </div>
 

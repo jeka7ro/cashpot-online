@@ -587,6 +587,9 @@ const initializeDatabase = async () => {
           name VARCHAR(255) NOT NULL,
           provider VARCHAR(255) NOT NULL,
           cabinet VARCHAR(255) NOT NULL,
+          game_mix VARCHAR(255),
+          checksum_md5 VARCHAR(255),
+          checksum_sha256 VARCHAR(255),
           notes TEXT,
           created_by VARCHAR(255) DEFAULT 'admin',
           updated_by VARCHAR(255),
@@ -704,6 +707,16 @@ const initializeDatabase = async () => {
       console.log('✅ Metrology table updated with new fields')
     } catch (error) {
       console.log('⚠️ Metrology new fields may already exist:', error.message)
+    }
+
+    // Add new fields to approvals table
+    try {
+      await pool.query('ALTER TABLE approvals ADD COLUMN IF NOT EXISTS game_mix VARCHAR(255)')
+      await pool.query('ALTER TABLE approvals ADD COLUMN IF NOT EXISTS checksum_md5 VARCHAR(255)')
+      await pool.query('ALTER TABLE approvals ADD COLUMN IF NOT EXISTS checksum_sha256 VARCHAR(255)')
+      console.log('✅ Approvals table updated with new fields')
+    } catch (error) {
+      console.log('⚠️ Approvals new fields may already exist:', error.message)
     }
 
     console.log('✅ Database schema initialized')
@@ -2633,10 +2646,10 @@ app.get('/api/approvals', async (req, res) => {
 
 app.post('/api/approvals', async (req, res) => {
   try {
-    const { name, provider, cabinet, notes } = req.body
+    const { name, provider, cabinet, gameMix, checksumMD5, checksumSHA256, notes } = req.body
     const result = await pool.query(
-      'INSERT INTO approvals (name, provider, cabinet, notes, created_by, created_at) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP) RETURNING *',
-      [name, provider, cabinet, notes, 'admin']
+      'INSERT INTO approvals (name, provider, cabinet, game_mix, checksum_md5, checksum_sha256, notes, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP) RETURNING *',
+      [name, provider, cabinet, gameMix, checksumMD5, checksumSHA256, notes, 'admin']
     )
     res.status(201).json(result.rows[0])
   } catch (error) {
@@ -2648,10 +2661,10 @@ app.post('/api/approvals', async (req, res) => {
 app.put('/api/approvals/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { name, provider, cabinet, notes } = req.body
+    const { name, provider, cabinet, gameMix, checksumMD5, checksumSHA256, notes } = req.body
     const result = await pool.query(
-      'UPDATE approvals SET name = $1, provider = $2, cabinet = $3, notes = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5 RETURNING *',
-      [name, provider, cabinet, notes, id]
+      'UPDATE approvals SET name = $1, provider = $2, cabinet = $3, game_mix = $4, checksum_md5 = $5, checksum_sha256 = $6, notes = $7, updated_at = CURRENT_TIMESTAMP WHERE id = $8 RETURNING *',
+      [name, provider, cabinet, gameMix, checksumMD5, checksumSHA256, notes, id]
     )
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Approval not found' })
