@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { ArrowLeft, Database, Download, Upload, CheckCircle, XCircle, Search, Filter, RefreshCw } from 'lucide-react'
+import React, { useState, useEffect, useRef } from 'react'
+import { ArrowLeft, Database, Download, Upload, CheckCircle, XCircle, Search, Filter, RefreshCw, FileUp } from 'lucide-react'
 import Layout from '../components/Layout'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast'
 
 const MarinaImport = () => {
   const navigate = useNavigate()
+  const fileInputRef = useRef(null)
   const [marinaData, setMarinaData] = useState([])
   const [marinaLocations, setMarinaLocations] = useState([])
   const [filteredData, setFilteredData] = useState([])
@@ -17,6 +18,7 @@ const MarinaImport = () => {
   const [selectedLocations, setSelectedLocations] = useState(new Set())
   const [showFilters, setShowFilters] = useState(false)
   const [activeTab, setActiveTab] = useState('slots') // 'slots' or 'locations'
+  const [useFileImport, setUseFileImport] = useState(true) // Default to file import
   const [filters, setFilters] = useState({
     provider: '',
     cabinet: '',
@@ -29,6 +31,40 @@ const MarinaImport = () => {
     status: ''
   })
 
+  // Handle file upload for slots
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const json = JSON.parse(e.target.result)
+        
+        // Transform data to Marina format
+        const transformedData = json.map(slot => ({
+          id: slot.id,
+          serial_number: slot.serial_number || slot.slot_id,
+          provider: slot.provider || 'N/A',
+          cabinet: slot.cabinet || 'N/A',
+          game_mix: slot.game_mix || 'N/A',
+          status: slot.status || 'Active',
+          location: slot.location || 'N/A',
+          last_updated: slot.updated_at || slot.created_at,
+          created_at: slot.created_at
+        }))
+        
+        setMarinaData(transformedData)
+        setFilteredData(transformedData)
+        toast.success(`Încărcate ${transformedData.length} sloturi din fișier`)
+      } catch (error) {
+        console.error('Error parsing JSON:', error)
+        toast.error('Eroare la citirea fișierului. Verifică că este un JSON valid.')
+      }
+    }
+    reader.readAsText(file)
+  }
+
   // Fetch slots data from Marina server
   const fetchMarinaData = async () => {
     setLoading(true)
@@ -40,9 +76,11 @@ const MarinaImport = () => {
     } catch (error) {
       console.error('Error fetching Marina slots:', error)
       if (error.response?.status === 404) {
-        toast.error('Serverul Marina nu este configurat. Verifică configurarea firewall-ului.')
+        toast.error('Serverul Marina nu este configurat. Folosește import din fișier.')
+        setUseFileImport(true)
       } else if (error.code === 'ECONNREFUSED' || error.message.includes('timeout')) {
-        toast.error('Serverul Marina nu este accesibil. Verifică dacă IP-ul Render este permis în firewall.')
+        toast.error('Serverul Marina nu este accesibil. Folosește import din fișier.')
+        setUseFileImport(true)
       } else {
         toast.error('Eroare la conectarea la serverul Marina pentru sloturi')
       }
@@ -504,13 +542,29 @@ const MarinaImport = () => {
           </div>
           
           <div className="flex items-center space-x-3">
+            {/* File Upload Button */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="btn-success flex items-center space-x-2"
+            >
+              <FileUp className="w-4 h-4" />
+              <span>Încarcă JSON</span>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            
             <button
               onClick={activeTab === 'slots' ? fetchMarinaData : fetchMarinaLocations}
               disabled={loading}
               className="btn-secondary flex items-center space-x-2"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
+              <span>Marina DB</span>
             </button>
           </div>
         </div>
