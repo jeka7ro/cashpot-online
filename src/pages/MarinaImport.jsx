@@ -850,8 +850,8 @@ const MarinaImport = () => {
                     <td colSpan={(activeTab === 'slots' ? slotsColumns : locationsColumns).length} className="px-6 py-12 text-center">
                       <div className="text-slate-500 dark:text-slate-400">
                         {activeTab === 'slots' 
-                          ? (marinaData.length === 0 ? 'Nu există sloturi în Marina' : 'Nu există rezultate pentru filtrele aplicate')
-                          : (marinaLocations.length === 0 ? 'Nu există locații în Marina' : 'Nu există rezultate pentru filtrele aplicate')
+                          ? (marinaData.length === 0 ? 'Nu există sloturi în Cyber' : 'Nu există rezultate pentru filtrele aplicate')
+                          : (marinaLocations.length === 0 ? 'Nu există locații în Cyber' : 'Nu există rezultate pentru filtrele aplicate')
                         }
                       </div>
                     </td>
