@@ -2500,8 +2500,7 @@ app.use('/api/users', usersRoutes)
 // Cyber routes - direct implementation for Render
 app.get('/api/cyber/slots', (req, res) => {
   try {
-    const fs = require('fs')
-    const path = require('path')
+    // fs and path are already imported at the top
     const slotsPath = path.join(__dirname, 'cyber-data', 'slots.json')
     if (fs.existsSync(slotsPath)) {
       const data = JSON.parse(fs.readFileSync(slotsPath, 'utf8'))
@@ -2517,8 +2516,7 @@ app.get('/api/cyber/slots', (req, res) => {
 
 app.get('/api/cyber/locations', (req, res) => {
   try {
-    const fs = require('fs')
-    const path = require('path')
+    // fs and path are already imported at the top
     const locationsPath = path.join(__dirname, 'cyber-data', 'locations.json')
     if (fs.existsSync(locationsPath)) {
       const data = JSON.parse(fs.readFileSync(locationsPath, 'utf8'))
@@ -2534,8 +2532,7 @@ app.get('/api/cyber/locations', (req, res) => {
 
 app.get('/api/cyber/cabinets', (req, res) => {
   try {
-    const fs = require('fs')
-    const path = require('path')
+    // fs and path are already imported at the top
     const cabinetsPath = path.join(__dirname, 'cyber-data', 'cabinets.json')
     if (fs.existsSync(cabinetsPath)) {
       const data = JSON.parse(fs.readFileSync(cabinetsPath, 'utf8'))
@@ -2551,8 +2548,7 @@ app.get('/api/cyber/cabinets', (req, res) => {
 
 app.get('/api/cyber/game-mixes', (req, res) => {
   try {
-    const fs = require('fs')
-    const path = require('path')
+    // fs and path are already imported at the top
     const gameMixesPath = path.join(__dirname, 'cyber-data', 'game-mixes.json')
     if (fs.existsSync(gameMixesPath)) {
       const data = JSON.parse(fs.readFileSync(gameMixesPath, 'utf8'))
@@ -2568,8 +2564,7 @@ app.get('/api/cyber/game-mixes', (req, res) => {
 
 app.get('/api/cyber/providers', (req, res) => {
   try {
-    const fs = require('fs')
-    const path = require('path')
+    // fs and path are already imported at the top
     const providersPath = path.join(__dirname, 'cyber-data', 'providers.json')
     if (fs.existsSync(providersPath)) {
       const data = JSON.parse(fs.readFileSync(providersPath, 'utf8'))
