@@ -9,14 +9,13 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import pg from 'pg'
-import mysql from 'mysql2/promise'
+// mysql2 removed to fix Render deployment issues
 import uploadRoutes from './routes/upload.js'
 import compressRoutes from './routes/compress.js'
 import backupRoutes from './routes/backup.js'
 import gamesRoutes from './routes/games.js'
 import slotHistoryRoutes from './routes/slotHistory.js'
-import cyberRoutes from './routes/cyber.js'
-import importCyberRoutes from './routes/importCyber.js'
+// cyberRoutes and importCyberRoutes removed - using direct JSON endpoints instead
 import usersRoutes from './routes/users.js'
 import { scheduleBackups } from './backup.js'
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
@@ -2498,9 +2497,7 @@ app.use('/api/games', gamesRoutes)
 app.use('/api/slot-history', slotHistoryRoutes)
 app.use('/api/users', usersRoutes)
 
-// Cyber routes enabled
-app.use('/api/cyber', cyberRoutes)
-app.use('/api', importCyberRoutes)
+// Cyber routes removed - using direct JSON endpoints instead
 
 // SIMPLE Cyber endpoints that work on Render (JSON only)
 app.get('/api/cyber/slots', async (req, res) => {
@@ -2580,81 +2577,7 @@ app.get('/api/cyber/providers', async (req, res) => {
   }
 })
 
-// DIRECT Cyber database endpoints with proper error handling
-let cyberDB = null
-
-try {
-  cyberDB = mysql.createPool({
-    host: '161.97.133.165',
-    port: 3306,
-    user: 'eugen',
-    password: '(@Ee0wRHVohZww33',
-    database: 'cyberslot_dbn',
-    connectionLimit: 10,
-    waitForConnections: true,
-    connectTimeout: 10000
-  })
-  console.log('✅ Cyber DB pool created')
-} catch (error) {
-  console.error('❌ Failed to create Cyber DB pool:', error.message)
-}
-
-// Get slots directly from Cyber database
-app.get('/api/cyber-direct/slots', async (req, res) => {
-  if (!cyberDB) {
-    return res.status(503).json({ error: 'Cyber database not available' })
-  }
-  
-  try {
-    const connection = await cyberDB.getConnection()
-    const query = `
-      SELECT 
-        m.id,
-        m.slot_machine_id as serial_number,
-        mm.name as provider,
-        mct.name as cabinet,
-        gt.name as game_mix,
-        CASE WHEN m.active = 1 THEN 'Active' ELSE 'Inactive' END as status,
-        l.code as location,
-        m.updated_at as last_updated,
-        m.created_at
-      FROM machines m
-      LEFT JOIN machine_types mt ON m.machine_type_id = mt.id
-      LEFT JOIN machine_manufacturers mm ON mt.manufacturer_id = mm.id
-      LEFT JOIN machine_cabinet_types mct ON m.cabinet_type_id = mct.id
-      LEFT JOIN machine_game_templates gt ON m.game_template_id = gt.id
-      LEFT JOIN locations l ON m.location_id = l.id
-      WHERE m.deleted_at IS NULL
-      ORDER BY m.created_at DESC
-    `
-    const [rows] = await connection.execute(query)
-    connection.release()
-    console.log(`✅ Fetched ${rows.length} slots from Cyber DB`)
-    res.json(rows)
-  } catch (error) {
-    console.error('❌ Error fetching from Cyber DB:', error.message)
-    res.status(500).json({ error: error.message, slots: [] })
-  }
-})
-
-// Get locations directly from Cyber database
-app.get('/api/cyber-direct/locations', async (req, res) => {
-  if (!cyberDB) {
-    return res.status(503).json({ error: 'Cyber database not available' })
-  }
-  
-  try {
-    const connection = await cyberDB.getConnection()
-    const query = `SELECT id, code, name, address, city FROM locations WHERE deleted_at IS NULL`
-    const [rows] = await connection.execute(query)
-    connection.release()
-    console.log(`✅ Fetched ${rows.length} locations from Cyber DB`)
-    res.json(rows)
-  } catch (error) {
-    console.error('❌ Error fetching locations from Cyber DB:', error.message)
-    res.status(500).json({ error: error.message, locations: [] })
-  }
-})
+// Cyber database endpoints removed - using JSON fallback only
 
 // Serve static files (PDFs)
 app.use('/uploads', express.static('uploads'))
