@@ -2,12 +2,12 @@
   "version": 2,
   "builds": [
     { "src": "package.json", "use": "@vercel/static-build", "config": { "distDir": "src/dist" } },
-    { "src": "backend/server-postgres.js", "use": "@vercel/node" }
+    { "src": "api/index.js", "use": "@vercel/node" }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "/backend/server-postgres.js" },
-    { "src": "/uploads/(.*)", "dest": "/backend/server-postgres.js" },
-    { "src": "/health", "dest": "/backend/server-postgres.js" },
+    { "src": "/api/(.*)", "dest": "/api/index.js" },
+    { "src": "/uploads/(.*)", "dest": "/api/index.js" },
+    { "src": "/health", "dest": "/api/index.js" },
     { "src": "/assets/(.*)", "dest": "/assets/$1" },
     { "src": "/favicon.svg", "dest": "/favicon.svg" },
     { "src": "/(.*)", "dest": "/index.html" }

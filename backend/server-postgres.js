@@ -3055,11 +3055,15 @@ app.use((err, req, res, next) => {
   })
 })
 
-// Start server
-app.listen(PORT, async () => {
-  console.log(`🚀 Server running on port ${PORT}`)
-  console.log(`📡 API: http://localhost:${PORT}/api`)
-  console.log(`💚 Health: http://localhost:${PORT}/health`)
+// Export app for Vercel serverless
+export default app
+
+// Start server (only if not on Vercel)
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, async () => {
+    console.log(`🚀 Server running on port ${PORT}`)
+    console.log(`📡 API: http://localhost:${PORT}/api`)
+    console.log(`💚 Health: http://localhost:${PORT}/health`)
   
   // Check AWS configuration
   const isS3Enabled = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY)
@@ -3083,7 +3087,6 @@ app.listen(PORT, async () => {
   
   // Start automatic backups
   scheduleBackups()
-})
-
-export default app
+  })
+}
 
