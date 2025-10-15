@@ -46,7 +46,8 @@ const Dashboard = () => {
   const [showWelcome, setShowWelcome] = useState(true)
   const [isWelcomeFadingOut, setIsWelcomeFadingOut] = useState(false)
   const [cardSizes, setCardSizes] = useState(() => {
-    const saved = // localStorage REMOVED - using server only.getItem('cardSizes')
+    // localStorage REMOVED - using server only
+    const saved = null
     return saved ? JSON.parse(saved) : {
       companies: 'medium',
       locations: 'medium',
@@ -66,7 +67,8 @@ const Dashboard = () => {
   })
 
   const [widgetSizes, setWidgetSizes] = useState(() => {
-    const saved = // localStorage REMOVED - using server only.getItem('widgetSizes')
+    // localStorage REMOVED - using server only
+    const saved = null
     return saved ? JSON.parse(saved) : {
       quickActions: 'medium',
       recentActivity: 'medium',
@@ -153,7 +155,7 @@ const Dashboard = () => {
               setWidgetSizes(preferences.dashboard.widgetSizes)
             }
             // Actualizează // localStorage REMOVED - using server only cu datele de pe server
-            // localStorage REMOVED - using server only.setItem('dashboardConfig', JSON.stringify(preferences.dashboard))
+            // localStorage REMOVED - using server only
             return // Ieși din funcție dacă s-au încărcat datele de pe server
           }
         } catch (error) {
@@ -162,7 +164,8 @@ const Dashboard = () => {
       }
       
       // Fallback la // localStorage REMOVED - using server only dacă serverul nu funcționează sau nu există preferințe pe server
-      const localConfig = // localStorage REMOVED - using server only.getItem('dashboardConfig')
+      // localStorage REMOVED - using server only
+      const localConfig = null
       if (localConfig) {
         try {
           const config = JSON.parse(localConfig)
@@ -222,7 +225,7 @@ const Dashboard = () => {
   // Resetează configurația la implicită
   const resetDashboardConfig = () => {
     setDashboardConfig(defaultDashboardConfig)
-    // localStorage REMOVED - using server only.removeItem('dashboardConfig')
+    // localStorage REMOVED - using server only
     setSelectedCards([])
     setSelectedWidgets([])
     setCardSizes({
@@ -240,7 +243,7 @@ const Dashboard = () => {
       legalDocuments: 'medium',
       users: 'medium'
     })
-    // localStorage REMOVED - using server only.removeItem('cardSizes')
+    // localStorage REMOVED - using server only
     setIsEditing(false)
   }
 
@@ -264,7 +267,7 @@ const Dashboard = () => {
           setWidgetSizes(preferences.dashboard.widgetSizes)
         }
         // Actualizează // localStorage REMOVED - using server only cu datele de pe server
-        // localStorage REMOVED - using server only.setItem('dashboardConfig', JSON.stringify(preferences.dashboard))
+        // localStorage REMOVED - using server only
         toast.success('Preferințele au fost sincronizate de pe server!')
       } else {
         console.log('ℹ️ No dashboard preferences found on server')
@@ -352,7 +355,7 @@ const Dashboard = () => {
   const changeCardSize = (cardId, size) => {
     setCardSizes(prev => {
       const newSizes = { ...prev, [cardId]: size }
-      // localStorage REMOVED - using server only.setItem('cardSizes', JSON.stringify(newSizes))
+      // localStorage REMOVED - using server only
       return newSizes
     })
   }
@@ -361,7 +364,7 @@ const Dashboard = () => {
   const changeWidgetSize = (widgetId, size) => {
     setWidgetSizes(prev => {
       const newSizes = { ...prev, [widgetId]: size }
-      // localStorage REMOVED - using server only.setItem('widgetSizes', JSON.stringify(newSizes))
+      // localStorage REMOVED - using server only
       return newSizes
     })
   }
@@ -401,7 +404,7 @@ const Dashboard = () => {
       selectedCards.forEach(cardId => {
         newSizes[cardId] = size
       })
-      // localStorage REMOVED - using server only.setItem('cardSizes', JSON.stringify(newSizes))
+      // localStorage REMOVED - using server only
       return newSizes
     })
   }
@@ -435,7 +438,7 @@ const Dashboard = () => {
       selectedWidgets.forEach(widgetId => {
         newSizes[widgetId] = size
       })
-      // localStorage REMOVED - using server only.setItem('widgetSizes', JSON.stringify(newSizes))
+      // localStorage REMOVED - using server only
       return newSizes
     })
   }

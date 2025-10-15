@@ -12,12 +12,12 @@ export const useTheme = () => {
 
 export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => {
-    const saved = // localStorage REMOVED - using server only.getItem('theme')
-    return saved || 'light'
+    // localStorage REMOVED - using server only
+    return 'light'
   })
 
   useEffect(() => {
-    // localStorage REMOVED - using server only.setItem('theme', theme)
+    // localStorage REMOVED - using server only
     
     // Apply theme to document
     if (theme === 'dark') {

@@ -18,7 +18,8 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [token, setToken] = useState(// localStorage REMOVED - using server only.getItem('token'))
+  // localStorage REMOVED - using server only
+  const [token, setToken] = useState(null)
 
   // Configure axios defaults
   useEffect(() => {
@@ -52,7 +53,7 @@ export const AuthProvider = ({ children }) => {
             })
           } else {
             console.error('No user data received from verify endpoint')
-            // localStorage REMOVED - using server only.removeItem('token')
+            // localStorage REMOVED - using server only
             setToken(null)
             setUser(null)
           }
@@ -62,7 +63,7 @@ export const AuthProvider = ({ children }) => {
           if (error.code === 'ECONNABORTED') {
             toast.error('Timeout la verificare autentificare')
           }
-          // localStorage REMOVED - using server only.removeItem('token')
+          // localStorage REMOVED - using server only
           setToken(null)
           setUser(null)
         }
@@ -88,7 +89,7 @@ export const AuthProvider = ({ children }) => {
 
       const { token: newToken } = response.data
       
-      // localStorage REMOVED - using server only.setItem('token', newToken)
+      // localStorage REMOVED - using server only
       setToken(newToken)
       
       // Set axios header immediately
@@ -126,7 +127,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   const logout = () => {
-    // localStorage REMOVED - using server only.removeItem('token')
+    // localStorage REMOVED - using server only
     // Note: We don't remove savedCredentials here to allow users to stay logged in
     setToken(null)
     setUser(null)
@@ -135,7 +136,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   const clearAuth = () => {
-    // localStorage REMOVED - using server only.clear()
+    // localStorage REMOVED - using server only
     setToken(null)
     setUser(null)
     delete axios.defaults.headers.common['Authorization']
