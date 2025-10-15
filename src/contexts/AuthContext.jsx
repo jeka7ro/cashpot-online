@@ -47,6 +47,7 @@ export const AuthProvider = ({ children }) => {
               role: realUser.role,
               avatar: realUser.avatar,
               status: realUser.status || 'active',
+              permissions: realUser.permissions || {},
               lastLogin: new Date().toISOString()
             })
           } else {
@@ -106,6 +107,7 @@ export const AuthProvider = ({ children }) => {
           role: realUser.role,
           avatar: realUser.avatar,
           status: realUser.status || 'active',
+          permissions: realUser.permissions || {},
           lastLogin: new Date().toISOString()
         }
         setUser(userData)

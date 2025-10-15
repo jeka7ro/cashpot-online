@@ -3,6 +3,8 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { DataProvider } from './contexts/DataContext'
 import ProtectedRoute from './components/ProtectedRoute'
+import RoleProtectedRoute from './components/RoleProtectedRoute'
+import { MODULES } from './utils/permissions'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Companies from './pages/Companies'
@@ -36,28 +38,28 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<Navigate to="/login" replace />} />
             
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/companies" element={<Companies />} />
-            <Route path="/companies/:id" element={<CompanyDetail />} />
-            <Route path="/locations" element={<Locations />} />
-            <Route path="/locations/:id" element={<LocationDetail />} />
-            <Route path="/providers" element={<Providers />} />
-            <Route path="/cabinets" element={<Cabinets />} />
-            <Route path="/game-mixes" element={<GameMixes />} />
-            <Route path="/games/:gameId" element={<GameDetail />} />
-            <Route path="/slots" element={<Slots />} />
-            <Route path="/slots/history" element={<SlotHistory />} />
-            <Route path="/slots/cyber-import" element={<CyberImport />} />
-            <Route path="/slots/:id" element={<SlotDetail />} />
-            <Route path="/warehouse" element={<Warehouse />} />
-            <Route path="/metrology" element={<Metrology />} />
-            <Route path="/jackpots" element={<Jackpots />} />
-            <Route path="/invoices" element={<Invoices />} />
-            <Route path="/invoices/:id" element={<InvoiceDetail />} />
-            <Route path="/onjn-reports" element={<ONJNReports />} />
-            <Route path="/legal-documents" element={<LegalDocuments />} />
-            <Route path="/users" element={<Users />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/companies" element={<RoleProtectedRoute module={MODULES.COMPANIES}><Companies /></RoleProtectedRoute>} />
+            <Route path="/companies/:id" element={<RoleProtectedRoute module={MODULES.COMPANIES}><CompanyDetail /></RoleProtectedRoute>} />
+            <Route path="/locations" element={<RoleProtectedRoute module={MODULES.LOCATIONS}><Locations /></RoleProtectedRoute>} />
+            <Route path="/locations/:id" element={<RoleProtectedRoute module={MODULES.LOCATIONS}><LocationDetail /></RoleProtectedRoute>} />
+            <Route path="/providers" element={<RoleProtectedRoute module={MODULES.PROVIDERS}><Providers /></RoleProtectedRoute>} />
+            <Route path="/cabinets" element={<RoleProtectedRoute module={MODULES.CABINETS}><Cabinets /></RoleProtectedRoute>} />
+            <Route path="/game-mixes" element={<RoleProtectedRoute module={MODULES.GAME_MIXES}><GameMixes /></RoleProtectedRoute>} />
+            <Route path="/games/:gameId" element={<RoleProtectedRoute module={MODULES.SLOTS}><GameDetail /></RoleProtectedRoute>} />
+            <Route path="/slots" element={<RoleProtectedRoute module={MODULES.SLOTS}><Slots /></RoleProtectedRoute>} />
+            <Route path="/slots/history" element={<RoleProtectedRoute module={MODULES.SLOTS}><SlotHistory /></RoleProtectedRoute>} />
+            <Route path="/slots/cyber-import" element={<RoleProtectedRoute module={MODULES.CYBER_IMPORT}><CyberImport /></RoleProtectedRoute>} />
+            <Route path="/slots/:id" element={<RoleProtectedRoute module={MODULES.SLOTS}><SlotDetail /></RoleProtectedRoute>} />
+            <Route path="/warehouse" element={<RoleProtectedRoute module={MODULES.WAREHOUSE}><Warehouse /></RoleProtectedRoute>} />
+            <Route path="/metrology" element={<RoleProtectedRoute module={MODULES.METROLOGY}><Metrology /></RoleProtectedRoute>} />
+            <Route path="/jackpots" element={<RoleProtectedRoute module={MODULES.JACKPOTS}><Jackpots /></RoleProtectedRoute>} />
+            <Route path="/invoices" element={<RoleProtectedRoute module={MODULES.INVOICES}><Invoices /></RoleProtectedRoute>} />
+            <Route path="/invoices/:id" element={<RoleProtectedRoute module={MODULES.INVOICES}><InvoiceDetail /></RoleProtectedRoute>} />
+            <Route path="/onjn-reports" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNReports /></RoleProtectedRoute>} />
+            <Route path="/legal-documents" element={<RoleProtectedRoute module={MODULES.LEGAL}><LegalDocuments /></RoleProtectedRoute>} />
+            <Route path="/users" element={<RoleProtectedRoute requiredRole="admin"><Users /></RoleProtectedRoute>} />
+            <Route path="/settings" element={<RoleProtectedRoute module={MODULES.SETTINGS}><Settings /></RoleProtectedRoute>} />
             
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
