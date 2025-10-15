@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react'
 import { Download, Upload, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import axios from 'axios'
-import Layout from '../components/Layout'
 
 const CyberImport = () => {
   const [cyberSlots, setCyberSlots] = useState([])
@@ -149,8 +148,8 @@ const CyberImport = () => {
   ]
 
   return (
-    <Layout>
-      <div className="space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+      <div className="p-6 space-y-6">
         {/* Header */}
       <div className="card p-6">
         <div className="flex items-center justify-between">
@@ -286,7 +285,7 @@ const CyberImport = () => {
         </div>
       </div>
       </div>
-    </Layout>
+    </div>
   )
 }
 
