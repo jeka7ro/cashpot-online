@@ -34,35 +34,26 @@ export const AuthProvider = ({ children }) => {
     const checkAuth = async () => {
       if (token) {
         try {
-          // Fetch real user data from database with timeout
-          const response = await axios.get('/api/users', { timeout: 30000 })
-          const users = response.data
-          const realUser = users.find(u => u.username === 'admin') || users[0]
+          // Verify token and get real user data
+          const response = await axios.get('/api/auth/verify', { timeout: 10000 })
+          const realUser = response.data
           
           if (realUser) {
             setUser({
-              id: realUser.id.toString(),
+              id: realUser._id || realUser.id,
               username: realUser.username,
               email: realUser.email,
-              fullName: realUser.full_name || realUser.username,
+              fullName: realUser.fullName || realUser.full_name || realUser.username,
               role: realUser.role,
               avatar: realUser.avatar,
-              status: 'active',
+              status: realUser.status || 'active',
               lastLogin: new Date().toISOString()
             })
           } else {
-            // Fallback to mock user if no real user found
-            const mockUser = {
-              id: '1',
-              username: 'admin',
-              email: 'admin@cashpot-v7.com',
-              fullName: 'Administrator Sistem',
-              role: 'admin',
-              avatar: null,
-              status: 'active',
-              lastLogin: new Date().toISOString()
-            }
-            setUser(mockUser)
+            console.error('No user data received from verify endpoint')
+            localStorage.removeItem('token')
+            setToken(null)
+            setUser(null)
           }
         } catch (error) {
           console.error('Auth verification failed:', error)
@@ -94,14 +85,32 @@ export const AuthProvider = ({ children }) => {
         password
       })
 
-      const { token: newToken, user: userData } = response.data
+      const { token: newToken } = response.data
       
       localStorage.setItem('token', newToken)
       setToken(newToken)
-      setUser(userData)
       
-      toast.success(`Bun venit, ${userData.fullName}!`)
-      return { success: true }
+      // Verify token to get real user data
+      const verifyResponse = await axios.get('/api/auth/verify', { timeout: 10000 })
+      const realUser = verifyResponse.data
+      
+      if (realUser) {
+        const userData = {
+          id: realUser._id || realUser.id,
+          username: realUser.username,
+          email: realUser.email,
+          fullName: realUser.fullName || realUser.full_name || realUser.username,
+          role: realUser.role,
+          avatar: realUser.avatar,
+          status: realUser.status || 'active',
+          lastLogin: new Date().toISOString()
+        }
+        setUser(userData)
+        toast.success(`Bun venit, ${userData.fullName}!`)
+        return { success: true }
+      } else {
+        throw new Error('No user data received after login')
+      }
     } catch (error) {
       const message = error.response?.data?.message || 'Eroare la autentificare'
       toast.error(message)
