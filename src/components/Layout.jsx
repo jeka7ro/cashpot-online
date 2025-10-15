@@ -264,7 +264,9 @@ const Layout = ({ children }) => {
                 </div>
               )}
               <div className="text-sm md:text-base hidden sm:block">
-                <div className="font-semibold text-white">{user?.fullName || user?.username || 'Admin'}</div>
+                <div className="font-semibold text-white">
+                  {user ? (user.fullName || user.username) : 'Loading...'}
+                </div>
               </div>
             </div>
             <button 

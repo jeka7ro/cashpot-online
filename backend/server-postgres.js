@@ -1009,6 +1009,53 @@ app.get('/api/auth/verify', async (req, res) => {
 
     const user = result.rows[0]
 
+    // Get default permissions for role if permissions are empty
+    let userPermissions = user.permissions
+    if (!userPermissions || Object.keys(userPermissions).length === 0) {
+      // Import default permissions logic (simplified version)
+      const defaultPermissions = {
+        admin: {
+          dashboard: { view: true, edit: true },
+          companies: { view: true, create: true, edit: true, delete: true, export: true },
+          locations: { view: true, create: true, edit: true, delete: true, export: true },
+          providers: { view: true, create: true, edit: true, delete: true, export: true },
+          cabinets: { view: true, create: true, edit: true, delete: true, export: true },
+          game_mixes: { view: true, create: true, edit: true, delete: true, export: true },
+          slots: { view: true, create: true, edit: true, delete: true, export: true, import: true },
+          warehouse: { view: true, create: true, edit: true, delete: true, export: true },
+          metrology: { view: true, create: true, edit: true, delete: true, export: true },
+          contracts: { view: true, create: true, edit: true, delete: true, export: true },
+          invoices: { view: true, create: true, edit: true, delete: true, export: true },
+          jackpots: { view: true, create: true, edit: true, delete: true },
+          onjn: { view: true, create: true, edit: true, delete: true, export: true },
+          legal: { view: true, create: true, edit: true, delete: true, export: true },
+          users: { view: true, create: true, edit: true, delete: true },
+          settings: { view: true, edit: true },
+          cyber_import: { view: true, import: true }
+        },
+        user: {
+          dashboard: { view: true, edit: false },
+          companies: { view: true, create: false, edit: false, delete: false, export: true },
+          locations: { view: true, create: false, edit: false, delete: false, export: true },
+          providers: { view: true, create: false, edit: false, delete: false, export: true },
+          cabinets: { view: true, create: false, edit: false, delete: false, export: true },
+          game_mixes: { view: true, create: false, edit: false, delete: false, export: true },
+          slots: { view: true, create: false, edit: false, delete: false, export: true, import: false },
+          warehouse: { view: true, create: false, edit: false, delete: false, export: true },
+          metrology: { view: true, create: false, edit: false, delete: false, export: true },
+          contracts: { view: true, create: false, edit: false, delete: false, export: true },
+          invoices: { view: true, create: false, edit: false, delete: false, export: true },
+          jackpots: { view: true, create: false, edit: false, delete: false },
+          onjn: { view: true, create: false, edit: false, delete: false, export: true },
+          legal: { view: true, create: false, edit: false, delete: false, export: true },
+          users: { view: false, create: false, edit: false, delete: false },
+          settings: { view: false, edit: false },
+          cyber_import: { view: false, import: false }
+        }
+      }
+      userPermissions = defaultPermissions[user.role] || defaultPermissions.user
+    }
+
     res.json({
       success: true,
       user: {
@@ -1018,7 +1065,7 @@ app.get('/api/auth/verify', async (req, res) => {
         email: user.email,
         role: user.role,
         avatar: user.avatar,
-        permissions: user.permissions,
+        permissions: userPermissions,
         notes: user.notes,
         status: user.status
       }
