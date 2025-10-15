@@ -268,6 +268,13 @@ const Layout = ({ children }) => {
               </div>
             </div>
             <button 
+              onClick={() => { localStorage.clear(); window.location.reload(); }}
+              className="p-2 bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all duration-200 shadow-lg hover:shadow-orange-500/25 group mr-2"
+              title="Clear Cache"
+            >
+              🔄
+            </button>
+            <button 
               onClick={logout}
               className="p-2 bg-gradient-to-r from-red-500 to-red-600 rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-red-500/25 group"
             >

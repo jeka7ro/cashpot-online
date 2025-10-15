@@ -90,6 +90,9 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', newToken)
       setToken(newToken)
       
+      // Set axios header immediately
+      axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`
+      
       // Verify token to get real user data
       const verifyResponse = await axios.get('/api/auth/verify', { timeout: 10000 })
       const realUser = verifyResponse.data
@@ -129,6 +132,14 @@ export const AuthProvider = ({ children }) => {
     toast.success('V-ați deconectat cu succes!')
   }
 
+  const clearAuth = () => {
+    localStorage.clear()
+    setToken(null)
+    setUser(null)
+    delete axios.defaults.headers.common['Authorization']
+    window.location.reload()
+  }
+
   const updateUser = (userData) => {
     setUser(userData)
   }
@@ -139,6 +150,7 @@ export const AuthProvider = ({ children }) => {
     loading,
     login,
     logout,
+    clearAuth,
     updateUser,
     isAuthenticated: !!user
   }
