@@ -9,13 +9,13 @@ router.get('/slots', async (req, res) => {
     const marinaPool = getMarinaConnection()
     const connection = await marinaPool.getConnection()
     
-    // Query to get machines (slots) from Marina database
+    // Query to get machines (slots) from Marina database with correct table structure
     const query = `
       SELECT 
         m.id,
         m.slot_machine_id as serial_number,
-        mt.name as provider,
-        ct.name as cabinet,
+        mm.name as provider,
+        mct.name as cabinet,
         gt.name as game_mix,
         CASE 
           WHEN m.active = 1 THEN 'Active'
@@ -26,7 +26,8 @@ router.get('/slots', async (req, res) => {
         m.created_at
       FROM machines m
       LEFT JOIN machine_types mt ON m.machine_type_id = mt.id
-      LEFT JOIN machine_cabinet_types ct ON m.cabinet_type_id = ct.id
+      LEFT JOIN machine_manufacturers mm ON mt.manufacturer_id = mm.id
+      LEFT JOIN machine_cabinet_types mct ON m.cabinet_type_id = mct.id
       LEFT JOIN machine_game_templates gt ON m.game_template_id = gt.id
       LEFT JOIN locations l ON m.location_id = l.id
       WHERE m.deleted_at IS NULL
