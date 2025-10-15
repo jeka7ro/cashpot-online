@@ -36,7 +36,7 @@ export const AuthProvider = ({ children }) => {
         try {
           // Verify token and get real user data
           const response = await axios.get('/api/auth/verify', { timeout: 10000 })
-          const realUser = response.data
+          const realUser = response.data.user
           
           if (realUser) {
             setUser({
@@ -95,7 +95,7 @@ export const AuthProvider = ({ children }) => {
       
       // Verify token to get real user data
       const verifyResponse = await axios.get('/api/auth/verify', { timeout: 10000 })
-      const realUser = verifyResponse.data
+      const realUser = verifyResponse.data.user
       
       if (realUser) {
         const userData = {
