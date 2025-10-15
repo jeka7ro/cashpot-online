@@ -9,7 +9,15 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import pg from 'pg'
-import mysql from 'mysql2/promise'
+// Import mysql2 only if not on Render (may cause issues on Render)
+let mysql = null
+if (process.env.RENDER !== 'true') {
+  try {
+    mysql = await import('mysql2/promise')
+  } catch (error) {
+    console.log('⚠️ mysql2 not available, using JSON fallback only')
+  }
+}
 import uploadRoutes from './routes/upload.js'
 import compressRoutes from './routes/compress.js'
 import backupRoutes from './routes/backup.js'

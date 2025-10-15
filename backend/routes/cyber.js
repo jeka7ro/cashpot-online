@@ -27,6 +27,12 @@ const loadExportedData = (filename) => {
 // Test Cyber database connection
 router.get('/test', async (req, res) => {
   try {
+    // On Render, skip database connection test and use JSON only
+    if (process.env.RENDER === 'true') {
+      res.json({ success: true, message: 'Using JSON fallback data (Render mode)', mode: 'json' })
+      return
+    }
+    
     const result = await testCyberConnection()
     if (result) {
       res.json({ success: true, message: 'Cyber database connection successful' })
@@ -42,6 +48,14 @@ router.get('/test', async (req, res) => {
 // Get all slots from Cyber (with fallback to JSON file)
 router.get('/slots', async (req, res) => {
   try {
+    // On Render, use JSON fallback only
+    if (process.env.RENDER === 'true') {
+      console.log('🔄 Using JSON fallback for slots (Render mode)')
+      const slots = loadExportedData('slots.json')
+      res.json(slots)
+      return
+    }
+    
     const cyberPool = getCyberConnection()
     const connection = await cyberPool.getConnection()
     
@@ -84,6 +98,14 @@ router.get('/slots', async (req, res) => {
 // Get all locations from Cyber (with fallback to hardcoded data)
 router.get('/locations', async (req, res) => {
   try {
+    // On Render, use JSON fallback only
+    if (process.env.RENDER === 'true') {
+      console.log('🔄 Using JSON fallback for locations (Render mode)')
+      const locations = loadExportedData('locations.json')
+      res.json(locations)
+      return
+    }
+    
     const cyberPool = getCyberConnection()
     const connection = await cyberPool.getConnection()
     
@@ -123,6 +145,14 @@ router.get('/locations', async (req, res) => {
 // Get all cabinets from Cyber
 router.get('/cabinets', async (req, res) => {
   try {
+    // On Render, use JSON fallback only
+    if (process.env.RENDER === 'true') {
+      console.log('🔄 Using JSON fallback for cabinets (Render mode)')
+      const cabinets = loadExportedData('cabinets.json')
+      res.json(cabinets)
+      return
+    }
+    
     const cyberPool = getCyberConnection()
     const connection = await cyberPool.getConnection()
     
@@ -152,6 +182,14 @@ router.get('/cabinets', async (req, res) => {
 // Get all game mixes from Cyber
 router.get('/game-mixes', async (req, res) => {
   try {
+    // On Render, use JSON fallback only
+    if (process.env.RENDER === 'true') {
+      console.log('🔄 Using JSON fallback for game-mixes (Render mode)')
+      const gameMixes = loadExportedData('game-mixes.json')
+      res.json(gameMixes)
+      return
+    }
+    
     const cyberPool = getCyberConnection()
     const connection = await cyberPool.getConnection()
     
@@ -181,6 +219,14 @@ router.get('/game-mixes', async (req, res) => {
 // Get all providers from Cyber
 router.get('/providers', async (req, res) => {
   try {
+    // On Render, use JSON fallback only
+    if (process.env.RENDER === 'true') {
+      console.log('🔄 Using JSON fallback for providers (Render mode)')
+      const providers = loadExportedData('providers.json')
+      res.json(providers)
+      return
+    }
+    
     const cyberPool = getCyberConnection()
     const connection = await cyberPool.getConnection()
     
