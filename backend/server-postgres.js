@@ -16,6 +16,7 @@ import backupRoutes from './routes/backup.js'
 import gamesRoutes from './routes/games.js'
 import slotHistoryRoutes from './routes/slotHistory.js'
 import usersRoutes from './routes/users.js'
+import authRoutes from './routes/auth.js'
 import companiesRoutes from './routes/companies.js'
 import locationsRoutes from './routes/locations.js'
 import providersRoutes from './routes/providers.js'
@@ -23,6 +24,7 @@ import cabinetsRoutes from './routes/cabinets.js'
 import gameMixesRoutes from './routes/gameMixes.js'
 import slotsRoutes from './routes/slots.js'
 import invoicesRoutes from './routes/invoices.js'
+import jackpotsRoutes from './routes/jackpots.js'
 import legalDocumentsRoutes from './routes/legalDocuments.js'
 import onjnReportsRoutes from './routes/onjnReports.js'
 import metrologyRoutes from './routes/metrology.js'
@@ -2506,6 +2508,7 @@ app.use('/api/backup', backupRoutes)
 app.use('/api/games', gamesRoutes)
 app.use('/api/slot-history', slotHistoryRoutes)
 app.use('/api/users', usersRoutes)
+app.use('/api/auth', authRoutes)
 app.use('/api/companies', companiesRoutes)
 app.use('/api/locations', locationsRoutes)
 app.use('/api/providers', providersRoutes)
@@ -2513,6 +2516,7 @@ app.use('/api/cabinets', cabinetsRoutes)
 app.use('/api/game-mixes', gameMixesRoutes)
 app.use('/api/slots', slotsRoutes)
 app.use('/api/invoices', invoicesRoutes)
+app.use('/api/jackpots', jackpotsRoutes)
 app.use('/api/legal-documents', legalDocumentsRoutes)
 app.use('/api/onjn-reports', onjnReportsRoutes)
 app.use('/api/metrology', metrologyRoutes)
