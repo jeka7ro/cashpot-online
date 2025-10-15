@@ -1,7 +1,28 @@
 import express from 'express'
 import { getMarinaConnection, testMarinaConnection } from '../config/marina.js'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 const router = express.Router()
+
+// Load exported data as fallback
+const loadExportedData = (filename) => {
+  try {
+    const filePath = path.join(__dirname, '..', 'cyber-data', filename)
+    if (fs.existsSync(filePath)) {
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+      console.log(`✅ Loaded ${data.length} items from ${filename}`)
+      return data
+    }
+  } catch (error) {
+    console.error(`Error loading ${filename}:`, error.message)
+  }
+  return []
+}
 
 // Test Marina database connection
 router.get('/test', async (req, res) => {
@@ -54,8 +75,9 @@ router.get('/slots', async (req, res) => {
     
     res.json(rows)
   } catch (error) {
-    console.error('Error fetching Cyber slots from database:', error.message)
-    res.status(500).json({ error: 'Failed to connect to Cyber database', details: error.message })
+    console.error('Error fetching Cyber slots from database, using exported data:', error.message)
+    const fallbackData = loadExportedData('slots.json')
+    res.json(fallbackData)
   }
 })
 
@@ -92,8 +114,9 @@ router.get('/locations', async (req, res) => {
     
     res.json(rows)
   } catch (error) {
-    console.error('Error fetching Cyber locations from database:', error.message)
-    res.status(500).json({ error: 'Failed to connect to Cyber database', details: error.message })
+    console.error('Error fetching Cyber locations from database, using exported data:', error.message)
+    const fallbackData = loadExportedData('locations.json')
+    res.json(fallbackData)
   }
 })
 
@@ -120,8 +143,9 @@ router.get('/cabinets', async (req, res) => {
     
     res.json(rows)
   } catch (error) {
-    console.error('Error fetching Cyber cabinets from database:', error.message)
-    res.status(500).json({ error: 'Failed to fetch cabinets from Cyber' })
+    console.error('Error fetching Cyber cabinets from database, using exported data:', error.message)
+    const fallbackData = loadExportedData('cabinets.json')
+    res.json(fallbackData)
   }
 })
 
@@ -148,8 +172,9 @@ router.get('/game-mixes', async (req, res) => {
     
     res.json(rows)
   } catch (error) {
-    console.error('Error fetching Cyber game mixes from database:', error.message)
-    res.status(500).json({ error: 'Failed to fetch game mixes from Cyber' })
+    console.error('Error fetching Cyber game mixes from database, using exported data:', error.message)
+    const fallbackData = loadExportedData('game-mixes.json')
+    res.json(fallbackData)
   }
 })
 
@@ -175,8 +200,9 @@ router.get('/providers', async (req, res) => {
     
     res.json(rows)
   } catch (error) {
-    console.error('Error fetching Cyber providers from database:', error.message)
-    res.status(500).json({ error: 'Failed to fetch providers from Cyber' })
+    console.error('Error fetching Cyber providers from database, using exported data:', error.message)
+    const fallbackData = loadExportedData('providers.json')
+    res.json(fallbackData)
   }
 })
 
