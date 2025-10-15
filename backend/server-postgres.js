@@ -529,8 +529,8 @@ const initializeDatabase = async () => {
     if (adminCheck.rows.length === 0) {
       const hashedPassword = await bcrypt.hash('admin123', 10)
       await pool.query(
-        'INSERT INTO users (username, password, full_name, email, role) VALUES ($1, $2, $3, $4, $5)',
-        ['admin', hashedPassword, 'Administrator', 'admin@cashpot.com', 'admin']
+        'INSERT INTO users (username, password, full_name, email, role, avatar) VALUES ($1, $2, $3, $4, $5, $6)',
+        ['admin', hashedPassword, 'Administrator', 'admin@cashpot.com', 'admin', '/assets/default-avatar.svg']
       )
       console.log('✅ Admin user created')
     }

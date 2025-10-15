@@ -90,9 +90,12 @@ router.post('/', [
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10)
 
+    // Set default avatar if none provided
+    const defaultAvatar = avatar || '/assets/default-avatar.svg'
+    
     const result = await pool.query(
       'INSERT INTO users (username, password, full_name, email, role, avatar, permissions, notes, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, username, full_name, email, role, avatar, permissions, notes, status, created_at',
-      [username, hashedPassword, full_name, email, role || 'user', avatar, JSON.stringify(permissions || {}), notes, status || 'active']
+      [username, hashedPassword, full_name, email, role || 'user', defaultAvatar, JSON.stringify(permissions || {}), notes, status || 'active']
     )
 
     res.status(201).json(result.rows[0])
