@@ -133,11 +133,11 @@ const DataTable = ({
                   />
                 </div>
               </th>
-              <th className={`text-left p-6 font-bold ${currentColor.text} text-sm uppercase tracking-wider w-16`}>#</th>
+              <th className={`text-left p-6 font-bold ${currentColor.text} text-base uppercase tracking-wider w-16`}>#</th>
               {columns.map((column) => (
                 <th 
                   key={column.key}
-                  className={`text-left p-6 font-bold ${currentColor.text} text-sm uppercase tracking-wider ${
+                  className={`text-left p-6 font-bold ${currentColor.text} text-base uppercase tracking-wider ${
                     column.sortable ? `cursor-pointer ${currentColor.hover} transition-colors` : ''
                   }`}
                   onClick={() => column.sortable && handleSort(column.key)}
@@ -152,7 +152,7 @@ const DataTable = ({
                   </div>
                 </th>
               ))}
-              <th className={`text-left p-6 font-bold ${currentColor.text} text-sm uppercase tracking-wider`}>Acțiuni</th>
+              <th className={`text-left p-6 font-bold ${currentColor.text} text-base uppercase tracking-wider`}>Acțiuni</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200/50 dark:divide-slate-700/50">
@@ -168,11 +168,11 @@ const DataTable = ({
                     />
                   </div>
                 </td>
-                <td className="p-6 text-slate-600 dark:text-slate-400 font-semibold text-sm">
+                <td className="p-6 text-slate-600 dark:text-slate-400 font-semibold text-base">
                   {startIndex + idx + 1}
                 </td>
                 {columns.map((column) => (
-                  <td key={column.key} className="p-6">
+                  <td key={column.key} className="p-6 text-base font-medium text-slate-700 dark:text-slate-300">
                     {column.render ? column.render(item) : item[column.key]}
                   </td>
                 ))}
