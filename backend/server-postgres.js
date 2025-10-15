@@ -2497,7 +2497,11 @@ app.use('/api/games', gamesRoutes)
 app.use('/api/slot-history', slotHistoryRoutes)
 app.use('/api/users', usersRoutes)
 
-// Cyber routes - direct implementation for Render
+// Also keep marinaRoutes for future use
+app.use('/api/cyber', marinaRoutes)
+app.use('/api', importMarinaRoutes)
+
+// Cyber routes - direct implementation for Render (after marinaRoutes)
 app.get('/api/cyber/slots', (req, res) => {
   try {
     // fs and path are already imported at the top
@@ -2577,10 +2581,6 @@ app.get('/api/cyber/providers', (req, res) => {
     res.json([])
   }
 })
-
-// Also keep marinaRoutes for future use
-app.use('/api/cyber', marinaRoutes)
-app.use('/api', importMarinaRoutes)
 
 // Serve static files (PDFs)
 app.use('/uploads', express.static('uploads'))
