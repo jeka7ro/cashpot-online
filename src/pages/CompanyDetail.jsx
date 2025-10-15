@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react'
+3import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import PDFViewer from '../components/PDFViewer'
 import { useData } from '../contexts/DataContext'
+import { toast } from 'react-hot-toast'
 import { 
   Building2, 
   FileText, 
@@ -70,6 +71,21 @@ const CompanyDetail = () => {
         setCompany(updatedCompany)
         setShowUploadModal(false)
         setNewDocument({ name: '', type: 'Contract', file: null })
+        
+        // Verifică dacă există informații de comprimare PDF
+        if (updatedCompany.compression) {
+          const { originalSize, compressedSize, compressionRatio, savedBytes } = updatedCompany.compression
+          const originalMB = (originalSize / 1024 / 1024).toFixed(2)
+          const compressedMB = (compressedSize / 1024 / 1024).toFixed(2)
+          const savedKB = (savedBytes / 1024).toFixed(2)
+          
+          toast.success(
+            `Document încărcat cu succes! PDF comprimat: ${originalMB}MB → ${compressedMB}MB (${compressionRatio}% reducere, ${savedKB}KB economisite)`,
+            { duration: 6000 }
+          )
+        } else {
+          toast.success('Document încărcat cu succes!')
+        }
         
         // Refresh the companies list in the context
         setTimeout(() => {

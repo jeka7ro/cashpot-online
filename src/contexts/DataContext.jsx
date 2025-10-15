@@ -144,8 +144,23 @@ export const DataProvider = ({ children }) => {
       const response = await axios.post(`/api/${entity}`, data)
       if (response.data) {
         const newItem = response.data
+        
+        // Verifică dacă există informații de comprimare PDF
+        if (newItem.compression) {
+          const { originalSize, compressedSize, compressionRatio, savedBytes } = newItem.compression
+          const originalMB = (originalSize / 1024 / 1024).toFixed(2)
+          const compressedMB = (compressedSize / 1024 / 1024).toFixed(2)
+          const savedKB = (savedBytes / 1024).toFixed(2)
+          
+          toast.success(
+            `Adăugat cu succes! PDF comprimat: ${originalMB}MB → ${compressedMB}MB (${compressionRatio}% reducere, ${savedKB}KB economisite)`,
+            { duration: 6000 }
+          )
+        } else {
+          toast.success('Adăugat cu succes!')
+        }
+        
         entityConfig[entity].setState(prev => [newItem, ...prev])
-        toast.success('Adăugat cu succes!')
         return { success: true, data: newItem }
       }
     } catch (error) {
@@ -161,10 +176,25 @@ export const DataProvider = ({ children }) => {
       const response = await axios.put(`/api/${entity}/${id}`, data)
       if (response.data) {
         const updatedItem = response.data
+        
+        // Verifică dacă există informații de comprimare PDF
+        if (updatedItem.compression) {
+          const { originalSize, compressedSize, compressionRatio, savedBytes } = updatedItem.compression
+          const originalMB = (originalSize / 1024 / 1024).toFixed(2)
+          const compressedMB = (compressedSize / 1024 / 1024).toFixed(2)
+          const savedKB = (savedBytes / 1024).toFixed(2)
+          
+          toast.success(
+            `Actualizat cu succes! PDF comprimat: ${originalMB}MB → ${compressedMB}MB (${compressionRatio}% reducere, ${savedKB}KB economisite)`,
+            { duration: 6000 }
+          )
+        } else {
+          toast.success('Actualizat cu succes!')
+        }
+        
         entityConfig[entity].setState(prev =>
           prev.map(item => (item.id === id ? { ...item, ...updatedItem } : item))
         )
-        toast.success('Actualizat cu succes!')
         return { success: true, data: updatedItem }
       }
     } catch (error) {
