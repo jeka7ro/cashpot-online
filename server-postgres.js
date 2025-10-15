@@ -939,6 +939,49 @@ app.post('/api/auth/login', async (req, res) => {
   }
 })
 
+// Verify token
+app.get('/api/auth/verify', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1]
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'No token provided'
+      })
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'cashpot-secret-key-2024')
+    const result = await pool.query('SELECT * FROM users WHERE id = $1', [decoded.userId])
+    
+    if (result.rows.length === 0) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not found'
+      })
+    }
+
+    const user = result.rows[0]
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        fullName: user.full_name,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar,
+        permissions: user.permissions,
+        notes: user.notes,
+        status: user.status
+      }
+    })
+  } catch (error) {
+    res.status(401).json({ success: false, message: 'Invalid token', error: error.message })
+  }
+})
+
 // Companies routes
 app.get('/api/companies', async (req, res) => {
   try {
