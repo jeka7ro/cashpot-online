@@ -10,6 +10,7 @@ import path from 'path'
 import fs from 'fs'
 import pg from 'pg'
 import uploadRoutes from './routes/upload.js'
+import compressRoutes from './routes/compress.js'
 import backupRoutes from './routes/backup.js'
 import gamesRoutes from './routes/games.js'
 import slotHistoryRoutes from './routes/slotHistory.js'
@@ -2424,6 +2425,9 @@ entities.forEach(entity => {
 
 // Upload routes
 app.use('/api/upload', uploadRoutes)
+
+// Compression routes
+app.use('/api/compress', compressRoutes)
 
 // Backup routes
 app.use('/api/backup', backupRoutes)
