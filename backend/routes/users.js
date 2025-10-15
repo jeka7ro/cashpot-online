@@ -29,11 +29,15 @@ router.get('/', async (req, res) => {
 // GET /api/users/:id
 router.get('/:id', async (req, res) => {
   try {
+    console.log('GET /api/users/:id called with id:', req.params.id)
     const { id } = req.params
     const result = await pool.query('SELECT id, username, full_name, email, role, avatar, permissions, notes, status, preferences, created_at, updated_at FROM users WHERE id = $1', [id])
+    console.log('Query result:', result.rows.length, 'rows')
     if (result.rows.length === 0) {
+      console.log('User not found with id:', id)
       return res.status(404).json({ success: false, message: 'User not found' })
     }
+    console.log('Returning user:', result.rows[0].username)
     res.json(result.rows[0])
   } catch (error) {
     console.error('Error fetching user:', error)
