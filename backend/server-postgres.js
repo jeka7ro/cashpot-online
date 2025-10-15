@@ -1769,7 +1769,41 @@ app.delete('/api/gameMixes/:id', async (req, res) => {
   }
 })
 
-// Users routes are handled by routes/users.js
+// Users routes - quick fix for dashboard sync
+app.get('/api/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const result = await pool.query('SELECT id, username, full_name, email, role, avatar, permissions, notes, status, preferences, created_at, updated_at FROM users WHERE id = $1', [id])
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' })
+    }
+    res.json(result.rows[0])
+  } catch (error) {
+    console.error('Error fetching user:', error)
+    res.status(500).json({ success: false, message: 'Error fetching user' })
+  }
+})
+
+app.put('/api/users/:id/preferences', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { preferences } = req.body
+    
+    const result = await pool.query(
+      'UPDATE users SET preferences = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, preferences',
+      [JSON.stringify(preferences), id]
+    )
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' })
+    }
+    
+    res.json({ success: true, preferences: result.rows[0].preferences })
+  } catch (error) {
+    console.error('Error updating user preferences:', error)
+    res.status(500).json({ success: false, message: 'Error updating user preferences' })
+  }
+})
 
 // Contracts API with JOINs for property rental
 app.get('/api/contracts', async (req, res) => {
