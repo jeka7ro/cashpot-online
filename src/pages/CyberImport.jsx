@@ -78,65 +78,16 @@ const CyberImport = () => {
   const fetchCyberData = async () => {
     setLoading(true)
     try {
-      const response = await axios.get('/api/cyber/slots', { timeout: 5000 })
+      const response = await axios.get('/api/cyber/slots', { timeout: 10000 })
       const data = Array.isArray(response.data) ? response.data : []
       setCyberData(data)
       setFilteredData(data)
-      toast.success(`Încărcate ${data.length} sloturi din Cyber`)
+      toast.success(`Încărcate ${data.length} sloturi din Cyber DB`)
     } catch (error) {
-      console.error('Error fetching Cyber slots from API, loading from JSON file:', error)
-      
-      // Fallback to real data from JSON file
-      try {
-        const response = await axios.get('/cyber-slots.json')
-        const data = Array.isArray(response.data) ? response.data : []
-        setCyberData(data)
-        setFilteredData(data)
-        toast.success(`Încărcate ${data.length} sloturi din fișierul Cyber`)
-      } catch (fileError) {
-        console.error('Error loading from JSON file, using demo data:', fileError)
-        
-        // Final fallback to demo data
-        const fallbackData = [
-          {
-            id: 1,
-            serial_number: "149616",
-            provider: "EGT",
-            cabinet: "P42V Curved ST",
-            game_mix: "EGT - Union",
-            status: "Active",
-            location: "Craiova",
-            last_updated: "2025-10-15T11:00:00.000Z",
-            created_at: "2025-09-30T05:41:41.000Z"
-          },
-          {
-            id: 2,
-            serial_number: "149597",
-            provider: "EGT",
-            cabinet: "P 32/32 H ST",
-            game_mix: null,
-            status: "Active",
-            location: "Ploiești",
-            last_updated: "2025-10-15T11:00:00.000Z",
-            created_at: "2025-09-25T08:14:46.000Z"
-          },
-          {
-            id: 3,
-            serial_number: "823642",
-            provider: "Novomatic",
-            cabinet: "FV637C F2",
-            game_mix: null,
-            status: "Inactive",
-            location: "București",
-            last_updated: "2025-10-15T11:00:00.000Z",
-            created_at: "2025-10-01T10:00:00.000Z"
-          }
-        ]
-        
-        setCyberData(fallbackData)
-        setFilteredData(fallbackData)
-        toast.success(`Încărcate ${fallbackData.length} sloturi (date demo)`)
-      }
+      console.error('Error fetching Cyber slots:', error)
+      toast.error('Eroare la conectarea la Cyber DB. Verifică backend-ul.')
+      setCyberData([])
+      setFilteredData([])
     } finally {
       setLoading(false)
     }
@@ -146,68 +97,16 @@ const CyberImport = () => {
   const fetchCyberLocations = async () => {
     setLoading(true)
     try {
-      const response = await axios.get('/api/cyber/locations', { timeout: 5000 })
+      const response = await axios.get('/api/cyber/locations', { timeout: 10000 })
       const data = Array.isArray(response.data) ? response.data : []
       setCyberLocations(data)
       setFilteredLocations(data)
-      toast.success(`Încărcate ${data.length} locații din Cyber`)
+      toast.success(`Încărcate ${data.length} locații din Cyber DB`)
     } catch (error) {
-      console.error('Error fetching Cyber locations from API, loading from JSON file:', error)
-      
-      // Fallback to real data from JSON file
-      try {
-        const response = await axios.get('/cyber-locations.json')
-        const data = Array.isArray(response.data) ? response.data : []
-        setCyberLocations(data)
-        setFilteredLocations(data)
-        toast.success(`Încărcate ${data.length} locații din fișierul Cyber`)
-      } catch (fileError) {
-        console.error('Error loading from JSON file, using demo data:', fileError)
-        
-        // Final fallback to demo data
-        const fallbackData = [
-          {
-            id: 1,
-            name: "Craiova",
-            location: "Craiova",
-            address: "Str. Principală 123",
-            city: "Craiova",
-            company: "ENTERTAINMENT SOLUTIONS SRL",
-            surface_area: 100,
-            status: "Active",
-            last_updated: "2025-10-15T11:00:00.000Z",
-            created_at: "2025-01-01T10:00:00.000Z"
-          },
-          {
-            id: 2,
-            name: "Ploiești",
-            location: "Ploiești",
-            address: "Bld. Republicii 21",
-            city: "Ploiești",
-            company: "SMARTFLIX SRL",
-            surface_area: 80,
-            status: "Active",
-            last_updated: "2025-10-15T11:00:00.000Z",
-            created_at: "2025-01-01T10:00:00.000Z"
-          },
-          {
-            id: 3,
-            name: "București",
-            location: "București",
-            address: "Calea Victoriei 100",
-            city: "București",
-            company: "ENTERTAINMENT SOLUTIONS SRL",
-            surface_area: 150,
-            status: "Active",
-            last_updated: "2025-10-15T11:00:00.000Z",
-            created_at: "2025-01-01T10:00:00.000Z"
-          }
-        ]
-        
-        setCyberLocations(fallbackData)
-        setFilteredLocations(fallbackData)
-        toast.success(`Încărcate ${fallbackData.length} locații (date demo)`)
-      }
+      console.error('Error fetching Cyber locations:', error)
+      toast.error('Eroare la conectarea la Cyber DB. Verifică backend-ul.')
+      setCyberLocations([])
+      setFilteredLocations([])
     } finally {
       setLoading(false)
     }

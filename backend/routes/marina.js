@@ -1,11 +1,5 @@
 import express from 'express'
 import { getMarinaConnection, testMarinaConnection } from '../config/marina.js'
-import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
 
 const router = express.Router()
 
@@ -60,22 +54,8 @@ router.get('/slots', async (req, res) => {
     
     res.json(rows)
   } catch (error) {
-    console.error('Error fetching Cyber slots from database, using hardcoded data...', error.message)
-    
-    // Fallback to JSON file if database connection fails
-    try {
-      const jsonPath = path.join(__dirname, '..', 'cyber-slots.json')
-      if (fs.existsSync(jsonPath)) {
-        const jsonData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'))
-        console.log(`✅ Loaded ${jsonData.length} slots from JSON file`)
-        res.json(jsonData)
-      } else {
-        res.status(500).json({ error: 'Failed to fetch slots from Cyber and no local file available' })
-      }
-    } catch (fileError) {
-      console.error('Error reading JSON file:', fileError)
-      res.status(500).json({ error: 'Failed to fetch slots from Cyber' })
-    }
+    console.error('Error fetching Cyber slots from database:', error.message)
+    res.status(500).json({ error: 'Failed to connect to Cyber database', details: error.message })
   }
 })
 
@@ -112,22 +92,8 @@ router.get('/locations', async (req, res) => {
     
     res.json(rows)
   } catch (error) {
-    console.error('Error fetching Cyber locations from database, using hardcoded data...', error.message)
-    
-    // Fallback to JSON file if database connection fails
-    try {
-      const jsonPath = path.join(__dirname, '..', 'cyber-locations.json')
-      if (fs.existsSync(jsonPath)) {
-        const jsonData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'))
-        console.log(`✅ Loaded ${jsonData.length} locations from JSON file`)
-        res.json(jsonData)
-      } else {
-        res.status(500).json({ error: 'Failed to fetch locations from Cyber and no local file available' })
-      }
-    } catch (fileError) {
-      console.error('Error reading JSON file:', fileError)
-      res.status(500).json({ error: 'Failed to fetch locations from Cyber' })
-    }
+    console.error('Error fetching Cyber locations from database:', error.message)
+    res.status(500).json({ error: 'Failed to connect to Cyber database', details: error.message })
   }
 })
 
