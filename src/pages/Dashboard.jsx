@@ -41,6 +41,8 @@ const Dashboard = () => {
   const [dashboardConfig, setDashboardConfig] = useState(null)
   const [selectedCards, setSelectedCards] = useState([])
   const [selectedWidgets, setSelectedWidgets] = useState([])
+  const [showUpdateTime, setShowUpdateTime] = useState(true)
+  const [isFadingOut, setIsFadingOut] = useState(false)
   const [cardSizes, setCardSizes] = useState(() => {
     const saved = localStorage.getItem('cardSizes')
     return saved ? JSON.parse(saved) : {
@@ -104,6 +106,18 @@ const Dashboard = () => {
       { id: 'performanceCharts', title: 'Grafice Performanță', visible: true, order: 8 }
     ]
   }
+
+  // Auto-hide update time popup after 3 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsFadingOut(true)
+      setTimeout(() => {
+        setShowUpdateTime(false)
+      }, 500) // Wait for fade-out animation
+    }, 3000)
+
+    return () => clearTimeout(timer)
+  }, [])
 
   // Încarcă preferințele de pe server sau folosește localStorage
   useEffect(() => {
@@ -608,9 +622,20 @@ const Dashboard = () => {
               <p className="text-slate-600 dark:text-slate-400 text-lg">
                 Panoul principal al sistemului CASHPOT V7
               </p>
-              <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                Ultima actualizare: {new Date().toLocaleString('ro-RO')}
-              </div>
+              
+              {/* Update Time Popup */}
+              {showUpdateTime && (
+                <div className={`mt-3 transition-all duration-500 ${
+                  isFadingOut 
+                    ? 'opacity-0 transform -translate-y-2' 
+                    : 'opacity-100 transform translate-y-0'
+                }`}>
+                  <div className="inline-flex items-center px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-sm font-medium rounded-lg border border-green-200 dark:border-green-700 shadow-lg">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-3"></div>
+                    Ultima actualizare: {new Date().toLocaleString('ro-RO')}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="flex items-center space-x-4">
               {/* Dashboard Configuration Buttons */}
