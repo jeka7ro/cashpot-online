@@ -9,6 +9,11 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import pg from 'pg'
+import { fileURLToPath } from 'url'
+
+// ES modules __dirname equivalent
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 // mysql2 removed to fix Render deployment issues
 import uploadRoutes from './routes/upload.js'
 import compressRoutes from './routes/compress.js'
@@ -39,9 +44,6 @@ const { Pool } = pg
 const app = express()
 const PORT = process.env.PORT || 5001
 
-// Make pool available to routes
-app.set('pool', pool)
-
 // AWS S3 Configuration
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || 'us-east-1',
@@ -58,6 +60,9 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('render.com') ? { rejectUnauthorized: false } : false
 })
+
+// Make pool available to routes
+app.set('pool', pool)
 
 // Test connection
 pool.query('SELECT NOW()', (err, res) => {
