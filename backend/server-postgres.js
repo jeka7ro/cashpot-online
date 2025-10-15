@@ -3067,3 +3067,4 @@ if (process.env.VERCEL !== '1') {
 }
 
 // Force rebuild Wed Oct 15 14:44:43 EEST 2025
+// Force cyber endpoints rebuild Wed Oct 15 14:57:34 EEST 2025
