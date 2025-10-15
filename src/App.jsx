@@ -15,7 +15,7 @@ import GameDetail from './pages/GameDetail'
 import Slots from './pages/Slots'
 import SlotDetail from './pages/SlotDetail'
 import SlotHistory from './pages/SlotHistory'
-import MarinaImport from './pages/MarinaImport'
+import CyberImport from './pages/CyberImport'
 import Warehouse from './pages/Warehouse'
 import Metrology from './pages/Metrology'
 import Jackpots from './pages/Jackpots'
@@ -47,7 +47,7 @@ function App() {
             <Route path="/games/:gameId" element={<GameDetail />} />
             <Route path="/slots" element={<Slots />} />
             <Route path="/slots/history" element={<SlotHistory />} />
-            <Route path="/slots/marina-import" element={<MarinaImport />} />
+            <Route path="/slots/marina-import" element={<CyberImport />} />
             <Route path="/slots/:id" element={<SlotDetail />} />
             <Route path="/warehouse" element={<Warehouse />} />
             <Route path="/metrology" element={<Metrology />} />

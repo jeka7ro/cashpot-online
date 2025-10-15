@@ -5,11 +5,11 @@ import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { toast } from 'react-hot-toast'
 
-const MarinaImport = () => {
+const CyberImport = () => {
   const navigate = useNavigate()
   const fileInputRef = useRef(null)
-  const [marinaData, setMarinaData] = useState([])
-  const [marinaLocations, setMarinaLocations] = useState([])
+  const [cyberData, setCyberData] = useState([])
+  const [cyberLocations, setCyberLocations] = useState([])
   const [filteredData, setFilteredData] = useState([])
   const [filteredLocations, setFilteredLocations] = useState([])
   const [loading, setLoading] = useState(false)
@@ -41,7 +41,7 @@ const MarinaImport = () => {
       try {
         const json = JSON.parse(e.target.result)
         
-        // Transform data to Marina format
+        // Transform data to Cyber format
         const transformedData = json.map(slot => ({
           id: slot.id,
           serial_number: slot.serial_number || slot.slot_id,
@@ -54,7 +54,7 @@ const MarinaImport = () => {
           created_at: slot.created_at
         }))
         
-        setMarinaData(transformedData)
+        setCyberData(transformedData)
         setFilteredData(transformedData)
         toast.success(`Încărcate ${transformedData.length} sloturi din fișier`)
       } catch (error) {
@@ -66,11 +66,11 @@ const MarinaImport = () => {
   }
 
   // Fetch slots data from Cyber server
-  const fetchMarinaData = async () => {
+  const fetchCyberData = async () => {
     setLoading(true)
     try {
       const response = await axios.get('/api/marina/slots', { timeout: 30000 })
-      setMarinaData(response.data)
+      setCyberData(response.data)
       setFilteredData(response.data)
       toast.success(`Încărcate ${response.data.length} sloturi din Cyber`)
     } catch (error) {
@@ -113,7 +113,7 @@ const MarinaImport = () => {
         }
       ]
       
-      setMarinaData(fallbackData)
+      setCyberData(fallbackData)
       setFilteredData(fallbackData)
       toast.success(`Încărcate ${fallbackData.length} sloturi (date demo)`)
     } finally {
@@ -122,11 +122,11 @@ const MarinaImport = () => {
   }
 
   // Fetch locations data from Cyber server
-  const fetchMarinaLocations = async () => {
+  const fetchCyberLocations = async () => {
     setLoading(true)
     try {
       const response = await axios.get('/api/marina/locations', { timeout: 30000 })
-      setMarinaLocations(response.data)
+      setCyberLocations(response.data)
       setFilteredLocations(response.data)
       toast.success(`Încărcate ${response.data.length} locații din Cyber`)
     } catch (error) {
@@ -172,7 +172,7 @@ const MarinaImport = () => {
         }
       ]
       
-      setMarinaLocations(fallbackData)
+      setCyberLocations(fallbackData)
       setFilteredLocations(fallbackData)
       toast.success(`Încărcate ${fallbackData.length} locații (date demo)`)
     } finally {
@@ -182,13 +182,13 @@ const MarinaImport = () => {
 
   // Auto-load data on component mount
   useEffect(() => {
-    fetchMarinaData()
-    fetchMarinaLocations()
+    fetchCyberData()
+    fetchCyberLocations()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Filter slots data based on search and filters
   useEffect(() => {
-    let filtered = marinaData
+    let filtered = cyberData
 
     // Search filter
     if (searchTerm) {
@@ -221,11 +221,11 @@ const MarinaImport = () => {
     }
 
     setFilteredData(filtered)
-  }, [marinaData, searchTerm, filters])
+  }, [cyberData, searchTerm, filters])
 
   // Filter locations data based on search and filters
   useEffect(() => {
-    let filtered = marinaLocations
+    let filtered = cyberLocations
 
     // Search filter
     if (searchTerm) {
@@ -253,16 +253,16 @@ const MarinaImport = () => {
     }
 
     setFilteredLocations(filtered)
-  }, [marinaLocations, searchTerm, locationFilters])
+  }, [cyberLocations, searchTerm, locationFilters])
 
   // Get unique values for slots filters
   const getUniqueValues = (field) => {
-    return [...new Set(marinaData.map(item => item[field]).filter(Boolean))]
+    return [...new Set(cyberData.map(item => item[field]).filter(Boolean))]
   }
 
   // Get unique values for locations filters
   const getUniqueLocationValues = (field) => {
-    return [...new Set(marinaLocations.map(item => item[field]).filter(Boolean))]
+    return [...new Set(cyberLocations.map(item => item[field]).filter(Boolean))]
   }
 
   // Toggle slots item selection
@@ -326,8 +326,8 @@ const MarinaImport = () => {
       toast.success(`${response.data.imported} sloturi importate cu succes!`)
       setSelectedItems(new Set())
       
-      // Refresh Marina data
-      fetchMarinaData()
+      // Refresh Cyber data
+      fetchCyberData()
     } catch (error) {
       console.error('Error importing slots:', error)
       toast.error('Eroare la importarea sloturilor')
@@ -351,8 +351,8 @@ const MarinaImport = () => {
       toast.success(`${response.data.imported} locații importate cu succes!`)
       setSelectedLocations(new Set())
       
-      // Refresh Marina data
-      fetchMarinaLocations()
+      // Refresh Cyber data
+      fetchCyberLocations()
     } catch (error) {
       console.error('Error importing locations:', error)
       toast.error('Eroare la importarea locațiilor')
@@ -374,8 +374,8 @@ const MarinaImport = () => {
       toast.success(`${response.data.imported} sloturi importate cu succes!`)
       setSelectedItems(new Set())
       
-      // Refresh Marina data
-      fetchMarinaData()
+      // Refresh Cyber data
+      fetchCyberData()
     } catch (error) {
       console.error('Error importing all slots:', error)
       toast.error('Eroare la importarea sloturilor')
@@ -397,8 +397,8 @@ const MarinaImport = () => {
       toast.success(`${response.data.imported} locații importate cu succes!`)
       setSelectedLocations(new Set())
       
-      // Refresh Marina data
-      fetchMarinaLocations()
+      // Refresh Cyber data
+      fetchCyberLocations()
     } catch (error) {
       console.error('Error importing all locations:', error)
       toast.error('Eroare la importarea locațiilor')
@@ -407,8 +407,8 @@ const MarinaImport = () => {
 
   // Load data on component mount
   useEffect(() => {
-    fetchMarinaData()
-    fetchMarinaLocations()
+    fetchCyberData()
+    fetchCyberLocations()
   }, [])
 
   // Slots columns
@@ -634,7 +634,7 @@ const MarinaImport = () => {
             />
             
             <button
-              onClick={activeTab === 'slots' ? fetchMarinaData : fetchMarinaLocations}
+              onClick={activeTab === 'slots' ? fetchCyberData : fetchCyberLocations}
               disabled={loading}
               className="btn-secondary flex items-center space-x-2"
             >
@@ -656,7 +656,7 @@ const MarinaImport = () => {
                     : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                 }`}
               >
-                Sloturi ({marinaData.length})
+                Sloturi ({cyberData.length})
               </button>
               <button
                 onClick={() => setActiveTab('locations')}
@@ -666,7 +666,7 @@ const MarinaImport = () => {
                     : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                 }`}
               >
-                Locații ({marinaLocations.length})
+                Locații ({cyberLocations.length})
               </button>
             </nav>
           </div>
@@ -676,7 +676,7 @@ const MarinaImport = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
             <div className="text-2xl font-bold text-slate-800 dark:text-slate-200">
-              {activeTab === 'slots' ? marinaData.length : marinaLocations.length}
+              {activeTab === 'slots' ? cyberData.length : cyberLocations.length}
             </div>
             <div className="text-sm text-slate-600 dark:text-slate-400">Total înregistrări</div>
           </div>
@@ -924,7 +924,7 @@ const MarinaImport = () => {
                     <td colSpan={(activeTab === 'slots' ? slotsColumns : locationsColumns).length} className="px-6 py-12 text-center">
                       <div className="flex items-center justify-center space-x-2">
                         <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />
-                        <span className="text-slate-600 dark:text-slate-400">Se încarcă datele din Marina...</span>
+                        <span className="text-slate-600 dark:text-slate-400">Se încarcă datele din Cyber...</span>
                       </div>
                     </td>
                   </tr>
@@ -933,8 +933,8 @@ const MarinaImport = () => {
                     <td colSpan={(activeTab === 'slots' ? slotsColumns : locationsColumns).length} className="px-6 py-12 text-center">
                       <div className="text-slate-500 dark:text-slate-400">
                         {activeTab === 'slots' 
-                          ? (marinaData.length === 0 ? 'Nu există sloturi în Cyber' : 'Nu există rezultate pentru filtrele aplicate')
-                          : (marinaLocations.length === 0 ? 'Nu există locații în Cyber' : 'Nu există rezultate pentru filtrele aplicate')
+                          ? (cyberData.length === 0 ? 'Nu există sloturi în Cyber' : 'Nu există rezultate pentru filtrele aplicate')
+                          : (cyberLocations.length === 0 ? 'Nu există locații în Cyber' : 'Nu există rezultate pentru filtrele aplicate')
                         }
                       </div>
                     </td>
@@ -959,4 +959,4 @@ const MarinaImport = () => {
   )
 }
 
-export default MarinaImport
+export default CyberImport

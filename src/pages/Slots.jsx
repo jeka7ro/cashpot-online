@@ -555,7 +555,7 @@ const Slots = () => {
               className="btn-success flex items-center space-x-2"
             >
               <Database className="w-4 h-4" />
-              <span>Import Marina</span>
+              <span>Import Cyber</span>
             </button>
                 <button
                   onClick={handleCreate}
