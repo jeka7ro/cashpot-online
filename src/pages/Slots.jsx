@@ -9,6 +9,7 @@ import DataTable from '../components/DataTable'
 import SlotModal from '../components/modals/SlotModal'
 import StatCard from '../components/StatCard'
 import ExportButtons from '../components/ExportButtons'
+import CyberImport from './CyberImport'
 import { toast } from 'react-hot-toast'
 
 const Slots = () => {
