@@ -5,6 +5,7 @@ import { useData } from '../contexts/DataContext'
 import { Users as UsersIcon, Plus, Search, Upload, Download, Edit, Trash2 } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import UserModal from '../components/modals/UserModal'
+import toast from 'react-hot-toast'
 
 const Users = () => {
   const { users, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
@@ -114,12 +115,12 @@ const Users = () => {
     setShowModal(true)
   }
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (item) => {
     const confirmed = window.confirm('Sigur vrei să ștergi acest utilizator?')
     if (!confirmed) return
     
     try {
-      const result = await deleteItem('users', id)
+      const result = await deleteItem('users', item.id)
       if (!result.success) {
         toast.error('Eroare la ștergerea utilizatorului')
       }
