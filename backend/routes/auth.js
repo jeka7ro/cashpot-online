@@ -1,6 +1,6 @@
 import express from 'express'
 import jwt from 'jsonwebtoken'
-import User from '../models/User.js'
+import bcrypt from 'bcryptjs'
 import { body, validationResult } from 'express-validator'
 
 const router = express.Router()
@@ -22,20 +22,32 @@ router.post('/login', [
 
     const { username, password } = req.body
 
-    // Find user by username or email
-    const user = await User.findOne({
-      $or: [{ username }, { email: username }]
-    })
+    // Import pool from server-postgres.js (this will be passed from the main server)
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        message: 'Database connection not available'
+      })
+    }
 
-    if (!user) {
+    // Find user by username or email
+    const result = await pool.query(
+      'SELECT * FROM users WHERE username = $1 OR email = $1',
+      [username]
+    )
+
+    if (result.rows.length === 0) {
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
       })
     }
 
+    const user = result.rows[0]
+
     // Check password
-    const isMatch = await user.comparePassword(password)
+    const isMatch = await bcrypt.compare(password, user.password)
     if (!isMatch) {
       return res.status(401).json({
         success: false,
@@ -51,18 +63,14 @@ router.post('/login', [
       })
     }
 
-    // Update last login
-    user.lastLogin = new Date()
-    await user.save()
-
     // Generate JWT token
     const token = jwt.sign(
       { 
-        userId: user._id, 
-        username: user.username, 
+        userId: user.id, 
+        username: user.username,
         role: user.role 
       },
-      process.env.JWT_SECRET || 'your-secret-key',
+      process.env.JWT_SECRET || 'your_jwt_secret',
       { expiresIn: '24h' }
     )
 
@@ -71,20 +79,21 @@ router.post('/login', [
       message: 'Login successful',
       token,
       user: {
-        id: user._id,
+        id: user.id,
         username: user.username,
+        fullName: user.full_name,
         email: user.email,
-        fullName: user.fullName,
         role: user.role,
-        status: user.status,
-        lastLogin: user.lastLogin
+        permissions: user.permissions || {},
+        avatar: user.avatar
       }
     })
+
   } catch (error) {
     console.error('Login error:', error)
     res.status(500).json({
       success: false,
-      message: 'Server error during login'
+      message: 'Internal server error'
     })
   }
 })
@@ -92,8 +101,9 @@ router.post('/login', [
 // Verify token
 router.get('/verify', async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1]
-    
+    const authHeader = req.headers['authorization']
+    const token = authHeader && authHeader.split(' ')[1]
+
     if (!token) {
       return res.status(401).json({
         success: false,
@@ -101,43 +111,92 @@ router.get('/verify', async (req, res) => {
       })
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key')
-    const user = await User.findById(decoded.userId).select('-password')
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret')
     
-    if (!user) {
+    // Import pool from server-postgres.js
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        message: 'Database connection not available'
+      })
+    }
+
+    // Get user from database
+    const result = await pool.query('SELECT * FROM users WHERE id = $1', [decoded.userId])
+    
+    if (result.rows.length === 0) {
       return res.status(401).json({
         success: false,
         message: 'User not found'
       })
     }
 
+    const user = result.rows[0]
+
+    // Get default permissions for role if permissions are empty
+    let userPermissions = user.permissions
+    if (!userPermissions || Object.keys(userPermissions).length === 0) {
+      // Import default permissions logic (simplified version)
+      const defaultPermissions = {
+        admin: { 
+          dashboard: { view: true },
+          companies: { view: true, create: true, update: true, delete: true },
+          locations: { view: true, create: true, update: true, delete: true },
+          providers: { view: true, create: true, update: true, delete: true },
+          cabinets: { view: true, create: true, update: true, delete: true },
+          gameMixes: { view: true, create: true, update: true, delete: true },
+          slots: { view: true, create: true, update: true, delete: true },
+          invoices: { view: true, create: true, update: true, delete: true },
+          jackpots: { view: true, create: true, update: true, delete: true },
+          legalDocuments: { view: true, create: true, update: true, delete: true },
+          onjnReports: { view: true, create: true, update: true, delete: true },
+          metrology: { view: true, create: true, update: true, delete: true },
+          warehouse: { view: true, create: true, update: true, delete: true },
+          users: { view: true, create: true, update: true, delete: true },
+          cyberImport: { view: true, import: true }
+        },
+        user: { 
+          dashboard: { view: true },
+          companies: { view: true },
+          locations: { view: true },
+          providers: { view: true },
+          cabinets: { view: true },
+          gameMixes: { view: true },
+          slots: { view: true },
+          invoices: { view: true },
+          jackpots: { view: true },
+          legalDocuments: { view: true },
+          onjnReports: { view: true },
+          metrology: { view: true },
+          warehouse: { view: true },
+          users: { view: false },
+          cyberImport: { view: false, import: false }
+        }
+      }
+      userPermissions = defaultPermissions[user.role] || defaultPermissions.user
+    }
+
     res.json({
       success: true,
       user: {
-        id: user._id,
+        id: user.id,
         username: user.username,
+        fullName: user.full_name,
         email: user.email,
-        fullName: user.fullName,
         role: user.role,
-        status: user.status,
-        lastLogin: user.lastLogin
+        permissions: userPermissions,
+        avatar: user.avatar
       }
     })
+
   } catch (error) {
-    console.error('Token verification error:', error)
+    console.error('Verify token error:', error)
     res.status(401).json({
       success: false,
       message: 'Invalid token'
     })
   }
-})
-
-// Logout (client-side token removal)
-router.post('/logout', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Logout successful'
-  })
 })
 
 export default router

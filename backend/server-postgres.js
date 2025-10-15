@@ -39,6 +39,9 @@ const { Pool } = pg
 const app = express()
 const PORT = process.env.PORT || 5000
 
+// Make pool available to routes
+app.set('pool', pool)
+
 // AWS S3 Configuration
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || 'us-east-1',
