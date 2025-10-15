@@ -8,7 +8,7 @@ import DataTable from '../components/DataTable'
 import LocationModal from '../components/modals/LocationModal'
 import LocationContracts from '../components/LocationContracts'
 import LocationProprietari from '../components/LocationProprietari'
-import { MapPin, Plus, Search, Upload, Download, FileText, Edit, Trash2, Building2, Eye, X } from 'lucide-react'
+import { MapPin, Plus, Search, Upload, Download, FileText, Edit, Trash2, Building2, Eye, X, Database } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 
 const Locations = () => {
@@ -510,6 +510,13 @@ const Locations = () => {
                   </button>
                 </>
               )}
+                <button
+                  onClick={() => navigate('/slots/marina-import')}
+                  className="btn-success flex items-center space-x-2"
+                >
+                  <Database className="w-4 h-4" />
+                  <span>Import Marina</span>
+                </button>
                 <button 
                   onClick={handleAdd}
                   className="btn-primary flex items-center space-x-2"

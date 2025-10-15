@@ -4,7 +4,7 @@ import Layout from '../components/Layout'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
-import { BarChart3, Plus, Search, Upload, Download, Edit, Trash2, Eye, Filter, Activity, AlertCircle, CheckCircle, Wrench, History } from 'lucide-react'
+import { BarChart3, Plus, Search, Upload, Download, Edit, Trash2, Eye, Filter, Activity, AlertCircle, CheckCircle, Wrench, History, Database } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import SlotModal from '../components/modals/SlotModal'
 import StatCard from '../components/StatCard'
@@ -533,13 +533,20 @@ const Slots = () => {
                     </button>
                   </>
                 )}
-                <button
-                  onClick={() => navigate('/slots/history')}
-                  className="btn-secondary flex items-center space-x-2"
-                >
-                  <History className="w-4 h-4" />
-                  <span>Istoric Sloturi</span>
-                </button>
+            <button
+              onClick={() => navigate('/slots/history')}
+              className="btn-secondary flex items-center space-x-2"
+            >
+              <History className="w-4 h-4" />
+              <span>Istoric Sloturi</span>
+            </button>
+            <button
+              onClick={() => navigate('/slots/marina-import')}
+              className="btn-success flex items-center space-x-2"
+            >
+              <Database className="w-4 h-4" />
+              <span>Import Marina</span>
+            </button>
                 <button
                   onClick={handleCreate}
                   className="btn-primary flex items-center space-x-2"
