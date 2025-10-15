@@ -9,15 +9,7 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import pg from 'pg'
-// Import mysql2 only if not on Render (may cause issues on Render)
-let mysql = null
-if (process.env.RENDER !== 'true') {
-  try {
-    mysql = await import('mysql2/promise')
-  } catch (error) {
-    console.log('⚠️ mysql2 not available, using JSON fallback only')
-  }
-}
+import mysql from 'mysql2/promise'
 import uploadRoutes from './routes/upload.js'
 import compressRoutes from './routes/compress.js'
 import backupRoutes from './routes/backup.js'
@@ -2509,6 +2501,84 @@ app.use('/api/users', usersRoutes)
 // Cyber routes enabled
 app.use('/api/cyber', cyberRoutes)
 app.use('/api', importCyberRoutes)
+
+// SIMPLE Cyber endpoints that work on Render (JSON only)
+app.get('/api/cyber/slots', async (req, res) => {
+  try {
+    console.log('🔄 Loading slots from JSON (Render mode)')
+    const slotsPath = path.join(__dirname, 'cyber-data', 'slots.json')
+    if (fs.existsSync(slotsPath)) {
+      const slots = JSON.parse(fs.readFileSync(slotsPath, 'utf8'))
+      console.log(`✅ Loaded ${slots.length} slots from JSON`)
+      res.json(slots)
+    } else {
+      console.log('❌ slots.json not found')
+      res.json([])
+    }
+  } catch (error) {
+    console.error('❌ Error loading slots:', error.message)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.get('/api/cyber/locations', async (req, res) => {
+  try {
+    console.log('🔄 Loading locations from JSON (Render mode)')
+    const locationsPath = path.join(__dirname, 'cyber-data', 'locations.json')
+    if (fs.existsSync(locationsPath)) {
+      const locations = JSON.parse(fs.readFileSync(locationsPath, 'utf8'))
+      console.log(`✅ Loaded ${locations.length} locations from JSON`)
+      res.json(locations)
+    } else {
+      res.json([])
+    }
+  } catch (error) {
+    console.error('❌ Error loading locations:', error.message)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.get('/api/cyber/cabinets', async (req, res) => {
+  try {
+    const cabinetsPath = path.join(__dirname, 'cyber-data', 'cabinets.json')
+    if (fs.existsSync(cabinetsPath)) {
+      const cabinets = JSON.parse(fs.readFileSync(cabinetsPath, 'utf8'))
+      res.json(cabinets)
+    } else {
+      res.json([])
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.get('/api/cyber/game-mixes', async (req, res) => {
+  try {
+    const gameMixesPath = path.join(__dirname, 'cyber-data', 'game-mixes.json')
+    if (fs.existsSync(gameMixesPath)) {
+      const gameMixes = JSON.parse(fs.readFileSync(gameMixesPath, 'utf8'))
+      res.json(gameMixes)
+    } else {
+      res.json([])
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.get('/api/cyber/providers', async (req, res) => {
+  try {
+    const providersPath = path.join(__dirname, 'cyber-data', 'providers.json')
+    if (fs.existsSync(providersPath)) {
+      const providers = JSON.parse(fs.readFileSync(providersPath, 'utf8'))
+      res.json(providers)
+    } else {
+      res.json([])
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
 
 // DIRECT Cyber database endpoints with proper error handling
 let cyberDB = null
