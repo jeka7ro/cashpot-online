@@ -2527,74 +2527,25 @@ app.use('/api/warehouse', warehouseRoutes)
 
 // Cyber routes removed - using direct JSON endpoints instead
 
-// HARDCODED Cyber data endpoints - guaranteed to work on Render
+// REAL Cyber data endpoints - loading from JSON files
 app.get('/api/cyber/slots', async (req, res) => {
   try {
-    console.log('🔄 Loading HARDCODED slots data')
+    console.log('🔄 Loading REAL slots data from JSON')
     
-    // Hardcoded slots data - guaranteed to work
-    const hardcodedSlots = [
-      {
-        id: 1,
-        serial_number: "149616",
-        provider: "EGT",
-        cabinet: "S17",
-        game_mix: "EGT Classic",
-        status: "Active",
-        location: "LOC001",
-        last_updated: "2025-10-15T10:30:00Z",
-        created_at: "2025-10-01T08:00:00Z"
-      },
-      {
-        id: 2,
-        serial_number: "149617",
-        provider: "EGT",
-        cabinet: "S17",
-        game_mix: "EGT Classic",
-        status: "Active",
-        location: "LOC001",
-        last_updated: "2025-10-15T10:30:00Z",
-        created_at: "2025-10-01T08:00:00Z"
-      },
-      {
-        id: 3,
-        serial_number: "149618",
-        provider: "Novomatic",
-        cabinet: "Novomatic Star",
-        game_mix: "Novomatic Premium",
-        status: "Active",
-        location: "LOC002",
-        last_updated: "2025-10-15T10:30:00Z",
-        created_at: "2025-10-01T08:00:00Z"
-      },
-      {
-        id: 4,
-        serial_number: "149619",
-        provider: "Novomatic",
-        cabinet: "Novomatic Star",
-        game_mix: "Novomatic Premium",
-        status: "Inactive",
-        location: "LOC002",
-        last_updated: "2025-10-15T10:30:00Z",
-        created_at: "2025-10-01T08:00:00Z"
-      },
-      {
-        id: 5,
-        serial_number: "149620",
-        provider: "IGT",
-        cabinet: "IGT S2000",
-        game_mix: "IGT Premium",
-        status: "Active",
-        location: "LOC003",
-        last_updated: "2025-10-15T10:30:00Z",
-        created_at: "2025-10-01T08:00:00Z"
-      }
-    ]
+    // Load real slots data from JSON file
+    const slotsPath = path.join(__dirname, 'cyber-data', 'slots.json')
+    console.log('📁 Looking for slots.json at:', slotsPath)
     
-    console.log(`✅ Returning ${hardcodedSlots.length} HARDCODED slots`)
-    res.json(hardcodedSlots)
+    if (fs.existsSync(slotsPath)) {
+      const slots = JSON.parse(fs.readFileSync(slotsPath, 'utf8'))
+      console.log(`✅ Loaded ${slots.length} REAL slots from JSON`)
+      res.json(slots)
+    } else {
+      console.log('❌ slots.json not found at:', slotsPath)
+      res.status(404).json({ error: 'Slots data not found' })
+    }
   } catch (error) {
-    console.error('❌ Error loading hardcoded slots:', error.message)
+    console.error('❌ Error loading real slots:', error.message)
     res.status(500).json({ error: error.message })
   }
 })
@@ -2633,53 +2584,38 @@ app.get('/api/cyber/slots-fallback', async (req, res) => {
 
 app.get('/api/cyber/locations', async (req, res) => {
   try {
-    console.log('🔄 Loading HARDCODED locations data')
+    console.log('🔄 Loading REAL locations data from JSON')
     
-    // Hardcoded locations data - guaranteed to work
-    const hardcodedLocations = [
-      {
-        id: 1,
-        code: "LOC001",
-        name: "București Centru",
-        address: "Strada Victoriei 1",
-        city: "București"
-      },
-      {
-        id: 2,
-        code: "LOC002", 
-        name: "Cluj Napoca Mall",
-        address: "Strada Memorandumului 28",
-        city: "Cluj-Napoca"
-      },
-      {
-        id: 3,
-        code: "LOC003",
-        name: "Timișoara Plaza",
-        address: "Bulevardul Liviu Rebreanu 1",
-        city: "Timișoara"
-      }
-    ]
+    // Load real locations data from JSON file
+    const locationsPath = path.join(__dirname, 'cyber-data', 'locations.json')
+    console.log('📁 Looking for locations.json at:', locationsPath)
     
-    console.log(`✅ Returning ${hardcodedLocations.length} HARDCODED locations`)
-    res.json(hardcodedLocations)
+    if (fs.existsSync(locationsPath)) {
+      const locations = JSON.parse(fs.readFileSync(locationsPath, 'utf8'))
+      console.log(`✅ Loaded ${locations.length} REAL locations from JSON`)
+      res.json(locations)
+    } else {
+      console.log('❌ locations.json not found at:', locationsPath)
+      res.status(404).json({ error: 'Locations data not found' })
+    }
   } catch (error) {
-    console.error('❌ Error loading hardcoded locations:', error.message)
+    console.error('❌ Error loading real locations:', error.message)
     res.status(500).json({ error: error.message })
   }
 })
 
 app.get('/api/cyber/cabinets', async (req, res) => {
   try {
-    console.log('🔄 Loading HARDCODED cabinets data')
+    console.log('🔄 Loading REAL cabinets data from JSON')
     
-    const hardcodedCabinets = [
-      { id: 1, name: "S17", manufacturer: "EGT" },
-      { id: 2, name: "Novomatic Star", manufacturer: "Novomatic" },
-      { id: 3, name: "IGT S2000", manufacturer: "IGT" }
-    ]
-    
-    console.log(`✅ Returning ${hardcodedCabinets.length} HARDCODED cabinets`)
-    res.json(hardcodedCabinets)
+    const cabinetsPath = path.join(__dirname, 'cyber-data', 'cabinets.json')
+    if (fs.existsSync(cabinetsPath)) {
+      const cabinets = JSON.parse(fs.readFileSync(cabinetsPath, 'utf8'))
+      console.log(`✅ Loaded ${cabinets.length} REAL cabinets from JSON`)
+      res.json(cabinets)
+    } else {
+      res.status(404).json({ error: 'Cabinets data not found' })
+    }
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
@@ -2687,16 +2623,16 @@ app.get('/api/cyber/cabinets', async (req, res) => {
 
 app.get('/api/cyber/game-mixes', async (req, res) => {
   try {
-    console.log('🔄 Loading HARDCODED game-mixes data')
+    console.log('🔄 Loading REAL game-mixes data from JSON')
     
-    const hardcodedGameMixes = [
-      { id: 1, name: "EGT Classic", provider: "EGT" },
-      { id: 2, name: "Novomatic Premium", provider: "Novomatic" },
-      { id: 3, name: "IGT Premium", provider: "IGT" }
-    ]
-    
-    console.log(`✅ Returning ${hardcodedGameMixes.length} HARDCODED game-mixes`)
-    res.json(hardcodedGameMixes)
+    const gameMixesPath = path.join(__dirname, 'cyber-data', 'game-mixes.json')
+    if (fs.existsSync(gameMixesPath)) {
+      const gameMixes = JSON.parse(fs.readFileSync(gameMixesPath, 'utf8'))
+      console.log(`✅ Loaded ${gameMixes.length} REAL game-mixes from JSON`)
+      res.json(gameMixes)
+    } else {
+      res.status(404).json({ error: 'Game-mixes data not found' })
+    }
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
@@ -2704,16 +2640,16 @@ app.get('/api/cyber/game-mixes', async (req, res) => {
 
 app.get('/api/cyber/providers', async (req, res) => {
   try {
-    console.log('🔄 Loading HARDCODED providers data')
+    console.log('🔄 Loading REAL providers data from JSON')
     
-    const hardcodedProviders = [
-      { id: 1, name: "EGT", country: "Bulgaria", website: "https://www.egt.com" },
-      { id: 2, name: "Novomatic", country: "Austria", website: "https://www.novomatic.com" },
-      { id: 3, name: "IGT", country: "USA", website: "https://www.igt.com" }
-    ]
-    
-    console.log(`✅ Returning ${hardcodedProviders.length} HARDCODED providers`)
-    res.json(hardcodedProviders)
+    const providersPath = path.join(__dirname, 'cyber-data', 'providers.json')
+    if (fs.existsSync(providersPath)) {
+      const providers = JSON.parse(fs.readFileSync(providersPath, 'utf8'))
+      console.log(`✅ Loaded ${providers.length} REAL providers from JSON`)
+      res.json(providers)
+    } else {
+      res.status(404).json({ error: 'Providers data not found' })
+    }
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
