@@ -2540,9 +2540,6 @@ app.get('/api/cyber/slots', async (req, res) => {
     // Load real slots data from JSON file
     const slotsPath = path.join(__dirname, 'cyber-data', 'slots.json')
     console.log('📁 Looking for slots.json at:', slotsPath)
-    console.log('📁 Current directory:', __dirname)
-    console.log('📁 Files in directory:', fs.readdirSync(__dirname))
-    console.log('📁 cyber-data directory exists:', fs.existsSync(path.join(__dirname, 'cyber-data')))
     
     if (fs.existsSync(slotsPath)) {
       const slots = JSON.parse(fs.readFileSync(slotsPath, 'utf8'))
@@ -2550,28 +2547,68 @@ app.get('/api/cyber/slots', async (req, res) => {
       res.json(slots)
     } else {
       console.log('❌ slots.json not found at:', slotsPath)
-      // Try alternative paths
-      const altPaths = [
-        path.join(process.cwd(), 'backend', 'cyber-data', 'slots.json'),
-        path.join(process.cwd(), 'cyber-data', 'slots.json'),
-        './cyber-data/slots.json',
-        './backend/cyber-data/slots.json'
-      ]
-      
-      for (const altPath of altPaths) {
-        console.log('📁 Trying alternative path:', altPath)
-        if (fs.existsSync(altPath)) {
-          const slots = JSON.parse(fs.readFileSync(altPath, 'utf8'))
-          console.log(`✅ Loaded ${slots.length} REAL slots from alternative path`)
-          res.json(slots)
-          return
-        }
-      }
-      
-      res.status(404).json({ error: 'Slots data not found in any location' })
+      res.status(404).json({ error: 'Slots data not found' })
     }
   } catch (error) {
     console.error('❌ Error loading real slots:', error.message)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// SYNC Cyber slots to main slots table
+app.post('/api/cyber/sync-slots', async (req, res) => {
+  try {
+    console.log('🔄 SYNCING Cyber slots to main slots table...')
+    
+    const pool = req.app.get('pool')
+    const slotsPath = path.join(__dirname, 'cyber-data', 'slots.json')
+    
+    if (!fs.existsSync(slotsPath)) {
+      return res.status(404).json({ error: 'Cyber slots data not found' })
+    }
+    
+    const cyberSlots = JSON.parse(fs.readFileSync(slotsPath, 'utf8'))
+    console.log(`📥 Found ${cyberSlots.length} Cyber slots to sync`)
+    
+    // Clear existing slots
+    await pool.query('DELETE FROM slots')
+    console.log('🗑️ Cleared existing slots')
+    
+    // Insert Cyber slots
+    let insertedCount = 0
+    for (const cyberSlot of cyberSlots) {
+      try {
+        await pool.query(`
+          INSERT INTO slots (
+            serial_number, provider, cabinet, game_mix, status, 
+            location, last_updated, created_at, created_by
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `, [
+          cyberSlot.serial_number || 'N/A',
+          cyberSlot.provider || 'Unknown',
+          cyberSlot.cabinet || 'Unknown',
+          cyberSlot.game_mix || null,
+          cyberSlot.status || 'Active',
+          cyberSlot.location || 'Unknown',
+          cyberSlot.last_updated || new Date().toISOString(),
+          cyberSlot.created_at || new Date().toISOString(),
+          1 // admin user
+        ])
+        insertedCount++
+      } catch (insertError) {
+        console.error(`❌ Error inserting slot ${cyberSlot.serial_number}:`, insertError.message)
+      }
+    }
+    
+    console.log(`✅ SYNCED ${insertedCount} slots from Cyber to main table`)
+    res.json({ 
+      success: true, 
+      message: `Synced ${insertedCount} slots from Cyber system`,
+      syncedCount: insertedCount,
+      totalCyberSlots: cyberSlots.length
+    })
+  } catch (error) {
+    console.error('❌ Error syncing Cyber slots:', error.message)
     res.status(500).json({ error: error.message })
   }
 })

@@ -498,6 +498,25 @@ const Slots = () => {
     toast.info('Funcționalitatea de import va fi implementată în curând')
   }
 
+  const handleSyncCyberSlots = async () => {
+    try {
+      toast.loading('Sincronizez sloturile din Cyber...', { id: 'sync-slots' })
+      
+      const response = await axios.post('/api/cyber/sync-slots')
+      
+      if (response.data.success) {
+        toast.success(`✅ ${response.data.message}`, { id: 'sync-slots' })
+        // Refresh data
+        window.location.reload()
+      } else {
+        toast.error('Eroare la sincronizare', { id: 'sync-slots' })
+      }
+    } catch (error) {
+      console.error('Error syncing Cyber slots:', error)
+      toast.error('Eroare la sincronizarea sloturilor din Cyber', { id: 'sync-slots' })
+    }
+  }
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -527,6 +546,13 @@ const Slots = () => {
                 entity="slots"
               />
               <div className="flex space-x-3">
+                <button
+                  onClick={handleSyncCyberSlots}
+                  className="btn-primary flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                >
+                  <Database className="w-4 h-4" />
+                  <span>Sincronizează Cyber ({slots.length} → 1122)</span>
+                </button>
                 {showBulkActions && (
                   <>
                     <button
