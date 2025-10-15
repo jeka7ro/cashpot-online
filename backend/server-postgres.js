@@ -2502,18 +2502,31 @@ app.use('/api/users', usersRoutes)
 app.use('/api/cyber', cyberRoutes)
 app.use('/api', importCyberRoutes)
 
-// DIRECT Cyber database endpoints (no JSON fallback needed)
-const cyberDB = mysql.createPool({
-  host: '161.97.133.165',
-  port: 3306,
-  user: 'eugen',
-  password: '(@Ee0wRHVohZww33',
-  database: 'cyberslot_dbn',
-  connectionLimit: 10
-})
+// DIRECT Cyber database endpoints with proper error handling
+let cyberDB = null
+
+try {
+  cyberDB = mysql.createPool({
+    host: '161.97.133.165',
+    port: 3306,
+    user: 'eugen',
+    password: '(@Ee0wRHVohZww33',
+    database: 'cyberslot_dbn',
+    connectionLimit: 10,
+    waitForConnections: true,
+    connectTimeout: 10000
+  })
+  console.log('✅ Cyber DB pool created')
+} catch (error) {
+  console.error('❌ Failed to create Cyber DB pool:', error.message)
+}
 
 // Get slots directly from Cyber database
 app.get('/api/cyber-direct/slots', async (req, res) => {
+  if (!cyberDB) {
+    return res.status(503).json({ error: 'Cyber database not available' })
+  }
+  
   try {
     const connection = await cyberDB.getConnection()
     const query = `
@@ -2538,24 +2551,30 @@ app.get('/api/cyber-direct/slots', async (req, res) => {
     `
     const [rows] = await connection.execute(query)
     connection.release()
+    console.log(`✅ Fetched ${rows.length} slots from Cyber DB`)
     res.json(rows)
   } catch (error) {
-    console.error('Error fetching from Cyber DB:', error.message)
-    res.status(500).json({ error: error.message })
+    console.error('❌ Error fetching from Cyber DB:', error.message)
+    res.status(500).json({ error: error.message, slots: [] })
   }
 })
 
 // Get locations directly from Cyber database
 app.get('/api/cyber-direct/locations', async (req, res) => {
+  if (!cyberDB) {
+    return res.status(503).json({ error: 'Cyber database not available' })
+  }
+  
   try {
     const connection = await cyberDB.getConnection()
     const query = `SELECT id, code, name, address, city FROM locations WHERE deleted_at IS NULL`
     const [rows] = await connection.execute(query)
     connection.release()
+    console.log(`✅ Fetched ${rows.length} locations from Cyber DB`)
     res.json(rows)
   } catch (error) {
-    console.error('Error fetching locations from Cyber DB:', error.message)
-    res.status(500).json({ error: error.message })
+    console.error('❌ Error fetching locations from Cyber DB:', error.message)
+    res.status(500).json({ error: error.message, locations: [] })
   }
 })
 
