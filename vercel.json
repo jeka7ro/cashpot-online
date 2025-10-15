@@ -1,24 +1,16 @@
 {
   "version": 2,
   "builds": [
-    { "src": "package.json", "use": "@vercel/static-build", "config": { "distDir": "src/dist" } },
-    { "src": "api/index.js", "use": "@vercel/node" }
+    { "src": "package.json", "use": "@vercel/static-build", "config": { "distDir": "src/dist" } }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "/api/index.js" },
-    { "src": "/uploads/(.*)", "dest": "/api/index.js" },
-    { "src": "/health", "dest": "/api/index.js" },
+    { "src": "/api/(.*)", "dest": "https://cashpot-backend.onrender.com/api/$1" },
+    { "src": "/uploads/(.*)", "dest": "https://cashpot-backend.onrender.com/uploads/$1" },
     { "src": "/assets/(.*)", "dest": "/assets/$1" },
     { "src": "/favicon.svg", "dest": "/favicon.svg" },
     { "src": "/(.*)", "dest": "/index.html" }
   ],
   "env": {
-    "VITE_API_URL": "",
-    "DATABASE_URL": "@database_url",
-    "JWT_SECRET": "@jwt_secret",
-    "AWS_ACCESS_KEY_ID": "@aws_access_key_id",
-    "AWS_SECRET_ACCESS_KEY": "@aws_secret_access_key",
-    "AWS_REGION": "eu-central-1",
-    "S3_BUCKET_NAME": "cashpot-documents"
+    "VITE_API_URL": "https://cashpot-backend.onrender.com"
   }
 }
