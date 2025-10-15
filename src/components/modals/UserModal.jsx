@@ -6,6 +6,7 @@ const UserModal = ({ item, onClose, onSave }) => {
     username: '',
     full_name: '',
     email: '',
+    password: '',
     role: 'user',
     status: 'active',
     notes: '',
@@ -144,6 +145,19 @@ const UserModal = ({ item, onClose, onSave }) => {
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-slate-700">Email *</label>
               <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent" placeholder="Adresa de email" required />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-700">Parolă {!item && '*'}</label>
+              <input 
+                type="password" 
+                name="password" 
+                value={formData.password} 
+                onChange={handleChange} 
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent" 
+                placeholder={item ? "Lasă gol pentru a păstra parola actuală" : "Minim 6 caractere"}
+                required={!item}
+                minLength={!item ? 6 : undefined}
+              />
             </div>
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-slate-700">Rol *</label>
