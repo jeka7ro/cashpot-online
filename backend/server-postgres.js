@@ -15,8 +15,18 @@ import compressRoutes from './routes/compress.js'
 import backupRoutes from './routes/backup.js'
 import gamesRoutes from './routes/games.js'
 import slotHistoryRoutes from './routes/slotHistory.js'
-// cyberRoutes and importCyberRoutes removed - using direct JSON endpoints instead
 import usersRoutes from './routes/users.js'
+import companiesRoutes from './routes/companies.js'
+import locationsRoutes from './routes/locations.js'
+import providersRoutes from './routes/providers.js'
+import cabinetsRoutes from './routes/cabinets.js'
+import gameMixesRoutes from './routes/gameMixes.js'
+import slotsRoutes from './routes/slots.js'
+import invoicesRoutes from './routes/invoices.js'
+import legalDocumentsRoutes from './routes/legalDocuments.js'
+import onjnReportsRoutes from './routes/onjnReports.js'
+import metrologyRoutes from './routes/metrology.js'
+import warehouseRoutes from './routes/warehouse.js'
 import { scheduleBackups } from './backup.js'
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
@@ -2496,6 +2506,17 @@ app.use('/api/backup', backupRoutes)
 app.use('/api/games', gamesRoutes)
 app.use('/api/slot-history', slotHistoryRoutes)
 app.use('/api/users', usersRoutes)
+app.use('/api/companies', companiesRoutes)
+app.use('/api/locations', locationsRoutes)
+app.use('/api/providers', providersRoutes)
+app.use('/api/cabinets', cabinetsRoutes)
+app.use('/api/game-mixes', gameMixesRoutes)
+app.use('/api/slots', slotsRoutes)
+app.use('/api/invoices', invoicesRoutes)
+app.use('/api/legal-documents', legalDocumentsRoutes)
+app.use('/api/onjn-reports', onjnReportsRoutes)
+app.use('/api/metrology', metrologyRoutes)
+app.use('/api/warehouse', warehouseRoutes)
 
 // Cyber routes removed - using direct JSON endpoints instead
 
