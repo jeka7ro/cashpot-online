@@ -193,7 +193,7 @@ export const DataProvider = ({ children }) => {
         }
         
         entityConfig[entity].setState(prev =>
-          prev.map(item => (item.id === id ? { ...item, ...updatedItem } : item))
+          (prev || []).map(item => (item.id === id ? { ...item, ...updatedItem } : item))
         )
         return { success: true, data: updatedItem }
       }
@@ -221,7 +221,7 @@ export const DataProvider = ({ children }) => {
   // Export data to Excel (XLSX format)
   const exportToExcel = (entity) => {
     const data = entityConfig[entity].state
-    const headers = Object.keys(data[0] || {})
+    const headers = data.length > 0 ? Object.keys(data[0] || {}) : []
     
     // Create Excel XML (SpreadsheetML) format
     let xml = '<?xml version="1.0"?>\n'
@@ -236,15 +236,15 @@ export const DataProvider = ({ children }) => {
     
     // Add headers
     xml += '<Row>\n'
-    headers.forEach(header => {
+    (headers || []).forEach(header => {
       xml += `<Cell><Data ss:Type="String">${escapeXml(header)}</Data></Cell>\n`
     })
     xml += '</Row>\n'
     
     // Add data rows
-    data.forEach(row => {
+    (data || []).forEach(row => {
       xml += '<Row>\n'
-      headers.forEach(header => {
+      (headers || []).forEach(header => {
         const value = row[header]
         if (value === null || value === undefined) {
           xml += '<Cell><Data ss:Type="String"></Data></Cell>\n'
@@ -284,7 +284,7 @@ export const DataProvider = ({ children }) => {
   // Export data to PDF
   const exportToPDF = (entity) => {
     const data = entityConfig[entity].state
-    const headers = Object.keys(data[0] || {})
+    const headers = data.length > 0 ? Object.keys(data[0] || {}) : []
     
     // Create HTML table
     let html = `
@@ -308,15 +308,15 @@ export const DataProvider = ({ children }) => {
         <table>
           <thead>
             <tr>
-              ${headers.map(h => `<th>${h}</th>`).join('')}
+              ${(headers || []).map(h => `<th>${h}</th>`).join('')}
             </tr>
           </thead>
           <tbody>
     `
     
-    data.forEach(row => {
+    (data || []).forEach(row => {
       html += '<tr>'
-      headers.forEach(header => {
+      (headers || []).forEach(header => {
         const value = row[header]
         const displayValue = value === null || value === undefined ? '' : 
                            typeof value === 'object' ? JSON.stringify(value) : 

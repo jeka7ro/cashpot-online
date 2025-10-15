@@ -69,7 +69,7 @@ const CyberImport = () => {
   const fetchCyberData = async () => {
     setLoading(true)
     try {
-      const response = await axios.get('/api/cyber/slots', { timeout: 30000 })
+      const response = await axios.get('/api/cyber/slots', { timeout: 5000 })
       setCyberData(response.data)
       setFilteredData(response.data)
       toast.success(`Încărcate ${response.data.length} sloturi din Cyber`)
@@ -135,7 +135,7 @@ const CyberImport = () => {
   const fetchCyberLocations = async () => {
     setLoading(true)
     try {
-      const response = await axios.get('/api/cyber/locations', { timeout: 30000 })
+      const response = await axios.get('/api/cyber/locations', { timeout: 5000 })
       setCyberLocations(response.data)
       setFilteredLocations(response.data)
       toast.success(`Încărcate ${response.data.length} locații din Cyber`)
