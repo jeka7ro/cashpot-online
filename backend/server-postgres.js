@@ -13,6 +13,8 @@ import uploadRoutes from './routes/upload.js'
 import backupRoutes from './routes/backup.js'
 import gamesRoutes from './routes/games.js'
 import slotHistoryRoutes from './routes/slotHistory.js'
+import marinaRoutes from './routes/marina.js'
+import importMarinaRoutes from './routes/importMarina.js'
 import { scheduleBackups } from './backup.js'
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
@@ -2430,6 +2432,10 @@ app.use('/api/backup', backupRoutes)
 app.use('/api/games', gamesRoutes)
 app.use('/api/slot-history', slotHistoryRoutes)
 
+// Marina routes
+app.use('/api/marina', marinaRoutes)
+app.use('/api', importMarinaRoutes)
+
 // Serve static files (PDFs)
 app.use('/uploads', express.static('uploads'))
 
@@ -2896,6 +2902,14 @@ app.listen(PORT, async () => {
   }
   
   await initializeDatabase()
+  
+  // Test Marina connection
+  try {
+    const { testMarinaConnection } = await import('./config/marina.js')
+    await testMarinaConnection()
+  } catch (error) {
+    console.log('⚠️ Marina connection test failed - check credentials')
+  }
   
   // Start automatic backups
   scheduleBackups()
