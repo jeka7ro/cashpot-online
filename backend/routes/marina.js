@@ -1,7 +1,22 @@
 import express from 'express'
-import { getMarinaConnection } from '../config/marina.js'
+import { getMarinaConnection, testMarinaConnection } from '../config/marina.js'
 
 const router = express.Router()
+
+// Test Marina database connection
+router.get('/test', async (req, res) => {
+  try {
+    const result = await testMarinaConnection()
+    if (result) {
+      res.json({ success: true, message: 'Marina database connection successful' })
+    } else {
+      res.status(500).json({ success: false, message: 'Marina database connection failed' })
+    }
+  } catch (error) {
+    console.error('Marina connection test error:', error)
+    res.status(500).json({ success: false, message: error.message })
+  }
+})
 
 // Get all slots from Marina
 router.get('/slots', async (req, res) => {
