@@ -13,7 +13,7 @@ const CyberImport = () => {
   const fetchCyberSlots = async () => {
     setLoading(true)
     try {
-      const response = await axios.get('/api/cyber-direct/slots')
+      const response = await axios.get('/api/cyber/slots')
       setCyberSlots(response.data)
       console.log('✅ Cyber slots loaded:', response.data.length)
     } catch (error) {
