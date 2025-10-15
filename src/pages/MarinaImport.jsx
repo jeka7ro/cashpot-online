@@ -39,7 +39,13 @@ const MarinaImport = () => {
       toast.success(`Încărcate ${response.data.length} sloturi din Marina`)
     } catch (error) {
       console.error('Error fetching Marina slots:', error)
-      toast.error('Eroare la conectarea la serverul Marina pentru sloturi')
+      if (error.response?.status === 404) {
+        toast.error('Serverul Marina nu este configurat. Verifică configurarea firewall-ului.')
+      } else if (error.code === 'ECONNREFUSED' || error.message.includes('timeout')) {
+        toast.error('Serverul Marina nu este accesibil. Verifică dacă IP-ul Render este permis în firewall.')
+      } else {
+        toast.error('Eroare la conectarea la serverul Marina pentru sloturi')
+      }
     } finally {
       setLoading(false)
     }
@@ -55,7 +61,13 @@ const MarinaImport = () => {
       toast.success(`Încărcate ${response.data.length} locații din Marina`)
     } catch (error) {
       console.error('Error fetching Marina locations:', error)
-      toast.error('Eroare la conectarea la serverul Marina pentru locații')
+      if (error.response?.status === 404) {
+        toast.error('Serverul Marina nu este configurat. Verifică configurarea firewall-ului.')
+      } else if (error.code === 'ECONNREFUSED' || error.message.includes('timeout')) {
+        toast.error('Serverul Marina nu este accesibil. Verifică dacă IP-ul Render este permis în firewall.')
+      } else {
+        toast.error('Eroare la conectarea la serverul Marina pentru locații')
+      }
     } finally {
       setLoading(false)
     }
