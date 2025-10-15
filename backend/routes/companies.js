@@ -1,9 +1,13 @@
 import express from 'express'
+import multer from 'multer'
+import path from 'path'
+import fs from 'fs'
 import Company from '../models/Company.js'
 import { body, validationResult } from 'express-validator'
 import XLSX from 'xlsx'
 
 const router = express.Router()
+const upload = multer({ dest: path.join('uploads', 'companies') })
 
 // Get all companies
 router.get('/', async (req, res) => {
@@ -218,3 +222,40 @@ router.get('/export/excel', async (req, res) => {
 })
 
 export default router
+
+// Extra: company documents endpoints (local storage JSON field)
+router.post('/:id/documents', upload.single('file'), async (req, res) => {
+  try {
+    const { id } = req.params
+    const { name, type } = req.body
+    if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' })
+
+    const fileUrl = `/uploads/companies/${req.file.filename}`
+
+    const company = await Company.findById(id)
+    if (!company) return res.status(404).json({ success: false, message: 'Company not found' })
+
+    const doc = { _id: new Date().getTime().toString(), name, type, url: fileUrl, uploadedAt: new Date() }
+    company.documents = company.documents || []
+    company.documents.push(doc)
+    await company.save()
+    res.json(company)
+  } catch (error) {
+    console.error('Company doc upload error:', error)
+    res.status(500).json({ success: false, message: 'Error uploading document' })
+  }
+})
+
+router.delete('/:companyId/documents/:docId', async (req, res) => {
+  try {
+    const { companyId, docId } = req.params
+    const company = await Company.findById(companyId)
+    if (!company) return res.status(404).json({ success: false, message: 'Company not found' })
+    company.documents = (company.documents || []).filter(d => (d._id?.toString?.() || d._id) !== docId)
+    await company.save()
+    res.json(company)
+  } catch (error) {
+    console.error('Company doc delete error:', error)
+    res.status(500).json({ success: false, message: 'Error deleting document' })
+  }
+})

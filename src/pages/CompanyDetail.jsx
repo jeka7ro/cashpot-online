@@ -59,9 +59,8 @@ const CompanyDetail = () => {
       formData.append('file', newDocument.file)
       formData.append('name', newDocument.name)
       formData.append('type', newDocument.type)
-      formData.append('company_id', company.id)
 
-      const response = await fetch('/api/companies/upload-document', {
+      const response = await fetch(`/api/companies/${company.id}/documents`, {
         method: 'POST',
         body: formData
       })
@@ -110,7 +109,7 @@ const CompanyDetail = () => {
   const handleDeleteDocument = async (documentId) => {
     if (window.confirm('Sigur vrei să ștergi acest document?')) {
       try {
-        const response = await fetch(`/api/companies/documents/${documentId}`, {
+        const response = await fetch(`/api/companies/${company.id}/documents/${documentId}` , {
           method: 'DELETE'
         })
 
@@ -435,7 +434,7 @@ const CompanyDetail = () => {
                         
                         {/* Other Documents */}
                         {company.documents && company.documents.map((doc, index) => (
-                          <div key={index} className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                          <div key={(doc._id || doc.id || index)} className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center space-x-3">
                                 <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
@@ -444,7 +443,7 @@ const CompanyDetail = () => {
                                 <div>
                                   <h3 className="font-semibold text-slate-800 dark:text-slate-200">{doc.name}</h3>
                                   <p className="text-sm text-slate-600 dark:text-slate-400">
-                                    {doc.type} • {new Date(doc.uploaded_at).toLocaleDateString('ro-RO')}
+                                    {doc.type} • {new Date(doc.uploadedAt || doc.uploaded_at).toLocaleDateString('ro-RO')}
                                   </p>
                                 </div>
                               </div>
@@ -454,7 +453,7 @@ const CompanyDetail = () => {
                                     // Update the PDF viewer to show this document
                                     const viewer = document.querySelector('iframe')
                                     if (viewer) {
-                                      viewer.src = doc.file_path
+                                      viewer.src = (doc.url || doc.file_path)
                                     }
                                   }}
                                   className="p-2 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
@@ -463,14 +462,19 @@ const CompanyDetail = () => {
                                   <Eye className="w-4 h-4" />
                                 </button>
                                 <button
-                                  onClick={() => handleDownloadDocument(doc)}
+                                  onClick={() => {
+                                    const link = document.createElement('a')
+                                    link.href = (doc.url || doc.file_path)
+                                    link.download = doc.name
+                                    link.click()
+                                  }}
                                   className="p-2 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-lg transition-colors"
                                   title="Descarcă"
                                 >
                                   <Download className="w-4 h-4" />
                                 </button>
                                 <button
-                                  onClick={() => handleDeleteDocument(doc.id)}
+                                  onClick={() => handleDeleteDocument(doc._id || doc.id)}
                                   className="p-2 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-lg transition-colors"
                                   title="Șterge"
                                 >

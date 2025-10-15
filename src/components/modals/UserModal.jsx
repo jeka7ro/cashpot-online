@@ -151,7 +151,6 @@ const UserModal = ({ item, onClose, onSave }) => {
                 <option value="admin">Administrator</option>
                 <option value="manager">Manager</option>
                 <option value="user">Utilizator</option>
-                <option value="viewer">Vizualizator</option>
               </select>
             </div>
             <div className="space-y-2">

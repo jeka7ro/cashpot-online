@@ -16,6 +16,7 @@ import gamesRoutes from './routes/games.js'
 import slotHistoryRoutes from './routes/slotHistory.js'
 import marinaRoutes from './routes/marina.js'
 import importMarinaRoutes from './routes/importMarina.js'
+import usersRoutes from './routes/users.js'
 import { scheduleBackups } from './backup.js'
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
@@ -2435,6 +2436,7 @@ app.use('/api/backup', backupRoutes)
 // Games routes
 app.use('/api/games', gamesRoutes)
 app.use('/api/slot-history', slotHistoryRoutes)
+app.use('/api/users', usersRoutes)
 
 // Marina routes
 // Marina/Cyber routes with fallback
