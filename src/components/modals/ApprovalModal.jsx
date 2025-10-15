@@ -37,8 +37,8 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
         [name]: value
       }
       
-      // Reset gameMix when provider or cabinet changes
-      if (name === 'provider' || name === 'cabinet') {
+      // Reset gameMix when provider changes
+      if (name === 'provider') {
         newData.gameMix = ''
       }
       
@@ -46,11 +46,11 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
     })
   }
   
-  // Filter game mixes based on selected provider and cabinet
+  // Filter game mixes based on selected provider
   const filteredGameMixes = gameMixes.filter(gm => {
-    if (!formData.provider || !formData.cabinet) return false
-    // Add your filtering logic here based on your data structure
-    return true // For now, show all game mixes
+    // Must match selected provider
+    if (formData.provider && gm.provider !== formData.provider) return false
+    return true
   })
 
   const handleSubmit = (e) => {
@@ -159,7 +159,7 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
                 value={formData.gameMix}
                 onChange={handleChange}
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                disabled={!formData.provider || !formData.cabinet}
+                disabled={!formData.provider}
               >
                 <option value="">Selectează game mix-ul</option>
                 {filteredGameMixes.map(gameMix => (
