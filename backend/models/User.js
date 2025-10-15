@@ -45,10 +45,18 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  permissions: [{
+  permissions: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+  },
+  preferences: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+  },
+  notes: {
     type: String,
-    enum: ['read', 'write', 'delete', 'export', 'import']
-  }],
+    default: ''
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'

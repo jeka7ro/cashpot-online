@@ -61,7 +61,7 @@ router.post(
         return res.status(400).json({ success: false, errors: errors.array() })
       }
 
-      const { username, email, password, full_name, role, status, avatar } = req.body
+      const { username, email, password, full_name, role, status, avatar, permissions, notes } = req.body
       const user = new User({
         username,
         email,
@@ -70,6 +70,8 @@ router.post(
         role,
         status: status || 'active',
         avatar: avatar || null,
+        permissions: permissions || {},
+        notes: notes || '',
         createdBy: req.user?.id || null
       })
 

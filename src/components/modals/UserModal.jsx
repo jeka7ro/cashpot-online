@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { X, Save, User, Mail, Shield, UserCheck, Upload, Image } from 'lucide-react'
+import { X, Save, User, Mail, Shield, UserCheck, Upload, Image, ChevronDown, ChevronUp } from 'lucide-react'
+import { MODULE_CONFIG, ACTION_LABELS, getDefaultPermissionsForRole } from '../../utils/permissions'
 
 const UserModal = ({ item, onClose, onSave }) => {
   const [formData, setFormData] = useState({
@@ -11,8 +12,11 @@ const UserModal = ({ item, onClose, onSave }) => {
     status: 'active',
     notes: '',
     avatar: null,
-    avatarPreview: null
+    avatarPreview: null,
+    permissions: getDefaultPermissionsForRole('user')
   })
+  
+  const [showPermissions, setShowPermissions] = useState(false)
 
   useEffect(() => {
     if (item) {
@@ -24,16 +28,53 @@ const UserModal = ({ item, onClose, onSave }) => {
         status: item.status || 'active',
         notes: item.notes || '',
         avatar: item.avatar || null,
-        avatarPreview: item.avatar || null
+        avatarPreview: item.avatar || null,
+        permissions: item.permissions || getDefaultPermissionsForRole(item.role || 'user')
       })
     }
   }, [item])
 
   const handleChange = (e) => {
     const { name, value } = e.target
+    setFormData(prev => {
+      const updated = {
+        ...prev,
+        [name]: value
+      }
+      
+      // Auto-load default permissions when role changes
+      if (name === 'role') {
+        updated.permissions = getDefaultPermissionsForRole(value)
+      }
+      
+      return updated
+    })
+  }
+  
+  const handlePermissionToggle = (module, action) => {
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      permissions: {
+        ...prev.permissions,
+        [module]: {
+          ...prev.permissions[module],
+          [action]: !prev.permissions[module]?.[action]
+        }
+      }
+    }))
+  }
+  
+  const toggleAllModulePermissions = (module, enable) => {
+    const moduleConfig = MODULE_CONFIG[module]
+    setFormData(prev => ({
+      ...prev,
+      permissions: {
+        ...prev.permissions,
+        [module]: moduleConfig.actions.reduce((acc, action) => {
+          acc[action] = enable
+          return acc
+        }, {})
+      }
     }))
   }
 
@@ -176,6 +217,89 @@ const UserModal = ({ item, onClose, onSave }) => {
               </select>
             </div>
           </div>
+          
+          {/* Permissions Section */}
+          <div className="space-y-3 border-t border-slate-200 pt-6">
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-semibold text-slate-700 flex items-center space-x-2">
+                <Shield className="w-5 h-5 text-indigo-600" />
+                <span>Permisiuni Detaliate</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowPermissions(!showPermissions)}
+                className="flex items-center space-x-2 px-3 py-1.5 text-sm text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+              >
+                <span>{showPermissions ? 'Ascunde' : 'Arată'}</span>
+                {showPermissions ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+            </div>
+            
+            {showPermissions && (
+              <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 space-y-4 max-h-96 overflow-y-auto">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                  Bifează permisiunile pentru fiecare modul. Permisiunile se actualizează automat când schimbi rolul.
+                </p>
+                
+                <div className="grid grid-cols-1 gap-4">
+                  {Object.keys(MODULE_CONFIG).map(module => {
+                    const config = MODULE_CONFIG[module]
+                    const modulePerms = formData.permissions[module] || {}
+                    const allChecked = config.actions.every(action => modulePerms[action])
+                    const someChecked = config.actions.some(action => modulePerms[action])
+                    
+                    return (
+                      <div key={module} className="bg-white dark:bg-slate-700 rounded-lg p-3 border border-slate-200 dark:border-slate-600">
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                            {config.label}
+                          </label>
+                          <div className="flex space-x-2">
+                            <button
+                              type="button"
+                              onClick={() => toggleAllModulePermissions(module, true)}
+                              className="text-xs px-2 py-1 text-green-600 hover:bg-green-50 rounded transition-colors"
+                              title="Selectează toate"
+                            >
+                              Toate
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => toggleAllModulePermissions(module, false)}
+                              className="text-xs px-2 py-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                              title="Deselectează toate"
+                            >
+                              Niciuna
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-2">
+                          {config.actions.map(action => (
+                            <label
+                              key={action}
+                              className="flex items-center space-x-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-600 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-500 transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={modulePerms[action] || false}
+                                onChange={() => handlePermissionToggle(module, action)}
+                                className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                              />
+                              <span className="text-xs font-medium text-slate-700 dark:text-slate-200">
+                                {ACTION_LABELS[action]}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+          
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-slate-700">Note</label>
             <textarea name="notes" value={formData.notes} onChange={handleChange} rows={4} className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent" placeholder="Note adiționale" />
