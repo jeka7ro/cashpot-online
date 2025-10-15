@@ -26,7 +26,8 @@ import {
   Users as UserIcon,
   Moon,
   Sun,
-  History
+  History,
+  Download
 } from 'lucide-react'
 
 const Layout = ({ children }) => {
@@ -116,6 +117,13 @@ const Layout = ({ children }) => {
       icon: BarChart3, 
       path: '/slots',
       count: slots.length
+    },
+    { 
+      id: 'cyber-import', 
+      label: 'Import Cyber', 
+      icon: Download, 
+      path: '/slots/cyber-import',
+      count: null
     },
     { 
       id: 'warehouse', 
