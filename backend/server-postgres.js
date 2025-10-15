@@ -2438,7 +2438,93 @@ app.use('/api/games', gamesRoutes)
 app.use('/api/slot-history', slotHistoryRoutes)
 app.use('/api/users', usersRoutes)
 
-// Cyber routes - all handled by marinaRoutes
+// Cyber routes - direct implementation for Render
+app.get('/api/cyber/slots', (req, res) => {
+  try {
+    const fs = require('fs')
+    const path = require('path')
+    const slotsPath = path.join(__dirname, 'cyber-data', 'slots.json')
+    if (fs.existsSync(slotsPath)) {
+      const data = JSON.parse(fs.readFileSync(slotsPath, 'utf8'))
+      res.json(data)
+    } else {
+      res.json([])
+    }
+  } catch (error) {
+    console.error('Error loading slots:', error)
+    res.json([])
+  }
+})
+
+app.get('/api/cyber/locations', (req, res) => {
+  try {
+    const fs = require('fs')
+    const path = require('path')
+    const locationsPath = path.join(__dirname, 'cyber-data', 'locations.json')
+    if (fs.existsSync(locationsPath)) {
+      const data = JSON.parse(fs.readFileSync(locationsPath, 'utf8'))
+      res.json(data)
+    } else {
+      res.json([])
+    }
+  } catch (error) {
+    console.error('Error loading locations:', error)
+    res.json([])
+  }
+})
+
+app.get('/api/cyber/cabinets', (req, res) => {
+  try {
+    const fs = require('fs')
+    const path = require('path')
+    const cabinetsPath = path.join(__dirname, 'cyber-data', 'cabinets.json')
+    if (fs.existsSync(cabinetsPath)) {
+      const data = JSON.parse(fs.readFileSync(cabinetsPath, 'utf8'))
+      res.json(data)
+    } else {
+      res.json([])
+    }
+  } catch (error) {
+    console.error('Error loading cabinets:', error)
+    res.json([])
+  }
+})
+
+app.get('/api/cyber/game-mixes', (req, res) => {
+  try {
+    const fs = require('fs')
+    const path = require('path')
+    const gameMixesPath = path.join(__dirname, 'cyber-data', 'game-mixes.json')
+    if (fs.existsSync(gameMixesPath)) {
+      const data = JSON.parse(fs.readFileSync(gameMixesPath, 'utf8'))
+      res.json(data)
+    } else {
+      res.json([])
+    }
+  } catch (error) {
+    console.error('Error loading game mixes:', error)
+    res.json([])
+  }
+})
+
+app.get('/api/cyber/providers', (req, res) => {
+  try {
+    const fs = require('fs')
+    const path = require('path')
+    const providersPath = path.join(__dirname, 'cyber-data', 'providers.json')
+    if (fs.existsSync(providersPath)) {
+      const data = JSON.parse(fs.readFileSync(providersPath, 'utf8'))
+      res.json(data)
+    } else {
+      res.json([])
+    }
+  } catch (error) {
+    console.error('Error loading providers:', error)
+    res.json([])
+  }
+})
+
+// Also keep marinaRoutes for future use
 app.use('/api/cyber', marinaRoutes)
 app.use('/api', importMarinaRoutes)
 
