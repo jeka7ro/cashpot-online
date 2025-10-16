@@ -933,7 +933,7 @@ app.get('/health', async (req, res) => {
       status: 'OK', 
       timestamp: new Date().toISOString(),
       version: '1.0.5',
-      build: '9',
+      build: '10', // Force redeploy
       uptime: process.uptime(),
       database: 'Connected',
       dbTime: result.rows[0].now
