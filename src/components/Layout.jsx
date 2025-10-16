@@ -39,6 +39,7 @@ const Layout = ({ children }) => {
   const { theme, toggleTheme } = useTheme()
   const location = useLocation()
   
+  // Load settings from localStorage
   const [settings, setSettings] = React.useState({
     logo: { type: 'upload', url: '', file: null },
     headerColor: { primary: '#2563eb', secondary: '#4f46e5', useGradient: true },
@@ -47,6 +48,7 @@ const Layout = ({ children }) => {
   })
 
   React.useEffect(() => {
+    // Load settings from server first, then localStorage as fallback
     loadSettingsFromServer()
   }, [])
 

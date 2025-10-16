@@ -14,6 +14,7 @@ export const ThemeProvider = ({ children }) => {
   const [theme, setTheme] = useState('light')
 
   useEffect(() => {
+    // localStorage REMOVED - using server only
     
     // Apply theme to document
     if (theme === 'dark') {

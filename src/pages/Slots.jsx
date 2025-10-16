@@ -84,6 +84,7 @@ const Slots = () => {
   }, [selectedItems])
 
   // Card visibility settings are not saved - always default OFF
+  // No localStorage loading/saving for card visibility
 
   // Toggle card visibility (saves to server)
   const toggleCardVisibility = (cardKey) => {

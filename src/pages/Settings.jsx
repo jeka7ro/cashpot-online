@@ -68,6 +68,7 @@ const Settings = () => {
   })
 
   useEffect(() => {
+    // Load settings from server first, then localStorage as fallback
     loadSettingsFromServer()
   }, [])
 
