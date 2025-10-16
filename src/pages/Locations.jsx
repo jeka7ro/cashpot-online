@@ -6,6 +6,7 @@ import ExportButtons from '../components/ExportButtons'
 import PDFViewer from '../components/PDFViewer'
 import DataTable from '../components/DataTable'
 import LocationModal from '../components/modals/LocationModal'
+import LocationDetailModal from '../components/modals/LocationDetailModal'
 import LocationContracts from '../components/LocationContracts'
 import LocationProprietari from '../components/LocationProprietari'
 import { MapPin, Plus, Search, Upload, Download, FileText, Edit, Trash2, Building2, Eye, X, Database } from 'lucide-react'
@@ -20,6 +21,8 @@ const Locations = () => {
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
+  const [viewingItem, setViewingItem] = useState(null)
+  const [showDetailModal, setShowDetailModal] = useState(false)
 
   // Update showBulkActions based on selectedItems
   useEffect(() => {
