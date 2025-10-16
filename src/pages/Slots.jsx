@@ -400,9 +400,6 @@ const Slots = () => {
     setShowModal(true)
   }
 
-  const handleView = (slot) => {
-    navigate(`/slots/${slot.id}`)
-  }
 
   // Bulk operations
   const handleSelectAll = (checked) => {
@@ -933,7 +930,6 @@ const Slots = () => {
               columns={columns}
               onEdit={handleEdit}
               onDelete={handleDelete}
-              onView={handleView}
               searchTerm={searchTerm}
               selectedItems={selectedItems}
               onSelectAll={handleSelectAll}
