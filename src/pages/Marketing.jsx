@@ -206,7 +206,7 @@ const Marketing = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <div className="p-3 bg-gradient-to-br from-pink-500 to-rose-500 rounded-2xl shadow-lg">
+            <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-2xl shadow-lg">
               <TrendingUp className="w-8 h-8 text-white" />
             </div>
             <div>
@@ -216,7 +216,7 @@ const Marketing = () => {
           </div>
           <button
             onClick={handleAdd}
-            className="px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white rounded-xl flex items-center space-x-2 transition-all shadow-lg font-medium"
+            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-xl flex items-center space-x-2 transition-all shadow-lg font-medium"
           >
             <Plus size={18} />
             <span>Adaugă Promoție</span>
@@ -245,15 +245,15 @@ const Marketing = () => {
             </div>
           </div>
 
-          <div className="card p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800">
+          <div className="card p-6 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-purple-600 dark:text-purple-400 font-semibold">Fond Total Premii</p>
-                <p className="text-3xl font-bold text-purple-700 dark:text-purple-300">
+                <p className="text-sm text-amber-600 dark:text-amber-400 font-semibold">Fond Total Premii</p>
+                <p className="text-3xl font-bold text-amber-700 dark:text-amber-300">
                   {totalPrizePool.toLocaleString('ro-RO')} RON
                 </p>
               </div>
-              <TrendingUp className="w-12 h-12 text-purple-500 opacity-50" />
+              <TrendingUp className="w-12 h-12 text-amber-500 opacity-50" />
             </div>
           </div>
         </div>
@@ -271,7 +271,7 @@ const Marketing = () => {
           loading={loading.promotions}
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
-          moduleColor="pink"
+          moduleColor="blue"
         />
 
         {/* Add/Edit Modal */}

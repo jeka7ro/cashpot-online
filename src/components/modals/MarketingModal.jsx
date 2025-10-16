@@ -111,7 +111,7 @@ const MarketingModal = ({ item, onClose, onSave }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="bg-gradient-to-r from-pink-500 to-rose-500 p-6 rounded-t-2xl">
+        <div className="bg-gradient-to-r from-blue-500 to-indigo-500 p-6 rounded-t-2xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="p-3 bg-white bg-opacity-20 rounded-2xl backdrop-blur-sm">
@@ -121,7 +121,7 @@ const MarketingModal = ({ item, onClose, onSave }) => {
                 <h2 className="text-2xl font-bold text-white">
                   {item ? 'Editare Promoție' : 'Promoție Nouă'}
                 </h2>
-                <p className="text-pink-100 text-sm">Marketing & Tombole</p>
+                <p className="text-blue-100 text-sm">Marketing & Tombole</p>
               </div>
             </div>
             <button
@@ -151,7 +151,7 @@ const MarketingModal = ({ item, onClose, onSave }) => {
                 placeholder="Ex: Tombola Paște 2025"
                 className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 
                          bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                         focus:border-pink-500 focus:ring-2 focus:ring-pink-200 transition-all"
+                         focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
               />
             </div>
 
@@ -167,7 +167,7 @@ const MarketingModal = ({ item, onClose, onSave }) => {
                 required
                 className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 
                          bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                         focus:border-pink-500 focus:ring-2 focus:ring-pink-200 transition-all"
+                         focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
               >
                 <option value="">Selectează locația</option>
                 {locations.map(loc => (
@@ -209,7 +209,7 @@ const MarketingModal = ({ item, onClose, onSave }) => {
                 required
                 className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 
                          bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                         focus:border-pink-500 focus:ring-2 focus:ring-pink-200 transition-all"
+                         focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
               />
             </div>
 
@@ -226,7 +226,7 @@ const MarketingModal = ({ item, onClose, onSave }) => {
                 required
                 className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 
                          bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                         focus:border-pink-500 focus:ring-2 focus:ring-pink-200 transition-all"
+                         focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
               />
             </div>
           </div>
@@ -282,7 +282,7 @@ const MarketingModal = ({ item, onClose, onSave }) => {
                         step="0.01"
                         className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-500 
                                  bg-white dark:bg-slate-600 text-slate-900 dark:text-white text-base font-medium
-                                 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 transition-all"
+                                 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
                       />
                     </div>
 
@@ -295,7 +295,7 @@ const MarketingModal = ({ item, onClose, onSave }) => {
                         onChange={(e) => handlePrizeChange(index, 'currency', e.target.value)}
                         className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-500 
                                  bg-white dark:bg-slate-600 text-slate-900 dark:text-white text-base font-medium
-                                 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 transition-all"
+                                 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
                       >
                         <option value="RON">RON</option>
                         <option value="EUR">EUR</option>
@@ -314,7 +314,7 @@ const MarketingModal = ({ item, onClose, onSave }) => {
                         required
                         className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-500 
                                  bg-white dark:bg-slate-600 text-slate-900 dark:text-white text-base font-medium
-                                 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 transition-all"
+                                 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
                       />
                     </div>
 
@@ -329,7 +329,7 @@ const MarketingModal = ({ item, onClose, onSave }) => {
                         placeholder="Nume câștigător"
                         className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-500 
                                  bg-white dark:bg-slate-600 text-slate-900 dark:text-white text-base font-medium
-                                 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 transition-all"
+                                 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
                       />
                     </div>
                   </div>
@@ -350,7 +350,7 @@ const MarketingModal = ({ item, onClose, onSave }) => {
                 onChange={handleChange}
                 className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 
                          bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                         focus:border-pink-500 focus:ring-2 focus:ring-pink-200 transition-all"
+                         focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
               >
                 <option value="Active">Activ</option>
                 <option value="Completed">Finalizat</option>
@@ -370,7 +370,7 @@ const MarketingModal = ({ item, onClose, onSave }) => {
                 placeholder="Note adiționale..."
                 className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 
                          bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                         focus:border-pink-500 focus:ring-2 focus:ring-pink-200 transition-all"
+                         focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
               />
             </div>
           </div>
@@ -388,8 +388,8 @@ const MarketingModal = ({ item, onClose, onSave }) => {
             </button>
             <button
               type="submit"
-              className="px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl 
-                       hover:from-pink-600 hover:to-rose-600 transition-all shadow-lg font-medium"
+              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl 
+                       hover:from-blue-600 hover:to-indigo-600 transition-all shadow-lg font-medium"
             >
               {item ? 'Salvează Modificările' : 'Creează Promoție'}
             </button>
