@@ -13,3 +13,4 @@ mongodb-macos-x86_64-8.2.0/
 mongodb-macos-x86_64-8.2.0.tgz
 *.tgz
 *.zip
+.vercel

@@ -81,7 +81,7 @@ const Layout = ({ children }) => {
     } catch (error) {
       console.log('⚠️ Could not load settings from server in Layout')
     }
-  }, [])
+  }
 
   // Update time every second
   useEffect(() => {
