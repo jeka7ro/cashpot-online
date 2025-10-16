@@ -274,7 +274,7 @@ const Settings = () => {
     alert('Setările au fost salvate cu succes!')
   }
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (window.confirm('Sigur doriți să resetați toate setările la valorile implicite?')) {
       const defaultSettings = {
         logo: { type: 'upload', url: '', file: null },
