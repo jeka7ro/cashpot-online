@@ -420,17 +420,71 @@ const Slots = () => {
   }
 
   const confirmBulkDelete = async () => {
+    // Închide modal-ul imediat
+    setShowBulkDeleteModal(false)
+    
+    const totalItems = selectedItems.length
+    let successCount = 0
+    let errorCount = 0
+    const errors = []
+    
     try {
-      for (const id of selectedItems) {
-        await deleteItem('slots', id)
+      // Pornește loading toast
+      const loadingToast = toast.loading(`Șterg ${totalItems} sloturi...`, {
+        duration: Infinity
+      })
+      
+      // Șterge în batch-uri pentru performanță mai bună
+      const batchSize = 10
+      for (let i = 0; i < selectedItems.length; i += batchSize) {
+        const batch = selectedItems.slice(i, i + batchSize)
+        
+        // Procesează batch-ul în paralel
+        const promises = batch.map(async (id) => {
+          try {
+            await deleteItem('slots', id)
+            successCount++
+          } catch (error) {
+            errorCount++
+            errors.push(`Slot ${id}: ${error.message}`)
+          }
+        })
+        
+        await Promise.all(promises)
+        
+        // Update progress
+        const processed = Math.min(i + batchSize, totalItems)
+        toast.loading(`Șterg ${totalItems} sloturi... (${processed}/${totalItems})`, {
+          id: loadingToast
+        })
       }
+      
+      // Clear loading toast
+      toast.dismiss(loadingToast)
+      
+      // Afișează rezultatul final
+      if (errorCount === 0) {
+        toast.success(`✅ ${successCount} sloturi șterse cu succes!`, {
+          duration: 5000
+        })
+      } else if (successCount > 0) {
+        toast.success(`⚠️ ${successCount} sloturi șterse, ${errorCount} erori`, {
+          duration: 5000
+        })
+      } else {
+        toast.error(`❌ Eroare la ștergerea tuturor ${totalItems} sloturi`, {
+          duration: 5000
+        })
+      }
+      
+      // Cleanup
       setSelectedItems([])
       setShowBulkActions(false)
-      setShowBulkDeleteModal(false)
-      toast.success(`${selectedItems.length} sloturi șterse cu succes!`)
+      
     } catch (error) {
       console.error('Error bulk deleting slots:', error)
       toast.error('Eroare la ștergerea sloturilor!')
+      setShowBulkDeleteModal(false)
     }
   }
 
