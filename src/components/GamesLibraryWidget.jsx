@@ -60,7 +60,7 @@ const GamesLibraryWidget = () => {
     return (
       <div className="card p-6">
         <div className="flex items-center space-x-3 mb-6">
-          <div className="p-3 bg-gradient-to-r from-pink-500 to-purple-500 rounded-2xl shadow-lg">
+          <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl shadow-lg">
             <Gamepad2 className="w-6 h-6 text-white" />
           </div>
           <div>
@@ -77,7 +77,7 @@ const GamesLibraryWidget = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-3">
-          <div className="p-3 bg-gradient-to-r from-pink-500 to-purple-500 rounded-2xl shadow-lg shadow-pink-500/25">
+          <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl shadow-lg shadow-blue-500/25">
             <Gamepad2 className="w-6 h-6 text-white" />
           </div>
           <div>
@@ -87,7 +87,7 @@ const GamesLibraryWidget = () => {
         </div>
         <button
           onClick={() => navigate('/game-mixes/games-library')}
-          className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-xl hover:shadow-lg hover:shadow-pink-500/25 transition-all"
+          className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all"
         >
           <Eye className="w-4 h-4" />
           <span className="text-sm font-medium">Vezi Tot</span>
@@ -104,12 +104,12 @@ const GamesLibraryWidget = () => {
           <div className="text-3xl font-bold text-blue-700 dark:text-blue-300">{stats.total}</div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-4 rounded-xl border border-purple-200 dark:border-purple-800">
+        <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 p-4 rounded-xl border border-indigo-200 dark:border-indigo-800">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-purple-600 dark:text-purple-400">Furnizori</span>
-            <Zap className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+            <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">Furnizori</span>
+            <Zap className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
           </div>
-          <div className="text-3xl font-bold text-purple-700 dark:text-purple-300">{stats.providers}</div>
+          <div className="text-3xl font-bold text-indigo-700 dark:text-indigo-300">{stats.providers}</div>
         </div>
       </div>
 
@@ -123,7 +123,7 @@ const GamesLibraryWidget = () => {
             onClick={() => navigate(`/game-mixes/games-library/${game.game_id}`)}
           >
             <div className="flex items-center space-x-3 flex-1">
-              <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-pink-500 to-purple-500 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">
+              <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">
                 #{index + 1}
               </div>
               {game.image_url ? (
@@ -154,7 +154,7 @@ const GamesLibraryWidget = () => {
       <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
         <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
           <span>Ultima actualizare: acum</span>
-          <span className="font-medium text-pink-600 dark:text-pink-400">
+          <span className="font-medium text-blue-600 dark:text-blue-400">
             {stats.total} jocuri disponibile
           </span>
         </div>

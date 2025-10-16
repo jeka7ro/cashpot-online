@@ -774,7 +774,7 @@ const Dashboard = () => {
       title: 'Librărie Jocuri',
       value: statistics?.totalGames || 0,
       icon: Gamepad2,
-      color: 'pink',
+      color: 'blue',
       change: '+18%',
       changeType: 'positive'
     }

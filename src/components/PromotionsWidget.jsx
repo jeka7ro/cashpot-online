@@ -43,10 +43,10 @@ const PromotionsWidget = () => {
   }
 
   return (
-    <div className="card p-6 bg-gradient-to-br from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20 border border-pink-200 dark:border-pink-800">
+    <div className="card p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-3">
-          <div className="p-2 bg-gradient-to-br from-pink-500 to-rose-500 rounded-xl shadow-lg">
+          <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl shadow-lg">
             <TrendingUp className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -58,7 +58,7 @@ const PromotionsWidget = () => {
         </div>
         <div className="text-right">
           <p className="text-sm text-slate-600 dark:text-slate-400">Fond Total</p>
-          <p className="text-2xl font-bold text-pink-600 dark:text-pink-400">
+          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
             {totalPrizePool.toLocaleString('ro-RO')} RON
           </p>
         </div>
@@ -132,7 +132,7 @@ const PromotionsWidget = () => {
       )}
 
       {promotions.length > 5 && (
-        <button className="mt-4 w-full py-2 text-sm text-pink-600 dark:text-pink-400 hover:text-pink-700 dark:hover:text-pink-300 font-semibold flex items-center justify-center space-x-1">
+        <button className="mt-4 w-full py-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold flex items-center justify-center space-x-1">
           <span>Vezi toate ({promotions.length})</span>
           <ChevronRight className="w-4 h-4" />
         </button>
