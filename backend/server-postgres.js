@@ -2637,23 +2637,126 @@ app.post('/api/cyber/sync-slots', async (req, res) => {
     const cyberSlots = JSON.parse(fs.readFileSync(slotsPath, 'utf8'))
     console.log(`📥 Found ${cyberSlots.length} Cyber slots to sync`)
     
-    // Clear existing slots
+    // STEP 1: Extract and auto-populate unique entities
+    console.log('📊 Extracting unique entities from Cyber data...')
+    
+    const uniqueLocations = new Set()
+    const uniqueProviders = new Set()
+    const uniqueCabinets = new Set()
+    const uniqueGameMixes = new Set()
+    
+    cyberSlots.forEach(slot => {
+      if (slot.location && slot.location !== 'Unknown' && slot.location !== 'N/A') {
+        uniqueLocations.add(slot.location)
+      }
+      if (slot.provider && slot.provider !== 'Unknown' && slot.provider !== 'N/A') {
+        uniqueProviders.add(slot.provider)
+      }
+      if (slot.cabinet && slot.cabinet !== 'Unknown' && slot.cabinet !== 'N/A') {
+        uniqueCabinets.add(slot.cabinet)
+      }
+      if (slot.game_mix && slot.game_mix !== 'N/A') {
+        // Cleanup: Extract only part after " - " (ex: "EGT - Union" -> "Union")
+        const cleanGameMix = slot.game_mix.includes(' - ') 
+          ? slot.game_mix.split(' - ')[1].trim()
+          : slot.game_mix
+        if (cleanGameMix) uniqueGameMixes.add(cleanGameMix)
+      }
+    })
+    
+    console.log(`🔍 Found unique entities:`)
+    console.log(`   📍 Locations: ${uniqueLocations.size}`)
+    console.log(`   🎮 Providers: ${uniqueProviders.size}`)
+    console.log(`   🎰 Cabinets: ${uniqueCabinets.size}`)
+    console.log(`   🎲 Game Mixes: ${uniqueGameMixes.size}`)
+    
+    // STEP 2: Auto-populate Locations
+    for (const location of uniqueLocations) {
+      try {
+        const exists = await pool.query('SELECT id FROM locations WHERE name = $1', [location])
+        if (exists.rows.length === 0) {
+          await pool.query(
+            'INSERT INTO locations (name, address, company, status, created_by) VALUES ($1, $2, $3, $4, $5)',
+            [location, 'Adresă din Cyber', 'Cyber Import', 'Active', 'Cyber Import']
+          )
+          console.log(`   ✅ Added location: ${location}`)
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Location ${location} error:`, error.message)
+      }
+    }
+    
+    // STEP 3: Auto-populate Providers
+    for (const provider of uniqueProviders) {
+      try {
+        const exists = await pool.query('SELECT id FROM providers WHERE name = $1', [provider])
+        if (exists.rows.length === 0) {
+          await pool.query(
+            'INSERT INTO providers (name, company, status, created_by) VALUES ($1, $2, $3, $4)',
+            [provider, 'Cyber Import', 'Active', 'Cyber Import']
+          )
+          console.log(`   ✅ Added provider: ${provider}`)
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Provider ${provider} error:`, error.message)
+      }
+    }
+    
+    // STEP 4: Auto-populate Cabinets
+    for (const cabinet of uniqueCabinets) {
+      try {
+        const exists = await pool.query('SELECT id FROM cabinets WHERE name = $1 OR model = $1', [cabinet])
+        if (exists.rows.length === 0) {
+          await pool.query(
+            'INSERT INTO cabinets (name, model, status, created_by) VALUES ($1, $2, $3, $4)',
+            [cabinet, cabinet, 'Active', 'Cyber Import']
+          )
+          console.log(`   ✅ Added cabinet: ${cabinet}`)
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Cabinet ${cabinet} error:`, error.message)
+      }
+    }
+    
+    // STEP 5: Auto-populate Game Mixes
+    for (const gameMix of uniqueGameMixes) {
+      try {
+        const exists = await pool.query('SELECT id FROM game_mixes WHERE name = $1', [gameMix])
+        if (exists.rows.length === 0) {
+          await pool.query(
+            'INSERT INTO game_mixes (name, status, created_by) VALUES ($1, $2, $3)',
+            [gameMix, 'Active', 'Cyber Import']
+          )
+          console.log(`   ✅ Added game mix: ${gameMix}`)
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Game mix ${gameMix} error:`, error.message)
+      }
+    }
+    
+    console.log('✅ All unique entities populated!')
+    
+    // STEP 6: Clear existing slots
     await pool.query('DELETE FROM slots')
     console.log('🗑️ Cleared existing slots')
     
-    // Insert Cyber slots in BATCH (much faster!)
+    // STEP 7: Insert Cyber slots in BATCH with cleaned game_mix
     console.log('🚀 Starting BATCH insert...')
     const values = []
     const params = []
     let paramCount = 1
     
     cyberSlots.forEach(cyberSlot => {
+      // Cleanup game_mix - extract only part after " - "
+      const cleanGameMix = cyberSlot.game_mix && cyberSlot.game_mix.includes(' - ')
+        ? cyberSlot.game_mix.split(' - ')[1].trim()
+        : cyberSlot.game_mix
       const rowValues = [
         cyberSlot.serial_number || 'N/A',
         cyberSlot.serial_number || 'N/A', // slot_id same as serial_number
         cyberSlot.provider || 'Unknown',
         cyberSlot.cabinet || 'Unknown',
-        cyberSlot.game_mix || null,
+        cleanGameMix || null, // Use cleaned game_mix
         cyberSlot.status || 'Active',
         cyberSlot.location || 'Unknown',
         cyberSlot.updated_at || cyberSlot.last_updated || new Date().toISOString(),
@@ -2681,9 +2784,15 @@ app.post('/api/cyber/sync-slots', async (req, res) => {
     console.log(`✅ SYNCED ${insertedCount} slots from Cyber to main table`)
     res.json({ 
       success: true, 
-      message: `Synced ${insertedCount} slots from Cyber system`,
+      message: `Synced ${insertedCount} slots + ${uniqueLocations.size} locations + ${uniqueProviders.size} providers + ${uniqueCabinets.size} cabinets + ${uniqueGameMixes.size} game mixes`,
       syncedCount: insertedCount,
-      totalCyberSlots: cyberSlots.length
+      totalCyberSlots: cyberSlots.length,
+      entitiesPopulated: {
+        locations: uniqueLocations.size,
+        providers: uniqueProviders.size,
+        cabinets: uniqueCabinets.size,
+        gameMixes: uniqueGameMixes.size
+      }
     })
   } catch (error) {
     console.error('❌ Error syncing Cyber slots:', error.message)
