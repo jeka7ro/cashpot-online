@@ -1970,6 +1970,22 @@ app.get('/api/users/:id', async (req, res) => {
   }
 })
 
+app.get('/api/users/:id/preferences', async (req, res) => {
+  try {
+    const { id } = req.params
+    const result = await pool.query('SELECT preferences FROM users WHERE id = $1', [id])
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' })
+    }
+    
+    res.json({ success: true, preferences: result.rows[0].preferences || {} })
+  } catch (error) {
+    console.error('Error fetching user preferences:', error)
+    res.status(500).json({ success: false, message: 'Error fetching user preferences' })
+  }
+})
+
 app.put('/api/users/:id/preferences', async (req, res) => {
   try {
     const { id } = req.params
