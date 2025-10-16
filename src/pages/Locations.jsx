@@ -287,6 +287,21 @@ const Locations = () => {
         )
       }
     },
+    {
+      key: 'created_info',
+      label: 'CREAT DE / DATA',
+      sortable: true,
+      render: (item) => (
+        <div className="space-y-1">
+          <div className="text-slate-800 font-medium text-base">
+            {item.created_by || 'N/A'}
+          </div>
+          <div className="text-slate-500 text-sm">
+            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+          </div>
+        </div>
+      )
+    }
   ]
 
   const handleAdd = () => {
@@ -542,6 +557,10 @@ const Locations = () => {
           onEdit={handleEdit}
           onDelete={handleDelete}
           onViewContracts={handleViewContracts}
+          onRowClick={(item) => {
+            setViewingItem(item)
+            setShowDetailModal(true)
+          }}
           onViewProprietari={handleViewProprietari}
           loading={loading.locations}
           searchTerm={searchTerm}
@@ -650,6 +669,17 @@ const Locations = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Detail Modal */}
+        {showDetailModal && (
+          <LocationDetailModal
+            item={viewingItem}
+            onClose={() => {
+              setShowDetailModal(false)
+              setViewingItem(null)
+            }}
+          />
         )}
       </div>
     </Layout>

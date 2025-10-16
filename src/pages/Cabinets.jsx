@@ -3,6 +3,7 @@ import { useData } from '../contexts/DataContext'
 import Layout from '../components/Layout'
 import DataTable from '../components/DataTable'
 import CabinetModal from '../components/modals/CabinetModal'
+import CabinetDetailModal from '../components/modals/CabinetDetailModal'
 import PlatformModal from '../components/modals/PlatformModal'
 import LocationPlatforms from '../components/LocationPlatforms'
 import { Gamepad2, Plus, Search, Upload, Download, Cpu } from 'lucide-react'
@@ -15,6 +16,8 @@ const Cabinets = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
+  const [viewingItem, setViewingItem] = useState(null)
+  const [showDetailModal, setShowDetailModal] = useState(false)
 
   // Update showBulkActions based on selectedItems
   useEffect(() => {
@@ -535,6 +538,10 @@ const Cabinets = () => {
               columns={cabinetColumns}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onRowClick={(item) => {
+                setViewingItem(item)
+                setShowDetailModal(true)
+              }}
               loading={loading}
               selectedItems={selectedItems}
               onSelectAll={handleSelectAll}
@@ -565,6 +572,17 @@ const Cabinets = () => {
           item={editingItem}
           onClose={() => setShowPlatformModal(false)}
           onSave={handleSave}
+        />
+      )}
+
+      {/* Detail Modal */}
+      {showDetailModal && (
+        <CabinetDetailModal
+          item={viewingItem}
+          onClose={() => {
+            setShowDetailModal(false)
+            setViewingItem(null)
+          }}
         />
       )}
     </Layout>
