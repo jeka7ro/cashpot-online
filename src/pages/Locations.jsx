@@ -571,6 +571,25 @@ const Locations = () => {
           moduleColor="blue"
         />
 
+        {/* Total Slots Summary */}
+        {filteredLocations.length > 0 && (
+          <div className="card p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700">
+            <div className="flex items-center justify-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">📊</span>
+                </div>
+                <span className="text-slate-700 dark:text-slate-300 font-medium">
+                  Total sloturi în toate locațiile:
+                </span>
+              </div>
+              <div className="px-4 py-2 bg-blue-500 text-white rounded-lg font-bold text-xl">
+                {filteredLocations.reduce((total, location) => total + getSlotCount(location.name), 0)} sloturi
+              </div>
+            </div>
+          </div>
+        )}
+
             {/* Modal */}
             {showModal && (
               <LocationModal
