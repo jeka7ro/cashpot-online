@@ -4,6 +4,7 @@ import Layout from '../components/Layout'
 import ExportButtons from '../components/ExportButtons'
 import DataTable from '../components/DataTable'
 import ProviderModal from '../components/modals/ProviderModal'
+import ProviderDetailModal from '../components/modals/ProviderDetailModal'
 import { Users, Plus, Search, Upload, Download, Edit, Trash2 } from 'lucide-react'
 
 const Providers = () => {
@@ -13,6 +14,8 @@ const Providers = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
+  const [viewingItem, setViewingItem] = useState(null)
+  const [showDetailModal, setShowDetailModal] = useState(false)
 
   // Calculate games count for each provider
   const getGamesCountForProvider = (providerName) => {
@@ -160,22 +163,17 @@ const Providers = () => {
       }
     },
     {
-      key: 'created_by',
-      label: 'CREAT DE',
+      key: 'created_info',
+      label: 'CREAT DE / DATA',
       sortable: true,
       render: (item) => (
-        <div className="text-slate-800 font-medium text-base">
-          {item.created_by || 'N/A'}
-        </div>
-      )
-    },
-    {
-      key: 'created_at',
-      label: 'DATA CREARE',
-      sortable: true,
-      render: (item) => (
-        <div className="text-slate-800 font-medium text-base">
-          {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+        <div className="space-y-1">
+          <div className="text-slate-800 font-medium text-base">
+            {item.created_by || 'N/A'}
+          </div>
+          <div className="text-slate-500 text-sm">
+            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+          </div>
         </div>
       )
     }
@@ -286,6 +284,10 @@ const Providers = () => {
           onSearchChange={setSearchTerm}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          onRowClick={(item) => {
+            setViewingItem(item)
+            setShowDetailModal(true)
+          }}
           selectedItems={selectedItems}
           onSelectAll={handleSelectAll}
           onSelectItem={handleSelectItem}
@@ -301,6 +303,17 @@ const Providers = () => {
               setEditingItem(null)
             }}
             onSave={handleSave}
+          />
+        )}
+
+        {/* Detail Modal */}
+        {showDetailModal && (
+          <ProviderDetailModal
+            item={viewingItem}
+            onClose={() => {
+              setShowDetailModal(false)
+              setViewingItem(null)
+            }}
           />
         )}
       </div>

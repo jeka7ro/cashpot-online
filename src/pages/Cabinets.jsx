@@ -198,27 +198,17 @@ const Cabinets = () => {
       }
     },
     {
-      key: 'created_at',
-      label: 'Data Creare',
+      key: 'created_info',
+      label: 'CREAT DE / DATA',
       sortable: true,
       render: (item) => (
-        <div className="text-slate-800 font-medium text-base">
-          {new Date(item.created_at).toLocaleDateString('ro-RO')}
-        </div>
-      )
-    },
-    {
-      key: 'created_by',
-      label: 'Creat de',
-      sortable: true,
-      render: (item) => (
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-xs shadow-lg">
-            {item.created_by?.charAt(0)?.toUpperCase() || 'A'}
+        <div className="space-y-1">
+          <div className="text-slate-800 font-medium text-base">
+            {item.created_by || 'N/A'}
           </div>
-          <span className="text-slate-800 font-medium text-base">
-            {item.created_by || 'Sistem'}
-          </span>
+          <div className="text-slate-500 text-sm">
+            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+          </div>
         </div>
       )
     }
@@ -384,27 +374,17 @@ const Cabinets = () => {
       }
     },
     {
-      key: 'created_at',
-      label: 'Data Creare',
+      key: 'created_info',
+      label: 'CREAT DE / DATA',
       sortable: true,
       render: (item) => (
-        <div className="text-slate-800 font-medium text-base">
-          {new Date(item.created_at).toLocaleDateString('ro-RO')}
-        </div>
-      )
-    },
-    {
-      key: 'created_by',
-      label: 'Creat de',
-      sortable: true,
-      render: (item) => (
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-xs shadow-lg">
-            {item.created_by?.charAt(0)?.toUpperCase() || 'A'}
+        <div className="space-y-1">
+          <div className="text-slate-800 font-medium text-base">
+            {item.created_by || 'N/A'}
           </div>
-          <span className="text-slate-800 font-medium text-base">
-            {item.created_by || 'Sistem'}
-          </span>
+          <div className="text-slate-500 text-sm">
+            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+          </div>
         </div>
       )
     }

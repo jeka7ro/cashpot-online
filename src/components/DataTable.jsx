@@ -9,6 +9,7 @@ const DataTable = ({
   onView,
   onViewContracts,
   onViewProprietari,
+  onRowClick, // New prop for row click
   loading = false, 
   searchTerm = '', 
   onSearchChange,
@@ -157,8 +158,12 @@ const DataTable = ({
           </thead>
           <tbody className="divide-y divide-slate-200/50 dark:divide-slate-700/50">
             {sortedData.map((item, idx) => (
-              <tr key={item._id || item.id} className="table-row hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors">
-                <td className="p-6">
+              <tr 
+                key={item._id || item.id} 
+                className={`table-row hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
+                onClick={() => onRowClick && onRowClick(item)}
+              >
+                <td className="p-6" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-center">
                     <input 
                       type="checkbox" 
@@ -177,7 +182,7 @@ const DataTable = ({
                   </td>
                 ))}
                 {(onEdit || onDelete || onView || onViewContracts || onViewProprietari) && (
-                  <td className="p-6">
+                  <td className="p-6" onClick={(e) => e.stopPropagation()}>
                     <div className="flex flex-col space-y-2">
                       <div className="flex space-x-2">
                         {onView && (
