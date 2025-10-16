@@ -20,6 +20,8 @@ const Slots = () => {
   const [statusFilter, setStatusFilter] = useState('all')
   const [providerFilter, setProviderFilter] = useState('all')
   const [propertyTypeFilter, setPropertyTypeFilter] = useState('all')
+  const [commissionFilters, setCommissionFilters] = useState([])
+  const [showCommissionFilter, setShowCommissionFilter] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [editingSlot, setEditingSlot] = useState(null)
   const [selectedItems, setSelectedItems] = useState([])
@@ -38,6 +40,20 @@ const Slots = () => {
     ownedSlots: false,
     rentedSlots: false
   })
+
+  // Încarcă comisiile
+  const [commissions, setCommissions] = useState([])
+  useEffect(() => {
+    const loadCommissions = async () => {
+      try {
+        const response = await axios.get('/api/commissions')
+        setCommissions(response.data)
+      } catch (error) {
+        console.error('Error loading commissions:', error)
+      }
+    }
+    loadCommissions()
+  }, [])
 
   // Încarcă preferințele de pe server
   useEffect(() => {
@@ -59,6 +75,16 @@ const Slots = () => {
     
     loadPreferences()
   }, [user?.id])
+
+  // Toggle commission filter
+  const toggleCommissionFilter = (commissionDate) => {
+    const dateStr = new Date(commissionDate).toISOString().split('T')[0]
+    if (commissionFilters.includes(dateStr)) {
+      setCommissionFilters(commissionFilters.filter(d => d !== dateStr))
+    } else {
+      setCommissionFilters([...commissionFilters, dateStr])
+    }
+  }
 
   // Salvează preferințele pe server
   const saveCardVisibility = async (newVisibility) => {
@@ -134,7 +160,12 @@ const Slots = () => {
     const matchesStatus = statusFilter === 'all' || slot.status === statusFilter
     const matchesProvider = providerFilter === 'all' || slot.provider === providerFilter
     const matchesPropertyType = propertyTypeFilter === 'all' || slot.property_type === propertyTypeFilter
-    return matchesSearch && matchesStatus && matchesProvider && matchesPropertyType
+    const matchesCommission = commissionFilters.length === 0 || 
+      commissionFilters.some(commDate => {
+        const slotCommDate = slot.commission_date ? new Date(slot.commission_date).toISOString().split('T')[0] : null
+        return slotCommDate === commDate
+      })
+    return matchesSearch && matchesStatus && matchesProvider && matchesPropertyType && matchesCommission
   })
 
   // Get unique providers for filter
@@ -815,6 +846,63 @@ const Slots = () => {
                 <option value="Owned">Proprietate</option>
                 <option value="Rented">Închiriate</option>
               </select>
+              
+              {/* Commission Filter */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowCommissionFilter(!showCommissionFilter)}
+                  className={`px-4 py-2 border rounded-lg text-sm flex items-center space-x-2 ${
+                    commissionFilters.length > 0 
+                      ? 'bg-blue-50 border-blue-500 text-blue-700' 
+                      : 'border-slate-300 text-slate-700'
+                  }`}
+                >
+                  <Filter className="w-4 h-4" />
+                  <span>Comisii</span>
+                  {commissionFilters.length > 0 && (
+                    <span className="bg-blue-500 text-white px-2 py-0.5 rounded-full text-xs">
+                      {commissionFilters.length}
+                    </span>
+                  )}
+                </button>
+                
+                {showCommissionFilter && (
+                  <div className="absolute z-10 mt-2 bg-white border border-slate-300 rounded-lg shadow-lg p-4 min-w-[250px] right-0">
+                    <div className="space-y-2">
+                      <div className="font-semibold text-sm text-slate-700 mb-3">Filtrează după comisii:</div>
+                      {commissions.length === 0 ? (
+                        <div className="text-sm text-slate-500">Nu există comisii</div>
+                      ) : (
+                        commissions.map((commission) => {
+                          const dateStr = new Date(commission.commission_date).toISOString().split('T')[0]
+                          const isChecked = commissionFilters.includes(dateStr)
+                          return (
+                            <label key={commission.id} className="flex items-center space-x-2 cursor-pointer hover:bg-slate-50 p-2 rounded">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => toggleCommissionFilter(commission.commission_date)}
+                                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                              />
+                              <span className="text-sm text-slate-700">
+                                {commission.name} ({new Date(commission.commission_date).toLocaleDateString('ro-RO')})
+                              </span>
+                            </label>
+                          )
+                        })
+                      )}
+                      {commissionFilters.length > 0 && (
+                        <button
+                          onClick={() => setCommissionFilters([])}
+                          className="mt-3 text-xs text-blue-600 hover:text-blue-800 underline"
+                        >
+                          Șterge toate filtrele
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
               
               <button
                 onClick={handleImport}
