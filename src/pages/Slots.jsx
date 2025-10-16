@@ -537,6 +537,14 @@ const Slots = () => {
   }
 
   const handleSyncCyberSlots = async () => {
+    const confirmed = window.confirm(
+      '⚠️ ATENȚIE: Sincronizarea Cyber va ȘTERGE toate sloturile existente și va importa din nou!\n\n' +
+      'Dacă vrei să păstrezi sloturile existente, folosește "Import Cyber" în loc de "Sincronizează".\n\n' +
+      'Continui cu sincronizarea completă?'
+    )
+    
+    if (!confirmed) return
+    
     try {
       toast.loading('Sincronizez sloturile din Cyber...', { id: 'sync-slots' })
       
@@ -573,7 +581,7 @@ const Slots = () => {
             <div className="flex items-center space-x-3">
               <button
                 onClick={() => setShowCardSettings(!showCardSettings)}
-                className="btn-secondary flex items-center space-x-2"
+                className="px-4 py-3 bg-slate-500 hover:bg-slate-600 text-white rounded-lg flex items-center space-x-2 transition-all font-medium"
               >
                 <Filter className="w-4 h-4" />
                 <span>Setări Carduri</span>
@@ -586,7 +594,7 @@ const Slots = () => {
               <div className="flex space-x-3">
                 <button
                   onClick={handleSyncCyberSlots}
-                  className="btn-primary flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                  className="px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg flex items-center space-x-2 transition-all font-medium"
                 >
                   <Database className="w-4 h-4" />
                   <span>Sincronizează Cyber ({slots.length} → 1122)</span>
@@ -611,21 +619,21 @@ const Slots = () => {
                 )}
             <button
               onClick={() => navigate('/slots/history')}
-              className="btn-secondary flex items-center space-x-2"
+              className="px-4 py-3 bg-slate-500 hover:bg-slate-600 text-white rounded-lg flex items-center space-x-2 transition-all font-medium"
             >
               <History className="w-4 h-4" />
               <span>Istoric Sloturi</span>
             </button>
             <button
               onClick={() => navigate('/slots/cyber-import')}
-              className="btn-success flex items-center space-x-2"
+              className="px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center space-x-2 transition-all font-medium"
             >
               <Database className="w-4 h-4" />
               <span>Import Cyber</span>
             </button>
                 <button
                   onClick={handleCreate}
-                  className="btn-primary flex items-center space-x-2"
+                  className="px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg flex items-center space-x-2 transition-all font-medium"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Adaugă Slot</span>

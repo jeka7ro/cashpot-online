@@ -2772,9 +2772,8 @@ app.post('/api/cyber/sync-slots', async (req, res) => {
     
     console.log('✅ All unique entities populated!')
     
-    // STEP 6: Clear existing slots
-    await pool.query('DELETE FROM slots')
-    console.log('🗑️ Cleared existing slots')
+    // STEP 6: Keep existing slots - only update/add new ones
+    console.log('🔄 Preserving existing slots - will update/add only new ones')
     
     // STEP 7: Insert Cyber slots in BATCH with cleaned game_mix
     console.log('🚀 Starting BATCH insert...')
@@ -2818,10 +2817,10 @@ app.post('/api/cyber/sync-slots', async (req, res) => {
     console.log(`✅ BATCH INSERT completed: ${insertedCount} slots`)
     
     console.log(`✅ SYNCED ${insertedCount} slots from Cyber to main table`)
-    res.json({ 
-      success: true, 
-      message: `Synced ${insertedCount} slots + ${uniqueLocations.size} locations + ${uniqueProviders.size} providers + ${uniqueCabinets.size} cabinets + ${uniqueGameMixes.size} game mixes`,
-      syncedCount: insertedCount,
+    res.json({
+      success: true,
+      message: `Synced ${cyberSlots.length} slots + ${uniqueLocations.size} locations + ${uniqueProviders.size} providers + ${uniqueCabinets.size} cabinets + ${uniqueGameMixes.size} game mixes`,
+      syncedCount: cyberSlots.length,
       totalCyberSlots: cyberSlots.length,
       entitiesPopulated: {
         locations: uniqueLocations.size,
@@ -3366,6 +3365,179 @@ app.post('/api/promotions/migrate', async (req, res) => {
   } catch (error) {
     console.error('Migration error:', error)
     res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// SAFE Cyber sync - only adds new slots, doesn't delete existing ones
+app.post('/api/cyber/sync-slots-safe', authenticateUser, async (req, res) => {
+  try {
+    console.log('🔄 SAFE SYNCING Cyber slots - preserving existing data...')
+    const pool = req.app.get('pool')
+    const slotsPath = path.join(__dirname, 'cyber-data', 'slots.json')
+    
+    if (!fs.existsSync(slotsPath)) {
+      return res.status(404).json({ error: 'Cyber slots data not found' })
+    }
+    
+    const cyberSlots = JSON.parse(fs.readFileSync(slotsPath, 'utf8'))
+    console.log(`📥 Found ${cyberSlots.length} Cyber slots to sync`)
+    
+    // Get existing slots to avoid duplicates
+    const existingResult = await pool.query('SELECT serial_number FROM slots')
+    const existingSerials = new Set(existingResult.rows.map(row => row.serial_number))
+    console.log(`📊 Found ${existingSerials.size} existing slots in database`)
+    
+    // Filter out existing slots
+    const newSlots = cyberSlots.filter(slot => !existingSerials.has(slot.serial_number))
+    console.log(`🆕 Found ${newSlots.length} new slots to add (${cyberSlots.length - newSlots.length} already exist)`)
+    
+    if (newSlots.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No new slots to sync - all Cyber slots already exist in database',
+        syncedCount: 0,
+        existingCount: cyberSlots.length
+      })
+    }
+    
+    // Extract unique entities from NEW slots only
+    const uniqueLocations = new Set()
+    const uniqueProviders = new Set()
+    const uniqueCabinets = new Set()
+    const uniqueGameMixes = new Set()
+    
+    newSlots.forEach(slot => {
+      if (slot.location && slot.location !== 'Unknown' && slot.location !== 'N/A') {
+        uniqueLocations.add(slot.location)
+      }
+      if (slot.provider && slot.provider !== 'Unknown' && slot.provider !== 'N/A') {
+        uniqueProviders.add(slot.provider)
+      }
+      if (slot.cabinet && slot.cabinet !== 'Unknown' && slot.cabinet !== 'N/A') {
+        uniqueCabinets.add(slot.cabinet)
+      }
+      if (slot.game_mix && slot.game_mix !== 'N/A') {
+        const cleanGameMix = slot.game_mix.includes(' - ')
+          ? slot.game_mix.split(' - ')[1].trim()
+          : slot.game_mix
+        if (cleanGameMix) uniqueGameMixes.add(cleanGameMix)
+      }
+    })
+    
+    // Auto-populate entities (same logic as before)
+    for (const location of uniqueLocations) {
+      try {
+        const exists = await pool.query('SELECT id FROM locations WHERE name = $1', [location])
+        if (exists.rows.length === 0) {
+          await pool.query(
+            'INSERT INTO locations (name, address, company, status, created_by) VALUES ($1, $2, $3, $4, $5)',
+            [location, 'Adresă din Cyber', 'Cyber Import', 'Active', 'Cyber Import']
+          )
+          console.log(`   ✅ Added location: ${location}`)
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Location ${location} error:`, error.message)
+      }
+    }
+    
+    for (const provider of uniqueProviders) {
+      try {
+        const exists = await pool.query('SELECT id FROM providers WHERE name = $1', [provider])
+        if (exists.rows.length === 0) {
+          await pool.query(
+            'INSERT INTO providers (name, company, contact, phone, status, created_by) VALUES ($1, $2, $3, $4, $5, $6)',
+            [provider, 'Cyber Import', 'Contact ' + provider, '+40 000 000 000', 'Active', 'Cyber Import']
+          )
+          console.log(`   ✅ Added provider: ${provider}`)
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Provider ${provider} error:`, error.message)
+      }
+    }
+    
+    for (const cabinet of uniqueCabinets) {
+      try {
+        const exists = await pool.query('SELECT id FROM cabinets WHERE name = $1 OR model = $1', [cabinet])
+        if (exists.rows.length === 0) {
+          await pool.query(
+            'INSERT INTO cabinets (name, model, status, created_by) VALUES ($1, $2, $3, $4)',
+            [cabinet, cabinet, 'Active', 'Cyber Import']
+          )
+          console.log(`   ✅ Added cabinet: ${cabinet}`)
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Cabinet ${cabinet} error:`, error.message)
+      }
+    }
+    
+    for (const gameMix of uniqueGameMixes) {
+      try {
+        const exists = await pool.query('SELECT id FROM game_mixes WHERE name = $1', [gameMix])
+        if (exists.rows.length === 0) {
+          await pool.query(
+            'INSERT INTO game_mixes (name, status, created_by) VALUES ($1, $2, $3)',
+            [gameMix, 'Active', 'Cyber Import']
+          )
+          console.log(`   ✅ Added game mix: ${gameMix}`)
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Game mix ${gameMix} error:`, error.message)
+      }
+    }
+    
+    // Insert only NEW slots
+    const values = []
+    const params = []
+    let paramCount = 1
+    
+    newSlots.forEach(cyberSlot => {
+      const cleanGameMix = cyberSlot.game_mix && cyberSlot.game_mix.includes(' - ')
+        ? cyberSlot.game_mix.split(' - ')[1].trim()
+        : cyberSlot.game_mix
+      const rowValues = [
+        cyberSlot.serial_number || 'N/A',
+        cyberSlot.serial_number || 'N/A',
+        cyberSlot.provider || 'Unknown',
+        cyberSlot.cabinet || 'Unknown',
+        cleanGameMix || null,
+        cyberSlot.status || 'Active',
+        cyberSlot.location || 'Unknown',
+        cyberSlot.updated_at || cyberSlot.last_updated || new Date().toISOString(),
+        cyberSlot.created_at || new Date().toISOString(),
+        'Cyber Import'
+      ]
+      const placeholders = rowValues.map((_, idx) => `$${paramCount + idx}`).join(', ')
+      values.push(`(${placeholders})`)
+      params.push(...rowValues)
+      paramCount += rowValues.length
+    })
+    
+    const insertQuery = `
+      INSERT INTO slots (
+        serial_number, slot_id, provider, cabinet, game_mix, status,
+        location, updated_at, created_at, created_by
+      ) VALUES ${values.join(', ')}
+    `
+    
+    await pool.query(insertQuery, params)
+    console.log(`✅ SAFE SYNC completed: ${newSlots.length} new slots added`)
+    
+    res.json({
+      success: true,
+      message: `Safe sync completed: ${newSlots.length} new slots added (${cyberSlots.length - newSlots.length} already existed) + ${uniqueLocations.size} locations + ${uniqueProviders.size} providers + ${uniqueCabinets.size} cabinets + ${uniqueGameMixes.size} game mixes`,
+      syncedCount: newSlots.length,
+      existingCount: cyberSlots.length - newSlots.length,
+      totalCyberSlots: cyberSlots.length,
+      entitiesPopulated: {
+        locations: uniqueLocations.size,
+        providers: uniqueProviders.size,
+        cabinets: uniqueCabinets.size,
+        gameMixes: uniqueGameMixes.size
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error safe syncing Cyber slots:', error.message)
+    res.status(500).json({ error: error.message })
   }
 })
 

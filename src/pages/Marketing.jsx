@@ -216,7 +216,7 @@ const Marketing = () => {
           </div>
           <button
             onClick={handleAdd}
-            className="btn-primary flex items-center space-x-2"
+            className="px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white rounded-xl flex items-center space-x-2 transition-all shadow-lg font-medium"
           >
             <Plus size={18} />
             <span>Adaugă Promoție</span>

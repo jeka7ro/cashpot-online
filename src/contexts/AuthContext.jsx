@@ -18,8 +18,10 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
-  // localStorage REMOVED - using server only
-  const [token, setToken] = useState(null)
+  // Use sessionStorage for session persistence
+  const [token, setToken] = useState(() => {
+    return sessionStorage.getItem('authToken')
+  })
 
   // Configure axios defaults
   useEffect(() => {
@@ -63,7 +65,8 @@ export const AuthProvider = ({ children }) => {
           if (error.code === 'ECONNABORTED') {
             toast.error('Timeout la verificare autentificare')
           }
-          // localStorage REMOVED - using server only
+          // Clear session storage
+          sessionStorage.removeItem('authToken')
           setToken(null)
           setUser(null)
         }
@@ -89,7 +92,8 @@ export const AuthProvider = ({ children }) => {
 
       const { token: newToken } = response.data
       
-      // localStorage REMOVED - using server only
+      // Store token in sessionStorage
+      sessionStorage.setItem('authToken', newToken)
       setToken(newToken)
       
       // Set axios header immediately
@@ -127,8 +131,8 @@ export const AuthProvider = ({ children }) => {
   }
 
   const logout = () => {
-    // localStorage REMOVED - using server only
-    // Note: We don't remove savedCredentials here to allow users to stay logged in
+    // Clear session storage
+    sessionStorage.removeItem('authToken')
     setToken(null)
     setUser(null)
     delete axios.defaults.headers.common['Authorization']
@@ -136,7 +140,8 @@ export const AuthProvider = ({ children }) => {
   }
 
   const clearAuth = () => {
-    // localStorage REMOVED - using server only
+    // Clear session storage
+    sessionStorage.removeItem('authToken')
     setToken(null)
     setUser(null)
     delete axios.defaults.headers.common['Authorization']
