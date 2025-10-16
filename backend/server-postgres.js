@@ -936,7 +936,7 @@ app.get('/health', async (req, res) => {
       status: 'OK', 
       timestamp: new Date().toISOString(),
       version: '7.0.5',
-      build: '14', // Updated 2025-01-16 16:50
+      build: '15', // Updated 2025-01-16 18:50 - FIX PROMOTIONS
       uptime: process.uptime(),
       database: 'Connected',
       dbTime: result.rows[0].now
