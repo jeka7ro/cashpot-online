@@ -45,6 +45,8 @@ const { Pool } = pg
 const app = express()
 const PORT = process.env.PORT || 5001
 
+// Force redeploy - Major server restart
+
 // Authentication middleware to extract user from JWT
 const authenticateUser = async (req, res, next) => {
   try {
