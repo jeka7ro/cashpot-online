@@ -505,10 +505,19 @@ const Metrology = () => {
       label: 'NUMĂR SLOTURI', 
       sortable: false,
       render: (item) => {
-        const serialNumbers = item.serial_numbers ? item.serial_numbers.split(',').length : 0
+        let slotCount = 0
+        if (item.serial_numbers) {
+          if (typeof item.serial_numbers === 'string') {
+            slotCount = item.serial_numbers.split(',').length
+          } else if (Array.isArray(item.serial_numbers)) {
+            slotCount = item.serial_numbers.length
+          } else {
+            slotCount = 1
+          }
+        }
         return (
           <div className="text-slate-800 font-medium text-base">
-            {serialNumbers} sloturi
+            {slotCount} sloturi
           </div>
         )
       }

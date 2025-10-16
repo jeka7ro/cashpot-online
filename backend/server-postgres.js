@@ -934,7 +934,7 @@ app.get('/health', async (req, res) => {
       status: 'OK', 
       timestamp: new Date().toISOString(),
       version: '1.0.5',
-      build: '10', // Force redeploy
+      build: '11', // Force redeploy - Fix promotions endpoint
       uptime: process.uptime(),
       database: 'Connected',
       dbTime: result.rows[0].now
