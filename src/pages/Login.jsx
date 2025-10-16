@@ -86,16 +86,7 @@ const Login = () => {
     const result = await login(formData.username, formData.password)
     
     if (result.success) {
-      // Save credentials if remember password is checked
-      if (rememberPassword) {
-        // localStorage REMOVED - using server only
-          username: formData.username,
-          password: formData.password
-        }))
-      } else {
-        // Remove saved credentials if remember password is unchecked
-        // localStorage REMOVED - using server only
-      }
+      // Save credentials - localStorage REMOVED - using server only
       
       navigate('/dashboard', { replace: true })
     }
