@@ -6,7 +6,8 @@ import CabinetModal from '../components/modals/CabinetModal'
 import CabinetDetailModal from '../components/modals/CabinetDetailModal'
 import PlatformModal from '../components/modals/PlatformModal'
 import LocationPlatforms from '../components/LocationPlatforms'
-import { Gamepad2, Plus, Search, Upload, Download, Cpu } from 'lucide-react'
+import { Gamepad2, Plus, Search, Upload, Download, Cpu, Trash2 } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 
 const Cabinets = () => {
   const { cabinets, platforms, providers, createItem, updateItem, deleteItem, exportData, loading } = useData()
@@ -16,6 +17,7 @@ const Cabinets = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
   const [viewingItem, setViewingItem] = useState(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
 
@@ -43,17 +45,74 @@ const Cabinets = () => {
 
   const handleBulkDelete = async () => {
     if (selectedItems.length === 0) return
+    setShowBulkDeleteModal(true)
+  }
+
+  const confirmBulkDelete = async () => {
+    // Închide modal-ul imediat
+    setShowBulkDeleteModal(false)
     
-    if (window.confirm(`Ești sigur că vrei să ștergi ${selectedItems.length} elemente?`)) {
-      try {
-        for (const id of selectedItems) {
-          await deleteItem('cabinets', id)
-        }
-        setSelectedItems([])
-        setShowBulkActions(false)
-      } catch (error) {
-        console.error('Error bulk deleting:', error)
+    const totalItems = selectedItems.length
+    let successCount = 0
+    let errorCount = 0
+    
+    try {
+      // Pornește loading toast
+      const loadingToast = toast.loading(`Șterg ${totalItems} elemente...`, {
+        duration: Infinity
+      })
+      
+      // Șterge în batch-uri pentru performanță mai bună
+      const batchSize = 5
+      for (let i = 0; i < selectedItems.length; i += batchSize) {
+        const batch = selectedItems.slice(i, i + batchSize)
+        
+        // Procesează batch-ul în paralel
+        const promises = batch.map(async (id) => {
+          try {
+            await deleteItem('cabinets', id)
+            successCount++
+          } catch (error) {
+            errorCount++
+            console.error(`Error deleting cabinet ${id}:`, error)
+          }
+        })
+        
+        await Promise.all(promises)
+        
+        // Update progress
+        const processed = Math.min(i + batchSize, totalItems)
+        toast.loading(`Șterg ${totalItems} elemente... (${processed}/${totalItems})`, {
+          id: loadingToast
+        })
       }
+      
+      // Clear loading toast
+      toast.dismiss(loadingToast)
+      
+      // Afișează rezultatul final
+      if (errorCount === 0) {
+        toast.success(`✅ ${successCount} elemente șterse cu succes!`, {
+          duration: 5000
+        })
+      } else if (successCount > 0) {
+        toast.success(`⚠️ ${successCount} elemente șterse, ${errorCount} erori`, {
+          duration: 5000
+        })
+      } else {
+        toast.error(`❌ Eroare la ștergerea tuturor ${totalItems} elemente`, {
+          duration: 5000
+        })
+      }
+      
+      // Cleanup
+      setSelectedItems([])
+      setShowBulkActions(false)
+      
+    } catch (error) {
+      console.error('Error bulk deleting:', error)
+      toast.error('Eroare la ștergerea elementelor!')
+      setShowBulkDeleteModal(false)
     }
   }
 
@@ -508,13 +567,16 @@ const Cabinets = () => {
               
               {showBulkActions && activeTab === 'cabinets' && (
                 <>
+                  <button 
+                    onClick={handleBulkDelete}
+                    className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg flex items-center space-x-2 transition-all font-medium"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Șterge ({selectedItems.length})</span>
+                  </button>
                   <button onClick={handleBulkEdit} className="btn-secondary flex items-center space-x-2">
                     <Edit className="w-4 h-4" />
                     <span>Bulk Edit</span>
-                  </button>
-                  <button onClick={handleBulkDelete} className="btn-danger flex items-center space-x-2">
-                    <Trash2 className="w-4 h-4" />
-                    <span>Bulk Delete</span>
                   </button>
                 </>
               )}
@@ -584,6 +646,46 @@ const Cabinets = () => {
             setViewingItem(null)
           }}
         />
+      )}
+
+      {/* Bulk Delete Modal */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center space-x-4 mb-4">
+                <div className="p-3 bg-red-100 dark:bg-red-900/20 rounded-full">
+                  <Trash2 className="w-6 h-6 text-red-600 dark:text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                    Șterge {selectedItems.length} Elemente
+                  </h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Această acțiune nu poate fi anulată
+                  </p>
+                </div>
+              </div>
+              <p className="text-slate-700 dark:text-slate-300 mb-6">
+                Ești sigur că vrei să ștergi {selectedItems.length} elemente selectate? Toate datele asociate vor fi șterse permanent.
+              </p>
+              <div className="flex space-x-3 justify-end">
+                <button
+                  onClick={() => setShowBulkDeleteModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors"
+                >
+                  Anulează
+                </button>
+                <button
+                  onClick={confirmBulkDelete}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                >
+                  Șterge {selectedItems.length} Elemente
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </Layout>
   )
