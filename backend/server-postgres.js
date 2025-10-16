@@ -2692,8 +2692,8 @@ app.post('/api/cyber/sync-slots', async (req, res) => {
         const exists = await pool.query('SELECT id FROM providers WHERE name = $1', [provider])
         if (exists.rows.length === 0) {
           await pool.query(
-            'INSERT INTO providers (name, company, status, created_by) VALUES ($1, $2, $3, $4)',
-            [provider, 'Cyber Import', 'Active', 'Cyber Import']
+            'INSERT INTO providers (name, company, contact, phone, status, created_by) VALUES ($1, $2, $3, $4, $5, $6)',
+            [provider, 'Cyber Import', 'Contact ' + provider, '+40 000 000 000', 'Active', 'Cyber Import']
           )
           console.log(`   ✅ Added provider: ${provider}`)
         }
