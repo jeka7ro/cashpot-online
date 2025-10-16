@@ -13,6 +13,7 @@ import LocationDetail from './pages/LocationDetail'
 import Providers from './pages/Providers'
 import Cabinets from './pages/Cabinets'
 import GameMixes from './pages/GameMixes'
+import Marketing from './pages/Marketing'
 import GameDetail from './pages/GameDetail'
 import Slots from './pages/Slots'
 import SlotDetail from './pages/SlotDetail'
@@ -58,6 +59,7 @@ function App() {
             <Route path="/invoices/:id" element={<RoleProtectedRoute module={MODULES.INVOICES}><InvoiceDetail /></RoleProtectedRoute>} />
             <Route path="/onjn-reports" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNReports /></RoleProtectedRoute>} />
             <Route path="/legal-documents" element={<RoleProtectedRoute module={MODULES.LEGAL}><LegalDocuments /></RoleProtectedRoute>} />
+            <Route path="/marketing" element={<Marketing />} />
             <Route path="/users" element={<RoleProtectedRoute requiredRole="admin"><Users /></RoleProtectedRoute>} />
             <Route path="/settings" element={<RoleProtectedRoute module={MODULES.SETTINGS}><Settings /></RoleProtectedRoute>} />
             

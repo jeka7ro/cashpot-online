@@ -27,14 +27,15 @@ import {
   Users as UserIcon,
   Moon,
   Sun,
-  History
+  History,
+  TrendingUp
 } from 'lucide-react'
 
 const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [currentTime, setCurrentTime] = useState(new Date())
   const { user, logout } = useAuth()
-  const { companies, locations, providers, platforms, cabinets, gameMixes, slots, warehouse, metrology, jackpots, invoices, onjnReports, legalDocuments, users } = useData()
+  const { companies, locations, providers, platforms, cabinets, gameMixes, slots, warehouse, metrology, jackpots, invoices, onjnReports, legalDocuments, users, promotions } = useData()
   const { theme, toggleTheme } = useTheme()
   const location = useLocation()
   
@@ -182,6 +183,13 @@ const Layout = ({ children }) => {
       icon: DocIcon, 
       path: '/legal-documents',
       count: legalDocuments.length
+    },
+    { 
+      id: 'marketing', 
+      label: 'Marketing & Promoții', 
+      icon: TrendingUp, 
+      path: '/marketing',
+      count: promotions?.length || 0
     },
     { 
       id: 'users', 
