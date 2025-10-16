@@ -4,7 +4,7 @@ import Layout from '../components/Layout'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
-import { BarChart3, Plus, Search, Upload, Download, Edit, Trash2, Eye, Filter, Activity, AlertCircle, CheckCircle, Wrench, History, Database } from 'lucide-react'
+import { BarChart3, Plus, Search, Upload, Download, Edit, Trash2, Eye, Filter, Activity, AlertCircle, CheckCircle, Wrench, History, Database, Package } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import SlotModal from '../components/modals/SlotModal'
 import StatCard from '../components/StatCard'
@@ -434,11 +434,49 @@ const Slots = () => {
     }
   }
 
-  const handleBulkEdit = () => {
+  const handleBulkEdit = async () => {
     if (selectedItems.length === 0) return
-    // Implement bulk edit logic here
-    console.log('Bulk edit for slots:', selectedItems)
-    toast.info('Funcționalitatea de editare în masă va fi implementată în curând!')
+    
+    const confirmMove = window.confirm(
+      `Sigur vrei să muți ${selectedItems.length} sloturi selectate în DEPOZIT?\n\n` +
+      `Sloturile vor fi șterse din tabelul Sloturi și mutate în Warehouse.`
+    )
+    
+    if (!confirmMove) return
+    
+    try {
+      toast.loading(`Mutare ${selectedItems.length} sloturi în depozit...`, { id: 'bulk-move' })
+      
+      // Get selected slots data
+      const selectedSlots = slots.filter(slot => selectedItems.includes(slot.id))
+      
+      // Move each slot to warehouse
+      for (const slot of selectedSlots) {
+        // Create warehouse entry
+        await createItem('warehouse', {
+          serial_number: slot.serial_number,
+          provider: slot.provider,
+          cabinet: slot.cabinet,
+          game_mix: slot.game_mix,
+          status: 'In Depozit',
+          location: 'Depozit',
+          notes: `Mutat din ${slot.location || 'Unknown'} la ${new Date().toLocaleDateString('ro-RO')}`
+        })
+        
+        // Delete from slots
+        await deleteItem('slots', slot.id)
+      }
+      
+      setSelectedItems([])
+      setShowBulkActions(false)
+      toast.success(`${selectedSlots.length} sloturi mutate în Depozit cu succes!`, { id: 'bulk-move' })
+      
+      // Refresh data
+      await refreshData()
+    } catch (error) {
+      console.error('Error moving slots to warehouse:', error)
+      toast.error('Eroare la mutarea sloturilor în depozit!', { id: 'bulk-move' })
+    }
   }
 
   const handleDelete = async (id) => {
@@ -557,10 +595,10 @@ const Slots = () => {
                   <>
                     <button
                       onClick={handleBulkEdit}
-                      className="btn-secondary flex items-center space-x-2"
+                      className="btn-secondary flex items-center space-x-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white"
                     >
-                      <Edit className="w-4 h-4" />
-                      <span>Bulk Edit</span>
+                      <Package className="w-4 h-4" />
+                      <span>Mută în Depozit ({selectedItems.length})</span>
                     </button>
                     <button
                       onClick={handleBulkDelete}
