@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import ExportButtons from '../components/ExportButtons'
 import { useData } from '../contexts/DataContext'
+import { useAuth } from '../contexts/AuthContext'
 import { Users as UsersIcon, Plus, Search, Upload, Download, Edit, Trash2 } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import UserModal from '../components/modals/UserModal'
@@ -9,6 +10,7 @@ import toast from 'react-hot-toast'
 
 const Users = () => {
   const { users, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
+  const { user: currentUser } = useAuth()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
@@ -98,14 +100,12 @@ const Users = () => {
     },
     { key: 'email', label: 'EMAIL', sortable: true },
     { key: 'role', label: 'ROL', sortable: true },
-    { key: 'created_by', label: 'CREAT DE', sortable: true, render: (item) => (
+    { key: 'created_info', label: 'CREAT DE / DATA CREARE', sortable: true, render: (item) => (
       <div className="text-slate-800 font-medium text-base">
-        {item.created_by || 'N/A'}
-      </div>
-    )},
-    { key: 'created_at', label: 'DATA CREARE', sortable: true, render: (item) => (
-      <div className="text-slate-800 font-medium text-base">
-        {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+        <div>{item.created_by || 'N/A'}</div>
+        <div className="text-sm text-slate-500">
+          {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+        </div>
       </div>
     )}
   ]
@@ -139,7 +139,12 @@ const Users = () => {
     if (editingItem) {
       await updateItem('users', editingItem.id, itemData)
     } else {
-      await createItem('users', itemData)
+      // Add created_by field for new users
+      const userDataWithCreator = {
+        ...itemData,
+        created_by: currentUser?.fullName || currentUser?.username || 'System'
+      }
+      await createItem('users', userDataWithCreator)
     }
     setShowModal(false)
     setEditingItem(null)

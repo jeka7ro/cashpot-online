@@ -848,9 +848,11 @@ const initializeDatabase = async () => {
     // Add new fields to users table
     try {
       await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT \'{}\'')
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSONB DEFAULT \'{}\'')
       await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS notes TEXT')
       await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT \'active\'')
-      console.log('✅ Users table updated with new fields')
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS created_by VARCHAR(100)')
+      console.log('✅ Users table updated with new fields including preferences')
     } catch (error) {
       console.log('⚠️ Users new fields may already exist:', error.message)
     }
@@ -1173,7 +1175,68 @@ app.get('/api/auth/verify', async (req, res) => {
           legal: { view: true, create: false, edit: false, delete: false, export: true },
           users: { view: false, create: false, edit: false, delete: false },
           settings: { view: false, edit: false },
-          cyber_import: { view: false, import: false }
+          cyber_import: { view: false, import: false },
+          promotions: { view: true, create: false, edit: false, delete: false, export: false }
+        },
+        marketing: {
+          dashboard: { view: true, edit: false },
+          companies: { view: true, create: false, edit: false, delete: false, export: true },
+          locations: { view: true, create: false, edit: false, delete: false, export: true },
+          providers: { view: false, create: false, edit: false, delete: false, export: false },
+          cabinets: { view: false, create: false, edit: false, delete: false, export: false },
+          game_mixes: { view: false, create: false, edit: false, delete: false, export: false },
+          slots: { view: true, create: false, edit: false, delete: false, export: true, import: false },
+          warehouse: { view: false, create: false, edit: false, delete: false, export: false },
+          metrology: { view: false, create: false, edit: false, delete: false, export: false },
+          contracts: { view: false, create: false, edit: false, delete: false, export: false },
+          invoices: { view: false, create: false, edit: false, delete: false, export: false },
+          jackpots: { view: true, create: false, edit: false, delete: false },
+          onjn: { view: false, create: false, edit: false, delete: false, export: false },
+          legal: { view: false, create: false, edit: false, delete: false, export: false },
+          users: { view: false, create: false, edit: false, delete: false },
+          settings: { view: false, edit: false },
+          cyber_import: { view: false, import: false },
+          promotions: { view: true, create: true, edit: true, delete: true, export: true }
+        },
+        operational: {
+          dashboard: { view: true, edit: false },
+          companies: { view: true, create: false, edit: false, delete: false, export: true },
+          locations: { view: true, create: true, edit: true, delete: false, export: true },
+          providers: { view: true, create: false, edit: false, delete: false, export: true },
+          cabinets: { view: true, create: true, edit: true, delete: false, export: true },
+          game_mixes: { view: true, create: false, edit: false, delete: false, export: true },
+          slots: { view: true, create: true, edit: true, delete: false, export: true, import: true },
+          warehouse: { view: true, create: true, edit: true, delete: false, export: true },
+          metrology: { view: true, create: true, edit: true, delete: false, export: true },
+          contracts: { view: false, create: false, edit: false, delete: false, export: false },
+          invoices: { view: false, create: false, edit: false, delete: false, export: false },
+          jackpots: { view: true, create: false, edit: false, delete: false },
+          onjn: { view: true, create: false, edit: false, delete: false, export: true },
+          legal: { view: false, create: false, edit: false, delete: false, export: false },
+          users: { view: false, create: false, edit: false, delete: false },
+          settings: { view: false, edit: false },
+          cyber_import: { view: true, import: true },
+          promotions: { view: true, create: false, edit: false, delete: false, export: true }
+        },
+        financiar: {
+          dashboard: { view: true, edit: false },
+          companies: { view: true, create: false, edit: false, delete: false, export: true },
+          locations: { view: true, create: false, edit: false, delete: false, export: true },
+          providers: { view: true, create: false, edit: false, delete: false, export: true },
+          cabinets: { view: true, create: false, edit: false, delete: false, export: true },
+          game_mixes: { view: true, create: false, edit: false, delete: false, export: true },
+          slots: { view: true, create: false, edit: false, delete: false, export: true, import: false },
+          warehouse: { view: false, create: false, edit: false, delete: false, export: false },
+          metrology: { view: false, create: false, edit: false, delete: false, export: false },
+          contracts: { view: true, create: false, edit: false, delete: false, export: true },
+          invoices: { view: true, create: true, edit: true, delete: false, export: true },
+          jackpots: { view: true, create: false, edit: false, delete: false },
+          onjn: { view: false, create: false, edit: false, delete: false, export: false },
+          legal: { view: false, create: false, edit: false, delete: false, export: false },
+          users: { view: false, create: false, edit: false, delete: false },
+          settings: { view: false, edit: false },
+          cyber_import: { view: false, import: false },
+          promotions: { view: true, create: false, edit: false, delete: false, export: true }
         }
       }
       userPermissions = defaultPermissions[user.role] || defaultPermissions.user

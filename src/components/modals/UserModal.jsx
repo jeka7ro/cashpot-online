@@ -206,6 +206,9 @@ const UserModal = ({ item, onClose, onSave }) => {
                 <option value="admin">Administrator</option>
                 <option value="manager">Manager</option>
                 <option value="user">Utilizator</option>
+                <option value="marketing">Marketing</option>
+                <option value="operational">Operational</option>
+                <option value="financiar">Financiar</option>
               </select>
             </div>
             <div className="space-y-2">
