@@ -126,7 +126,7 @@ const Cabinets = () => {
             >
               {(item.provider_name || item.provider)?.charAt(0) || 'F'}
             </div>
-            <span className="text-purple-800 dark:text-purple-300 text-xs font-bold">
+            <span className="text-slate-800 font-medium text-base">
               {item.provider_name || item.provider || 'N/A'}
             </span>
           </div>
@@ -173,7 +173,7 @@ const Cabinets = () => {
             >
               <Cpu className={`w-5 h-5 ${avatar ? 'text-slate-600' : 'text-white'}`} />
             </div>
-            <span className="text-cyan-800 dark:text-cyan-300 text-xs font-bold">
+            <span className="text-slate-800 font-medium text-base">
               {item.platform_name || item.platform || 'N/A'}
             </span>
           </div>
@@ -187,7 +187,7 @@ const Cabinets = () => {
       render: (item) => {
         const isActive = item.status?.toLowerCase() === 'activ' || item.status?.toLowerCase() === 'active'
         return (
-          <span className={`px-4 py-2 rounded-2xl text-xs font-bold shadow-lg ${
+          <span className={`px-4 py-2 rounded-2xl text-base font-medium shadow-lg ${
             isActive
               ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-green-500/25'
               : 'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-red-500/25'
@@ -202,7 +202,7 @@ const Cabinets = () => {
       label: 'Data Creare',
       sortable: true,
       render: (item) => (
-        <div className="text-sm text-slate-600">
+        <div className="text-slate-800 font-medium text-base">
           {new Date(item.created_at).toLocaleDateString('ro-RO')}
         </div>
       )
@@ -216,7 +216,7 @@ const Cabinets = () => {
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-xs shadow-lg">
             {item.created_by?.charAt(0)?.toUpperCase() || 'A'}
           </div>
-          <span className="text-sm font-medium text-slate-700">
+          <span className="text-slate-800 font-medium text-base">
             {item.created_by || 'Sistem'}
           </span>
         </div>
@@ -282,7 +282,7 @@ const Cabinets = () => {
       sortable: true,
       render: (item) => {
         if (!item.provider_name) {
-          return <span className="text-slate-400 text-sm">-</span>
+          return <span className="text-slate-800 font-medium text-base">-</span>
         }
         
         const getProviderLogo = (platform) => {
@@ -373,7 +373,7 @@ const Cabinets = () => {
       render: (item) => {
         const isActive = item.status?.toLowerCase() === 'activ' || item.status?.toLowerCase() === 'active'
         return (
-          <span className={`px-4 py-2 rounded-2xl text-xs font-bold shadow-lg ${
+          <span className={`px-4 py-2 rounded-2xl text-base font-medium shadow-lg ${
             isActive
               ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-green-500/25'
               : 'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-red-500/25'
@@ -388,7 +388,7 @@ const Cabinets = () => {
       label: 'Data Creare',
       sortable: true,
       render: (item) => (
-        <div className="text-sm text-slate-600">
+        <div className="text-slate-800 font-medium text-base">
           {new Date(item.created_at).toLocaleDateString('ro-RO')}
         </div>
       )
@@ -402,7 +402,7 @@ const Cabinets = () => {
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-xs shadow-lg">
             {item.created_by?.charAt(0)?.toUpperCase() || 'A'}
           </div>
-          <span className="text-sm font-medium text-slate-700">
+          <span className="text-slate-800 font-medium text-base">
             {item.created_by || 'Sistem'}
           </span>
         </div>

@@ -44,6 +44,46 @@ const { Pool } = pg
 const app = express()
 const PORT = process.env.PORT || 5001
 
+// Authentication middleware to extract user from JWT
+const authenticateUser = async (req, res, next) => {
+  try {
+    const authHeader = req.headers['authorization']
+    const token = authHeader && authHeader.split(' ')[1]
+
+    if (!token) {
+      // If no token, set default user as admin
+      req.user = { userId: 1, username: 'admin', full_name: 'Admin' }
+      return next()
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'cashpot-secret-key-2024')
+    const pool = req.app.get('pool')
+    
+    if (pool) {
+      const result = await pool.query('SELECT id, username, full_name, role FROM users WHERE id = $1', [decoded.userId])
+      
+      if (result.rows.length > 0) {
+        req.user = {
+          userId: result.rows[0].id,
+          username: result.rows[0].username,
+          full_name: result.rows[0].full_name || result.rows[0].username,
+          role: result.rows[0].role
+        }
+      } else {
+        req.user = { userId: decoded.userId, username: decoded.username, full_name: decoded.username }
+      }
+    } else {
+      req.user = { userId: decoded.userId, username: decoded.username, full_name: decoded.username }
+    }
+    
+    next()
+  } catch (error) {
+    console.error('Auth middleware error:', error)
+    req.user = { userId: 1, username: 'admin', full_name: 'Admin' }
+    next()
+  }
+}
+
 // AWS S3 Configuration
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || 'us-east-1',
@@ -2823,12 +2863,14 @@ app.get('/api/approvals', async (req, res) => {
   }
 })
 
-app.post('/api/approvals', async (req, res) => {
+app.post('/api/approvals', authenticateUser, async (req, res) => {
   try {
     const { name, provider, cabinet, gameMix, checksumMD5, checksumSHA256, notes } = req.body
+    const createdBy = req.user?.full_name || req.user?.username || 'Admin'
+    
     const result = await pool.query(
       'INSERT INTO approvals (name, provider, cabinet, game_mix, checksum_md5, checksum_sha256, notes, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP) RETURNING *',
-      [name, provider, cabinet, gameMix, checksumMD5, checksumSHA256, notes, 'admin']
+      [name, provider, cabinet, gameMix, checksumMD5, checksumSHA256, notes, createdBy]
     )
     res.status(201).json(result.rows[0])
   } catch (error) {
@@ -2880,9 +2922,10 @@ app.get('/api/commissions', async (req, res) => {
   }
 })
 
-app.post('/api/commissions', async (req, res) => {
+app.post('/api/commissions', authenticateUser, async (req, res) => {
   try {
     const { name, serial_numbers, commission_date, expiry_date, notes } = req.body
+    const createdBy = req.user?.full_name || req.user?.username || 'Admin'
     
     // Parse serial numbers from textarea
     const serialNumbersArray = serial_numbers
@@ -2892,7 +2935,7 @@ app.post('/api/commissions', async (req, res) => {
     
     const result = await pool.query(
       'INSERT INTO commissions (name, serial_numbers, commission_date, expiry_date, notes, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP) RETURNING *',
-      [name, JSON.stringify(serialNumbersArray), commission_date, expiry_date, notes, 'admin']
+      [name, JSON.stringify(serialNumbersArray), commission_date, expiry_date, notes, createdBy]
     )
     
     // Update commission_date in slots table for each serial number
@@ -2974,12 +3017,14 @@ app.get('/api/software', async (req, res) => {
   }
 })
 
-app.post('/api/software', async (req, res) => {
+app.post('/api/software', authenticateUser, async (req, res) => {
   try {
     const { name, provider, cabinet, game_mix, version, notes } = req.body
+    const createdBy = req.user?.full_name || req.user?.username || 'Admin'
+    
     const result = await pool.query(
       'INSERT INTO software (name, provider, cabinet, game_mix, version, notes, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP) RETURNING *',
-      [name, provider, cabinet, game_mix, version, notes, 'admin']
+      [name, provider, cabinet, game_mix, version, notes, createdBy]
     )
     res.status(201).json(result.rows[0])
   } catch (error) {
@@ -3030,12 +3075,14 @@ app.get('/api/legalDocuments', async (req, res) => {
   }
 })
 
-app.post('/api/legalDocuments', async (req, res) => {
+app.post('/api/legalDocuments', authenticateUser, async (req, res) => {
   try {
-    const { name, type, description, status, notes, created_by } = req.body
+    const { name, type, description, status, notes } = req.body
+    const createdBy = req.user?.full_name || req.user?.username || 'Admin'
+    
     const result = await pool.query(
       'INSERT INTO legalDocuments (name, type, description, status, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [name, type, description, status || 'Active', notes, created_by || 'admin']
+      [name, type, description, status || 'Active', notes, createdBy]
     )
     res.json(result.rows[0])
   } catch (error) {
@@ -3077,12 +3124,14 @@ app.get('/api/onjnReports', async (req, res) => {
   }
 })
 
-app.post('/api/onjnReports', async (req, res) => {
+app.post('/api/onjnReports', authenticateUser, async (req, res) => {
   try {
-    const { name, type, description, status, notes, created_by } = req.body
+    const { name, type, description, status, notes } = req.body
+    const createdBy = req.user?.full_name || req.user?.username || 'Admin'
+    
     const result = await pool.query(
       'INSERT INTO onjnReports (name, type, description, status, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [name, type, description, status || 'Active', notes, created_by || 'admin']
+      [name, type, description, status || 'Active', notes, createdBy]
     )
     res.json(result.rows[0])
   } catch (error) {
@@ -3124,12 +3173,14 @@ app.get('/api/authorities', async (req, res) => {
   }
 })
 
-app.post('/api/authorities', async (req, res) => {
+app.post('/api/authorities', authenticateUser, async (req, res) => {
   try {
-    const { name, address, price_initiala, price_reparatie, price_periodica, notes, created_by } = req.body
+    const { name, address, price_initiala, price_reparatie, price_periodica, notes } = req.body
+    const createdBy = req.user?.full_name || req.user?.username || 'Admin'
+    
     const result = await pool.query(
       'INSERT INTO authorities (name, address, price_initiala, price_reparatie, price_periodica, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      [name, address, price_initiala || null, price_reparatie || null, price_periodica || null, notes, created_by || 'admin']
+      [name, address, price_initiala || null, price_reparatie || null, price_periodica || null, notes, createdBy]
     )
     res.json(result.rows[0])
   } catch (error) {

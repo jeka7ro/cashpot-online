@@ -111,7 +111,7 @@ const Providers = () => {
       label: 'Companie',
       sortable: true,
       render: (item) => (
-        <span className="text-blue-800 dark:text-blue-300 text-xs font-bold">
+        <span className="text-slate-800 font-medium text-base">
           {item.company || 'N/A'}
         </span>
       )
@@ -122,8 +122,8 @@ const Providers = () => {
       sortable: true,
       render: (item) => (
         <div className="space-y-1">
-          <div className="text-slate-700 dark:text-slate-300 font-medium text-sm">{item.contact}</div>
-          <div className="text-slate-500 dark:text-slate-400 text-xs font-sans">{item.phone}</div>
+          <div className="text-slate-800 font-medium text-base">{item.contact}</div>
+          <div className="text-slate-600 font-medium text-base">{item.phone}</div>
         </div>
       )
     },
@@ -134,7 +134,7 @@ const Providers = () => {
       render: (item) => {
         const gamesCount = getGamesCountForProvider(item.name)
         return (
-          <span className="text-blue-800 dark:text-blue-300 text-xs font-bold">
+          <span className="text-slate-800 font-medium text-base">
             {gamesCount} jocuri
           </span>
         )
@@ -149,7 +149,7 @@ const Providers = () => {
         const isActive = status === 'activ' || status === 'active'
         
         return (
-          <span className={`px-4 py-2 rounded-2xl text-xs font-bold shadow-lg ${
+          <span className={`px-4 py-2 rounded-2xl text-base font-medium shadow-lg ${
             isActive
               ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-green-500/25' 
               : 'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-red-500/25'
