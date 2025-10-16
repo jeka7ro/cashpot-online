@@ -1042,7 +1042,6 @@ const Dashboard = () => {
             </div>
           </SortableContext>
         </DndContext>
-          </div>
 
         {/* Widget Configuration */}
         {isEditing && dashboardConfig && (
