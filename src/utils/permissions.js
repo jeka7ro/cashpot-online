@@ -17,7 +17,8 @@ export const MODULES = {
   USERS: 'users',
   SETTINGS: 'settings',
   CONTRACTS: 'contracts',
-  CYBER_IMPORT: 'cyberImport'
+  CYBER_IMPORT: 'cyberImport',
+  MARKETING: 'marketing'
 }
 
 export const ACTIONS = {
@@ -98,6 +99,10 @@ export const MODULE_CONFIG = {
   [MODULES.CYBER_IMPORT]: {
     label: '🔄 Import Cyber',
     actions: [ACTIONS.VIEW, ACTIONS.IMPORT]
+  },
+  [MODULES.MARKETING]: {
+    label: '📢 Marketing & Promoții',
+    actions: [ACTIONS.VIEW, ACTIONS.CREATE, ACTIONS.EDIT, ACTIONS.DELETE, ACTIONS.EXPORT]
   }
 }
 
@@ -142,7 +147,8 @@ export const DEFAULT_PERMISSIONS = {
     [MODULES.LEGAL]: { view: true, create: true, edit: true, delete: false, export: true },
     [MODULES.USERS]: { view: true, create: false, edit: false, delete: false },
     [MODULES.SETTINGS]: { view: true, edit: false },
-    [MODULES.CYBER_IMPORT]: { view: true, import: true }
+    [MODULES.CYBER_IMPORT]: { view: true, import: true },
+    [MODULES.MARKETING]: { view: true, create: true, edit: true, delete: false, export: true }
   },
   user: {
     // User has mostly view permissions
@@ -162,7 +168,68 @@ export const DEFAULT_PERMISSIONS = {
     [MODULES.LEGAL]: { view: true, create: false, edit: false, delete: false, export: true },
     [MODULES.USERS]: { view: false, create: false, edit: false, delete: false },
     [MODULES.SETTINGS]: { view: false, edit: false },
-    [MODULES.CYBER_IMPORT]: { view: false, import: false }
+    [MODULES.CYBER_IMPORT]: { view: false, import: false },
+    [MODULES.MARKETING]: { view: true, create: false, edit: false, delete: false, export: true }
+  },
+  marketing: {
+    [MODULES.DASHBOARD]: { view: true, edit: false },
+    [MODULES.COMPANIES]: { view: true, create: false, edit: false, delete: false, export: true },
+    [MODULES.LOCATIONS]: { view: true, create: false, edit: false, delete: false, export: true },
+    [MODULES.PROVIDERS]: { view: false, create: false, edit: false, delete: false, export: false },
+    [MODULES.CABINETS]: { view: false, create: false, edit: false, delete: false, export: false },
+    [MODULES.GAME_MIXES]: { view: false, create: false, edit: false, delete: false, export: false },
+    [MODULES.SLOTS]: { view: true, create: false, edit: false, delete: false, export: true, import: false },
+    [MODULES.WAREHOUSE]: { view: false, create: false, edit: false, delete: false, export: false },
+    [MODULES.METROLOGY]: { view: false, create: false, edit: false, delete: false, export: false },
+    [MODULES.CONTRACTS]: { view: false, create: false, edit: false, delete: false, export: false },
+    [MODULES.INVOICES]: { view: false, create: false, edit: false, delete: false, export: false },
+    [MODULES.JACKPOTS]: { view: true, create: false, edit: false, delete: false },
+    [MODULES.ONJN]: { view: false, create: false, edit: false, delete: false, export: false },
+    [MODULES.LEGAL]: { view: false, create: false, edit: false, delete: false, export: false },
+    [MODULES.USERS]: { view: false, create: false, edit: false, delete: false },
+    [MODULES.SETTINGS]: { view: false, edit: false },
+    [MODULES.CYBER_IMPORT]: { view: false, import: false },
+    [MODULES.MARKETING]: { view: true, create: true, edit: true, delete: true, export: true }
+  },
+  operational: {
+    [MODULES.DASHBOARD]: { view: true, edit: false },
+    [MODULES.COMPANIES]: { view: true, create: false, edit: false, delete: false, export: true },
+    [MODULES.LOCATIONS]: { view: true, create: true, edit: true, delete: false, export: true },
+    [MODULES.PROVIDERS]: { view: true, create: false, edit: false, delete: false, export: true },
+    [MODULES.CABINETS]: { view: true, create: true, edit: true, delete: false, export: true },
+    [MODULES.GAME_MIXES]: { view: true, create: false, edit: false, delete: false, export: true },
+    [MODULES.SLOTS]: { view: true, create: true, edit: true, delete: false, export: true, import: true },
+    [MODULES.WAREHOUSE]: { view: true, create: true, edit: true, delete: false, export: true },
+    [MODULES.METROLOGY]: { view: true, create: true, edit: true, delete: false, export: true },
+    [MODULES.CONTRACTS]: { view: false, create: false, edit: false, delete: false, export: false },
+    [MODULES.INVOICES]: { view: false, create: false, edit: false, delete: false, export: false },
+    [MODULES.JACKPOTS]: { view: true, create: false, edit: false, delete: false },
+    [MODULES.ONJN]: { view: true, create: false, edit: false, delete: false, export: true },
+    [MODULES.LEGAL]: { view: false, create: false, edit: false, delete: false, export: false },
+    [MODULES.USERS]: { view: false, create: false, edit: false, delete: false },
+    [MODULES.SETTINGS]: { view: false, edit: false },
+    [MODULES.CYBER_IMPORT]: { view: true, import: true },
+    [MODULES.MARKETING]: { view: true, create: false, edit: false, delete: false, export: true }
+  },
+  financiar: {
+    [MODULES.DASHBOARD]: { view: true, edit: false },
+    [MODULES.COMPANIES]: { view: true, create: false, edit: false, delete: false, export: true },
+    [MODULES.LOCATIONS]: { view: true, create: false, edit: false, delete: false, export: true },
+    [MODULES.PROVIDERS]: { view: true, create: false, edit: false, delete: false, export: true },
+    [MODULES.CABINETS]: { view: true, create: false, edit: false, delete: false, export: true },
+    [MODULES.GAME_MIXES]: { view: true, create: false, edit: false, delete: false, export: true },
+    [MODULES.SLOTS]: { view: true, create: false, edit: false, delete: false, export: true, import: false },
+    [MODULES.WAREHOUSE]: { view: false, create: false, edit: false, delete: false, export: false },
+    [MODULES.METROLOGY]: { view: false, create: false, edit: false, delete: false, export: false },
+    [MODULES.CONTRACTS]: { view: true, create: false, edit: false, delete: false, export: true },
+    [MODULES.INVOICES]: { view: true, create: true, edit: true, delete: false, export: true },
+    [MODULES.JACKPOTS]: { view: true, create: false, edit: false, delete: false },
+    [MODULES.ONJN]: { view: false, create: false, edit: false, delete: false, export: false },
+    [MODULES.LEGAL]: { view: false, create: false, edit: false, delete: false, export: false },
+    [MODULES.USERS]: { view: false, create: false, edit: false, delete: false },
+    [MODULES.SETTINGS]: { view: false, edit: false },
+    [MODULES.CYBER_IMPORT]: { view: false, import: false },
+    [MODULES.MARKETING]: { view: true, create: false, edit: false, delete: false, export: true }
   }
 }
 

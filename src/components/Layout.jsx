@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { getVersion, getBuild, getBuildDate } from '../utils/version'
+import { hasPermission, MODULES } from '../utils/permissions'
 import { 
   Menu, 
   X, 
@@ -92,120 +93,149 @@ const Layout = ({ children }) => {
     return () => clearInterval(timer)
   }, [])
 
-  const menuItems = [
+  const allMenuItems = [
     { 
       id: 'dashboard', 
       label: 'Dashboard', 
       icon: BarChart3, 
       path: '/dashboard',
-      count: null
+      count: null,
+      module: MODULES.DASHBOARD
     },
     { 
       id: 'companies', 
       label: 'Companii', 
       icon: Building2, 
       path: '/companies',
-      count: companies.length
+      count: companies.length,
+      module: MODULES.COMPANIES
     },
     { 
       id: 'locations', 
       label: 'Locații', 
       icon: MapPin, 
       path: '/locations',
-      count: locations.length
+      count: locations.length,
+      module: MODULES.LOCATIONS
     },
     { 
       id: 'providers', 
       label: 'Furnizori', 
       icon: Users, 
       path: '/providers',
-      count: providers.length
+      count: providers.length,
+      module: MODULES.PROVIDERS
     },
     { 
       id: 'cabinets', 
       label: 'Cabinete', 
       icon: Gamepad2, 
       path: '/cabinets',
-      count: cabinets.length
+      count: cabinets.length,
+      module: MODULES.CABINETS
     },
     { 
       id: 'game-mixes', 
       label: 'Game Mixes', 
       icon: MixIcon, 
       path: '/game-mixes',
-      count: gameMixes.length
+      count: gameMixes.length,
+      module: MODULES.GAME_MIXES
     },
     { 
       id: 'slots', 
       label: 'Sloturi', 
       icon: BarChart3, 
       path: '/slots',
-      count: slots.length
+      count: slots.length,
+      module: MODULES.SLOTS
     },
     { 
       id: 'warehouse', 
       label: 'Depozit', 
       icon: Package, 
       path: '/warehouse',
-      count: warehouse.length
+      count: warehouse.length,
+      module: MODULES.WAREHOUSE
     },
     { 
       id: 'metrology', 
       label: 'Metrologie CVT', 
       icon: Activity, 
       path: '/metrology',
-      count: metrology.length
+      count: metrology.length,
+      module: MODULES.METROLOGY
     },
     { 
       id: 'jackpots', 
       label: 'Jackpots', 
       icon: Trophy, 
       path: '/jackpots',
-      count: jackpots.length
+      count: jackpots.length,
+      module: MODULES.JACKPOTS
     },
     { 
       id: 'invoices', 
       label: 'Facturi', 
       icon: FileText, 
       path: '/invoices',
-      count: invoices.length
+      count: invoices.length,
+      module: MODULES.INVOICES
     },
     { 
       id: 'onjn-reports', 
       label: 'Rapoarte ONJN', 
       icon: Shield, 
       path: '/onjn-reports',
-      count: onjnReports.length
+      count: onjnReports.length,
+      module: MODULES.ONJN
     },
     { 
       id: 'legal-documents', 
       label: 'Documente Legale', 
       icon: DocIcon, 
       path: '/legal-documents',
-      count: legalDocuments.length
+      count: legalDocuments.length,
+      module: MODULES.LEGAL
     },
     { 
       id: 'marketing', 
       label: 'Marketing & Promoții', 
       icon: TrendingUp, 
       path: '/marketing',
-      count: promotions?.length || 0
+      count: promotions?.length || 0,
+      module: MODULES.MARKETING
     },
     { 
       id: 'users', 
       label: 'Utilizatori', 
       icon: UserIcon, 
       path: '/users',
-      count: users.length
+      count: users.length,
+      module: MODULES.USERS,
+      requiresAdmin: true
     },
     { 
       id: 'settings', 
       label: 'Setări', 
       icon: Settings, 
       path: '/settings',
-      count: null
+      count: null,
+      module: MODULES.SETTINGS
     }
   ]
+
+  // Filter menu items based on user permissions
+  const menuItems = allMenuItems.filter(item => {
+    // Admin sees everything
+    if (user?.role === 'admin') return true
+    
+    // Check if item requires admin role
+    if (item.requiresAdmin && user?.role !== 'admin') return false
+    
+    // Check if user has view permission for this module
+    return hasPermission(user?.permissions, item.module, 'view')
+  })
 
   const currentPage = menuItems.find(item => item.path === location.pathname)
 

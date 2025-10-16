@@ -4,7 +4,7 @@ import Layout from '../components/Layout'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
-import { BarChart3, Plus, Search, Upload, Download, Edit, Trash2, Eye, Filter, Activity, AlertCircle, CheckCircle, Wrench, History, Database, Package } from 'lucide-react'
+import { BarChart3, Plus, Search, Upload, Download, Edit, Trash2, Filter, Activity, AlertCircle, CheckCircle, Wrench, History, Database, Package } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import SlotModal from '../components/modals/SlotModal'
 import StatCard from '../components/StatCard'
@@ -203,54 +203,25 @@ const Slots = () => {
       )
     },
     {
-      key: 'property_type',
-      label: 'TIP PROPRIETATE',
+      key: 'commission_date',
+      label: 'DATA COMISIE',
       sortable: true,
       render: (item) => {
-        // Găsește factura pentru acest slot pentru a determina tipul de proprietate
-        const relatedInvoice = invoices?.find(invoice => {
-          if (!invoice.serial_number || !item.serial_number) return false
-          
-          // În PostgreSQL, serial_number este stocat ca JSON string cu array
-          let serialNumbers = []
-          try {
-            if (typeof invoice.serial_number === 'string') {
-              serialNumbers = JSON.parse(invoice.serial_number)
-            } else if (Array.isArray(invoice.serial_number)) {
-              serialNumbers = invoice.serial_number
-            } else {
-              serialNumbers = [invoice.serial_number]
-            }
-          } catch (e) {
-            serialNumbers = [invoice.serial_number.toString()]
-          }
-          
-          return serialNumbers.some(serial => serial.toString() === item.serial_number.toString())
-        })
-        
-        let propertyType = item.property_type || 'Necunoscut'
-        
-        // Dacă avem factură asociată, folosim tipul din factură
-        if (relatedInvoice && relatedInvoice.invoice_type) {
-          if (relatedInvoice.invoice_type === 'Vânzare') {
-            propertyType = 'Proprietate'
-          } else if (relatedInvoice.invoice_type === 'Chirie') {
-            propertyType = 'Închiriat'
-          } else {
-            propertyType = relatedInvoice.invoice_type
-          }
-        }
-        
-        // Mapează valorile pentru afișare
-        const displayPropertyType = propertyType === 'Owned' ? 'Proprietate' : 
-                                   propertyType === 'Rented' ? 'Închiriat' : 
-                                   propertyType === 'Proprietate' ? 'Proprietate' :
-                                   propertyType === 'Închiriat' ? 'Închiriat' :
-                                   propertyType
+        const commissionDate = item.commission_date ? new Date(item.commission_date) : null
+        const daysRemaining = commissionDate ? Math.ceil((commissionDate - new Date()) / (1000 * 60 * 60 * 24)) : null
         
         return (
-          <div className="text-slate-800 dark:text-slate-200 font-medium text-sm">
-            {displayPropertyType}
+          <div className="text-slate-800 font-medium text-base">
+            {commissionDate ? (
+              <div>
+                <div>{commissionDate.toLocaleDateString('ro-RO')}</div>
+                {daysRemaining !== null && (
+                  <div className={`text-xs ${daysRemaining <= 0 ? 'text-red-600' : daysRemaining <= 30 ? 'text-yellow-600' : 'text-green-600'}`}>
+                    {daysRemaining <= 0 ? 'Expirat' : `${daysRemaining} zile rămase`}
+                  </div>
+                )}
+              </div>
+            ) : 'N/A'}
           </div>
         )
       }
@@ -290,15 +261,6 @@ const Slots = () => {
               >
                 {relatedInvoice.invoice_number}
               </button>
-              {relatedInvoice.file_path && (
-                <button
-                  onClick={() => window.open(relatedInvoice.file_path, '_blank')}
-                  className="p-1 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
-                  title="Vezi factura"
-                >
-                  <Eye className="w-4 h-4" />
-                </button>
-              )}
             </div>
           )
         }
@@ -372,14 +334,28 @@ const Slots = () => {
       }
     },
     {
-      key: 'created_at',
-      label: 'DATA CREARE',
+      key: 'cvt_date',
+      label: 'DATA CVT',
       sortable: true,
-      render: (item) => (
-        <div className="text-slate-800 font-medium text-base">
-          {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
-        </div>
-      )
+      render: (item) => {
+        const cvtDate = item.cvt_date ? new Date(item.cvt_date) : null
+        const daysRemaining = cvtDate ? Math.ceil((cvtDate - new Date()) / (1000 * 60 * 60 * 24)) : null
+        
+        return (
+          <div className="text-slate-800 font-medium text-base">
+            {cvtDate ? (
+              <div>
+                <div>{cvtDate.toLocaleDateString('ro-RO')}</div>
+                {daysRemaining !== null && (
+                  <div className={`text-xs ${daysRemaining <= 0 ? 'text-red-600' : daysRemaining <= 30 ? 'text-yellow-600' : 'text-green-600'}`}>
+                    {daysRemaining <= 0 ? 'Expirat' : `${daysRemaining} zile rămase`}
+                  </div>
+                )}
+              </div>
+            ) : 'N/A'}
+          </div>
+        )
+      }
     },
   ]
 
@@ -590,32 +566,6 @@ const Slots = () => {
     toast.info('Funcționalitatea de import va fi implementată în curând')
   }
 
-  const handleSyncCyberSlots = async () => {
-    const confirmed = window.confirm(
-      '⚠️ ATENȚIE: Sincronizarea Cyber va ȘTERGE toate sloturile existente și va importa din nou!\n\n' +
-      'Dacă vrei să păstrezi sloturile existente, folosește "Import Cyber" în loc de "Sincronizează".\n\n' +
-      'Continui cu sincronizarea completă?'
-    )
-    
-    if (!confirmed) return
-    
-    try {
-      toast.loading('Sincronizez sloturile din Cyber...', { id: 'sync-slots' })
-      
-      const response = await axios.post('/api/cyber/sync-slots')
-      
-      if (response.data.success) {
-        toast.success(`✅ ${response.data.message}`, { id: 'sync-slots' })
-        // Refresh data
-        window.location.reload()
-      } else {
-        toast.error('Eroare la sincronizare', { id: 'sync-slots' })
-      }
-    } catch (error) {
-      console.error('Error syncing Cyber slots:', error)
-      toast.error('Eroare la sincronizarea sloturilor din Cyber', { id: 'sync-slots' })
-    }
-  }
 
   return (
     <Layout>
@@ -646,13 +596,6 @@ const Slots = () => {
                 entity="slots"
               />
               <div className="flex space-x-3">
-                <button
-                  onClick={handleSyncCyberSlots}
-                  className="px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg flex items-center space-x-2 transition-all font-medium"
-                >
-                  <Database className="w-4 h-4" />
-                  <span>Sincronizează Cyber ({slots.length} → 1122)</span>
-                </button>
                 {showBulkActions && (
                   <>
                     <button

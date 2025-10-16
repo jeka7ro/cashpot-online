@@ -41,6 +41,61 @@ const CyberImport = () => {
   })
 
   // Handle file upload for slots
+  // Cyber sync functions
+  const handleSyncCyberSlots = async () => {
+    const confirmed = window.confirm(
+      '⚠️ ATENȚIE: Sincronizarea Cyber va ȘTERGE toate sloturile existente și va importa din nou!\n\n' +
+      'Dacă vrei să păstrezi sloturile existente, folosește "Import Safe" în loc de "Sincronizează".\n\n' +
+      'Continui cu sincronizarea completă?'
+    )
+    
+    if (!confirmed) return
+    
+    try {
+      toast.loading('Sincronizez sloturile din Cyber...', { id: 'sync-slots' })
+      
+      const response = await axios.post('/api/cyber/sync-slots')
+      
+      if (response.data.success) {
+        toast.success(`Sincronizare completă! ${response.data.syncedCount} sloturi importate.`, { id: 'sync-slots' })
+        // Refresh data
+        fetchCyberData()
+      } else {
+        toast.error('Eroare la sincronizare: ' + response.data.message, { id: 'sync-slots' })
+      }
+    } catch (error) {
+      console.error('Error syncing Cyber slots:', error)
+      toast.error('Eroare la sincronizarea sloturilor: ' + error.message, { id: 'sync-slots' })
+    }
+  }
+
+  const handleSyncCyberSlotsSafe = async () => {
+    try {
+      toast.loading('Importez sloturile noi din Cyber...', { id: 'sync-slots-safe' })
+      
+      const response = await axios.post('/api/cyber/sync-slots-safe')
+      
+      if (response.data.success) {
+        toast.success(
+          `Import complet! ${response.data.syncedCount} sloturi noi adăugate ` +
+          `(${response.data.existingCount} existau deja). ` +
+          `+ ${response.data.entitiesPopulated.locations} locații + ` +
+          `${response.data.entitiesPopulated.providers} furnizori + ` +
+          `${response.data.entitiesPopulated.cabinets} cabinete + ` +
+          `${response.data.entitiesPopulated.gameMixes} game mixes`, 
+          { id: 'sync-slots-safe' }
+        )
+        // Refresh data
+        fetchCyberData()
+      } else {
+        toast.error('Eroare la import: ' + response.data.message, { id: 'sync-slots-safe' })
+      }
+    } catch (error) {
+      console.error('Error safe syncing Cyber slots:', error)
+      toast.error('Eroare la importul sigur: ' + error.message, { id: 'sync-slots-safe' })
+    }
+  }
+
   const handleFileUpload = (event) => {
     const file = event.target.files[0]
     if (!file) return
@@ -710,7 +765,7 @@ const CyberImport = () => {
             {/* File Upload Button */}
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="btn-success flex items-center space-x-2"
+              className="px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center space-x-2 transition-all font-medium"
             >
               <FileUp className="w-4 h-4" />
               <span>Încarcă JSON</span>
@@ -723,6 +778,26 @@ const CyberImport = () => {
               className="hidden"
             />
             
+            {/* Cyber Sync Buttons */}
+            {activeTab === 'slots' && (
+              <>
+                <button
+                  onClick={handleSyncCyberSlotsSafe}
+                  className="px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg flex items-center space-x-2 transition-all font-medium"
+                >
+                  <Database className="w-4 h-4" />
+                  <span>Import Safe</span>
+                </button>
+                <button
+                  onClick={handleSyncCyberSlots}
+                  className="px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg flex items-center space-x-2 transition-all font-medium"
+                >
+                  <Database className="w-4 h-4" />
+                  <span>Sincronizează Cyber</span>
+                </button>
+              </>
+            )}
+            
           <button
             onClick={() => {
               if (activeTab === 'slots') fetchCyberData()
@@ -732,7 +807,7 @@ const CyberImport = () => {
               else if (activeTab === 'providers') fetchCyberProviders()
             }}
             disabled={loading}
-            className="btn-secondary flex items-center space-x-2"
+            className="px-4 py-3 bg-slate-500 hover:bg-slate-600 text-white rounded-lg flex items-center space-x-2 transition-all font-medium"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh Cyber DB</span>

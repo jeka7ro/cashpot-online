@@ -260,6 +260,11 @@ const Metrology = () => {
     }
   }
 
+  const handleCommissionView = (commission) => {
+    setViewingItem(commission)
+    setShowDetailModal(true)
+  }
+
   const handleSoftwareDelete = async (item) => {
     if (window.confirm('Sigur vrei să ștergi acest software?')) {
       try {
@@ -482,16 +487,31 @@ const Metrology = () => {
   ]
 
   const commissionColumns = [
-    { key: 'name', label: 'NUMELE', sortable: true },
     { 
-      key: 'serial_numbers', 
-      label: 'NUMERELE DE SERIE', 
-      sortable: false,
+      key: 'name', 
+      label: 'NUMELE', 
+      sortable: true,
       render: (item) => (
-        <div className="text-slate-800 font-medium text-sm">
-          {item.serial_numbers || 'N/A'}
-        </div>
+        <button
+          onClick={() => handleCommissionView(item)}
+          className="text-blue-600 hover:text-blue-800 font-semibold text-base hover:underline transition-colors text-left"
+        >
+          {item.name || 'N/A'}
+        </button>
       )
+    },
+    { 
+      key: 'slot_count', 
+      label: 'NUMĂR SLOTURI', 
+      sortable: false,
+      render: (item) => {
+        const serialNumbers = item.serial_numbers ? item.serial_numbers.split(',').length : 0
+        return (
+          <div className="text-slate-800 font-medium text-base">
+            {serialNumbers} sloturi
+          </div>
+        )
+      }
     },
     { key: 'commission_date', label: 'DATA COMISIEI', sortable: true, render: (item) => (
       <div className="text-slate-800 font-medium text-base">

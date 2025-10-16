@@ -5,6 +5,12 @@ import PDFViewer from '../PDFViewer'
 const MetrologyDetailModal = ({ item, onClose }) => {
   if (!item) return null
 
+  // Detect item type
+  const isCommission = item.name && item.serial_numbers
+  const isApproval = item.cvt_number
+  const isSoftware = item.software_name
+  const isAuthority = item.authority_name
+
   const calculateDaysRemaining = () => {
     if (!item.expiry_date) return null
     const today = new Date()
@@ -29,14 +35,22 @@ const MetrologyDetailModal = ({ item, onClose }) => {
     return `${daysRemaining} zile rămase`
   }
 
+  // Parse serial numbers for commission
+  const getSerialNumbers = () => {
+    if (!isCommission || !item.serial_numbers) return []
+    return item.serial_numbers.split(',').map(s => s.trim()).filter(s => s)
+  }
+
+  const serialNumbers = getSerialNumbers()
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl">
         {/* Header */}
-        <div className="bg-gradient-to-r from-cyan-500 to-teal-500 px-6 py-4 flex justify-between items-center">
+        <div className={`px-6 py-4 flex justify-between items-center ${isCommission ? 'bg-gradient-to-r from-blue-500 to-indigo-500' : 'bg-gradient-to-r from-cyan-500 to-teal-500'}`}>
           <h3 className="text-xl font-bold text-white flex items-center">
             <FileText className="w-6 h-6 mr-2" />
-            Detalii Certificat CVT - {item.cvt_number}
+            {isCommission ? `Detalii Comisie - ${item.name}` : `Detalii Certificat CVT - ${item.cvt_number}`}
           </h3>
           <button
             onClick={onClose}
@@ -47,9 +61,82 @@ const MetrologyDetailModal = ({ item, onClose }) => {
         </div>
 
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left Column - Information */}
+          {isCommission ? (
+            /* Commission Details */
             <div className="space-y-6">
+              {/* Commission Info */}
+              <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-6">
+                <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Informații Comisie</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Numele Comisiei</label>
+                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{item.name}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Numărul de Sloturi</label>
+                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{serialNumbers.length} sloturi</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Data Comisiei</label>
+                    <p className="text-slate-800 dark:text-slate-200 font-semibold">
+                      {item.commission_date ? new Date(item.commission_date).toLocaleDateString('ro-RO') : 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Data Valabilității</label>
+                    <p className={`font-semibold ${getStatusColor()}`}>
+                      {item.expiry_date ? new Date(item.expiry_date).toLocaleDateString('ro-RO') : 'N/A'}
+                      {daysRemaining !== null && (
+                        <span className="ml-2 text-sm">({getStatusText()})</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Serial Numbers Table */}
+              <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-6">
+                <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Detalii Sloturi ({serialNumbers.length})</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-slate-200 dark:border-slate-600">
+                        <th className="text-left py-2 text-sm font-semibold text-slate-600 dark:text-slate-400">Serial Number</th>
+                        <th className="text-left py-2 text-sm font-semibold text-slate-600 dark:text-slate-400">Furnizor</th>
+                        <th className="text-left py-2 text-sm font-semibold text-slate-600 dark:text-slate-400">Cabinet</th>
+                        <th className="text-left py-2 text-sm font-semibold text-slate-600 dark:text-slate-400">Game Mix</th>
+                        <th className="text-left py-2 text-sm font-semibold text-slate-600 dark:text-slate-400">Locație</th>
+                        <th className="text-left py-2 text-sm font-semibold text-slate-600 dark:text-slate-400">Factură</th>
+                        <th className="text-left py-2 text-sm font-semibold text-slate-600 dark:text-slate-400">Data CVT</th>
+                        <th className="text-left py-2 text-sm font-semibold text-slate-600 dark:text-slate-400">Data Comisie</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {serialNumbers.map((serial, index) => (
+                        <tr key={index} className="border-b border-slate-100 dark:border-slate-600">
+                          <td className="py-2 text-sm text-slate-800 dark:text-slate-200 font-mono">{serial}</td>
+                          <td className="py-2 text-sm text-slate-600 dark:text-slate-400">-</td>
+                          <td className="py-2 text-sm text-slate-600 dark:text-slate-400">-</td>
+                          <td className="py-2 text-sm text-slate-600 dark:text-slate-400">-</td>
+                          <td className="py-2 text-sm text-slate-600 dark:text-slate-400">-</td>
+                          <td className="py-2 text-sm text-slate-600 dark:text-slate-400">-</td>
+                          <td className="py-2 text-sm text-slate-600 dark:text-slate-400">-</td>
+                          <td className="py-2 text-sm text-slate-600 dark:text-slate-400">-</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                  * Detaliile complete vor fi afișate când vor fi conectate cu baza de date de sloturi
+                </p>
+              </div>
+            </div>
+          ) : (
+            /* Original CVT Details */
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Column - Information */}
+              <div className="space-y-6">
               {/* CVT Information */}
               <div className="bg-slate-50 rounded-2xl p-6 space-y-4">
                 <h4 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2">
@@ -187,6 +274,7 @@ const MetrologyDetailModal = ({ item, onClose }) => {
               </div>
             </div>
           </div>
+        )}
         </div>
       </div>
     </div>

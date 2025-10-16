@@ -1,7 +1,23 @@
 import React from 'react'
-import { TrendingUp, TrendingDown } from 'lucide-react'
+import { TrendingUp, TrendingDown, Eye, EyeOff, GripVertical } from 'lucide-react'
 
-const StatCard = ({ title, value, icon: Icon, color, change, changeType, loading, size = 'medium' }) => {
+const StatCard = ({ 
+  title, 
+  value, 
+  icon: Icon, 
+  color, 
+  change, 
+  changeType, 
+  loading, 
+  size = 'medium',
+  isEditing = false,
+  isVisible = true,
+  onToggleVisibility,
+  onToggleSelection,
+  onSizeChange,
+  isSelected = false,
+  dragHandleProps = {}
+}) => {
   const colorClasses = {
     blue: 'from-blue-500 to-indigo-500',
     green: 'from-green-500 to-emerald-500',
@@ -87,7 +103,27 @@ const StatCard = ({ title, value, icon: Icon, color, change, changeType, loading
   }
 
   return (
-    <div className={`card ${currentSize.container} hover:shadow-2xl transition-all duration-300 hover:scale-105 group`}>
+    <div className={`card ${currentSize.container} hover:shadow-2xl transition-all duration-300 hover:scale-105 group ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
+      {/* Editing Controls */}
+      {isEditing && (
+        <div className="absolute top-2 right-2 flex space-x-1 z-10">
+          <button
+            onClick={onToggleVisibility}
+            className="p-1 rounded bg-white/80 hover:bg-white text-slate-600 hover:text-slate-800 transition-colors"
+            title={isVisible ? 'Ascunde cardul' : 'Afișează cardul'}
+          >
+            {isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+          </button>
+          <div
+            {...dragHandleProps}
+            className="p-1 rounded bg-white/80 hover:bg-white text-slate-600 hover:text-slate-800 transition-colors cursor-grab active:cursor-grabbing"
+            title="Trage pentru a reordona"
+          >
+            <GripVertical className="w-4 h-4" />
+          </div>
+        </div>
+      )}
+      
       <div className="flex items-center justify-between mb-4">
         <h3 className={`${currentSize.title} font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider`}>
           {title}
@@ -116,6 +152,26 @@ const StatCard = ({ title, value, icon: Icon, color, change, changeType, loading
           </div>
         )}
       </div>
+      
+      {/* Size Controls */}
+      {isEditing && onSizeChange && (
+        <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-500 dark:text-slate-400">Mărime:</span>
+            <select
+              value={size}
+              onChange={(e) => onSizeChange(e.target.value)}
+              className="text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded px-2 py-1"
+            >
+              <option value="xs">XS</option>
+              <option value="small">Small</option>
+              <option value="medium">Medium</option>
+              <option value="large">Large</option>
+              <option value="extra-large">XL</option>
+            </select>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

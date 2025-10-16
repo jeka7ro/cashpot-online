@@ -16,6 +16,24 @@ import PromotionsAIWidget from '../components/PromotionsAIWidget'
 import ONJNCurrencyRate from '../components/ONJNCurrencyRate'
 import GamesLibraryWidget from '../components/GamesLibraryWidget'
 import { getVersion, getBuild, getBuildDate } from '../utils/version'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import {
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { 
   Building2, 
   MapPin, 
@@ -37,6 +55,45 @@ import {
   RefreshCw
 } from 'lucide-react'
 
+// Sortable Card Component
+const SortableCard = ({ cardConfig, cardData, cardSize, sizeClass, onToggleVisibility, onToggleSelection, onSizeChange, isSelected, isEditing }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: cardConfig.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} className={`${sizeClass} ${isEditing ? 'cursor-move' : ''}`}>
+      <StatCard
+        title={cardData.title}
+        value={cardData.value}
+        icon={cardData.icon}
+        change={cardData.change}
+        changeType={cardData.changeType}
+        trend={cardData.trend}
+        trendData={cardData.trendData}
+        isEditing={isEditing}
+        isVisible={cardConfig.visible}
+        onToggleVisibility={() => onToggleVisibility(cardConfig.id)}
+        onToggleSelection={() => onToggleSelection(cardConfig.id)}
+        onSizeChange={onSizeChange}
+        isSelected={isSelected}
+        dragHandleProps={isEditing ? { ...attributes, ...listeners } : {}}
+      />
+    </div>
+  )
+}
+
 const Dashboard = () => {
   const { statistics, loading } = useData()
   const { user } = useAuth()
@@ -48,6 +105,44 @@ const Dashboard = () => {
   const [isFadingOut, setIsFadingOut] = useState(false)
   const [showWelcome, setShowWelcome] = useState(true)
   const [isWelcomeFadingOut, setIsWelcomeFadingOut] = useState(false)
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
+  // Handle drag end for cards
+  const handleDragEnd = (event) => {
+    const { active, over } = event
+
+    if (active.id !== over?.id) {
+      setDashboardConfig(prev => {
+        const oldIndex = prev.statCards.findIndex(card => card.id === active.id)
+        const newIndex = prev.statCards.findIndex(card => card.id === over.id)
+        
+        const newCards = arrayMove(prev.statCards, oldIndex, newIndex)
+        // Update order numbers
+        newCards.forEach((card, index) => {
+          card.order = index + 1
+        })
+        
+        const newConfig = { ...prev, statCards: newCards }
+        
+        // Salvează automat în sessionStorage
+        const configToSave = {
+          ...newConfig,
+          cardSizes,
+          widgetSizes
+        }
+        sessionStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
+        
+        return newConfig
+      })
+    }
+  }
   const [cardSizes, setCardSizes] = useState(() => {
     // localStorage REMOVED - using server only
     const saved = null
@@ -907,30 +1002,46 @@ const Dashboard = () => {
             </div>
           )}
           
-        <div className="dashboard-grid-stats">
-            {dashboardConfig.statCards
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={dashboardConfig.statCards
               .filter(card => card.visible)
               .sort((a, b) => a.order - b.order)
-              .map((cardConfig) => {
-                const cardData = statCardsData[cardConfig.id]
-                const cardSize = cardSizes[cardConfig.id] || 'medium'
-                const sizeClass = getCardSizeClass(cardSize)
-                
-                return (
-                  <div key={cardConfig.id} className={sizeClass}>
-                    <StatCard
-                      title={cardData.title}
-                      value={cardData.value}
-                      icon={cardData.icon}
-                      color={cardData.color}
-                      change={cardData.change}
-                      changeType={cardData.changeType}
-                      loading={loading.companies}
-                      size={cardSize}
+              .map(card => card.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="dashboard-grid-stats">
+              {dashboardConfig.statCards
+                .filter(card => card.visible)
+                .sort((a, b) => a.order - b.order)
+                .map((cardConfig) => {
+                  const cardData = statCardsData[cardConfig.id]
+                  const cardSize = cardSizes[cardConfig.id] || 'medium'
+                  const sizeClass = getCardSizeClass(cardSize)
+                  const isSelected = selectedCards.includes(cardConfig.id)
+                  
+                  return (
+                    <SortableCard
+                      key={cardConfig.id}
+                      cardConfig={cardConfig}
+                      cardData={cardData}
+                      cardSize={cardSize}
+                      sizeClass={sizeClass}
+                      onToggleVisibility={toggleCardVisibility}
+                      onToggleSelection={toggleCardSelection}
+                      onSizeChange={(size) => changeCardSize(cardConfig.id, size)}
+                      isSelected={isSelected}
+                      isEditing={isEditing}
                     />
-                  </div>
-                )
-              })}
+                  )
+                })}
+            </div>
+          </SortableContext>
+        </DndContext>
           </div>
 
         {/* Widget Configuration */}
