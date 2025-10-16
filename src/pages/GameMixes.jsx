@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import DataTable from '../components/DataTable'
 import GameMixModal from '../components/modals/GameMixModal'
+import GameMixDetailModal from '../components/modals/GameMixDetailModal'
 import GamesLibrary from './GamesLibrary'
 import { Cherry, Plus, Search, Filter, Download, Upload, Edit, Trash2, Gamepad2 } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
@@ -15,6 +16,8 @@ const GameMixes = () => {
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
+  const [viewingItem, setViewingItem] = useState(null)
+  const [showDetailModal, setShowDetailModal] = useState(false)
 
   useEffect(() => {
     setShowBulkActions(selectedItems.length > 0)
@@ -174,12 +177,17 @@ const GameMixes = () => {
       }
     },
     {
-      key: 'created_at',
-      label: 'Data Creare',
+      key: 'created_info',
+      label: 'CREAT DE / DATA',
       sortable: true,
       render: (item) => (
-        <div className="text-sm text-slate-600">
-          {new Date(item.created_at).toLocaleDateString('ro-RO')}
+        <div className="space-y-1">
+          <div className="text-slate-800 font-medium text-base">
+            {item.created_by || 'N/A'}
+          </div>
+          <div className="text-slate-500 text-sm">
+            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+          </div>
         </div>
       )
     },
