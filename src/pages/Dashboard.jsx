@@ -169,18 +169,17 @@ const Dashboard = () => {
         }
       }
       
-      // Fallback la // localStorage REMOVED - using server only dacă serverul nu funcționează sau nu există preferințe pe server
-      // localStorage REMOVED - using server only
-      const localConfig = null
+      // Fallback la sessionStorage dacă serverul nu funcționează sau nu există preferințe pe server
+      const localConfig = sessionStorage.getItem('dashboardConfig')
       if (localConfig) {
         try {
           const config = JSON.parse(localConfig)
-          console.log('📱 Loaded dashboard preferences from // localStorage REMOVED - using server only:', config)
+          console.log('📱 Loaded dashboard preferences from sessionStorage:', config)
           setDashboardConfig(config)
           if (config.cardSizes) setCardSizes(config.cardSizes)
           if (config.widgetSizes) setWidgetSizes(config.widgetSizes)
         } catch (e) {
-          console.error('Error parsing // localStorage REMOVED - using server only config:', e)
+          console.error('Error parsing sessionStorage config:', e)
           setDashboardConfig(defaultDashboardConfig)
         }
       } else {
@@ -200,17 +199,17 @@ const Dashboard = () => {
       widgetSizes
     }
     
+    // Salvează întotdeauna local pentru siguranță
+    sessionStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
+    
     try {
-      // Salvează pe server
+      // Încearcă să salveze pe server
       console.log('💾 Saving dashboard preferences to server for user:', user.id)
       await axios.put(`/api/users/${user.id}/preferences`, {
         preferences: {
           dashboard: configToSave
         }
       })
-      
-      // Salvează și local pentru backup
-      // localStorage REMOVED - using server only.setItem('dashboardConfig', JSON.stringify(configToSave))
       
       console.log('✅ Dashboard preferences saved successfully!')
       toast.success('Configurația dashboard-ului a fost salvată cu succes!')
@@ -219,8 +218,7 @@ const Dashboard = () => {
       setSelectedWidgets([])
     } catch (error) {
       console.error('❌ Error saving dashboard preferences:', error)
-      // Fallback la // localStorage REMOVED - using server only dacă serverul nu funcționează
-      // localStorage REMOVED - using server only.setItem('dashboardConfig', JSON.stringify(configToSave))
+      // Dacă serverul nu funcționează, folosește doar sessionStorage
       toast.success('Configurația a fost salvată local!')
       setIsEditing(false)
       setSelectedCards([])
@@ -231,7 +229,7 @@ const Dashboard = () => {
   // Resetează configurația la implicită
   const resetDashboardConfig = () => {
     setDashboardConfig(defaultDashboardConfig)
-    // localStorage REMOVED - using server only
+    sessionStorage.removeItem('dashboardConfig')
     setSelectedCards([])
     setSelectedWidgets([])
     setCardSizes({
@@ -249,7 +247,6 @@ const Dashboard = () => {
       legalDocuments: 'medium',
       users: 'medium'
     })
-    // localStorage REMOVED - using server only
     setIsEditing(false)
   }
 
@@ -287,22 +284,42 @@ const Dashboard = () => {
 
   // Toggle vizibilitatea unui card
   const toggleCardVisibility = (cardId) => {
-    setDashboardConfig(prev => ({
-      ...prev,
-      statCards: prev.statCards.map(card => 
-        card.id === cardId ? { ...card, visible: !card.visible } : card
-      )
-    }))
+    setDashboardConfig(prev => {
+      const newConfig = {
+        ...prev,
+        statCards: prev.statCards.map(card => 
+          card.id === cardId ? { ...card, visible: !card.visible } : card
+        )
+      }
+      // Salvează automat în sessionStorage
+      const configToSave = {
+        ...newConfig,
+        cardSizes,
+        widgetSizes
+      }
+      sessionStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
+      return newConfig
+    })
   }
 
   // Toggle vizibilitatea unui widget
   const toggleWidgetVisibility = (widgetId) => {
-    setDashboardConfig(prev => ({
-      ...prev,
-      widgets: prev.widgets.map(widget => 
-        widget.id === widgetId ? { ...widget, visible: !widget.visible } : widget
-      )
-    }))
+    setDashboardConfig(prev => {
+      const newConfig = {
+        ...prev,
+        widgets: prev.widgets.map(widget => 
+          widget.id === widgetId ? { ...widget, visible: !widget.visible } : widget
+        )
+      }
+      // Salvează automat în sessionStorage
+      const configToSave = {
+        ...newConfig,
+        cardSizes,
+        widgetSizes
+      }
+      sessionStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
+      return newConfig
+    })
   }
 
   // Mută un card în sus
@@ -314,7 +331,15 @@ const Dashboard = () => {
         [cards[index], cards[index - 1]] = [cards[index - 1], cards[index]]
         cards.forEach((card, i) => card.order = i + 1)
       }
-      return { ...prev, statCards: cards }
+      const newConfig = { ...prev, statCards: cards }
+      // Salvează automat în sessionStorage
+      const configToSave = {
+        ...newConfig,
+        cardSizes,
+        widgetSizes
+      }
+      sessionStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
+      return newConfig
     })
   }
 
@@ -327,7 +352,15 @@ const Dashboard = () => {
         [cards[index], cards[index + 1]] = [cards[index + 1], cards[index]]
         cards.forEach((card, i) => card.order = i + 1)
       }
-      return { ...prev, statCards: cards }
+      const newConfig = { ...prev, statCards: cards }
+      // Salvează automat în sessionStorage
+      const configToSave = {
+        ...newConfig,
+        cardSizes,
+        widgetSizes
+      }
+      sessionStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
+      return newConfig
     })
   }
 
@@ -361,7 +394,13 @@ const Dashboard = () => {
   const changeCardSize = (cardId, size) => {
     setCardSizes(prev => {
       const newSizes = { ...prev, [cardId]: size }
-      // localStorage REMOVED - using server only
+      // Salvează automat în sessionStorage
+      const configToSave = {
+        ...dashboardConfig,
+        cardSizes: { ...prev, [cardId]: size },
+        widgetSizes
+      }
+      sessionStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
       return newSizes
     })
   }
@@ -370,7 +409,13 @@ const Dashboard = () => {
   const changeWidgetSize = (widgetId, size) => {
     setWidgetSizes(prev => {
       const newSizes = { ...prev, [widgetId]: size }
-      // localStorage REMOVED - using server only
+      // Salvează automat în sessionStorage
+      const configToSave = {
+        ...dashboardConfig,
+        cardSizes,
+        widgetSizes: { ...prev, [widgetId]: size }
+      }
+      sessionStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
       return newSizes
     })
   }
@@ -410,7 +455,13 @@ const Dashboard = () => {
       selectedCards.forEach(cardId => {
         newSizes[cardId] = size
       })
-      // localStorage REMOVED - using server only
+      // Salvează automat în sessionStorage
+      const configToSave = {
+        ...dashboardConfig,
+        cardSizes: newSizes,
+        widgetSizes
+      }
+      sessionStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
       return newSizes
     })
   }
@@ -444,7 +495,13 @@ const Dashboard = () => {
       selectedWidgets.forEach(widgetId => {
         newSizes[widgetId] = size
       })
-      // localStorage REMOVED - using server only
+      // Salvează automat în sessionStorage
+      const configToSave = {
+        ...dashboardConfig,
+        cardSizes,
+        widgetSizes: newSizes
+      }
+      sessionStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
       return newSizes
     })
   }

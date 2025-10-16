@@ -86,6 +86,18 @@ const Settings = () => {
     } catch (error) {
       console.log('⚠️ Could not load settings from server')
     }
+    
+    // Fallback la sessionStorage
+    const savedSettings = sessionStorage.getItem('appSettings')
+    if (savedSettings) {
+      try {
+        const parsedSettings = JSON.parse(savedSettings)
+        setSettings(parsedSettings)
+        console.log('📱 Loaded app settings from sessionStorage')
+      } catch (e) {
+        console.error('Error parsing sessionStorage settings:', e)
+      }
+    }
   }
 
   const handleLogoTypeChange = (type) => {
@@ -238,8 +250,11 @@ const Settings = () => {
   }
 
   const handleSave = async () => {
+    // Salvează întotdeauna în sessionStorage pentru siguranță
+    sessionStorage.setItem('appSettings', JSON.stringify(settings))
+    
     try {
-      // Save to server only
+      // Încearcă să salveze pe server
       const response = await axios.get('/api/auth/verify')
       if (response.data.success && response.data.user) {
         await axios.put(`/api/users/${response.data.user.id}/preferences`, {
@@ -251,8 +266,7 @@ const Settings = () => {
       }
     } catch (error) {
       console.error('❌ Error saving to server:', error)
-      alert('Eroare la salvarea setărilor pe server!')
-      return
+      // Dacă serverul nu funcționează, folosește doar sessionStorage
     }
     
     // Update favicon in HTML if it exists
