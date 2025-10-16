@@ -2641,31 +2641,41 @@ app.post('/api/cyber/sync-slots', async (req, res) => {
     await pool.query('DELETE FROM slots')
     console.log('🗑️ Cleared existing slots')
     
-    // Insert Cyber slots
-    let insertedCount = 0
-    for (const cyberSlot of cyberSlots) {
-      try {
-        await pool.query(`
-          INSERT INTO slots (
-            serial_number, provider, cabinet, game_mix, status, 
-            location, last_updated, created_at, created_by
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        `, [
-          cyberSlot.serial_number || 'N/A',
-          cyberSlot.provider || 'Unknown',
-          cyberSlot.cabinet || 'Unknown',
-          cyberSlot.game_mix || null,
-          cyberSlot.status || 'Active',
-          cyberSlot.location || 'Unknown',
-          cyberSlot.last_updated || new Date().toISOString(),
-          cyberSlot.created_at || new Date().toISOString(),
-          1 // admin user
-        ])
-        insertedCount++
-      } catch (insertError) {
-        console.error(`❌ Error inserting slot ${cyberSlot.serial_number}:`, insertError.message)
-      }
-    }
+    // Insert Cyber slots in BATCH (much faster!)
+    console.log('🚀 Starting BATCH insert...')
+    const values = []
+    const params = []
+    let paramCount = 1
+    
+    cyberSlots.forEach(cyberSlot => {
+      const rowValues = [
+        cyberSlot.serial_number || 'N/A',
+        cyberSlot.provider || 'Unknown',
+        cyberSlot.cabinet || 'Unknown',
+        cyberSlot.game_mix || null,
+        cyberSlot.status || 'Active',
+        cyberSlot.location || 'Unknown',
+        cyberSlot.updated_at || cyberSlot.last_updated || new Date().toISOString(),
+        cyberSlot.created_at || new Date().toISOString(),
+        'Cyber Import'
+      ]
+      
+      const placeholders = rowValues.map((_, idx) => `$${paramCount + idx}`).join(', ')
+      values.push(`(${placeholders})`)
+      params.push(...rowValues)
+      paramCount += rowValues.length
+    })
+    
+    const insertQuery = `
+      INSERT INTO slots (
+        serial_number, provider, cabinet, game_mix, status, 
+        location, updated_at, created_at, created_by
+      ) VALUES ${values.join(', ')}
+    `
+    
+    await pool.query(insertQuery, params)
+    const insertedCount = cyberSlots.length
+    console.log(`✅ BATCH INSERT completed: ${insertedCount} slots`)
     
     console.log(`✅ SYNCED ${insertedCount} slots from Cyber to main table`)
     res.json({ 
