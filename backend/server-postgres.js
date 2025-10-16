@@ -925,7 +925,7 @@ const limiter = rateLimit({
 })
 app.use('/api/', limiter)
 
-// Health check
+// Health check - Force redeploy
 app.get('/health', async (req, res) => {
   try {
     const result = await pool.query('SELECT NOW()')
