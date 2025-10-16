@@ -84,20 +84,39 @@ const Marketing = () => {
     },
     {
       key: 'prize',
-      label: 'PREMIU',
+      label: 'PREMII',
       sortable: true,
-      render: (item) => (
-        <div className="space-y-1">
-          <div className="text-lg font-bold text-green-600 dark:text-green-400">
-            {item.prize_amount ? `${parseFloat(item.prize_amount).toLocaleString('ro-RO')} ${item.prize_currency || 'RON'}` : 'N/A'}
-          </div>
-          {item.prize_date && (
-            <div className="text-slate-500 text-sm">
-              Acordare: {new Date(item.prize_date).toLocaleDateString('ro-RO')}
+      render: (item) => {
+        let prizes = []
+        if (item.prizes) {
+          prizes = typeof item.prizes === 'string' ? JSON.parse(item.prizes) : item.prizes
+        } else if (item.prize_amount) {
+          prizes = [{
+            amount: item.prize_amount,
+            currency: item.prize_currency || 'RON',
+            date: item.prize_date
+          }]
+        }
+        
+        const totalAmount = prizes.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0)
+        const nextPrizeDate = prizes.find(p => p.date && new Date(p.date) >= new Date())?.date
+        
+        return (
+          <div className="space-y-1">
+            <div className="text-lg font-bold text-green-600 dark:text-green-400">
+              {totalAmount > 0 ? `${totalAmount.toLocaleString('ro-RO')} ${prizes[0]?.currency || 'RON'}` : 'N/A'}
             </div>
-          )}
-        </div>
-      )
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              {prizes.length} {prizes.length === 1 ? 'premiu' : 'premii'}
+            </div>
+            {nextPrizeDate && (
+              <div className="text-xs text-pink-600 dark:text-pink-400 font-semibold">
+                Următor: {new Date(nextPrizeDate).toLocaleDateString('ro-RO', { day: 'numeric', month: 'short' })}
+              </div>
+            )}
+          </div>
+        )
+      }
     },
     {
       key: 'status',
@@ -170,7 +189,16 @@ const Marketing = () => {
     return p.status === 'Active' && daysRemaining > 0
   })
 
-  const totalPrizePool = promotions.reduce((sum, p) => sum + (parseFloat(p.prize_amount) || 0), 0)
+  const totalPrizePool = promotions.reduce((sum, p) => {
+    let prizes = []
+    if (p.prizes) {
+      prizes = typeof p.prizes === 'string' ? JSON.parse(p.prizes) : p.prizes
+    } else if (p.prize_amount) {
+      prizes = [{ amount: p.prize_amount }]
+    }
+    const promoTotal = prizes.reduce((s, prize) => s + (parseFloat(prize.amount) || 0), 0)
+    return sum + promoTotal
+  }, 0)
 
   return (
     <Layout>

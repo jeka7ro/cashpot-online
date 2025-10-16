@@ -730,11 +730,8 @@ const initializeDatabase = async () => {
           start_date DATE NOT NULL,
           end_date DATE NOT NULL,
           location VARCHAR(255) NOT NULL,
-          prize_amount DECIMAL(10,2),
-          prize_currency VARCHAR(10) DEFAULT 'RON',
-          prize_date DATE,
+          prizes JSONB DEFAULT '[]',
           status VARCHAR(50) DEFAULT 'Active',
-          winner VARCHAR(255),
           notes TEXT,
           created_by VARCHAR(255) DEFAULT 'admin',
           updated_by VARCHAR(255),
@@ -743,8 +740,47 @@ const initializeDatabase = async () => {
         )
       `)
       console.log('✅ Promotions table created')
+      
+      // Migrate existing promotions to new prizes format
+      try {
+        // Check if old columns exist
+        const hasOldColumns = await pool.query(`
+          SELECT column_name FROM information_schema.columns 
+          WHERE table_name = 'promotions' AND column_name IN ('prize_amount', 'prize_date', 'winner')
+        `)
+        
+        if (hasOldColumns.rows.length > 0) {
+          console.log('🔄 Migrating old promotions format to new prizes format...')
+          
+          // Get all promotions
+          const promotions = await pool.query('SELECT * FROM promotions')
+          
+          for (const promo of promotions.rows) {
+            if (promo.prize_amount || promo.prize_date || promo.winner) {
+              const prize = {
+                amount: parseFloat(promo.prize_amount) || 0,
+                currency: promo.prize_currency || 'RON',
+                date: promo.prize_date,
+                winner: promo.winner || null
+              }
+              
+              await pool.query('UPDATE promotions SET prizes = $1 WHERE id = $2', [JSON.stringify([prize]), promo.id])
+            }
+          }
+          
+          // Drop old columns
+          await pool.query('ALTER TABLE promotions DROP COLUMN IF EXISTS prize_amount')
+          await pool.query('ALTER TABLE promotions DROP COLUMN IF EXISTS prize_currency')
+          await pool.query('ALTER TABLE promotions DROP COLUMN IF EXISTS prize_date')
+          await pool.query('ALTER TABLE promotions DROP COLUMN IF EXISTS winner')
+          
+          console.log('✅ Promotions migration completed')
+        }
+      } catch (migError) {
+        console.log('⚠️ Promotions migration skipped:', migError.message)
+      }
     } catch (error) {
-      console.log('⚠️ Slot history table may already exist:', error.message)
+      console.log('⚠️ Promotions table may already exist:', error.message)
     }
     
     // Remove CASCADE constraint from slot_history if it exists
@@ -3290,18 +3326,64 @@ app.get('/api/promotions/active', async (req, res) => {
   }
 })
 
+// MIGRATION ENDPOINT - Run once to migrate old promotions format
+app.post('/api/promotions/migrate', async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    
+    // Step 1: Add prizes column
+    await pool.query('ALTER TABLE promotions ADD COLUMN IF NOT EXISTS prizes JSONB DEFAULT \'[]\'')
+    console.log('✅ Added prizes column')
+    
+    // Step 2: Migrate existing data
+    const result = await pool.query(`
+      UPDATE promotions 
+      SET prizes = jsonb_build_array(
+        jsonb_build_object(
+          'amount', COALESCE(prize_amount::text::numeric, 0),
+          'currency', COALESCE(prize_currency, 'RON'),
+          'date', prize_date,
+          'winner', winner
+        )
+      )
+      WHERE prize_amount IS NOT NULL OR prize_date IS NOT NULL OR winner IS NOT NULL
+      RETURNING id, name
+    `)
+    console.log(`✅ Migrated ${result.rowCount} promotions`)
+    
+    // Step 3: Drop old columns
+    await pool.query('ALTER TABLE promotions DROP COLUMN IF EXISTS prize_amount')
+    await pool.query('ALTER TABLE promotions DROP COLUMN IF EXISTS prize_currency')
+    await pool.query('ALTER TABLE promotions DROP COLUMN IF EXISTS prize_date')
+    await pool.query('ALTER TABLE promotions DROP COLUMN IF EXISTS winner')
+    console.log('✅ Dropped old columns')
+    
+    res.json({ 
+      success: true, 
+      message: `Migration completed! ${result.rowCount} promotions migrated`,
+      migrated: result.rows
+    })
+  } catch (error) {
+    console.error('Migration error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 // Create promotion
 app.post('/api/promotions', authenticateUser, async (req, res) => {
   try {
-    const { name, description, start_date, end_date, location, prize_amount, prize_currency, prize_date, status, winner, notes } = req.body
+    const { name, description, start_date, end_date, location, prizes, status, notes } = req.body
     const createdBy = req.user?.full_name || req.user?.username || 'Admin'
+    
+    // prizes should be array of { amount, currency, date, winner }
+    const prizesJson = JSON.stringify(prizes || [])
     
     const result = await pool.query(
       `INSERT INTO promotions 
-       (name, description, start_date, end_date, location, prize_amount, prize_currency, prize_date, status, winner, notes, created_by, created_at) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP) 
+       (name, description, start_date, end_date, location, prizes, status, notes, created_by, created_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP) 
        RETURNING *`,
-      [name, description, start_date, end_date, location, prize_amount, prize_currency || 'RON', prize_date, status || 'Active', winner, notes, createdBy]
+      [name, description, start_date, end_date, location, prizesJson, status || 'Active', notes, createdBy]
     )
     res.status(201).json(result.rows[0])
   } catch (error) {
@@ -3314,17 +3396,18 @@ app.post('/api/promotions', authenticateUser, async (req, res) => {
 app.put('/api/promotions/:id', authenticateUser, async (req, res) => {
   try {
     const { id } = req.params
-    const { name, description, start_date, end_date, location, prize_amount, prize_currency, prize_date, status, winner, notes } = req.body
+    const { name, description, start_date, end_date, location, prizes, status, notes } = req.body
     const updatedBy = req.user?.full_name || req.user?.username || 'Admin'
+    
+    const prizesJson = JSON.stringify(prizes || [])
     
     const result = await pool.query(
       `UPDATE promotions 
        SET name = $1, description = $2, start_date = $3, end_date = $4, location = $5, 
-           prize_amount = $6, prize_currency = $7, prize_date = $8, status = $9, winner = $10, 
-           notes = $11, updated_by = $12, updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $13 
+           prizes = $6, status = $7, notes = $8, updated_by = $9, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $10 
        RETURNING *`,
-      [name, description, start_date, end_date, location, prize_amount, prize_currency, prize_date, status, winner, notes, updatedBy, id]
+      [name, description, start_date, end_date, location, prizesJson, status, notes, updatedBy, id]
     )
     
     if (result.rows.length === 0) {

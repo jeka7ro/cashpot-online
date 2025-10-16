@@ -1,8 +1,22 @@
 import React from 'react'
-import { X, TrendingUp, Calendar, MapPin, Award, DollarSign, User, Clock, Trophy } from 'lucide-react'
+import { X, TrendingUp, Calendar, MapPin, Award, DollarSign, User, Clock, Trophy, Gift } from 'lucide-react'
 
 const MarketingDetailModal = ({ item, onClose }) => {
   if (!item) return null
+
+  // Parse prizes from JSONB
+  let prizes = []
+  if (item.prizes) {
+    prizes = typeof item.prizes === 'string' ? JSON.parse(item.prizes) : item.prizes
+  } else if (item.prize_amount) {
+    // Old format fallback
+    prizes = [{
+      amount: item.prize_amount,
+      currency: item.prize_currency || 'RON',
+      date: item.prize_date,
+      winner: item.winner
+    }]
+  }
 
   // Calculate days remaining
   const getDaysRemaining = (endDate) => {
@@ -14,14 +28,26 @@ const MarketingDetailModal = ({ item, onClose }) => {
     return diffDays
   }
 
+  const getDaysUntilPrize = (prizeDate) => {
+    if (!prizeDate) return null
+    const today = new Date()
+    const prize = new Date(prizeDate)
+    const diffTime = prize - today
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    return diffDays
+  }
+
   const daysRemaining = getDaysRemaining(item.end_date)
   const duration = item.start_date && item.end_date 
     ? Math.ceil((new Date(item.end_date) - new Date(item.start_date)) / (1000 * 60 * 60 * 24))
     : 0
 
+  // Calculate total prize pool
+  const totalPrizePool = prizes.reduce((sum, prize) => sum + (parseFloat(prize.amount) || 0), 0)
+
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-pink-600 to-rose-600 p-6 rounded-t-2xl sticky top-0 z-10">
           <div className="flex items-center justify-between">
@@ -31,7 +57,7 @@ const MarketingDetailModal = ({ item, onClose }) => {
               </div>
               <div>
                 <h2 className="text-3xl font-bold text-white">{item.name}</h2>
-                <p className="text-pink-100">Detalii Promoție</p>
+                <p className="text-pink-100">Detalii Promoție & Premii</p>
               </div>
             </div>
             <button
@@ -105,38 +131,133 @@ const MarketingDetailModal = ({ item, onClose }) => {
                 {item.location || 'N/A'}
               </p>
             </div>
+          </div>
 
-            {/* Premiu */}
-            {item.prize_amount && (
-              <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-6 rounded-xl border border-green-200 dark:border-green-800">
-                <div className="flex items-center space-x-3 mb-3">
-                  <Award className="w-5 h-5 text-green-600 dark:text-green-400" />
-                  <h3 className="font-semibold text-slate-700 dark:text-slate-200">Premiu</h3>
-                </div>
-                <p className="text-3xl font-bold text-green-600 dark:text-green-400">
-                  {parseFloat(item.prize_amount).toLocaleString('ro-RO')} {item.prize_currency || 'RON'}
-                </p>
-                {item.prize_date && (
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
-                    Acordare: {new Date(item.prize_date).toLocaleDateString('ro-RO')}
-                  </p>
+          {/* Prizes Section - EXPANDED */}
+          {prizes.length > 0 && (
+            <div className="border-t-2 border-slate-200 dark:border-slate-600 pt-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center">
+                  <Gift className="w-6 h-6 mr-3 text-pink-600 dark:text-pink-400" />
+                  Premii ({prizes.length})
+                </h3>
+                {prizes.length > 1 && (
+                  <div className="bg-gradient-to-r from-green-500 to-emerald-500 px-6 py-3 rounded-xl text-white shadow-lg">
+                    <p className="text-sm font-semibold">TOTAL FOND PREMII</p>
+                    <p className="text-2xl font-bold">
+                      {totalPrizePool.toLocaleString('ro-RO')} {prizes[0]?.currency || 'RON'}
+                    </p>
+                  </div>
                 )}
               </div>
-            )}
 
-            {/* Câștigător */}
-            {item.winner && (
-              <div className="bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 p-6 rounded-xl border border-yellow-200 dark:border-yellow-800">
-                <div className="flex items-center space-x-3 mb-3">
-                  <Trophy className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-                  <h3 className="font-semibold text-slate-700 dark:text-slate-200">Câștigător</h3>
-                </div>
-                <p className="text-lg font-medium text-slate-900 dark:text-white">
-                  {item.winner}
-                </p>
+              <div className="grid grid-cols-1 gap-4">
+                {prizes.map((prize, index) => {
+                  const prizeDate = prize.date
+                  const daysUntil = getDaysUntilPrize(prizeDate)
+                  const isPast = daysUntil !== null && daysUntil < 0
+                  const isToday = daysUntil === 0
+                  const isSoon = daysUntil !== null && daysUntil > 0 && daysUntil <= 7
+
+                  return (
+                    <div 
+                      key={index}
+                      className={`p-6 rounded-xl border-2 ${
+                        isPast 
+                          ? 'bg-gradient-to-br from-gray-50 to-slate-100 dark:from-gray-900/20 dark:to-slate-800/20 border-gray-300 dark:border-gray-700'
+                          : isToday
+                          ? 'bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border-red-400 dark:border-red-700 shadow-xl'
+                          : isSoon
+                          ? 'bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 border-yellow-400 dark:border-yellow-700'
+                          : 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-300 dark:border-green-700'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        {/* Prize Info */}
+                        <div className="flex items-start space-x-4 flex-1">
+                          <div className={`p-3 rounded-xl ${
+                            isPast ? 'bg-gray-200 dark:bg-gray-700' 
+                            : isToday ? 'bg-red-200 dark:bg-red-800' 
+                            : isSoon ? 'bg-yellow-200 dark:bg-yellow-800' 
+                            : 'bg-green-200 dark:bg-green-800'
+                          }`}>
+                            <Award className={`w-6 h-6 ${
+                              isPast ? 'text-gray-600 dark:text-gray-300' 
+                              : isToday ? 'text-red-600 dark:text-red-300' 
+                              : isSoon ? 'text-yellow-600 dark:text-yellow-300' 
+                              : 'text-green-600 dark:text-green-300'
+                            }`} />
+                          </div>
+
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <h4 className="text-lg font-bold text-slate-800 dark:text-white">
+                                Premiu #{index + 1}
+                              </h4>
+                              {isToday && (
+                                <span className="px-3 py-1 bg-red-500 text-white text-xs font-bold rounded-full animate-pulse">
+                                  ASTĂZI!
+                                </span>
+                              )}
+                              {isSoon && !isToday && (
+                                <span className="px-3 py-1 bg-yellow-500 text-white text-xs font-bold rounded-full">
+                                  {daysUntil} ZILE
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                              {/* Amount */}
+                              <div>
+                                <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">SUMĂ PREMIU</p>
+                                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                                  {parseFloat(prize.amount || 0).toLocaleString('ro-RO')} {prize.currency || 'RON'}
+                                </p>
+                              </div>
+
+                              {/* Date */}
+                              <div>
+                                <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">DATA ACORDARE</p>
+                                <p className="text-base font-semibold text-slate-900 dark:text-white">
+                                  {prizeDate ? new Date(prizeDate).toLocaleDateString('ro-RO', {
+                                    day: 'numeric',
+                                    month: 'long',
+                                    year: 'numeric'
+                                  }) : 'N/A'}
+                                </p>
+                                {daysUntil !== null && daysUntil > 0 && !isToday && (
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                    (peste {daysUntil} {daysUntil === 1 ? 'zi' : 'zile'})
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Winner */}
+                              <div>
+                                <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">CÂȘTIGĂTOR</p>
+                                {prize.winner ? (
+                                  <div className="flex items-center space-x-2">
+                                    <Trophy className="w-5 h-5 text-yellow-500" />
+                                    <p className="text-base font-semibold text-slate-900 dark:text-white">
+                                      {prize.winner}
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <p className="text-base text-slate-500 dark:text-slate-400 italic">
+                                    {isPast ? 'Neacordat' : 'În așteptare'}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Description */}
           {item.description && (
@@ -201,4 +322,3 @@ const MarketingDetailModal = ({ item, onClose }) => {
 }
 
 export default MarketingDetailModal
-
