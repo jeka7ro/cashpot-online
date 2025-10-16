@@ -10,6 +10,9 @@ import RecentActivity from '../components/RecentActivity'
 import SystemHealth from '../components/SystemHealth'
 import ONJNCalendar from '../components/ONJNCalendar'
 import DatabaseBackup from '../components/DatabaseBackup'
+import PromotionsWidget from '../components/PromotionsWidget'
+import PromotionsCalendarWidget from '../components/PromotionsCalendarWidget'
+import PromotionsAIWidget from '../components/PromotionsAIWidget'
 import ONJNCurrencyRate from '../components/ONJNCurrencyRate'
 import GamesLibraryWidget from '../components/GamesLibraryWidget'
 import { getVersion, getBuild, getBuildDate } from '../utils/version'
@@ -107,7 +110,10 @@ const Dashboard = () => {
       { id: 'onjnCalendar', title: 'Calendar ONJN', visible: true, order: 5 },
       { id: 'systemHealth', title: 'Sănătate Sistem', visible: true, order: 6 },
       { id: 'gamesLibrary', title: 'Jocuri din Librărie', visible: true, order: 7 },
-      { id: 'performanceCharts', title: 'Grafice Performanță', visible: true, order: 8 }
+      { id: 'promotionsActive', title: '🎯 Promoții Active', visible: true, order: 8 },
+      { id: 'promotionsCalendar', title: '📅 Calendar Promoții', visible: true, order: 9 },
+      { id: 'promotionsAI', title: '🤖 Analiză AI Marketing', visible: true, order: 10 },
+      { id: 'performanceCharts', title: 'Grafice Performanță', visible: true, order: 11 }
     ]
   }
 
@@ -1014,6 +1020,12 @@ const Dashboard = () => {
                         return <SystemHealth />
                       case 'gamesLibrary':
                         return <GamesLibraryWidget />
+                      case 'promotionsActive':
+                        return <PromotionsWidget />
+                      case 'promotionsCalendar':
+                        return <PromotionsCalendarWidget />
+                      case 'promotionsAI':
+                        return <PromotionsAIWidget />
                       default:
                         return null
                     }
