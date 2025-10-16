@@ -37,8 +37,6 @@ const Login = () => {
   })
 
   useEffect(() => {
-    // Load settings from // localStorage REMOVED - using server only
-    // localStorage REMOVED - using server only
     const savedSettings = null
     if (savedSettings) {
       const parsed = JSON.parse(savedSettings)
@@ -54,7 +52,6 @@ const Login = () => {
     }
 
     // Load saved credentials
-    // localStorage REMOVED - using server only
     const savedCredentials = null
     if (savedCredentials) {
       const credentials = JSON.parse(savedCredentials)
@@ -86,7 +83,6 @@ const Login = () => {
     const result = await login(formData.username, formData.password)
     
     if (result.success) {
-      // Save credentials - localStorage REMOVED - using server only
       
       navigate('/dashboard', { replace: true })
     }

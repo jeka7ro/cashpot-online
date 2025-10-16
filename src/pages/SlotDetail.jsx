@@ -45,7 +45,6 @@ const SlotDetail = () => {
   })
 
   useEffect(() => {
-    // localStorage REMOVED - using server only
     const savedShowAttachments = false
     if (savedShowAttachments !== null) {
       setShowAttachments(JSON.parse(savedShowAttachments))
@@ -77,7 +76,6 @@ const SlotDetail = () => {
 
   const saveAttachmentSettings = (value) => {
     setShowAttachments(value)
-    // localStorage REMOVED - using server only
   }
 
   // Loading state check - must be after all hooks
