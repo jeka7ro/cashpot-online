@@ -2650,6 +2650,7 @@ app.post('/api/cyber/sync-slots', async (req, res) => {
     cyberSlots.forEach(cyberSlot => {
       const rowValues = [
         cyberSlot.serial_number || 'N/A',
+        cyberSlot.serial_number || 'N/A', // slot_id same as serial_number
         cyberSlot.provider || 'Unknown',
         cyberSlot.cabinet || 'Unknown',
         cyberSlot.game_mix || null,
@@ -2668,7 +2669,7 @@ app.post('/api/cyber/sync-slots', async (req, res) => {
     
     const insertQuery = `
       INSERT INTO slots (
-        serial_number, provider, cabinet, game_mix, status, 
+        serial_number, slot_id, provider, cabinet, game_mix, status, 
         location, updated_at, created_at, created_by
       ) VALUES ${values.join(', ')}
     `
