@@ -190,21 +190,6 @@ const GameMixes = () => {
           </div>
         </div>
       )
-    },
-    {
-      key: 'created_by',
-      label: 'Creat de',
-      sortable: true,
-      render: (item) => (
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-xs shadow-lg">
-            {item.created_by?.charAt(0)?.toUpperCase() || 'A'}
-          </div>
-          <span className="text-sm font-medium text-slate-700">
-            {item.created_by || 'Sistem'}
-          </span>
-        </div>
-      )
     }
   ]
 
@@ -331,6 +316,10 @@ const GameMixes = () => {
                 columns={columns}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                onRowClick={(item) => {
+                  setViewingItem(item)
+                  setShowDetailModal(true)
+                }}
                 searchTerm={searchTerm}
                 emptyMessage="Nu există game mixes în sistem"
                 selectedItems={selectedItems}
@@ -350,6 +339,16 @@ const GameMixes = () => {
             item={selectedItem}
             onClose={handleCloseModal}
             onSave={handleSave}
+          />
+        )}
+        {/* Detail Modal */}
+        {showDetailModal && (
+          <GameMixDetailModal
+            item={viewingItem}
+            onClose={() => {
+              setShowDetailModal(false)
+              setViewingItem(null)
+            }}
           />
         )}
       </div>
