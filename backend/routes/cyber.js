@@ -1,5 +1,4 @@
 import express from 'express'
-import { getCyberConnection, testCyberConnection } from '../config/cyber.js'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -33,12 +32,7 @@ router.get('/test', async (req, res) => {
       return
     }
     
-    const result = await testCyberConnection()
-    if (result) {
-      res.json({ success: true, message: 'Cyber database connection successful' })
-    } else {
-      res.status(500).json({ success: false, message: 'Cyber database connection failed' })
-    }
+    res.json({ success: true, message: 'Cyber endpoints working (local mode)', mode: 'local' })
   } catch (error) {
     console.error('Cyber connection test error:', error)
     res.status(500).json({ success: false, message: error.message })
@@ -71,41 +65,26 @@ router.get('/slots', async (req, res) => {
       return
     }
     
-    const cyberPool = getCyberConnection()
-    const connection = await cyberPool.getConnection()
+    // On local development, try to connect to Cyber database
+    // For now, just use JSON fallback
+    console.log('🔄 Using JSON fallback for slots (local mode)')
+    const slots = loadExportedData('slots.json')
+    const locations = loadExportedData('locations.json')
     
-    // Query to get machines (slots) from Cyber database with correct table structure
-    const query = `
-      SELECT 
-        m.id,
-        m.slot_machine_id as serial_number,
-        mm.name as provider,
-        mct.name as cabinet,
-        gt.name as game_mix,
-        CASE 
-          WHEN m.active = 1 THEN 'Active'
-          ELSE 'Inactive'
-        END as status,
-        l.code as location,
-        l.address,
-        l.city,
-        l.company,
-        m.updated_at as last_updated,
-        m.created_at
-      FROM machines m
-      LEFT JOIN machine_types mt ON m.machine_type_id = mt.id
-      LEFT JOIN machine_manufacturers mm ON mt.manufacturer_id = mm.id
-      LEFT JOIN machine_cabinet_types mct ON m.cabinet_type_id = mct.id
-      LEFT JOIN machine_game_templates gt ON m.game_template_id = gt.id
-      LEFT JOIN locations l ON m.location_id = l.id
-      WHERE m.deleted_at IS NULL
-      ORDER BY m.created_at DESC
-    `
+    // Enhance slots with address and jackpot data
+    const enhancedSlots = slots.map(slot => {
+      // Find location details
+      const location = locations.find(loc => loc.location === slot.location)
+      
+      return {
+        ...slot,
+        address: location?.address || 'N/A',
+        city: location?.city || 'N/A',
+        company: location?.company || 'N/A'
+      }
+    })
     
-    const [rows] = await connection.execute(query)
-    connection.release()
-    
-    res.json(rows)
+    res.json(enhancedSlots)
   } catch (error) {
     console.error('Error fetching Cyber slots from database, using exported data:', error.message)
     const slots = loadExportedData('slots.json')
