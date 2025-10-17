@@ -207,15 +207,19 @@ export const DataProvider = ({ children }) => {
   }
 
   // Delete item
-  const deleteItem = async (entity, id) => {
+  const deleteItem = async (entity, id, silent = false) => {
     try {
       await axios.delete(`/api/${entity}/${id}`)
       entityConfig[entity].setState(prev => prev.filter(item => item.id !== id))
-      toast.success('Șters cu succes!')
+      if (!silent) {
+        toast.success('Șters cu succes!')
+      }
       return { success: true }
     } catch (error) {
       console.error(`Error deleting ${entity}:`, error)
-      toast.error('Eroare la ștergere!')
+      if (!silent) {
+        toast.error('Eroare la ștergere!')
+      }
       return { success: false, error: error.message }
     }
   }

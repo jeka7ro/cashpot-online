@@ -439,7 +439,7 @@ const Slots = () => {
         // Procesează batch-ul în paralel
         const promises = batch.map(async (id) => {
           try {
-            await deleteItem('slots', id)
+            await deleteItem('slots', id, true) // silent = true pentru bulk delete
             successCount++
           } catch (error) {
             errorCount++

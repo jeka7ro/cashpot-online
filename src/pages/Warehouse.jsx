@@ -64,7 +64,7 @@ const Warehouse = () => {
         // Procesează batch-ul în paralel
         const promises = batch.map(async (id) => {
           try {
-            await deleteItem('warehouse', id)
+            await deleteItem('warehouse', id, true) // silent = true pentru bulk delete
             successCount++
           } catch (error) {
             errorCount++
