@@ -382,6 +382,42 @@ const Slots = () => {
         )
       }
     },
+    {
+      key: 'address',
+      label: 'ADRESĂ',
+      sortable: true,
+      render: (item) => (
+        <div className="text-slate-800 font-medium text-base">
+          <div className="text-sm">{item.address || 'N/A'}</div>
+          {item.city && (
+            <div className="text-xs text-slate-500">{item.city}</div>
+          )}
+        </div>
+      )
+    },
+    {
+      key: 'jackpot',
+      label: 'JACKPOT',
+      sortable: false,
+      render: (item) => {
+        if (item.jackpot_name) {
+          return (
+            <div className="text-slate-800 font-medium text-base">
+              <div className="text-sm font-semibold text-green-600">{item.jackpot_name}</div>
+              <div className="text-xs text-slate-500">
+                {item.current_amount ? `${item.current_amount.toLocaleString('ro-RO')} RON` : 'N/A'}
+              </div>
+              {item.jackpot_type && (
+                <div className="text-xs text-slate-400">{item.jackpot_type}</div>
+              )}
+            </div>
+          )
+        }
+        return (
+          <span className="text-slate-400 dark:text-slate-500 text-sm">-</span>
+        )
+      }
+    },
   ]
 
   const handleCreate = () => {

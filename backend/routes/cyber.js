@@ -52,7 +52,22 @@ router.get('/slots', async (req, res) => {
     if (process.env.RENDER === 'true') {
       console.log('🔄 Using JSON fallback for slots (Render mode)')
       const slots = loadExportedData('slots.json')
-      res.json(slots)
+      const locations = loadExportedData('locations.json')
+      
+      // Enhance slots with address and jackpot data
+      const enhancedSlots = slots.map(slot => {
+        // Find location details
+        const location = locations.find(loc => loc.location === slot.location)
+        
+        return {
+          ...slot,
+          address: location?.address || 'N/A',
+          city: location?.city || 'N/A',
+          company: location?.company || 'N/A'
+        }
+      })
+      
+      res.json(enhancedSlots)
       return
     }
     
@@ -72,6 +87,9 @@ router.get('/slots', async (req, res) => {
           ELSE 'Inactive'
         END as status,
         l.code as location,
+        l.address,
+        l.city,
+        l.company,
         m.updated_at as last_updated,
         m.created_at
       FROM machines m
@@ -90,8 +108,52 @@ router.get('/slots', async (req, res) => {
     res.json(rows)
   } catch (error) {
     console.error('Error fetching Cyber slots from database, using exported data:', error.message)
-    const fallbackData = loadExportedData('slots.json')
-    res.json(fallbackData)
+    const slots = loadExportedData('slots.json')
+    const locations = loadExportedData('locations.json')
+    
+    // Enhance slots with address data
+    const enhancedSlots = slots.map(slot => {
+      const location = locations.find(loc => loc.location === slot.location)
+      return {
+        ...slot,
+        address: location?.address || 'N/A',
+        city: location?.city || 'N/A',
+        company: location?.company || 'N/A'
+      }
+    })
+    
+    res.json(enhancedSlots)
+  }
+})
+
+// Get jackpots for slots
+router.get('/slots-with-jackpots', async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    
+    // Get all slots with their jackpots
+    const query = `
+      SELECT 
+        s.*,
+        j.id as jackpot_id,
+        j.jackpot_name,
+        j.jackpot_type,
+        j.current_amount,
+        j.max_amount,
+        j.progress_percentage,
+        j.status as jackpot_status,
+        j.winner,
+        j.triggered_date
+      FROM slots s
+      LEFT JOIN jackpots j ON s.serial_number = j.serial_number
+      ORDER BY s.created_at DESC
+    `
+    
+    const result = await pool.query(query)
+    res.json(result.rows)
+  } catch (error) {
+    console.error('Error fetching slots with jackpots:', error)
+    res.status(500).json({ success: false, error: error.message })
   }
 })
 

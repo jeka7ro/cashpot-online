@@ -86,7 +86,7 @@ export const DataProvider = ({ children }) => {
       const entities = Object.keys(entityConfig)
       
       // Priority entities - load first
-      const priorityEntities = ['companies', 'locations', 'providers', 'slots']
+      const priorityEntities = ['companies', 'locations', 'providers']
       const regularEntities = entities.filter(e => !priorityEntities.includes(e))
       
       // Fetch priority entities first (for dashboard)
@@ -108,6 +108,26 @@ export const DataProvider = ({ children }) => {
       })
       
       console.log('⚡ Priority data loaded!')
+      
+      // Load slots with jackpots separately
+      try {
+        const slotsResponse = await axios.get('/api/cyber/slots-with-jackpots', { timeout: 10000 })
+        const slotsData = Array.isArray(slotsResponse.data) ? slotsResponse.data : []
+        console.log(`✅ slots with jackpots: ${slotsData.length} items`)
+        setSlots(slotsData)
+      } catch (error) {
+        console.error('❌ Error fetching slots with jackpots, trying regular slots:', error)
+        // Fallback to regular slots
+        try {
+          const slotsResponse = await axios.get('/api/slots', { timeout: 10000 })
+          const slotsData = Array.isArray(slotsResponse.data) ? slotsResponse.data : []
+          console.log(`✅ slots (fallback): ${slotsData.length} items`)
+          setSlots(slotsData)
+        } catch (fallbackError) {
+          console.error('❌ Error fetching regular slots:', fallbackError)
+          setSlots([])
+        }
+      }
       
       // Fetch remaining entities in background
       const regularRequests = regularEntities.map(entity => 

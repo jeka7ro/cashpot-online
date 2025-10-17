@@ -272,6 +272,19 @@ const Warehouse = () => {
         </div>
       )
     },
+    {
+      key: 'address',
+      label: 'ADRESĂ',
+      sortable: true,
+      render: (item) => (
+        <div className="text-slate-800 font-medium text-base">
+          <div className="text-sm">{item.address || 'N/A'}</div>
+          {item.city && (
+            <div className="text-xs text-slate-500">{item.city}</div>
+          )}
+        </div>
+      )
+    },
   ]
 
   const handleEdit = (item) => {

@@ -737,6 +737,29 @@ const CyberImport = () => {
       )
     },
     {
+      key: 'address',
+      title: 'Adresă',
+      sortable: true,
+      render: (item) => (
+        <div className="text-slate-800 dark:text-slate-200">
+          <div className="text-sm">{item.address || 'N/A'}</div>
+          {item.city && (
+            <div className="text-xs text-slate-500">{item.city}</div>
+          )}
+        </div>
+      )
+    },
+    {
+      key: 'company',
+      title: 'Companie',
+      sortable: true,
+      render: (item) => (
+        <div className="text-slate-600 dark:text-slate-400 text-sm">
+          {item.company || 'N/A'}
+        </div>
+      )
+    },
+    {
       key: 'last_updated',
       title: 'Last Updated',
       sortable: true,
