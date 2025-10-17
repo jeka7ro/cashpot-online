@@ -3672,6 +3672,11 @@ app.delete('/api/legalDocuments/:id', async (req, res) => {
 
 // ==================== PROMOTIONS/MARKETING ENDPOINTS ====================
 
+// TEST ENDPOINT - Simple test
+app.get('/api/test-promotions', (req, res) => {
+  res.json({ message: 'Promotions endpoint is working!', timestamp: new Date().toISOString() })
+})
+
 // Get all promotions
 app.get('/api/promotions', async (req, res) => {
   try {
