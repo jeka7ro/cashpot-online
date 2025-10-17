@@ -198,7 +198,7 @@ const GameMixModal = ({ item, onClose, onSave }) => {
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-700">
-                  Jocuri în Mix *
+                  Jocuri în Mix
                 </label>
                 <textarea 
                   name="games" 
@@ -207,7 +207,6 @@ const GameMixModal = ({ item, onClose, onSave }) => {
                   className="input-field" 
                   rows={6}
                   placeholder="Introdu numele jocurilor, separate pe rânduri diferite:&#10;Book of Ra&#10;Sizzling Hot&#10;Lucky Lady Charm&#10;Dolphins Pearl"
-                  required
                 />
                 <div className="flex items-center space-x-2 text-xs text-slate-500">
                   <span className="inline-flex items-center px-2 py-1 rounded-full bg-green-50 text-green-700">

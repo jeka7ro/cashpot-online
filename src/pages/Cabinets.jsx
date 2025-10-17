@@ -257,7 +257,7 @@ const Cabinets = () => {
               <img 
                 src={avatar} 
                 alt={item.platform_name || item.platform} 
-                className="w-[60px] h-[30px] rounded object-contain border border-slate-200 bg-white shadow-sm" 
+                className="w-[60px] h-[30px] object-contain" 
                 onError={(e) => {
                   e.target.style.display = 'none'
                   e.target.nextSibling.style.display = 'flex'
