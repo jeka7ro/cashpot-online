@@ -36,6 +36,7 @@ import legalDocumentsRoutes from './routes/legalDocuments.js'
 import onjnReportsRoutes from './routes/onjnReports.js'
 import metrologyRoutes from './routes/metrology.js'
 import warehouseRoutes from './routes/warehouse.js'
+import promotionsRoutes from './routes/promotions.js'
 import { scheduleBackups } from './backup.js'
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
@@ -2847,6 +2848,7 @@ app.use('/api/legal-documents', legalDocumentsRoutes)
 app.use('/api/onjn-reports', onjnReportsRoutes)
 app.use('/api/metrology', metrologyRoutes)
 app.use('/api/warehouse', warehouseRoutes)
+app.use('/api/promotions', promotionsRoutes)
 
 // Cyber routes removed - using direct JSON endpoints instead
 
