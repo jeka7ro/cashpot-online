@@ -8,6 +8,7 @@ import { BarChart3, Plus, Search, Upload, Download, Edit, Trash2, Filter, Activi
 import DataTable from '../components/DataTable'
 import SlotModal from '../components/modals/SlotModal'
 import StatCard from '../components/StatCard'
+import { formatGameMixName } from '../utils/gameMixFormatter'
 import ExportButtons from '../components/ExportButtons'
 import CyberImport from './CyberImport'
 import { toast } from 'react-hot-toast'
@@ -219,7 +220,7 @@ const Slots = () => {
       sortable: true,
       render: (item) => (
         <div className="text-slate-800 font-medium text-base">
-          {item.game_mix || 'N/A'}
+          {formatGameMixName(item.game_mix)}
         </div>
       )
     },

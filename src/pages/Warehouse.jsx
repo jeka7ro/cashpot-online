@@ -7,6 +7,7 @@ import DataTable from '../components/DataTable'
 import WarehouseModal from '../components/modals/WarehouseModal'
 import StatCard from '../components/StatCard'
 import { toast } from 'react-hot-toast'
+import { formatGameMixName } from '../utils/gameMixFormatter'
 
 const Warehouse = () => {
   const { warehouse, slots, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
@@ -175,7 +176,7 @@ const Warehouse = () => {
       sortable: true,
       render: (item) => (
         <div className="text-slate-800 font-medium text-base">
-          {item.game_mix || 'N/A'}
+          {formatGameMixName(item.game_mix)}
         </div>
       )
     },

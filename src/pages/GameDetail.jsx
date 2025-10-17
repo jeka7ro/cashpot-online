@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import Layout from '../components/Layout'
+import { formatGameMixName } from '../utils/gameMixFormatter'
 import { 
   Gamepad2, 
   MapPin, 
@@ -525,7 +526,7 @@ const GameDetail = () => {
                       <td className="py-3 px-4 text-slate-800 dark:text-slate-200">{slot.location || 'N/A'}</td>
                       <td className="py-3 px-4 text-slate-800 dark:text-slate-200">{slot.provider || 'N/A'}</td>
                       <td className="py-3 px-4 text-slate-800 dark:text-slate-200">{slot.cabinet || 'N/A'}</td>
-                      <td className="py-3 px-4 text-slate-800 dark:text-slate-200">{slot.game_mix || 'N/A'}</td>
+                      <td className="py-3 px-4 text-slate-800 dark:text-slate-200">{formatGameMixName(slot.game_mix)}</td>
                       <td className="py-3 px-4">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           slot.status === 'Active' 

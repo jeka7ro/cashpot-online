@@ -1,6 +1,7 @@
 import React from 'react'
 import { X, Download, Eye, FileText, Calendar, CheckCircle, AlertCircle } from 'lucide-react'
 import PDFViewer from '../PDFViewer'
+import { formatGameMixName } from '../../utils/gameMixFormatter'
 
 const MetrologyDetailModal = ({ item, onClose }) => {
   if (!item) return null
@@ -88,7 +89,7 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Game Mix</label>
-                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{item.game_mix || 'N/A'}</p>
+                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{formatGameMixName(item.game_mix)}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Autoritate Emitentă</label>
@@ -241,7 +242,7 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                   </div>
                   <div>
                     <label className="text-sm font-semibold text-slate-600">Game Mix</label>
-                    <p className="text-base font-medium text-slate-900">{item.game_mix || 'N/A'}</p>
+                    <p className="text-base font-medium text-slate-900">{formatGameMixName(item.game_mix)}</p>
                   </div>
                   <div>
                     <label className="text-sm font-semibold text-slate-600">Aprobare de Tip</label>

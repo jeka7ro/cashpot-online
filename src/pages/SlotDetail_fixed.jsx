@@ -5,6 +5,7 @@ import Layout from '../components/Layout'
 import PDFViewer from '../components/PDFViewer'
 import { useData } from '../contexts/DataContext'
 import { toast } from 'react-hot-toast'
+import { formatGameMixName } from '../utils/gameMixFormatter'
 
 const SlotDetail = () => {
   const { id } = useParams()
@@ -419,7 +420,7 @@ const SlotDetail = () => {
                           field: 'Game Mix',
                           fieldClass: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
                           oldValue: 'Game Mix anterior',
-                          newValue: slot?.game_mix || 'N/A',
+                          newValue: formatGameMixName(slot?.game_mix),
                           user: 'Manager'
                         }
                       ]

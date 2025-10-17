@@ -5,6 +5,7 @@ import Layout from '../components/Layout'
 import { useData } from '../contexts/DataContext'
 import { toast } from 'react-hot-toast'
 import ApprovalModal from '../components/modals/ApprovalModal'
+import { getGameMixName } from '../utils/gameMixFormatter'
 
 const ApprovalDetail = () => {
   const { id } = useParams()
@@ -130,10 +131,7 @@ const ApprovalDetail = () => {
     return cabinet ? cabinet.name : cabinetId
   }
 
-  const getGameMixName = (gameMixId) => {
-    const gameMix = gameMixes.find(gm => gm.id === gameMixId || gm.name === gameMixId)
-    return gameMix ? gameMix.name : gameMixId
-  }
+  // Using imported getGameMixName helper function
 
   if (loading) {
     return (
@@ -244,7 +242,7 @@ const ApprovalDetail = () => {
                   <Package className="w-5 h-5 text-green-600 dark:text-green-400" />
                 </div>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">Game Mix</p>
-                <p className="text-lg font-bold text-slate-800 dark:text-slate-200">{getGameMixName(approval.game_mix) || 'N/A'}</p>
+                <p className="text-lg font-bold text-slate-800 dark:text-slate-200">{getGameMixName(approval.game_mix, gameMixes)}</p>
               </div>
 
               <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-4 rounded-lg border border-amber-200 dark:border-amber-800">
