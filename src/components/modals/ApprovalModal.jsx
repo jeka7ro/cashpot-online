@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { X, Save, FileCheck } from 'lucide-react'
+import { X, Save, FileCheck, Upload, Trash2 } from 'lucide-react'
 import { useData } from '../../contexts/DataContext'
+import axios from 'axios'
+import { toast } from 'react-hot-toast'
 
 const ApprovalModal = ({ item, onClose, onSave }) => {
   const { providers, cabinets, gameMixes } = useData()
@@ -14,8 +16,10 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
     issuingAuthority: '',
     checksumMD5: '',
     checksumSHA256: '',
+    attachments: [],
     notes: ''
   })
+  const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
     // Load authorities list for dropdown
@@ -39,6 +43,7 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
         issuingAuthority: item.issuing_authority || item.issuingAuthority || '',
         checksumMD5: item.checksum_md5 || item.checksumMD5 || '',
         checksumSHA256: item.checksum_sha256 || item.checksumSHA256 || '',
+        attachments: item.attachments || [],
         notes: item.notes || ''
       })
     }
@@ -68,6 +73,66 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
     return true
   })
 
+  // File upload handlers
+  const handleFileUpload = async (files) => {
+    if (!files || files.length === 0) return
+    
+    setUploading(true)
+    const uploadPromises = Array.from(files).map(async (file) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      try {
+        const response = await axios.post('/api/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+        return {
+          name: file.name,
+          url: response.data.url,
+          size: file.size,
+          type: file.type
+        }
+      } catch (error) {
+        console.error('Upload error:', error)
+        toast.error(`Eroare la upload pentru ${file.name}`)
+        return null
+      }
+    })
+    
+    try {
+      const results = await Promise.all(uploadPromises)
+      const validResults = results.filter(result => result !== null)
+      
+      setFormData(prev => ({
+        ...prev,
+        attachments: [...prev.attachments, ...validResults]
+      }))
+      
+      toast.success(`${validResults.length} fișiere încărcate cu succes`)
+    } catch (error) {
+      toast.error('Eroare la încărcarea fișierelor')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    const files = e.dataTransfer.files
+    handleFileUpload(files)
+  }
+
+  const handleDragOver = (e) => {
+    e.preventDefault()
+  }
+
+  const removeAttachment = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      attachments: prev.attachments.filter((_, i) => i !== index)
+    }))
+  }
+
   const handleSubmit = (e) => {
     e.preventDefault()
     // Transform to snake_case for backend
@@ -79,6 +144,7 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
       issuing_authority: formData.issuingAuthority,
       checksum_md5: formData.checksumMD5,
       checksum_sha256: formData.checksumSHA256,
+      attachments: formData.attachments,
       notes: formData.notes
     }
     onSave(dataToSave)
@@ -246,6 +312,68 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
                 placeholder="Introdu checksum SHA256"
               />
             </div>
+          </div>
+
+          {/* Attachments */}
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-slate-700">
+              Atașamente
+            </label>
+            
+            {/* Drag & Drop Zone */}
+            <div
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-green-500 transition-colors"
+            >
+              <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+              <p className="text-slate-600 mb-2">Trage și plasează fișierele aici sau</p>
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                onChange={(e) => handleFileUpload(e.target.files)}
+                className="hidden"
+                id="file-upload"
+              />
+              <label
+                htmlFor="file-upload"
+                className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 cursor-pointer transition-colors"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                {uploading ? 'Se încarcă...' : 'Selectează fișiere'}
+              </label>
+              <p className="text-xs text-slate-500 mt-2">
+                Suportă: PDF, DOC, DOCX, JPG, PNG
+              </p>
+            </div>
+
+            {/* Attachments List */}
+            {formData.attachments.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <p className="text-sm font-medium text-slate-700">Fișiere atașate:</p>
+                {formData.attachments.map((attachment, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <FileCheck className="w-5 h-5 text-green-500" />
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">{attachment.name}</p>
+                        <p className="text-xs text-slate-500">
+                          {(attachment.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(index)}
+                      className="p-1 text-red-500 hover:text-red-700 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Note */}

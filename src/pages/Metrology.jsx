@@ -249,7 +249,7 @@ const Metrology = () => {
   }
 
   const handleApprovalView = (approval) => {
-    navigate(`/approval/${approval.id}`)
+    navigate(`/approval-detail/${approval.id}`)
   }
 
   const handleSoftwareDelete = async (item) => {
