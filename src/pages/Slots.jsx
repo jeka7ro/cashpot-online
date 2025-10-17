@@ -21,7 +21,6 @@ const Slots = () => {
   const [providerFilter, setProviderFilter] = useState('all')
   const [propertyTypeFilter, setPropertyTypeFilter] = useState('all')
   const [commissionFilters, setCommissionFilters] = useState([])
-  const [showCommissionFilter, setShowCommissionFilter] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [editingSlot, setEditingSlot] = useState(null)
   const [selectedItems, setSelectedItems] = useState([])
@@ -76,15 +75,6 @@ const Slots = () => {
     loadPreferences()
   }, [user?.id])
 
-  // Toggle commission filter
-  const toggleCommissionFilter = (commissionDate) => {
-    const dateStr = new Date(commissionDate).toISOString().split('T')[0]
-    if (commissionFilters.includes(dateStr)) {
-      setCommissionFilters(commissionFilters.filter(d => d !== dateStr))
-    } else {
-      setCommissionFilters([...commissionFilters, dateStr])
-    }
-  }
 
   // Salvează preferințele pe server
   const saveCardVisibility = async (newVisibility) => {
@@ -848,61 +838,27 @@ const Slots = () => {
               </select>
               
               {/* Commission Filter */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowCommissionFilter(!showCommissionFilter)}
-                  className={`px-4 py-2 border rounded-lg text-sm flex items-center space-x-2 ${
-                    commissionFilters.length > 0 
-                      ? 'bg-blue-50 border-blue-500 text-blue-700' 
-                      : 'border-slate-300 text-slate-700'
-                  }`}
-                >
-                  <Filter className="w-4 h-4" />
-                  <span>Comisii</span>
-                  {commissionFilters.length > 0 && (
-                    <span className="bg-blue-500 text-white px-2 py-0.5 rounded-full text-xs">
-                      {commissionFilters.length}
-                    </span>
-                  )}
-                </button>
-                
-                {showCommissionFilter && (
-                  <div className="absolute z-[9999] -mt-2 bg-white border border-slate-300 rounded-lg shadow-xl p-4 min-w-[300px] right-0 bottom-full">
-                    <div className="space-y-2">
-                      <div className="font-semibold text-sm text-slate-700 mb-3">Filtrează după comisii:</div>
-                      {commissions.length === 0 ? (
-                        <div className="text-sm text-slate-500">Nu există comisii</div>
-                      ) : (
-                        commissions.map((commission) => {
-                          const dateStr = new Date(commission.commission_date).toISOString().split('T')[0]
-                          const isChecked = commissionFilters.includes(dateStr)
-                          return (
-                            <label key={commission.id} className="flex items-center space-x-2 cursor-pointer hover:bg-slate-50 p-2 rounded">
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={() => toggleCommissionFilter(commission.commission_date)}
-                                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-                              />
-                              <span className="text-sm text-slate-700">
-                                {commission.name} ({new Date(commission.commission_date).toLocaleDateString('ro-RO')})
-                              </span>
-                            </label>
-                          )
-                        })
-                      )}
-                      {commissionFilters.length > 0 && (
-                        <button
-                          onClick={() => setCommissionFilters([])}
-                          className="mt-3 text-xs text-blue-600 hover:text-blue-800 underline"
-                        >
-                          Șterge toate filtrele
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <select
+                value={commissionFilters.length > 0 ? commissionFilters[0] : 'all'}
+                onChange={(e) => {
+                  if (e.target.value === 'all') {
+                    setCommissionFilters([])
+                  } else {
+                    setCommissionFilters([e.target.value])
+                  }
+                }}
+                className="px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">Toate Comisiile</option>
+                {commissions.map((commission) => {
+                  const dateStr = new Date(commission.commission_date).toISOString().split('T')[0]
+                  return (
+                    <option key={commission.id} value={dateStr}>
+                      {commission.name} ({new Date(commission.commission_date).toLocaleDateString('ro-RO')})
+                    </option>
+                  )
+                })}
+              </select>
               
               <button
                 onClick={handleImport}
