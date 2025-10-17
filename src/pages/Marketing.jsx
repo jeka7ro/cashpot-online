@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import Layout from '../components/Layout'
 import DataTable from '../components/DataTable'
@@ -8,6 +9,7 @@ import MarketingDetailModal from '../components/modals/MarketingDetailModal'
 import { TrendingUp, Plus, Calendar, Award, AlertTriangle } from 'lucide-react'
 
 const Marketing = () => {
+  const navigate = useNavigate()
   const { promotions, locations, createItem, updateItem, deleteItem, loading } = useData()
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
@@ -37,14 +39,37 @@ const Marketing = () => {
   // Columns definition
   const columns = [
     {
+      key: 'banner',
+      label: 'BANNER',
+      sortable: false,
+      render: (item) => (
+        <div className="flex items-center justify-center">
+          {item.banner_path ? (
+            <img
+              src={`/uploads/promotions/${item.banner_path}`}
+              alt="Banner promoție"
+              className="w-12 h-12 object-cover rounded-lg border border-slate-200 dark:border-slate-600"
+            />
+          ) : (
+            <div className="w-12 h-12 bg-gradient-to-br from-pink-100 to-rose-100 dark:from-pink-900/20 dark:to-rose-900/20 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-600">
+              <Award className="w-6 h-6 text-pink-500 dark:text-pink-400" />
+            </div>
+          )}
+        </div>
+      )
+    },
+    {
       key: 'name',
       label: 'DENUMIRE PROMOȚIE',
       sortable: true,
       render: (item) => (
         <div className="space-y-1">
-          <div className="text-slate-900 dark:text-white font-semibold text-base">
+          <button
+            onClick={() => navigate(`/marketing/${item.id}`)}
+            className="text-slate-900 dark:text-white font-semibold text-base hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left"
+          >
             {item.name}
-          </div>
+          </button>
           {item.description && (
             <div className="text-slate-600 dark:text-slate-400 text-sm">
               {item.description.substring(0, 60)}...

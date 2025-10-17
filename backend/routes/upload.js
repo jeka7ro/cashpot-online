@@ -215,6 +215,115 @@ router.post('/multiple', upload.array('files', 10), async (req, res) => {
   }
 })
 
+// Upload file for specific promotion
+router.post('/promotion', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      })
+    }
+
+    const { promotion_id, type } = req.body // type: 'banner' or 'regulation'
+
+    if (!promotion_id || !type) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing promotion_id or type'
+      })
+    }
+
+    let finalFile = req.file
+    let compressionInfo = null
+
+    // Comprimă PDF-urile automat
+    if (req.file.mimetype === 'application/pdf') {
+      console.log(`📄 PDF detectat, comprimare în curs...`)
+      
+      try {
+        const pdfBuffer = fs.readFileSync(req.file.path)
+        const compressionResult = await compressPDFBuffer(pdfBuffer, {
+          quality: 0.8,
+          removeMetadata: true,
+          removeAnnotations: true,
+          removeBookmarks: true,
+          removeAttachments: true,
+          optimizeImages: true,
+          removeUnusedResources: true,
+        })
+
+        if (compressionResult.success) {
+          const compressedPath = req.file.path.replace('.pdf', '_compressed.pdf')
+          fs.writeFileSync(compressedPath, compressionResult.compressedBuffer)
+          
+          finalFile = {
+            ...req.file,
+            path: compressedPath,
+            size: compressionResult.compressedSize,
+            filename: req.file.filename.replace('.pdf', '_compressed.pdf')
+          }
+          
+          compressionInfo = {
+            originalSize: compressionResult.originalSize,
+            compressedSize: compressionResult.compressedSize,
+            compressionRatio: compressionResult.compressionRatio,
+            savedBytes: compressionResult.savedBytes
+          }
+          
+          console.log(`✅ PDF comprimat: ${compressionResult.compressionRatio}% reducere`)
+          fs.unlinkSync(req.file.path)
+        }
+      } catch (compressionError) {
+        console.error('❌ Eroare la comprimarea PDF:', compressionError)
+      }
+    }
+
+    // S3 response vs Local response
+    const fileInfo = isS3Enabled ? {
+      filename: finalFile.key,
+      originalname: finalFile.originalname,
+      size: finalFile.size,
+      location: finalFile.location,
+      bucket: finalFile.bucket,
+      key: finalFile.key,
+      url: finalFile.location,
+      storageType: 'S3',
+      compression: compressionInfo
+    } : {
+      filename: finalFile.filename,
+      originalname: finalFile.originalname,
+      size: finalFile.size,
+      path: finalFile.path,
+      url: `/uploads/promotions/${finalFile.filename}`,
+      storageType: 'Local',
+      compression: compressionInfo
+    }
+
+    // Update promotion in database
+    const pool = req.app.get('pool')
+    const updateField = type === 'banner' ? 'banner_path' : 'regulation_path'
+    const updateQuery = `UPDATE promotions SET ${updateField} = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
+    
+    await pool.query(updateQuery, [fileInfo.filename, promotion_id])
+
+    console.log(`✅ File uploaded for promotion ${promotion_id} (${type}):`, fileInfo.filename)
+
+    res.json({
+      success: true,
+      message: `File uploaded successfully for promotion`,
+      file_path: fileInfo.filename,
+      file: fileInfo
+    })
+  } catch (error) {
+    console.error('Promotion upload error:', error)
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error uploading file'
+    })
+  }
+})
+
 // Get storage status
 router.get('/status', (req, res) => {
   res.json({

@@ -820,6 +820,8 @@ const initializeDatabase = async () => {
           prizes JSONB DEFAULT '[]',
           status VARCHAR(50) DEFAULT 'Active',
           notes TEXT,
+          banner_path VARCHAR(500),
+          regulation_path VARCHAR(500),
           created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
           updated_by VARCHAR(255),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -827,6 +829,15 @@ const initializeDatabase = async () => {
         )
       `)
       console.log('✅ Promotions table created')
+      
+      // Add banner_path and regulation_path columns if they don't exist
+      try {
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS banner_path VARCHAR(500)")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS regulation_path VARCHAR(500)")
+        console.log('✅ Added banner_path and regulation_path columns to promotions table')
+      } catch (e) {
+        console.log('⚠️ Error adding attachment columns to promotions:', e.message)
+      }
       
       // Migrate existing promotions to new prizes format
       try {
