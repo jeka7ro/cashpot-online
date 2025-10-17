@@ -39,7 +39,7 @@ const Layout = ({ children }) => {
   
   // Show sidebar for all users, but filter menu items based on permissions
   const shouldShowSidebar = true
-  const { companies, locations, providers, platforms, cabinets, gameMixes, slots, warehouse, metrology, jackpots, invoices, onjnReports, legalDocuments, users, promotions } = useData()
+  const { companies, locations, providers, platforms, cabinets, gameMixes, slots, warehouse, metrology, approvals, jackpots, invoices, onjnReports, legalDocuments, users, promotions } = useData()
   const { theme, toggleTheme } = useTheme()
   const location = useLocation()
   
@@ -167,6 +167,14 @@ const Layout = ({ children }) => {
       icon: Activity, 
       path: '/metrology',
       count: metrology.length,
+      module: MODULES.METROLOGY
+    },
+    { 
+      id: 'approvals', 
+      label: 'Aprobări de Tip', 
+      icon: FileText, 
+      path: '/approvals',
+      count: approvals.length,
       module: MODULES.METROLOGY
     },
     { 
