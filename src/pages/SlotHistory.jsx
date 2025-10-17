@@ -25,7 +25,7 @@ const SlotHistory = () => {
     change_type: '',
   })
   const [pagination, setPagination] = useState({
-    limit: 20,
+    limit: 50,
     offset: 0,
     total: 0,
     currentPage: 1,
@@ -622,62 +622,61 @@ const SlotHistory = () => {
         </div>
 
         {/* Pagination */}
-        {pagination.totalPages > 1 && (
-          <nav
-            className="flex items-center justify-between px-4 py-3 sm:px-6 mt-4 bg-white dark:bg-slate-800 rounded-lg shadow border border-slate-200 dark:border-slate-700"
-            aria-label="Pagination"
-          >
-            <div className="flex-1 flex justify-between sm:justify-end">
-              <button
-                onClick={() => handlePageChange(pagination.currentPage - 1)}
-                disabled={pagination.currentPage === 1}
-                className="relative inline-flex items-center px-4 py-2 border border-slate-300 dark:border-slate-600 text-sm font-medium rounded-md text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Anterior
-              </button>
-              <button
-                onClick={() => handlePageChange(pagination.currentPage + 1)}
-                disabled={pagination.currentPage === pagination.totalPages}
-                className="ml-3 relative inline-flex items-center px-4 py-2 border border-slate-300 dark:border-slate-600 text-sm font-medium rounded-md text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Următor
-              </button>
+        <div className="bg-gradient-to-r from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-700 dark:via-slate-800 dark:to-slate-700 px-6 md:px-8 py-4 md:py-6 border-t border-slate-200/50 dark:border-slate-600/50 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+          <div className="flex flex-wrap items-center gap-4 md:gap-6">
+            <span className="text-sm md:text-base font-semibold text-slate-700 dark:text-slate-200">Înregistrări:</span>
+            <select 
+              value={pagination.limit} 
+              onChange={(e) => {
+                setPagination(prev => ({ ...prev, limit: Number(e.target.value), currentPage: 1 }))
+              }} 
+              className="border-2 border-slate-200 dark:border-slate-600 rounded-2xl px-4 py-2 text-sm font-medium bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all duration-200 shadow-lg text-slate-900 dark:text-slate-100"
+            >
+              <option value={15}>15</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={200}>200</option>
+            </select>
+            <span className="text-sm md:text-base text-slate-600 dark:text-slate-300 font-medium">
+              {(pagination.currentPage - 1) * pagination.limit + 1}-{Math.min(pagination.currentPage * pagination.limit, pagination.total)} din {pagination.total}
+            </span>
+          </div>
+          <div className="flex items-center justify-between sm:justify-start gap-3">
+            <button 
+              onClick={() => handlePageChange(pagination.currentPage - 1)}
+              disabled={pagination.currentPage === 1}
+              className="relative inline-flex items-center px-4 py-2 border border-slate-300 dark:border-slate-600 text-sm font-medium rounded-md text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Anterior
+            </button>
+            <div className="flex items-center space-x-1">
+              {Array.from({ length: Math.min(pagination.totalPages, 10) }, (_, i) => {
+                const page = i + 1
+                return (
+                  <button
+                    key={page}
+                    onClick={() => handlePageChange(page)}
+                    className={`relative inline-flex items-center px-3 py-2 text-sm font-medium ${
+                      page === pagination.currentPage
+                        ? 'z-10 bg-blue-50 border-blue-500 text-blue-600 dark:bg-blue-900/30 dark:border-blue-600 dark:text-blue-400'
+                        : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-600'
+                    } border rounded-md`}
+                  >
+                    {page}
+                  </button>
+                )
+              })}
             </div>
-            <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-slate-700 dark:text-slate-300">
-                  Afișez{' '}
-                  <span className="font-medium">{(pagination.currentPage - 1) * pagination.limit + 1}</span>
-                  {' '}până la{' '}
-                  <span className="font-medium">
-                    {Math.min(pagination.currentPage * pagination.limit, pagination.total)}
-                  </span>
-                  {' '}din{' '}
-                  <span className="font-medium">{pagination.total}</span>
-                  {' '}rezultate
-                </p>
-              </div>
-              <div>
-                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                  {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(page => (
-                    <button
-                      key={page}
-                      onClick={() => handlePageChange(page)}
-                      aria-current={page === pagination.currentPage ? 'page' : undefined}
-                      className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                        page === pagination.currentPage
-                          ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600 dark:bg-indigo-900/30 dark:border-indigo-600 dark:text-indigo-400'
-                          : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-600'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
-                </nav>
-              </div>
-            </div>
-          </nav>
-        )}
+            <button 
+              onClick={() => handlePageChange(pagination.currentPage + 1)}
+              disabled={pagination.currentPage === pagination.totalPages}
+              className="relative inline-flex items-center px-4 py-2 border border-slate-300 dark:border-slate-600 text-sm font-medium rounded-md text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Următor
+            </button>
+          </div>
+        </div>
 
         {/* Export CSV Button */}
         <div className="mt-6 text-right">
