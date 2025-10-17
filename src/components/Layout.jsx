@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { getVersion, getBuild, getBuildDate } from '../utils/version'
-import { hasPermission, MODULES } from '../utils/permissions'
+import { hasPermission, MODULES, getDefaultPermissionsForRole } from '../utils/permissions'
 import { 
   Menu, 
   X, 
@@ -37,8 +37,8 @@ const Layout = ({ children }) => {
   const [currentTime, setCurrentTime] = useState(new Date())
   const { user, logout } = useAuth()
   
-  // Hide sidebar for restricted users (non-admin roles)
-  const shouldShowSidebar = user?.role === 'admin' || user?.role === 'manager'
+  // Show sidebar for all users, but filter menu items based on permissions
+  const shouldShowSidebar = true
   const { companies, locations, providers, platforms, cabinets, gameMixes, slots, warehouse, metrology, jackpots, invoices, onjnReports, legalDocuments, users, promotions } = useData()
   const { theme, toggleTheme } = useTheme()
   const location = useLocation()
@@ -236,8 +236,13 @@ const Layout = ({ children }) => {
     // Check if item requires admin role
     if (item.requiresAdmin && user?.role !== 'admin') return false
     
+    // Get user permissions (from database or default for role)
+    const userPermissions = user?.permissions && Object.keys(user.permissions).length > 0 
+      ? user.permissions 
+      : getDefaultPermissionsForRole(user?.role)
+    
     // Check if user has view permission for this module
-    return hasPermission(user?.permissions, item.module, 'view')
+    return hasPermission(userPermissions, item.module, 'view')
   })
 
   const currentPage = menuItems.find(item => item.path === location.pathname)
