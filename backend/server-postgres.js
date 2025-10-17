@@ -45,7 +45,7 @@ const { Pool } = pg
 const app = express()
 const PORT = process.env.PORT || 5001
 
-// Force redeploy - Major server restart - URGENT FIX 2025-10-17 07:20 - PROMOTIONS MISSING
+// Force redeploy - Major server restart - URGENT FIX 2025-10-17 07:50 - PROMOTIONS ENDPOINT MISSING
 
 // Authentication middleware to extract user from JWT
 const authenticateUser = async (req, res, next) => {
