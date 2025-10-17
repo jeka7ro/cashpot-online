@@ -27,3 +27,5 @@ services:
         value: cashpot-documents
       - key: S3_PUBLIC_BASE_URL
         value: https://cashpot-documents.s3.eu-central-1.amazonaws.com
+      - key: FORCE_REDEPLOY_TRIGGER
+        value: "2025-01-17-16-35-cyber-fix"
