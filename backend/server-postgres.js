@@ -935,8 +935,8 @@ app.get('/health', async (req, res) => {
     res.json({ 
       status: 'OK', 
       timestamp: new Date().toISOString(),
-            version: '7.0.6',
-            build: '16', // Updated 2025-01-17 08:05 - URGENT REDEPLOY
+      version: '7.0.6',
+      build: '16', // Updated 2025-01-17 08:05 - URGENT REDEPLOY
       uptime: process.uptime(),
       database: 'Connected',
       dbTime: result.rows[0].now
