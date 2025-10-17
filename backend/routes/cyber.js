@@ -48,16 +48,32 @@ router.get('/slots', async (req, res) => {
       const slots = loadExportedData('slots.json')
       const locations = loadExportedData('locations.json')
       
-      // Enhance slots with address and jackpot data
+      // Load game mixes and machine games
+      const gameMixes = loadExportedData('game-mixes.json')
+      const machineGames = loadExportedData('machine_games.json')
+      
+      // Enhance slots with address, jackpot data, and game mix
       const enhancedSlots = slots.map(slot => {
         // Find location details
         const location = locations.find(loc => loc.location === slot.location)
+        
+        // Find game mix by ID from machine_games mapping
+        let gameMixName = 'N/A'
+        const machineGame = machineGames.find(mg => mg.serial_number === slot.serial_number)
+        if (machineGame && machineGame.game_mix_id) {
+          const gameMix = gameMixes.find(gm => gm.id === machineGame.game_mix_id)
+          gameMixName = gameMix ? gameMix.name : 'N/A'
+        } else if (slot.game_mix && slot.game_mix !== null) {
+          // If game_mix is already populated, use it
+          gameMixName = slot.game_mix
+        }
         
         return {
           ...slot,
           address: location?.address || 'N/A',
           city: location?.city || 'N/A',
-          company: location?.company || 'N/A'
+          company: location?.company || 'N/A',
+          game_mix: gameMixName
         }
       })
       
@@ -70,17 +86,31 @@ router.get('/slots', async (req, res) => {
     console.log('🔄 Using JSON fallback for slots (local mode)')
     const slots = loadExportedData('slots.json')
     const locations = loadExportedData('locations.json')
+    const gameMixes = loadExportedData('game-mixes.json')
+    const machineGames = loadExportedData('machine_games.json')
     
-    // Enhance slots with address and jackpot data
+    // Enhance slots with address, jackpot data, and game mix
     const enhancedSlots = slots.map(slot => {
       // Find location details
       const location = locations.find(loc => loc.location === slot.location)
+      
+      // Find game mix by ID from machine_games mapping
+      let gameMixName = 'N/A'
+      const machineGame = machineGames.find(mg => mg.serial_number === slot.serial_number)
+      if (machineGame && machineGame.game_mix_id) {
+        const gameMix = gameMixes.find(gm => gm.id === machineGame.game_mix_id)
+        gameMixName = gameMix ? gameMix.name : 'N/A'
+      } else if (slot.game_mix && slot.game_mix !== null) {
+        // If game_mix is already populated, use it
+        gameMixName = slot.game_mix
+      }
       
       return {
         ...slot,
         address: location?.address || 'N/A',
         city: location?.city || 'N/A',
-        company: location?.company || 'N/A'
+        company: location?.company || 'N/A',
+        game_mix: gameMixName
       }
     })
     
@@ -89,15 +119,30 @@ router.get('/slots', async (req, res) => {
     console.error('Error fetching Cyber slots from database, using exported data:', error.message)
     const slots = loadExportedData('slots.json')
     const locations = loadExportedData('locations.json')
+    const gameMixes = loadExportedData('game-mixes.json')
+    const machineGames = loadExportedData('machine_games.json')
     
-    // Enhance slots with address data
+    // Enhance slots with address, jackpot data, and game mix
     const enhancedSlots = slots.map(slot => {
       const location = locations.find(loc => loc.location === slot.location)
+      
+      // Find game mix by ID from machine_games mapping
+      let gameMixName = 'N/A'
+      const machineGame = machineGames.find(mg => mg.serial_number === slot.serial_number)
+      if (machineGame && machineGame.game_mix_id) {
+        const gameMix = gameMixes.find(gm => gm.id === machineGame.game_mix_id)
+        gameMixName = gameMix ? gameMix.name : 'N/A'
+      } else if (slot.game_mix && slot.game_mix !== null) {
+        // If game_mix is already populated, use it
+        gameMixName = slot.game_mix
+      }
+      
       return {
         ...slot,
         address: location?.address || 'N/A',
         city: location?.city || 'N/A',
-        company: location?.company || 'N/A'
+        company: location?.company || 'N/A',
+        game_mix: gameMixName
       }
     })
     
@@ -110,7 +155,7 @@ router.get('/slots-with-jackpots', async (req, res) => {
   try {
     const pool = req.app.get('pool')
     
-    // Get all slots with their jackpots
+    // Get all slots with their jackpots and game mixes
     const query = `
       SELECT 
         s.*,
@@ -122,9 +167,11 @@ router.get('/slots-with-jackpots', async (req, res) => {
         j.progress_percentage,
         j.status as jackpot_status,
         j.winner,
-        j.triggered_date
+        j.triggered_date,
+        gm.name as game_mix_name
       FROM slots s
       LEFT JOIN jackpots j ON s.serial_number = j.serial_number
+      LEFT JOIN game_mixes gm ON s.game_mix_id = gm.id
       ORDER BY s.created_at DESC
     `
     

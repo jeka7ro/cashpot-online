@@ -89,7 +89,7 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Game Mix</label>
-                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{formatGameMixName(item.game_mix)}</p>
+                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{formatGameMixName(item.game_mix_name || item.game_mix)}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Autoritate Emitentă</label>
@@ -242,7 +242,7 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                   </div>
                   <div>
                     <label className="text-sm font-semibold text-slate-600">Game Mix</label>
-                    <p className="text-base font-medium text-slate-900">{formatGameMixName(item.game_mix)}</p>
+                    <p className="text-base font-medium text-slate-900">{formatGameMixName(item.game_mix_name || item.game_mix)}</p>
                   </div>
                   <div>
                     <label className="text-sm font-semibold text-slate-600">Aprobare de Tip</label>

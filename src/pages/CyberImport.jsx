@@ -212,7 +212,7 @@ const CyberImport = () => {
           serial_number: slot.serial_number || slot.slot_id,
           provider: slot.provider || 'N/A',
           cabinet: slot.cabinet || 'N/A',
-          game_mix: formatGameMixName(slot.game_mix),
+          game_mix: formatGameMixName(slot.game_mix_name || slot.game_mix),
           status: slot.status || 'Active',
           location: slot.location || 'N/A',
           last_updated: slot.updated_at || slot.created_at,
@@ -708,7 +708,7 @@ const CyberImport = () => {
       sortable: true,
       render: (item) => (
         <div className="text-slate-800 dark:text-slate-200">
-          {formatGameMixName(item.game_mix)}
+          {formatGameMixName(item.game_mix_name || item.game_mix)}
         </div>
       )
     },

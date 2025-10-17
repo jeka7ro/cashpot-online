@@ -176,7 +176,7 @@ const Warehouse = () => {
       sortable: true,
       render: (item) => (
         <div className="text-slate-800 font-medium text-base">
-          {formatGameMixName(item.game_mix)}
+          {formatGameMixName(item.game_mix_name || item.game_mix)}
         </div>
       )
     },

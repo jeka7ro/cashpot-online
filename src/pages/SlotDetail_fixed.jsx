@@ -420,7 +420,7 @@ const SlotDetail = () => {
                           field: 'Game Mix',
                           fieldClass: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
                           oldValue: 'Game Mix anterior',
-                          newValue: formatGameMixName(slot?.game_mix),
+                          newValue: formatGameMixName(slot?.game_mix_name || slot?.game_mix),
                           user: 'Manager'
                         }
                       ]
