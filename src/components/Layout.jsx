@@ -241,9 +241,9 @@ const Layout = ({ children }) => {
       ? user.permissions 
       : getDefaultPermissionsForRole(user?.role)
     
-    // Debug logging
-    console.log(`Checking ${item.label} (${item.module}) for user ${user?.username} (${user?.role}):`, 
-      hasPermission(userPermissions, item.module, 'view'))
+    // Debug logging (temporarily disabled)
+    // console.log(`Checking ${item.label} (${item.module}) for user ${user?.username} (${user?.role}):`, 
+    //   hasPermission(userPermissions, item.module, 'view'))
     
     // Check if user has view permission for this module
     return hasPermission(userPermissions, item.module, 'view')
