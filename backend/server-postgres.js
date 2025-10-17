@@ -654,6 +654,7 @@ const initializeDatabase = async () => {
           provider VARCHAR(255) NOT NULL,
           cabinet VARCHAR(255) NOT NULL,
           game_mix VARCHAR(255),
+          issuing_authority VARCHAR(255),
           checksum_md5 VARCHAR(255),
           checksum_sha256 VARCHAR(255),
           notes TEXT,
@@ -663,6 +664,13 @@ const initializeDatabase = async () => {
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `)
+
+      // Ensure the issuing_authority column exists (migrate existing DBs)
+      try {
+        await pool.query("ALTER TABLE approvals ADD COLUMN IF NOT EXISTS issuing_authority VARCHAR(255)")
+      } catch (e) {
+        console.log('Authorities column check on approvals:', e.message)
+      }
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS commissions (
@@ -3319,12 +3327,12 @@ app.get('/api/approvals', async (req, res) => {
 
 app.post('/api/approvals', authenticateUser, async (req, res) => {
   try {
-    const { name, provider, cabinet, gameMix, checksumMD5, checksumSHA256, notes } = req.body
+    const { name, provider, cabinet, gameMix, issuingAuthority, checksumMD5, checksumSHA256, notes } = req.body
     const createdBy = req.user?.full_name || req.user?.username || 'Admin'
     
     const result = await pool.query(
-      'INSERT INTO approvals (name, provider, cabinet, game_mix, checksum_md5, checksum_sha256, notes, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP) RETURNING *',
-      [name, provider, cabinet, gameMix, checksumMD5, checksumSHA256, notes, createdBy]
+      'INSERT INTO approvals (name, provider, cabinet, game_mix, issuing_authority, checksum_md5, checksum_sha256, notes, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP) RETURNING *',
+      [name, provider, cabinet, gameMix, issuingAuthority || null, checksumMD5, checksumSHA256, notes, createdBy]
     )
     res.status(201).json(result.rows[0])
   } catch (error) {
@@ -3336,10 +3344,10 @@ app.post('/api/approvals', authenticateUser, async (req, res) => {
 app.put('/api/approvals/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { name, provider, cabinet, gameMix, checksumMD5, checksumSHA256, notes } = req.body
+    const { name, provider, cabinet, gameMix, issuingAuthority, checksumMD5, checksumSHA256, notes } = req.body
     const result = await pool.query(
-      'UPDATE approvals SET name = $1, provider = $2, cabinet = $3, game_mix = $4, checksum_md5 = $5, checksum_sha256 = $6, notes = $7, updated_at = CURRENT_TIMESTAMP WHERE id = $8 RETURNING *',
-      [name, provider, cabinet, gameMix, checksumMD5, checksumSHA256, notes, id]
+      'UPDATE approvals SET name = $1, provider = $2, cabinet = $3, game_mix = $4, issuing_authority = $5, checksum_md5 = $6, checksum_sha256 = $7, notes = $8, updated_at = CURRENT_TIMESTAMP WHERE id = $9 RETURNING *',
+      [name, provider, cabinet, gameMix, issuingAuthority || null, checksumMD5, checksumSHA256, notes, id]
     )
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Approval not found' })

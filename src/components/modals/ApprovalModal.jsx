@@ -4,24 +4,39 @@ import { useData } from '../../contexts/DataContext'
 
 const ApprovalModal = ({ item, onClose, onSave }) => {
   const { providers, cabinets, gameMixes } = useData()
+  const [authorities, setAuthorities] = useState([])
   
   const [formData, setFormData] = useState({
     name: '',
     provider: '',
     cabinet: '',
     gameMix: '',
+    issuingAuthority: '',
     checksumMD5: '',
     checksumSHA256: '',
     notes: ''
   })
 
   useEffect(() => {
+    // Load authorities list for dropdown
+    const loadAuthorities = async () => {
+      try {
+        const res = await fetch('/api/authorities')
+        const data = await res.json()
+        setAuthorities(Array.isArray(data) ? data : [])
+      } catch (e) {
+        console.error('Error loading authorities:', e)
+      }
+    }
+    loadAuthorities()
+
     if (item) {
       setFormData({
         name: item.name || '',
         provider: item.provider || '',
         cabinet: item.cabinet || '',
         gameMix: item.gameMix || '',
+        issuingAuthority: item.issuing_authority || item.issuingAuthority || '',
         checksumMD5: item.checksumMD5 || '',
         checksumSHA256: item.checksumSHA256 || '',
         notes: item.notes || ''
@@ -169,6 +184,24 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
                 ))}
               </select>
             </div>
+
+          {/* Autoritate emitentă */}
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-slate-700">
+              Autoritate emitentă
+            </label>
+            <select
+              name="issuingAuthority"
+              value={formData.issuingAuthority}
+              onChange={handleChange}
+              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            >
+              <option value="">Selectează autoritatea</option>
+              {authorities.map(auth => (
+                <option key={auth.id} value={auth.name}>{auth.name}</option>
+              ))}
+            </select>
+          </div>
           </div>
 
           {/* Checksums */}
