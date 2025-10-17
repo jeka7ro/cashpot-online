@@ -500,7 +500,7 @@ const Metrology = () => {
         let slotCount = 0
         if (item.serial_numbers) {
           if (typeof item.serial_numbers === 'string') {
-            slotCount = item.serial_numbers.split(',').length
+            slotCount = typeof item.serial_numbers === 'string' ? item.serial_numbers.split(',').length : 0
           } else if (Array.isArray(item.serial_numbers)) {
             slotCount = item.serial_numbers.length
           } else {

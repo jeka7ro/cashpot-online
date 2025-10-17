@@ -39,7 +39,12 @@ const MetrologyDetailModal = ({ item, onClose }) => {
   // Parse serial numbers for commission
   const getSerialNumbers = () => {
     if (!isCommission || !item.serial_numbers) return []
-    return item.serial_numbers.split(',').map(s => s.trim()).filter(s => s)
+    if (typeof item.serial_numbers === 'string') {
+      return item.serial_numbers.split(',').map(s => s.trim()).filter(s => s)
+    } else if (Array.isArray(item.serial_numbers)) {
+      return item.serial_numbers
+    }
+    return []
   }
 
   const serialNumbers = getSerialNumbers()

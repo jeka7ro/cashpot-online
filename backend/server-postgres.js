@@ -46,7 +46,8 @@ const { Pool } = pg
 const app = express()
 const PORT = process.env.PORT || 5001
 
-// Force redeploy - Major server restart - URGENT FIX 2025-10-17 08:20 - ALL ENDPOINTS MISSING ON PRODUCTION - REDEPLOY NOW
+// CRITICAL REDEPLOY TRIGGER - 2025-01-17 16:45 - PROMOTIONS ENDPOINT 404 - FORCE DEPLOY NOW
+console.log('🚀 SERVER STARTING - BUILD 19 - ALL ENDPOINTS MUST WORK')
 
 // Authentication middleware to extract user from JWT
 const authenticateUser = async (req, res, next) => {
@@ -945,7 +946,7 @@ app.get('/health', async (req, res) => {
       status: 'OK', 
       timestamp: new Date().toISOString(),
       version: '7.0.7',
-      build: '18', // Updated 2025-01-17 16:35 - CYBER IMPORT FIX - ALL ENDPOINTS MUST WORK
+      build: '19', // Updated 2025-01-17 16:45 - PROMOTIONS 404 FIX - FORCE DEPLOY
       uptime: process.uptime(),
       database: 'Connected',
       dbTime: result.rows[0].now
