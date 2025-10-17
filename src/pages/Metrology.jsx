@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import ExportButtons from '../components/ExportButtons'
 import { useData } from '../contexts/DataContext'
+import { useNavigate } from 'react-router-dom'
 import { Activity, Plus, Search, Upload, Download, FileCheck, Settings, Wrench, ArrowLeft, Eye, Calendar } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import MetrologyModal from '../components/modals/MetrologyModal'
@@ -13,7 +14,8 @@ import AuthorityModal from '../components/modals/AuthorityModal'
 import ONJNCalendarModal from '../components/modals/ONJNCalendarModal'
 
 const Metrology = () => {
-  const { metrology, providers, cabinets, gameMixes, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
+  const { metrology, approvals, providers, cabinets, gameMixes, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
+  const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
@@ -24,7 +26,6 @@ const Metrology = () => {
   const [viewingItem, setViewingItem] = useState(null)
   
   // Sub-page states
-  const [approvals, setApprovals] = useState([])
   const [commissions, setCommissions] = useState([])
   const [software, setSoftware] = useState([])
   const [authorities, setAuthorities] = useState([])
@@ -47,11 +48,7 @@ const Metrology = () => {
   useEffect(() => {
     const loadSubPageData = async () => {
       try {
-        if (activeTab === 'approvals') {
-          const response = await fetch('/api/approvals')
-          const data = await response.json()
-          setApprovals(data)
-        } else if (activeTab === 'commissions') {
+        if (activeTab === 'commissions') {
           const response = await fetch('/api/commissions')
           const data = await response.json()
           setCommissions(data)
@@ -150,23 +147,14 @@ const Metrology = () => {
   // Sub-page handlers
   const handleApprovalSave = async (data) => {
     try {
-      const url = editingApproval ? `/api/approvals/${editingApproval.id}` : '/api/approvals'
-      const method = editingApproval ? 'PUT' : 'POST'
-      
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      })
-      
-      if (response.ok) {
-        setShowApprovalModal(false)
-        setEditingApproval(null)
-        // Reload data
-        const response = await fetch('/api/approvals')
-        const newData = await response.json()
-        setApprovals(newData)
+      if (editingApproval) {
+        await updateItem('approvals', editingApproval.id, data)
+      } else {
+        await createItem('approvals', data)
       }
+      setShowApprovalModal(false)
+      setEditingApproval(null)
+      // DataContext will handle state update automatically
     } catch (error) {
       console.error('Error saving approval:', error)
     }
@@ -231,12 +219,7 @@ const Metrology = () => {
   const confirmApprovalDelete = async () => {
     if (deletingApproval) {
       try {
-        const response = await fetch(`/api/approvals/${deletingApproval.id}`, { method: 'DELETE' })
-        if (response.ok) {
-          const newData = await fetch('/api/approvals')
-          const data = await newData.json()
-          setApprovals(data)
-        }
+        await deleteItem('approvals', deletingApproval.id)
       } catch (error) {
         console.error('Error deleting approval:', error)
       }
@@ -266,8 +249,7 @@ const Metrology = () => {
   }
 
   const handleApprovalView = (approval) => {
-    setViewingItem(approval)
-    setShowDetailModal(true)
+    navigate(`/approval/${approval.id}`)
   }
 
   const handleSoftwareDelete = async (item) => {

@@ -21,6 +21,7 @@ import SlotHistory from './pages/SlotHistory'
 import CyberImport from './pages/CyberImport'
 import Warehouse from './pages/Warehouse'
 import Metrology from './pages/Metrology'
+import ApprovalDetail from './pages/ApprovalDetail'
 import Jackpots from './pages/Jackpots'
 import Invoices from './pages/Invoices'
 import InvoiceDetail from './pages/InvoiceDetail'
@@ -54,6 +55,7 @@ function App() {
             <Route path="/slots/:id" element={<RoleProtectedRoute module={MODULES.SLOTS}><SlotDetail /></RoleProtectedRoute>} />
             <Route path="/warehouse" element={<RoleProtectedRoute module={MODULES.WAREHOUSE}><Warehouse /></RoleProtectedRoute>} />
             <Route path="/metrology" element={<RoleProtectedRoute module={MODULES.METROLOGY}><Metrology /></RoleProtectedRoute>} />
+            <Route path="/approval/:id" element={<RoleProtectedRoute module={MODULES.METROLOGY}><ApprovalDetail /></RoleProtectedRoute>} />
             <Route path="/jackpots" element={<RoleProtectedRoute module={MODULES.JACKPOTS}><Jackpots /></RoleProtectedRoute>} />
             <Route path="/invoices" element={<RoleProtectedRoute module={MODULES.INVOICES}><Invoices /></RoleProtectedRoute>} />
             <Route path="/invoices/:id" element={<RoleProtectedRoute module={MODULES.INVOICES}><InvoiceDetail /></RoleProtectedRoute>} />

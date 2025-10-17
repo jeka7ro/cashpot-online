@@ -34,6 +34,7 @@ export const DataProvider = ({ children }) => {
   const [proprietari, setProprietari] = useState([])
   const [contracts, setContracts] = useState([])
   const [promotions, setPromotions] = useState([])
+  const [approvals, setApprovals] = useState([])
   const [loading, setLoading] = useState(false)
 
   // Calculate statistics
@@ -73,7 +74,8 @@ export const DataProvider = ({ children }) => {
     games: { state: games, setState: setGames },
     proprietari: { state: proprietari, setState: setProprietari },
     contracts: { state: contracts, setState: setContracts },
-    promotions: { state: promotions, setState: setPromotions }
+    promotions: { state: promotions, setState: setPromotions },
+    approvals: { state: approvals, setState: setApprovals }
   }
 
   // Fetch all data in parallel for maximum speed
@@ -378,6 +380,7 @@ export const DataProvider = ({ children }) => {
     proprietari,
     contracts,
     promotions,
+    approvals,
     loading,
     statistics,
     createItem,
