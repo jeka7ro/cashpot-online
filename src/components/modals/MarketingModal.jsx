@@ -46,6 +46,18 @@ const MarketingModal = ({ item, onClose, onSave }) => {
         status: item.status || 'Active',
         notes: item.notes || ''
       })
+    } else {
+      // Reset form for new item
+      setFormData({
+        name: '',
+        description: '',
+        start_date: '',
+        end_date: '',
+        location: '',
+        prizes: [{ amount: '', currency: 'RON', date: '', winner: '' }],
+        status: 'Active',
+        notes: ''
+      })
     }
   }, [item])
 
@@ -274,7 +286,7 @@ const MarketingModal = ({ item, onClose, onSave }) => {
                       </label>
                       <input
                         type="number"
-                        value={prize.amount}
+                        value={prize.amount || ''}
                         onChange={(e) => handlePrizeChange(index, 'amount', e.target.value)}
                         required
                         placeholder="5000"
@@ -291,7 +303,7 @@ const MarketingModal = ({ item, onClose, onSave }) => {
                         Monedă
                       </label>
                       <select
-                        value={prize.currency}
+                        value={prize.currency || 'RON'}
                         onChange={(e) => handlePrizeChange(index, 'currency', e.target.value)}
                         className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-500 
                                  bg-white dark:bg-slate-600 text-slate-900 dark:text-white text-base font-medium
@@ -309,7 +321,7 @@ const MarketingModal = ({ item, onClose, onSave }) => {
                       </label>
                       <input
                         type="date"
-                        value={prize.date}
+                        value={prize.date || ''}
                         onChange={(e) => handlePrizeChange(index, 'date', e.target.value)}
                         required
                         className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-500 
