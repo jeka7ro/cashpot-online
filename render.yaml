@@ -27,5 +27,5 @@ services:
         value: cashpot-documents
       - key: S3_PUBLIC_BASE_URL
         value: https://cashpot-documents.s3.eu-central-1.amazonaws.com
-      - key: FORCE_REDEPLOY_TRIGGER: "1760692757"
-        value: "2025-01-17-17-15-CRITICAL-ALL-ENDPOINTS-MUST-WORK-NOW"
+      - key: FORCE_REDEPLOY_TRIGGER
+        value: "1760693000-FINAL-BUILD-FIX"
