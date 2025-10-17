@@ -60,7 +60,7 @@ const authenticateUser = async (req, res, next) => {
 
     if (!token) {
       // If no token, set default user as admin
-      req.user = { userId: 1, username: 'admin', full_name: 'Admin' }
+      req.user = { userId: 1, username: 'admin', full_name: 'Eugeniu Cazmal' }
       return next()
     }
 
@@ -158,7 +158,7 @@ const initializeDatabase = async () => {
         cui VARCHAR(50),
         cui_file TEXT,
         status VARCHAR(50) DEFAULT 'Active',
-        created_by VARCHAR(255) DEFAULT 'admin',
+        created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -178,7 +178,7 @@ const initializeDatabase = async () => {
         plan_file TEXT,
         contact_person VARCHAR(255),
         notes TEXT,
-        created_by VARCHAR(255) DEFAULT 'admin',
+        created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -196,7 +196,7 @@ const initializeDatabase = async () => {
         platform VARCHAR(255),
         status VARCHAR(50) DEFAULT 'Active',
         notes TEXT,
-        created_by VARCHAR(255) DEFAULT 'admin',
+        created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -218,7 +218,7 @@ const initializeDatabase = async () => {
       await pool.query(`ALTER TABLE slots ADD COLUMN IF NOT EXISTS commission_date DATE`)
       await pool.query(`ALTER TABLE slots ADD COLUMN IF NOT EXISTS invoice_number VARCHAR(255)`)
       await pool.query(`ALTER TABLE slots ADD COLUMN IF NOT EXISTS notes TEXT`)
-      await pool.query(`ALTER TABLE slots ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) DEFAULT 'admin'`)
+      await pool.query(`ALTER TABLE slots ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal'`)
       await pool.query(`ALTER TABLE slots ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255)`)
       await pool.query(`ALTER TABLE slots ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`)
       await pool.query(`ALTER TABLE slots ADD COLUMN IF NOT EXISTS slot_id VARCHAR(255)`)
@@ -247,7 +247,7 @@ const initializeDatabase = async () => {
         invoice_number VARCHAR(255),
         status VARCHAR(50) DEFAULT 'Active',
         notes TEXT,
-        created_by VARCHAR(255) DEFAULT 'admin',
+        created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -267,7 +267,7 @@ const initializeDatabase = async () => {
         gaming_places INTEGER DEFAULT 1,
         status VARCHAR(50) DEFAULT 'Active',
         notes TEXT,
-        created_by VARCHAR(255) DEFAULT 'admin',
+        created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -288,7 +288,7 @@ const initializeDatabase = async () => {
         status VARCHAR(50) DEFAULT 'Active',
         logo JSONB,
         notes TEXT,
-        created_by VARCHAR(255) DEFAULT 'admin',
+        created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -308,7 +308,7 @@ const initializeDatabase = async () => {
         type VARCHAR(50) DEFAULT 'Persoana Fizica',
         status VARCHAR(50) DEFAULT 'Activ',
         notes TEXT,
-        created_by VARCHAR(100) DEFAULT 'admin',
+        created_by VARCHAR(100) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(100),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -334,7 +334,7 @@ const initializeDatabase = async () => {
         payment_terms VARCHAR(255),
         description TEXT,
         file_path VARCHAR(500),
-        created_by VARCHAR(100) DEFAULT 'admin',
+        created_by VARCHAR(100) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(100),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -384,7 +384,7 @@ const initializeDatabase = async () => {
         type VARCHAR(100) NOT NULL,
         status VARCHAR(50) DEFAULT 'Active',
         description TEXT,
-        created_by VARCHAR(100) DEFAULT 'admin',
+        created_by VARCHAR(100) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(100),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -406,7 +406,7 @@ const initializeDatabase = async () => {
         winner VARCHAR(255),
         triggered_date TIMESTAMP,
         notes TEXT,
-        created_by VARCHAR(255) DEFAULT 'admin',
+        created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -430,7 +430,7 @@ const initializeDatabase = async () => {
         software VARCHAR(255),
         cvt_file TEXT,
         notes TEXT,
-        created_by VARCHAR(255) DEFAULT 'admin',
+        created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -457,7 +457,7 @@ const initializeDatabase = async () => {
         description TEXT,
         file_path VARCHAR(500),
         notes TEXT,
-        created_by VARCHAR(255) DEFAULT 'admin',
+        created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -476,7 +476,7 @@ const initializeDatabase = async () => {
         game_mix VARCHAR(255),
         status VARCHAR(50) DEFAULT 'Inactive',
         notes TEXT,
-        created_by VARCHAR(255) DEFAULT 'admin',
+        created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -529,7 +529,7 @@ const initializeDatabase = async () => {
           description TEXT,
           status VARCHAR(50) DEFAULT 'Active',
           notes TEXT,
-          created_by VARCHAR(255) DEFAULT 'admin',
+          created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -548,7 +548,7 @@ const initializeDatabase = async () => {
           description TEXT,
           status VARCHAR(50) DEFAULT 'Active',
           notes TEXT,
-          created_by VARCHAR(255) DEFAULT 'admin',
+          created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -568,7 +568,7 @@ const initializeDatabase = async () => {
           price_reparatie DECIMAL(10,2),
           price_periodica DECIMAL(10,2),
           notes TEXT,
-          created_by VARCHAR(255) DEFAULT 'admin',
+          created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -583,7 +583,7 @@ const initializeDatabase = async () => {
     
     for (const table of tables) {
       try {
-        await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) DEFAULT 'admin'`)
+        await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal'`)
         await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`)
         console.log(`✅ ${table} table updated with created_by and created_at columns`)
       } catch (error) {
@@ -598,9 +598,31 @@ const initializeDatabase = async () => {
       const hashedPassword = await bcrypt.hash('admin123', 10)
       await pool.query(
         'INSERT INTO users (username, password, full_name, email, role, avatar) VALUES ($1, $2, $3, $4, $5, $6)',
-        ['admin', hashedPassword, 'Administrator', 'admin@cashpot.com', 'admin', '/assets/default-avatar.svg']
+        ['admin', hashedPassword, 'Eugeniu Cazmal', 'eugeniu@cashpot.com', 'admin', '/assets/default-avatar.svg']
       )
       console.log('✅ Admin user created')
+    }
+
+    // Create additional users
+    const userCount = await pool.query('SELECT COUNT(*) FROM users')
+    if (parseInt(userCount.rows[0].count) < 4) {
+      const bcrypt = require('bcryptjs')
+      
+      // Create Vadim Balica user
+      const vadimPassword = await bcrypt.hash('vadim123', 10)
+      await pool.query(
+        'INSERT INTO users (username, password, full_name, email, role, avatar) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (username) DO NOTHING',
+        ['vadim', vadimPassword, 'Vadim Balica', 'vadim@cashpot.com', 'user', '/assets/default-avatar.svg']
+      )
+      
+      // Create Andrei Chiperi user
+      const andreiPassword = await bcrypt.hash('andrei123', 10)
+      await pool.query(
+        'INSERT INTO users (username, password, full_name, email, role, avatar) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (username) DO NOTHING',
+        ['andrei', andreiPassword, 'Andrei Chiperi', 'andrei@cashpot.com', 'user', '/assets/default-avatar.svg']
+      )
+      
+      console.log('✅ Additional users created')
     }
 
     // Create sample companies if none exist
@@ -664,7 +686,7 @@ const initializeDatabase = async () => {
           checksum_sha256 VARCHAR(255),
           attachments JSONB DEFAULT '[]',
           notes TEXT,
-          created_by VARCHAR(255) DEFAULT 'admin',
+          created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
           updated_by VARCHAR(255),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -693,7 +715,7 @@ const initializeDatabase = async () => {
           commission_date DATE NOT NULL,
           expiry_date DATE NOT NULL,
           notes TEXT,
-          created_by VARCHAR(255) DEFAULT 'admin',
+          created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
           updated_by VARCHAR(255),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -709,7 +731,7 @@ const initializeDatabase = async () => {
           game_mix VARCHAR(255) NOT NULL,
           version VARCHAR(50),
           notes TEXT,
-          created_by VARCHAR(255) DEFAULT 'admin',
+          created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
           updated_by VARCHAR(255),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -757,7 +779,7 @@ const initializeDatabase = async () => {
           prizes JSONB DEFAULT '[]',
           status VARCHAR(50) DEFAULT 'Active',
           notes TEXT,
-          created_by VARCHAR(255) DEFAULT 'admin',
+          created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
           updated_by VARCHAR(255),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -3342,7 +3364,7 @@ app.get('/api/approvals', async (req, res) => {
 app.post('/api/approvals', authenticateUser, async (req, res) => {
   try {
     const { name, provider, cabinet, gameMix, issuingAuthority, checksumMD5, checksumSHA256, attachments, notes } = req.body
-    const createdBy = req.user?.full_name || req.user?.username || 'Admin'
+    const createdBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
     
     const result = await pool.query(
       'INSERT INTO approvals (name, provider, cabinet, game_mix, issuing_authority, checksum_md5, checksum_sha256, attachments, notes, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP) RETURNING *',
@@ -3401,7 +3423,7 @@ app.get('/api/commissions', async (req, res) => {
 app.post('/api/commissions', authenticateUser, async (req, res) => {
   try {
     const { name, serial_numbers, commission_date, expiry_date, notes } = req.body
-    const createdBy = req.user?.full_name || req.user?.username || 'Admin'
+    const createdBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
     
     // Parse serial numbers from textarea
     const serialNumbersArray = serial_numbers
@@ -3501,7 +3523,7 @@ app.get('/api/software', async (req, res) => {
 app.post('/api/software', authenticateUser, async (req, res) => {
   try {
     const { name, provider, cabinet, game_mix, version, notes } = req.body
-    const createdBy = req.user?.full_name || req.user?.username || 'Admin'
+    const createdBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
     
     const result = await pool.query(
       'INSERT INTO software (name, provider, cabinet, game_mix, version, notes, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP) RETURNING *',
@@ -3559,7 +3581,7 @@ app.get('/api/legalDocuments', async (req, res) => {
 app.post('/api/legalDocuments', authenticateUser, async (req, res) => {
   try {
     const { name, type, description, status, notes } = req.body
-    const createdBy = req.user?.full_name || req.user?.username || 'Admin'
+    const createdBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
     
     const result = await pool.query(
       'INSERT INTO legalDocuments (name, type, description, status, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
@@ -3851,7 +3873,7 @@ app.post('/api/cyber/sync-slots-safe', authenticateUser, async (req, res) => {
 app.post('/api/promotions', authenticateUser, async (req, res) => {
   try {
     const { name, description, start_date, end_date, location, prizes, status, notes } = req.body
-    const createdBy = req.user?.full_name || req.user?.username || 'Admin'
+    const createdBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
     
     // prizes should be array of { amount, currency, date, winner }
     const prizesJson = JSON.stringify(prizes || [])
@@ -3923,7 +3945,7 @@ app.get('/api/onjnReports', async (req, res) => {
 app.post('/api/onjnReports', authenticateUser, async (req, res) => {
   try {
     const { name, type, description, status, notes } = req.body
-    const createdBy = req.user?.full_name || req.user?.username || 'Admin'
+    const createdBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
     
     const result = await pool.query(
       'INSERT INTO onjnReports (name, type, description, status, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
@@ -3972,7 +3994,7 @@ app.get('/api/authorities', async (req, res) => {
 app.post('/api/authorities', authenticateUser, async (req, res) => {
   try {
     const { name, address, price_initiala, price_reparatie, price_periodica, notes } = req.body
-    const createdBy = req.user?.full_name || req.user?.username || 'Admin'
+    const createdBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
     
     const result = await pool.query(
       'INSERT INTO authorities (name, address, price_initiala, price_reparatie, price_periodica, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
