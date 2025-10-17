@@ -48,8 +48,8 @@ router.get('/slots', async (req, res) => {
       const slots = loadExportedData('slots.json')
       const locations = loadExportedData('locations.json')
       
-      // Load game mixes and machine games
-      const gameMixes = loadExportedData('game-mixes.json')
+      // Load machine types and machine games
+      const machineTypes = loadExportedData('machine_types.json')
       const machineGames = loadExportedData('machine_games.json')
       
       // Enhance slots with address, jackpot data, and game mix
@@ -61,8 +61,8 @@ router.get('/slots', async (req, res) => {
         let gameMixName = 'N/A'
         const machineGame = machineGames.find(mg => mg.serial_number === slot.serial_number)
         if (machineGame && machineGame.game_mix_id) {
-          const gameMix = gameMixes.find(gm => gm.id === machineGame.game_mix_id)
-          gameMixName = gameMix ? gameMix.name : 'N/A'
+          const machineType = machineTypes.find(mt => mt.id === machineGame.game_mix_id)
+          gameMixName = machineType ? machineType.name : 'N/A'
         } else if (slot.game_mix && slot.game_mix !== null) {
           // If game_mix is already populated, use it
           gameMixName = slot.game_mix
@@ -86,7 +86,7 @@ router.get('/slots', async (req, res) => {
     console.log('🔄 Using JSON fallback for slots (local mode)')
     const slots = loadExportedData('slots.json')
     const locations = loadExportedData('locations.json')
-    const gameMixes = loadExportedData('game-mixes.json')
+    const machineTypes = loadExportedData('machine_types.json')
     const machineGames = loadExportedData('machine_games.json')
     
     // Enhance slots with address, jackpot data, and game mix
@@ -98,8 +98,8 @@ router.get('/slots', async (req, res) => {
       let gameMixName = 'N/A'
       const machineGame = machineGames.find(mg => mg.serial_number === slot.serial_number)
       if (machineGame && machineGame.game_mix_id) {
-        const gameMix = gameMixes.find(gm => gm.id === machineGame.game_mix_id)
-        gameMixName = gameMix ? gameMix.name : 'N/A'
+          const machineType = machineTypes.find(mt => mt.id === machineGame.game_mix_id)
+          gameMixName = machineType ? machineType.name : 'N/A'
       } else if (slot.game_mix && slot.game_mix !== null) {
         // If game_mix is already populated, use it
         gameMixName = slot.game_mix
@@ -119,7 +119,7 @@ router.get('/slots', async (req, res) => {
     console.error('Error fetching Cyber slots from database, using exported data:', error.message)
     const slots = loadExportedData('slots.json')
     const locations = loadExportedData('locations.json')
-    const gameMixes = loadExportedData('game-mixes.json')
+    const machineTypes = loadExportedData('machine_types.json')
     const machineGames = loadExportedData('machine_games.json')
     
     // Enhance slots with address, jackpot data, and game mix
@@ -130,8 +130,8 @@ router.get('/slots', async (req, res) => {
       let gameMixName = 'N/A'
       const machineGame = machineGames.find(mg => mg.serial_number === slot.serial_number)
       if (machineGame && machineGame.game_mix_id) {
-        const gameMix = gameMixes.find(gm => gm.id === machineGame.game_mix_id)
-        gameMixName = gameMix ? gameMix.name : 'N/A'
+          const machineType = machineTypes.find(mt => mt.id === machineGame.game_mix_id)
+          gameMixName = machineType ? machineType.name : 'N/A'
       } else if (slot.game_mix && slot.game_mix !== null) {
         // If game_mix is already populated, use it
         gameMixName = slot.game_mix
@@ -168,10 +168,10 @@ router.get('/slots-with-jackpots', async (req, res) => {
         j.status as jackpot_status,
         j.winner,
         j.triggered_date,
-        gm.name as game_mix_name
+        mt.name as game_mix_name
       FROM slots s
       LEFT JOIN jackpots j ON s.serial_number = j.serial_number
-      LEFT JOIN game_mixes gm ON s.game_mix_id = gm.id
+      LEFT JOIN machine_types mt ON s.game_mix_id = mt.id
       ORDER BY s.created_at DESC
     `
     

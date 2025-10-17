@@ -430,6 +430,9 @@ const CyberImport = () => {
   useEffect(() => {
     fetchCyberData()
     fetchCyberLocations()
+    fetchCyberCabinets()
+    fetchCyberGameMixes()
+    fetchCyberProviders()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Filter slots data based on search and filters

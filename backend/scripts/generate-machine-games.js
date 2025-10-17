@@ -14,17 +14,17 @@ const __dirname = path.dirname(__filename);
 
 // Load existing data
 const slots = JSON.parse(fs.readFileSync(path.join(__dirname, '../cyber-data/slots.json'), 'utf8'));
-const gameMixes = JSON.parse(fs.readFileSync(path.join(__dirname, '../cyber-data/game-mixes.json'), 'utf8'));
+const machineTypes = JSON.parse(fs.readFileSync(path.join(__dirname, '../cyber-data/machine_types.json'), 'utf8'));
 
-console.log(`📊 Found ${slots.length} slots and ${gameMixes.length} game mixes`);
+console.log(`📊 Found ${slots.length} slots and ${machineTypes.length} machine types`);
 
-// Create a mapping of game mix names to IDs
-const gameMixMap = {};
-gameMixes.forEach(gm => {
-  gameMixMap[gm.name.toLowerCase()] = gm.id;
+// Create a mapping of machine type names to IDs
+const machineTypeMap = {};
+machineTypes.forEach(mt => {
+  machineTypeMap[mt.name.toLowerCase()] = mt.id;
 });
 
-console.log('🎯 Game Mix mapping:', gameMixMap);
+console.log('🎯 Machine Type mapping:', machineTypeMap);
 
 // Generate machine_games.json
 const machineGames = [];
@@ -42,29 +42,29 @@ slots.forEach((slot, index) => {
     return;
   }
 
-  // Try to find game mix by name patterns
+  // Try to find machine type by name patterns
   let gameMixId = null;
   
   // Check if slot has any game mix info
   if (slot.game_mix && slot.game_mix !== null) {
     // Try exact match
-    if (gameMixMap[slot.game_mix.toLowerCase()]) {
-      gameMixId = gameMixMap[slot.game_mix.toLowerCase()];
+    if (machineTypeMap[slot.game_mix.toLowerCase()]) {
+      gameMixId = machineTypeMap[slot.game_mix.toLowerCase()];
     } else {
       // Try partial match
-      const partialMatch = Object.keys(gameMixMap).find(name => 
+      const partialMatch = Object.keys(machineTypeMap).find(name => 
         slot.game_mix.toLowerCase().includes(name) || name.includes(slot.game_mix.toLowerCase())
       );
       if (partialMatch) {
-        gameMixId = gameMixMap[partialMatch];
+        gameMixId = machineTypeMap[partialMatch];
       }
     }
   }
 
-  // If no match found, assign a random game mix (for demo purposes)
+  // If no match found, assign a random machine type (for demo purposes)
   if (!gameMixId) {
-    const randomGameMix = gameMixes[Math.floor(Math.random() * gameMixes.length)];
-    gameMixId = randomGameMix.id;
+    const randomMachineType = machineTypes[Math.floor(Math.random() * machineTypes.length)];
+    gameMixId = randomMachineType.id;
   }
 
   machineGames.push({
@@ -85,8 +85,8 @@ console.log(`📁 Saved to: ${outputPath}`);
 // Show some examples
 console.log('\n📋 Sample mappings:');
 machineGames.slice(0, 5).forEach(mg => {
-  const gameMix = gameMixes.find(gm => gm.id === mg.game_mix_id);
-  console.log(`  ${mg.serial_number} → ${gameMix ? gameMix.name : 'Unknown'} (ID: ${mg.game_mix_id})`);
+  const machineType = machineTypes.find(mt => mt.id === mg.game_mix_id);
+  console.log(`  ${mg.serial_number} → ${machineType ? machineType.name : 'Unknown'} (ID: ${mg.game_mix_id})`);
 });
 
 console.log('\n🎉 Done! Now Game Mix-urile vor fi afișate corect!');
