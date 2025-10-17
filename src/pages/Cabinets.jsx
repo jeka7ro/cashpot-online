@@ -6,7 +6,7 @@ import CabinetModal from '../components/modals/CabinetModal'
 import CabinetDetailModal from '../components/modals/CabinetDetailModal'
 import PlatformModal from '../components/modals/PlatformModal'
 import LocationPlatforms from '../components/LocationPlatforms'
-import { Gamepad2, Plus, Search, Upload, Download, Cpu, Trash2 } from 'lucide-react'
+import { Gamepad2, Plus, Search, Upload, Download, Cpu, Trash2, Filter, Eye, EyeOff, X, Edit } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 
 const Cabinets = () => {
@@ -20,6 +20,12 @@ const Cabinets = () => {
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
   const [viewingItem, setViewingItem] = useState(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  
+  // Filter states
+  const [filterProvider, setFilterProvider] = useState('')
+  const [filterPlatform, setFilterPlatform] = useState('')
+  const [showInactive, setShowInactive] = useState(true)
+  const [showFilters, setShowFilters] = useState(false)
 
   // Update showBulkActions based on selectedItems
   useEffect(() => {
@@ -120,15 +126,44 @@ const Cabinets = () => {
     if (selectedItems.length === 0) return
     console.log('Bulk edit for:', selectedItems)
   }
+
+  // Filter functions
+  const clearFilters = () => {
+    setSearchTerm('')
+    setFilterProvider('')
+    setFilterPlatform('')
+    setShowInactive(true)
+  }
+
+  const getUniqueProviders = () => {
+    return [...new Set(cabinets.map(cabinet => cabinet.provider).filter(Boolean))]
+  }
+
+  const getUniquePlatforms = () => {
+    return [...new Set(cabinets.map(cabinet => cabinet.platform).filter(Boolean))]
+  }
   const [activeTab, setActiveTab] = useState('cabinets') // 'cabinets' or 'platforms'
 
   // Cabinets filtering
-  const filteredCabinets = cabinets.filter(cabinet =>
-    cabinet.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cabinet.provider?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cabinet.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cabinet.platform?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredCabinets = cabinets.filter(cabinet => {
+    // Search term filter
+    const matchesSearch = cabinet.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         cabinet.provider?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         cabinet.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         cabinet.platform?.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    // Provider filter
+    const matchesProvider = !filterProvider || cabinet.provider === filterProvider
+    
+    // Platform filter
+    const matchesPlatform = !filterPlatform || cabinet.platform === filterPlatform
+    
+    // Status filter
+    const isActive = cabinet.status?.toLowerCase() === 'activ' || cabinet.status?.toLowerCase() === 'active'
+    const matchesStatus = showInactive || isActive
+    
+    return matchesSearch && matchesProvider && matchesPlatform && matchesStatus
+  })
 
   // Platforms filtering
   const filteredPlatforms = platforms?.filter(platform =>
@@ -482,8 +517,9 @@ const Cabinets = () => {
     setShowPlatformModal(false)
   }
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (item) => {
     const entity = activeTab === 'cabinets' ? 'cabinets' : 'platforms'
+    const id = typeof item === 'object' ? item.id : item
     if (window.confirm(`Sigur vrei să ștergi acest ${activeTab === 'cabinets' ? 'cabinet' : 'platformă'}?`)) {
       await deleteItem(entity, id)
     }
@@ -540,61 +576,167 @@ const Cabinets = () => {
           </div>
         </div>
 
-        {/* Actions Bar */}
+        {/* Search and Filters */}
         <div className="card p-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex-1 max-w-md">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
-                <input
-                  type="text"
-                  placeholder={`Caută ${activeTab === 'cabinets' ? 'cabinete' : 'platforme'}...`}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="input-field pl-12"
-                />
+          <div className="space-y-4">
+            {/* Search Bar */}
+            <div className="flex flex-col md:flex-row md:items-center gap-4">
+              <div className="flex-1 max-w-md">
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
+                  <input
+                    type="text"
+                    placeholder={`Caută ${activeTab === 'cabinets' ? 'cabinete' : 'platforme'}...`}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="input-field pl-12"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`btn-secondary flex items-center space-x-2 ${showFilters ? 'bg-blue-500 text-white' : ''}`}
+                >
+                  <Filter size={18} />
+                  <span>Filtre</span>
+                </button>
+                
+                <button
+                  onClick={() => exportData(activeTab === 'cabinets' ? 'cabinets' : 'platforms')}
+                  className="btn-secondary flex items-center space-x-2"
+                >
+                  <Download size={18} />
+                  <span className="hidden sm:inline">Export</span>
+                </button>
+                
+                {showBulkActions && activeTab === 'cabinets' && (
+                  <>
+                    <button 
+                      onClick={handleBulkDelete}
+                      className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg flex items-center space-x-2 transition-all font-medium"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Șterge ({selectedItems.length})</span>
+                    </button>
+                    <button onClick={handleBulkEdit} className="btn-secondary flex items-center space-x-2">
+                      <Edit className="w-4 h-4" />
+                      <span>Bulk Edit</span>
+                    </button>
+                  </>
+                )}
+                
+                <button
+                  onClick={activeTab === 'cabinets' ? handleAdd : handleAddPlatform}
+                  className="btn-primary flex items-center space-x-2"
+                >
+                  <Plus size={18} />
+                  <span>{activeTab === 'cabinets' ? 'Adaugă Cabinet' : 'Adaugă Platformă'}</span>
+                </button>
               </div>
             </div>
-            
-            <div className="flex gap-3">
-              <button
-                onClick={() => exportData(activeTab === 'cabinets' ? 'cabinets' : 'platforms')}
-                className="btn-secondary flex items-center space-x-2"
-              >
-                <Download size={18} />
-                <span className="hidden sm:inline">Export</span>
-              </button>
-              
-              {showBulkActions && activeTab === 'cabinets' && (
-                <>
-                  <button 
-                    onClick={handleBulkDelete}
-                    className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg flex items-center space-x-2 transition-all font-medium"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    <span>Șterge ({selectedItems.length})</span>
-                  </button>
-                  <button onClick={handleBulkEdit} className="btn-secondary flex items-center space-x-2">
-                    <Edit className="w-4 h-4" />
-                    <span>Bulk Edit</span>
-                  </button>
-                </>
-              )}
-              
-              <button
-                onClick={activeTab === 'cabinets' ? handleAdd : handleAddPlatform}
-                className="btn-primary flex items-center space-x-2"
-              >
-                <Plus size={18} />
-                <span>{activeTab === 'cabinets' ? 'Adaugă Cabinet' : 'Adaugă Platformă'}</span>
-              </button>
-            </div>
+
+            {/* Filters Panel */}
+            {showFilters && activeTab === 'cabinets' && (
+              <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {/* Provider Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      Furnizor
+                    </label>
+                    <select
+                      value={filterProvider}
+                      onChange={(e) => setFilterProvider(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                    >
+                      <option value="">Toate furnizorii</option>
+                      {getUniqueProviders().map(provider => (
+                        <option key={provider} value={provider}>
+                          {provider}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Platform Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      Platformă
+                    </label>
+                    <select
+                      value={filterPlatform}
+                      onChange={(e) => setFilterPlatform(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                    >
+                      <option value="">Toate platformele</option>
+                      {getUniquePlatforms().map(platform => (
+                        <option key={platform} value={platform}>
+                          {platform}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Status Toggle */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      Status
+                    </label>
+                    <div className="flex items-center space-x-3">
+                      <button
+                        onClick={() => setShowInactive(!showInactive)}
+                        className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all ${
+                          showInactive 
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' 
+                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200'
+                        }`}
+                      >
+                        {showInactive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                        <span className="font-medium">
+                          {showInactive ? 'Arată toate' : 'Doar active'}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Clear Filters */}
+                  <div className="flex items-end">
+                    <button
+                      onClick={clearFilters}
+                      className="w-full px-4 py-2 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-500 transition-colors flex items-center justify-center space-x-2"
+                    >
+                      <X className="w-4 h-4" />
+                      <span>Resetează</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Content */}
         {activeTab === 'cabinets' ? (
           <div className="card p-6">
+            {/* Results Counter */}
+            <div className="mb-4 flex items-center justify-between">
+              <div className="text-sm text-slate-600 dark:text-slate-400">
+                Afișez {filteredCabinets.length} din {cabinets.length} cabinete
+                {!showInactive && (
+                  <span className="ml-2 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-full text-xs">
+                    Doar active
+                  </span>
+                )}
+              </div>
+              {(filterProvider || filterPlatform || searchTerm) && (
+                <div className="text-sm text-slate-500 dark:text-slate-400">
+                  Filtre active
+                </div>
+              )}
+            </div>
+            
             <DataTable
               data={filteredCabinets}
               columns={cabinetColumns}
