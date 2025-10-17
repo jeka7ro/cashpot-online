@@ -48,7 +48,7 @@ const PORT = process.env.PORT || 5001
 
 // FINAL FIX - 2025-01-17 17:30 - BUILD SYSTEM PERMANENT FIX
 const BUILD_NUMBER = '1'
-const BUILD_DATE = new Date().toISOString()
+const BUILD_DATE = new Date('17.10.2025 - 12:21')
 console.log(`🚀 SERVER STARTING - BUILD ${BUILD_NUMBER} - ${BUILD_DATE}`)
 console.log('🔥 PERMANENT BUILD FIX - ALL ENDPOINTS MUST WORK NOW')
 
