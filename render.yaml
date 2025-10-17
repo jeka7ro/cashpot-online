@@ -4,7 +4,7 @@ services:
     env: node
     plan: free
     buildCommand: cd backend && npm install
-    startCommand: cd backend && echo "CRITICAL REDEPLOY - BUILD 19 - $(date)" && npm start
+    startCommand: cd backend && echo "URGENT REDEPLOY - BUILD 20 - $(date)" && npm start
     healthCheckPath: /health # CRITICAL REDEPLOY 2025-01-17 16:35 - CYBER ENDPOINTS 404 - MUST FIX NOW
     envVars:
       - key: DATABASE_URL
@@ -28,4 +28,4 @@ services:
       - key: S3_PUBLIC_BASE_URL
         value: https://cashpot-documents.s3.eu-central-1.amazonaws.com
       - key: FORCE_REDEPLOY_TRIGGER
-        value: "2025-01-17-16-35-cyber-fix"
+        value: "2025-01-17-16-50-urgent-fix"
