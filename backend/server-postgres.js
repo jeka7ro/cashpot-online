@@ -3166,6 +3166,112 @@ app.post('/api/cyber/sync-slots', async (req, res) => {
 
 // All Cyber routes now handled by cyber.js module
 
+// ==================== COMMISSIONS ENDPOINTS ====================
+
+// Get all commissions
+app.get('/api/commissions', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM commissions ORDER BY created_at DESC')
+    res.json(result.rows)
+  } catch (error) {
+    console.error('Commissions GET error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Create a new commission
+app.post('/api/commissions', authenticateUser, async (req, res) => {
+  try {
+    const { name, serial_numbers, commission_date, expiry_date, notes } = req.body
+    const createdBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
+    
+    // Parse serial numbers from textarea - split by newlines and filter empty
+    const serialNumbersArray = serial_numbers
+      .split('\n')
+      .map(s => s.trim())
+      .filter(s => s.length > 0)
+    
+    const result = await pool.query(
+      'INSERT INTO commissions (name, serial_numbers, commission_date, expiry_date, notes, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP) RETURNING *',
+      [name, JSON.stringify(serialNumbersArray), commission_date, expiry_date, notes, createdBy]
+    )
+    
+    // Update commission_date in slots table for each serial number
+    if (serialNumbersArray.length > 0) {
+      for (const serialNumber of serialNumbersArray) {
+        await pool.query(
+          'UPDATE slots SET commission_date = $1 WHERE serial_number = $2',
+          [commission_date, serialNumber]
+        )
+      }
+    }
+    
+    res.status(201).json(result.rows[0])
+  } catch (error) {
+    console.error('Commissions POST error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Update a commission
+app.put('/api/commissions/:id', authenticateUser, async (req, res) => {
+  try {
+    const { id } = req.params
+    const { name, serial_numbers, commission_date, expiry_date, notes } = req.body
+    const updatedBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
+    
+    // Parse serial numbers - handle both string and array
+    let serialNumbersArray = []
+    if (Array.isArray(serial_numbers)) {
+      serialNumbersArray = serial_numbers
+    } else if (typeof serial_numbers === 'string') {
+      serialNumbersArray = serial_numbers
+        .split('\n')
+        .map(s => s.trim())
+        .filter(s => s.length > 0)
+    }
+    
+    const result = await pool.query(
+      'UPDATE commissions SET name = $1, serial_numbers = $2, commission_date = $3, expiry_date = $4, notes = $5, updated_by = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *',
+      [name, JSON.stringify(serialNumbersArray), commission_date, expiry_date, notes, updatedBy, id]
+    )
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Commission not found' })
+    }
+    
+    // Update commission_date in slots table for each serial number
+    if (serialNumbersArray.length > 0) {
+      for (const serialNumber of serialNumbersArray) {
+        await pool.query(
+          'UPDATE slots SET commission_date = $1 WHERE serial_number = $2',
+          [commission_date, serialNumber]
+        )
+      }
+    }
+    
+    res.json(result.rows[0])
+  } catch (error) {
+    console.error('Commissions PUT error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Delete a commission
+app.delete('/api/commissions/:id', authenticateUser, async (req, res) => {
+  try {
+    const { id } = req.params
+    const result = await pool.query('DELETE FROM commissions WHERE id = $1', [id])
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Commission not found' })
+    }
+    res.json({ success: true, message: 'Commission deleted successfully' })
+  } catch (error) {
+    console.error('Commissions DELETE error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`)
