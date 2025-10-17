@@ -170,14 +170,6 @@ const Layout = ({ children }) => {
       module: MODULES.METROLOGY
     },
     { 
-      id: 'approvals', 
-      label: 'Aprobări de Tip', 
-      icon: FileText, 
-      path: '/approvals',
-      count: approvals.length,
-      module: MODULES.METROLOGY
-    },
-    { 
       id: 'jackpots', 
       label: 'Jackpots', 
       icon: Trophy, 
