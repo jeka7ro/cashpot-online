@@ -36,6 +36,9 @@ const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [currentTime, setCurrentTime] = useState(new Date())
   const { user, logout } = useAuth()
+  
+  // Hide sidebar for restricted users (non-admin roles)
+  const shouldShowSidebar = user?.role === 'admin' || user?.role === 'manager'
   const { companies, locations, providers, platforms, cabinets, gameMixes, slots, warehouse, metrology, jackpots, invoices, onjnReports, legalDocuments, users, promotions } = useData()
   const { theme, toggleTheme } = useTheme()
   const location = useLocation()
@@ -252,12 +255,14 @@ const Layout = ({ children }) => {
       <div className={`fixed top-0 left-0 right-0 backdrop-blur-xl border-b text-white px-4 md:px-6 py-2 md:py-3 z-30 shadow-2xl ${theme === 'dark' ? 'border-slate-700/50 shadow-slate-900/20' : 'border-white/20 shadow-blue-500/10'}`} style={headerStyle}>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2 md:space-x-4">
-            <button 
-              onClick={() => setSidebarOpen(!sidebarOpen)} 
-              className={`p-2 rounded-xl transition-all duration-200 hover:shadow-lg ${theme === 'dark' ? 'hover:bg-slate-700/80' : 'hover:bg-slate-100/80'}`}
-            >
-              <Menu size={20} />
-            </button>
+            {shouldShowSidebar && (
+              <button 
+                onClick={() => setSidebarOpen(!sidebarOpen)} 
+                className={`p-2 rounded-xl transition-all duration-200 hover:shadow-lg ${theme === 'dark' ? 'hover:bg-slate-700/80' : 'hover:bg-slate-100/80'}`}
+              >
+                <Menu size={20} />
+              </button>
+            )}
             <div className="flex items-center">
               {settings.logo.file || settings.logo.url ? (
                 <img 
@@ -341,8 +346,9 @@ const Layout = ({ children }) => {
         </div>
       </div>
 
-      {/* Modern Glassmorphism Sidebar */}
-      <div className={`${sidebarOpen ? 'w-64 md:w-72' : 'w-0 md:w-20'} bg-white/70 dark:bg-slate-800/90 backdrop-blur-xl border-r border-white/30 dark:border-slate-700/50 transition-all duration-300 flex flex-col mt-14 md:mt-20 shadow-2xl shadow-slate-500/10 dark:shadow-slate-900/20 fixed md:relative z-20 h-full ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+      {/* Modern Glassmorphism Sidebar - Only show for admin/manager users */}
+      {shouldShowSidebar && (
+        <div className={`${sidebarOpen ? 'w-64 md:w-72' : 'w-0 md:w-20'} bg-white/70 dark:bg-slate-800/90 backdrop-blur-xl border-r border-white/30 dark:border-slate-700/50 transition-all duration-300 flex flex-col mt-14 md:mt-20 shadow-2xl shadow-slate-500/10 dark:shadow-slate-900/20 fixed md:relative z-20 h-full ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="flex-1 sidebar-scroll p-2 md:p-3" style={{maxHeight: 'calc(100vh - 5rem)'}}>
           <nav className="space-y-1">
             {menuItems.map(item => {
@@ -384,9 +390,10 @@ const Layout = ({ children }) => {
           </nav>
         </div>
       </div>
+      )}
 
       {/* Mobile Overlay */}
-      {sidebarOpen && (
+      {shouldShowSidebar && sidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/30 backdrop-blur-sm z-10 md:hidden" 
           onClick={() => setSidebarOpen(false)}
@@ -394,7 +401,7 @@ const Layout = ({ children }) => {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden mt-14 md:mt-20 bg-white dark:bg-slate-900">
+      <div className={`flex-1 flex flex-col overflow-hidden mt-14 md:mt-20 bg-white dark:bg-slate-900 ${!shouldShowSidebar ? 'ml-0' : ''}`}>
 
         {/* Page Content */}
         <div className="flex-1 overflow-auto p-6 md:p-8 bg-slate-50 dark:bg-slate-900">
