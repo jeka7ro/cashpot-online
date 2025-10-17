@@ -3425,11 +3425,16 @@ app.put('/api/commissions/:id', async (req, res) => {
     const { id } = req.params
     const { name, serial_numbers, commission_date, expiry_date, notes } = req.body
     
-    // Parse serial numbers from textarea
-    const serialNumbersArray = serial_numbers
-      .split('\n')
-      .map(s => s.trim())
-      .filter(s => s.length > 0)
+    // Parse serial numbers - handle both string and array
+    let serialNumbersArray = []
+    if (Array.isArray(serial_numbers)) {
+      serialNumbersArray = serial_numbers
+    } else if (typeof serial_numbers === 'string') {
+      serialNumbersArray = serial_numbers
+        .split('\n')
+        .map(s => s.trim())
+        .filter(s => s.length > 0)
+    }
     
     const result = await pool.query(
       'UPDATE commissions SET name = $1, serial_numbers = $2, commission_date = $3, expiry_date = $4, notes = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *',

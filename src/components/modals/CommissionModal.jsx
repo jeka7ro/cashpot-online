@@ -15,11 +15,22 @@ const CommissionModal = ({ item, onClose, onSave }) => {
 
   useEffect(() => {
     if (item) {
+      // Convert ISO dates to yyyy-MM-dd format for date inputs
+      const formatDate = (dateString) => {
+        if (!dateString) return ''
+        try {
+          const date = new Date(dateString)
+          return date.toISOString().split('T')[0]
+        } catch (e) {
+          return ''
+        }
+      }
+
       setFormData({
         name: item.name || '',
         serial_numbers: item.serial_numbers || '',
-        commission_date: item.commission_date || '',
-        expiry_date: item.expiry_date || '',
+        commission_date: formatDate(item.commission_date),
+        expiry_date: formatDate(item.expiry_date),
         notes: item.notes || ''
       })
     }
