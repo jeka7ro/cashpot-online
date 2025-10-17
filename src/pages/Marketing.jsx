@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useData } from '../contexts/DataContext'
 import Layout from '../components/Layout'
 import DataTable from '../components/DataTable'
+import StatCard from '../components/StatCard'
 import MarketingModal from '../components/modals/MarketingModal'
 import MarketingDetailModal from '../components/modals/MarketingDetailModal'
 import { TrendingUp, Plus, Calendar, Award, AlertTriangle } from 'lucide-react'
@@ -14,6 +15,7 @@ const Marketing = () => {
   const [selectedItems, setSelectedItems] = useState([])
   const [viewingItem, setViewingItem] = useState(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [activeTab, setActiveTab] = useState('promotions') // 'promotions' or 'happy-hour'
 
   // Filter promotions
   const filteredPromotions = promotions.filter(promo =>
@@ -204,75 +206,130 @@ const Marketing = () => {
     <Layout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-2xl shadow-lg">
-              <TrendingUp className="w-8 h-8 text-white" />
+        <div className="card p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl shadow-lg shadow-blue-500/25">
+                <TrendingUp className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">Marketing & Promoții</h2>
+                <p className="text-slate-600">Gestionare tombole și campanii promoționale</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Marketing & Promoții</h1>
-              <p className="text-slate-600 dark:text-slate-400">Gestionare tombole și campanii promoționale</p>
+            <div className="flex items-center space-x-4">
+              {/* Tabs */}
+              <div className="flex space-x-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+                <button
+                  onClick={() => setActiveTab('promotions')}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    activeTab === 'promotions'
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Promoții
+                </button>
+                <button
+                  onClick={() => setActiveTab('happy-hour')}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    activeTab === 'happy-hour'
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Happy Hour
+                </button>
+              </div>
+              <button
+                onClick={handleAdd}
+                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-xl flex items-center space-x-2 transition-all shadow-lg font-medium"
+              >
+                <Plus size={18} />
+                <span>Adaugă {activeTab === 'promotions' ? 'Promoție' : 'Happy Hour'}</span>
+              </button>
             </div>
           </div>
-          <button
-            onClick={handleAdd}
-            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-xl flex items-center space-x-2 transition-all shadow-lg font-medium"
-          >
-            <Plus size={18} />
-            <span>Adaugă Promoție</span>
-          </button>
         </div>
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="card p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-green-600 dark:text-green-400 font-semibold">Promoții Active</p>
-                <p className="text-3xl font-bold text-green-700 dark:text-green-300">{activePromotions.length}</p>
-              </div>
-              <Award className="w-12 h-12 text-green-500 opacity-50" />
-            </div>
-          </div>
-
-          <div className="card p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-blue-600 dark:text-blue-400 font-semibold">Total Promoții</p>
-                <p className="text-3xl font-bold text-blue-700 dark:text-blue-300">{promotions.length}</p>
-              </div>
-              <Calendar className="w-12 h-12 text-blue-500 opacity-50" />
-            </div>
-          </div>
-
-          <div className="card p-6 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-amber-600 dark:text-amber-400 font-semibold">Fond Total Premii</p>
-                <p className="text-3xl font-bold text-amber-700 dark:text-amber-300">
-                  {totalPrizePool.toLocaleString('ro-RO')} RON
-                </p>
-              </div>
-              <TrendingUp className="w-12 h-12 text-amber-500 opacity-50" />
-            </div>
-          </div>
+          <StatCard
+            title={activeTab === 'promotions' ? 'Promoții Active' : 'Sesiuni Happy Hour'}
+            value={activeTab === 'promotions' ? activePromotions.length : 0}
+            icon={Award}
+            color="green"
+            trend={null}
+          />
+          <StatCard
+            title={activeTab === 'promotions' ? 'Total Promoții' : 'Premii pe Sesiune'}
+            value={activeTab === 'promotions' ? promotions.length : 10}
+            icon={Calendar}
+            color="blue"
+            trend={null}
+          />
+          <StatCard
+            title={activeTab === 'promotions' ? 'Fond Total Premii' : 'Valoare Totală'}
+            value={`${totalPrizePool.toLocaleString('ro-RO')} RON`}
+            icon={TrendingUp}
+            color="amber"
+            trend={null}
+          />
         </div>
 
-        {/* Data Table */}
-        <DataTable
-          data={filteredPromotions}
-          columns={columns}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          onRowClick={(item) => {
-            setViewingItem(item)
-            setShowDetailModal(true)
-          }}
-          loading={loading.promotions}
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          moduleColor="blue"
-        />
+        {/* Content based on active tab */}
+        {activeTab === 'promotions' ? (
+          <DataTable
+            data={filteredPromotions}
+            columns={columns}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onRowClick={(item) => {
+              setViewingItem(item)
+              setShowDetailModal(true)
+            }}
+            loading={loading.promotions}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            moduleColor="blue"
+          />
+        ) : (
+          <div className="card p-6">
+            <div className="text-center py-12">
+              <div className="p-4 bg-gradient-to-r from-orange-500 to-red-500 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                <Award className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-xl font-semibold text-slate-800 mb-2">Happy Hour Sessions</h3>
+              <p className="text-slate-600 mb-6">
+                Gestionare sesiuni Happy Hour cu multiple premii pe sesiune
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
+                <div className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg">
+                  <h4 className="font-semibold text-slate-800 mb-2">Sesiunea 1</h4>
+                  <p className="text-sm text-slate-600 mb-2">10 premii diferite</p>
+                  <p className="text-sm text-green-600 font-medium">1,000 - 10,000 RON</p>
+                </div>
+                <div className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg">
+                  <h4 className="font-semibold text-slate-800 mb-2">Sesiunea 2</h4>
+                  <p className="text-sm text-slate-600 mb-2">8 premii diferite</p>
+                  <p className="text-sm text-green-600 font-medium">500 - 5,000 RON</p>
+                </div>
+                <div className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg">
+                  <h4 className="font-semibold text-slate-800 mb-2">Sesiunea 3</h4>
+                  <p className="text-sm text-slate-600 mb-2">12 premii diferite</p>
+                  <p className="text-sm text-green-600 font-medium">2,000 - 15,000 RON</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {/* TODO: Implement Happy Hour creation */}}
+                className="mt-6 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-xl flex items-center space-x-2 transition-all shadow-lg font-medium mx-auto"
+              >
+                <Plus size={18} />
+                <span>Creează Sesiune Happy Hour</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Add/Edit Modal */}
         {showModal && (

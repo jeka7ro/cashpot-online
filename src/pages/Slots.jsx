@@ -927,6 +927,7 @@ const Slots = () => {
               onEdit={handleEdit}
               onDelete={handleDelete}
               searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
               selectedItems={selectedItems}
               onSelectAll={handleSelectAll}
               onSelectItem={handleSelectItem}

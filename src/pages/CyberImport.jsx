@@ -33,7 +33,7 @@ const CyberImport = () => {
     provider: '',
     cabinet: '',
     gameMix: '',
-    status: ''
+    status: 'Active' // Default to Active filter
   })
   const [locationFilters, setLocationFilters] = useState({
     company: '',

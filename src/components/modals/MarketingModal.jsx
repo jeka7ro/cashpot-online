@@ -11,6 +11,7 @@ const MarketingModal = ({ item, onClose, onSave }) => {
     start_date: '',
     end_date: '',
     location: '',
+    locations: [{ location: '', start_date: '', end_date: '' }], // Multiple locations with different dates
     prizes: [{ amount: '', currency: 'RON', date: '', winner: '' }],
     status: 'Active',
     notes: ''
@@ -36,12 +37,29 @@ const MarketingModal = ({ item, onClose, onSave }) => {
         }]
       }
       
+      // Parse locations from JSONB or old format
+      let parsedLocations = [{ location: '', start_date: '', end_date: '' }]
+      
+      if (item.locations) {
+        parsedLocations = typeof item.locations === 'string' 
+          ? JSON.parse(item.locations) 
+          : item.locations
+      } else if (item.location) {
+        // Old format: single location
+        parsedLocations = [{
+          location: item.location || '',
+          start_date: item.start_date ? item.start_date.split('T')[0] : '',
+          end_date: item.end_date ? item.end_date.split('T')[0] : ''
+        }]
+      }
+      
       setFormData({
         name: item.name || '',
         description: item.description || '',
         start_date: item.start_date ? item.start_date.split('T')[0] : '',
         end_date: item.end_date ? item.end_date.split('T')[0] : '',
         location: item.location || '',
+        locations: parsedLocations.length > 0 ? parsedLocations : [{ location: '', start_date: '', end_date: '' }],
         prizes: parsedPrizes.length > 0 ? parsedPrizes : [{ amount: '', currency: 'RON', date: '', winner: '' }],
         status: item.status || 'Active',
         notes: item.notes || ''
@@ -54,6 +72,7 @@ const MarketingModal = ({ item, onClose, onSave }) => {
         start_date: '',
         end_date: '',
         location: '',
+        locations: [{ location: '', start_date: '', end_date: '' }],
         prizes: [{ amount: '', currency: 'RON', date: '', winner: '' }],
         status: 'Active',
         notes: ''
@@ -66,6 +85,29 @@ const MarketingModal = ({ item, onClose, onSave }) => {
     setFormData(prev => ({
       ...prev,
       [name]: value
+    }))
+  }
+
+  const handleLocationChange = (index, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      locations: prev.locations.map((loc, i) => 
+        i === index ? { ...loc, [field]: value } : loc
+      )
+    }))
+  }
+
+  const addLocation = () => {
+    setFormData(prev => ({
+      ...prev,
+      locations: [...prev.locations, { location: '', start_date: '', end_date: '' }]
+    }))
+  }
+
+  const removeLocation = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      locations: prev.locations.filter((_, i) => i !== index)
     }))
   }
 
@@ -170,22 +212,84 @@ const MarketingModal = ({ item, onClose, onSave }) => {
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 <MapPin className="w-4 h-4 inline mr-2" />
-                Locație *
+                Locații (Multiple săli cu date diferite) *
               </label>
-              <select
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 
-                         bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                         focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-              >
-                <option value="">Selectează locația</option>
-                {locations.map(loc => (
-                  <option key={loc.id} value={loc.name}>{loc.name}</option>
+              <div className="space-y-4">
+                {formData.locations.map((loc, index) => (
+                  <div key={index} className="p-4 border border-slate-200 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-800">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        Sala {index + 1}
+                      </h4>
+                      {formData.locations.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeLocation(index)}
+                          className="text-red-500 hover:text-red-700 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                          Locație
+                        </label>
+                        <select
+                          value={loc.location}
+                          onChange={(e) => handleLocationChange(index, 'location', e.target.value)}
+                          required
+                          className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 
+                                   bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                                   focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-all text-sm"
+                        >
+                          <option value="">Selectează sala</option>
+                          {locations.map(location => (
+                            <option key={location.id} value={location.name}>{location.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                          Data început
+                        </label>
+                        <input
+                          type="date"
+                          value={loc.start_date}
+                          onChange={(e) => handleLocationChange(index, 'start_date', e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 
+                                   bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                                   focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-all text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                          Data sfârșit
+                        </label>
+                        <input
+                          type="date"
+                          value={loc.end_date}
+                          onChange={(e) => handleLocationChange(index, 'end_date', e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 
+                                   bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                                   focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-all text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </select>
+                <button
+                  type="button"
+                  onClick={addLocation}
+                  className="w-full py-2 px-4 border-2 border-dashed border-slate-300 dark:border-slate-600 
+                           rounded-lg text-slate-600 dark:text-slate-400 hover:border-blue-500 
+                           hover:text-blue-500 transition-all flex items-center justify-center space-x-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Adaugă altă sală</span>
+                </button>
+              </div>
             </div>
           </div>
 
