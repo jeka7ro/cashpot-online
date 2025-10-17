@@ -13,7 +13,6 @@ const DataTable = ({
   loading = false, 
   searchTerm = '', 
   onSearchChange,
-  itemsPerPage = 50,
   selectedItems = [],
   onSelectAll,
   onSelectItem,
@@ -22,6 +21,7 @@ const DataTable = ({
   const [currentPage, setCurrentPage] = useState(1)
   const [sortField, setSortField] = useState('')
   const [sortDirection, setSortDirection] = useState('asc')
+  const [itemsPerPage, setItemsPerPage] = useState(50)
 
   // Module color schemes - subtle versions for table headers
   const moduleColors = {
