@@ -864,7 +864,7 @@ const Slots = () => {
                 </button>
                 
                 {showCommissionFilter && (
-                  <div className="absolute z-10 mt-2 bg-white border border-slate-300 rounded-lg shadow-lg p-4 min-w-[250px] right-0">
+                  <div className="absolute z-50 mt-2 bg-white border border-slate-300 rounded-lg shadow-lg p-4 min-w-[300px] right-0 top-full">
                     <div className="space-y-2">
                       <div className="font-semibold text-sm text-slate-700 mb-3">Filtrează după comisii:</div>
                       {commissions.length === 0 ? (

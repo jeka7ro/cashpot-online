@@ -2708,7 +2708,62 @@ app.use('/api/companies', companiesRoutes)
 app.use('/api/locations', locationsRoutes)
 app.use('/api/providers', providersRoutes)
 app.use('/api/cabinets', cabinetsRoutes)
-app.use('/api/game-mixes', gameMixesRoutes)
+// Game Mixes endpoint - use database instead of mock routes
+app.get('/api/game-mixes', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM game_mixes ORDER BY name')
+    res.json(result.rows)
+  } catch (error) {
+    console.error('Game mixes GET error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+app.post('/api/game-mixes', async (req, res) => {
+  try {
+    const { name, provider, games, rtp, denomination, max_bet, gaming_places, status, notes } = req.body
+    const result = await pool.query(
+      'INSERT INTO game_mixes (name, provider, games, rtp, denomination, max_bet, gaming_places, status, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+      [name, provider, games, rtp, denomination, max_bet, gaming_places, status, notes, 'API']
+    )
+    res.status(201).json(result.rows[0])
+  } catch (error) {
+    console.error('Game mixes POST error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+app.put('/api/game-mixes/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { name, provider, games, rtp, denomination, max_bet, gaming_places, status, notes } = req.body
+    const result = await pool.query(
+      'UPDATE game_mixes SET name = $1, provider = $2, games = $3, rtp = $4, denomination = $5, max_bet = $6, gaming_places = $7, status = $8, notes = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10 RETURNING *',
+      [name, provider, games, rtp, denomination, max_bet, gaming_places, status, notes, id]
+    )
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Game mix not found' })
+    }
+    res.json(result.rows[0])
+  } catch (error) {
+    console.error('Game mixes PUT error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+app.delete('/api/game-mixes/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const result = await pool.query('DELETE FROM game_mixes WHERE id = $1 RETURNING *', [id])
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Game mix not found' })
+    }
+    res.json({ success: true, message: 'Game mix deleted successfully' })
+  } catch (error) {
+    console.error('Game mixes DELETE error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
 app.use('/api/slots', slotsRoutes)
 app.use('/api/invoices', invoicesRoutes)
 app.use('/api/jackpots', jackpotsRoutes)
