@@ -28,4 +28,4 @@ services:
       - key: S3_PUBLIC_BASE_URL
         value: https://cashpot-documents.s3.eu-central-1.amazonaws.com
       - key: FORCE_REDEPLOY_TRIGGER
-        value: "1760693596-FIX: Approvals page + attachments + navigation"
+        value: "1760693842-URGENT: Force attachments column migration"
