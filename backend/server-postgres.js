@@ -3397,12 +3397,12 @@ app.get('/api/approvals', async (req, res) => {
 
 app.post('/api/approvals', authenticateUser, async (req, res) => {
   try {
-    const { name, provider, cabinet, gameMix, software, issuingAuthority, checksumMD5, checksumSHA256, attachments, notes } = req.body
+    const { name, provider, cabinet, game_mix, software, issuing_authority, checksum_md5, checksum_sha256, attachments, notes } = req.body
     const createdBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
     
     const result = await pool.query(
       'INSERT INTO approvals (name, provider, cabinet, game_mix, software, issuing_authority, checksum_md5, checksum_sha256, attachments, notes, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP) RETURNING *',
-      [name, provider, cabinet, gameMix, software || null, issuingAuthority || null, checksumMD5, checksumSHA256, JSON.stringify(attachments || []), notes, createdBy]
+      [name, provider, cabinet, game_mix, software || null, issuing_authority || null, checksum_md5, checksum_sha256, JSON.stringify(attachments || []), notes, createdBy]
     )
     res.status(201).json(result.rows[0])
   } catch (error) {
@@ -3414,10 +3414,10 @@ app.post('/api/approvals', authenticateUser, async (req, res) => {
 app.put('/api/approvals/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { name, provider, cabinet, gameMix, software, issuingAuthority, checksumMD5, checksumSHA256, attachments, notes } = req.body
+    const { name, provider, cabinet, game_mix, software, issuing_authority, checksum_md5, checksum_sha256, attachments, notes } = req.body
     const result = await pool.query(
       'UPDATE approvals SET name = $1, provider = $2, cabinet = $3, game_mix = $4, software = $5, issuing_authority = $6, checksum_md5 = $7, checksum_sha256 = $8, attachments = $9, notes = $10, updated_at = CURRENT_TIMESTAMP WHERE id = $11 RETURNING *',
-      [name, provider, cabinet, gameMix, software || null, issuingAuthority || null, checksumMD5, checksumSHA256, JSON.stringify(attachments || []), notes, id]
+      [name, provider, cabinet, game_mix, software || null, issuing_authority || null, checksum_md5, checksum_sha256, JSON.stringify(attachments || []), notes, id]
     )
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Approval not found' })
