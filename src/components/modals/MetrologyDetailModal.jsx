@@ -7,7 +7,8 @@ const MetrologyDetailModal = ({ item, onClose }) => {
 
   // Detect item type
   const isCommission = item.name && item.serial_numbers
-  const isApproval = item.cvt_number
+  const isApproval = item.name && (item.provider || item.cabinet) && !item.serial_numbers && !item.cvt_number
+  const isCVT = item.cvt_number
   const isSoftware = item.software_name
   const isAuthority = item.authority_name
 
@@ -47,10 +48,10 @@ const MetrologyDetailModal = ({ item, onClose }) => {
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl">
         {/* Header */}
-        <div className={`px-6 py-4 flex justify-between items-center ${isCommission ? 'bg-gradient-to-r from-blue-500 to-indigo-500' : 'bg-gradient-to-r from-cyan-500 to-teal-500'}`}>
+        <div className={`px-6 py-4 flex justify-between items-center ${isApproval ? 'bg-gradient-to-r from-green-500 to-emerald-500' : isCommission ? 'bg-gradient-to-r from-blue-500 to-indigo-500' : 'bg-gradient-to-r from-cyan-500 to-teal-500'}`}>
           <h3 className="text-xl font-bold text-white flex items-center">
             <FileText className="w-6 h-6 mr-2" />
-            {isCommission ? `Detalii Comisie - ${item.name}` : `Detalii Certificat CVT - ${item.cvt_number}`}
+            {isApproval ? `Detalii Aprobare de Tip - ${item.name}` : isCommission ? `Detalii Comisie - ${item.name}` : `Detalii Certificat CVT - ${item.cvt_number}`}
           </h3>
           <button
             onClick={onClose}
@@ -61,7 +62,68 @@ const MetrologyDetailModal = ({ item, onClose }) => {
         </div>
 
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
-          {isCommission ? (
+          {isApproval ? (
+            /* Approval Details */
+            <div className="space-y-6">
+              {/* Approval Info */}
+              <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-6">
+                <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Informații Aprobare de Tip</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Numele Aprobării</label>
+                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{item.name}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Furnizor</label>
+                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{item.provider || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Cabinet</label>
+                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{item.cabinet || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Game Mix</label>
+                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{item.game_mix || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Autoritate Emitentă</label>
+                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{item.issuing_authority || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Creat de</label>
+                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{item.created_by || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Checksums */}
+              <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-6">
+                <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Checksums</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">MD5</label>
+                    <p className="text-slate-800 dark:text-slate-200 font-mono text-sm break-all">
+                      {(item.checksum_md5 || item.checksumMD5) || 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">SHA256</label>
+                    <p className="text-slate-800 dark:text-slate-200 font-mono text-sm break-all">
+                      {(item.checksum_sha256 || item.checksumSHA256) || 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes */}
+              {item.notes && (
+                <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-6">
+                  <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Note</h4>
+                  <p className="text-slate-800 dark:text-slate-200">{item.notes}</p>
+                </div>
+              )}
+            </div>
+          ) : isCommission ? (
             /* Commission Details */
             <div className="space-y-6">
               {/* Commission Info */}

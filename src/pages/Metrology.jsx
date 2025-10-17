@@ -265,6 +265,11 @@ const Metrology = () => {
     setShowDetailModal(true)
   }
 
+  const handleApprovalView = (approval) => {
+    setViewingItem(approval)
+    setShowDetailModal(true)
+  }
+
   const handleSoftwareDelete = async (item) => {
     if (window.confirm('Sigur vrei să ștergi acest software?')) {
       try {
@@ -451,7 +456,14 @@ const Metrology = () => {
 
   // Define columns for sub-pages
   const approvalColumns = [
-    { key: 'name', label: 'NUMELE', sortable: true },
+    { key: 'name', label: 'NUMELE', sortable: true, render: (item) => (
+      <button
+        onClick={() => handleApprovalView(item)}
+        className="text-blue-600 hover:text-blue-800 font-semibold text-base hover:underline transition-colors text-left"
+      >
+        {item.name || 'N/A'}
+      </button>
+    )},
     { key: 'provider', label: 'FURNIZOR', sortable: true },
     { key: 'cabinet', label: 'CABINET', sortable: true },
     { key: 'game_mix', label: 'GAME MIX', sortable: true, render: (item) => (
@@ -461,26 +473,24 @@ const Metrology = () => {
     )},
     { key: 'checksum_md5', label: 'CHECKSUM MD5', sortable: true, render: (item) => (
       <div className="text-slate-600 text-xs font-mono">
-        {item.checksum_md5 ? `${item.checksum_md5.substring(0, 8)}...` : '-'}
+        {(item.checksum_md5 || item.checksumMD5) ? `${(item.checksum_md5 || item.checksumMD5).substring(0, 8)}...` : '-'}
       </div>
     )},
     { key: 'checksum_sha256', label: 'CHECKSUM SHA256', sortable: true, render: (item) => (
       <div className="text-slate-600 text-xs font-mono">
-        {item.checksum_sha256 ? `${item.checksum_sha256.substring(0, 8)}...` : '-'}
-      </div>
-    )},
-    { key: 'created_by', label: 'CREAT DE', sortable: true, render: (item) => (
-      <div className="text-slate-800 font-medium text-base">
-        {item.created_by || 'N/A'}
+        {(item.checksum_sha256 || item.checksumSHA256) ? `${(item.checksum_sha256 || item.checksumSHA256).substring(0, 8)}...` : '-'}
       </div>
     )},
     { 
-      key: 'created_at', 
-      label: 'DATA CREARE', 
+      key: 'created_info', 
+      label: 'CREAT DE / DATA CREARE', 
       sortable: true,
       render: (item) => (
-        <div className="text-slate-600 text-sm">
-          {new Date(item.created_at).toLocaleDateString('ro-RO')}
+        <div className="text-slate-800 font-medium text-base">
+          <div>{item.created_by || 'N/A'}</div>
+          <div className="text-slate-600 text-sm">
+            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+          </div>
         </div>
       )
     }
