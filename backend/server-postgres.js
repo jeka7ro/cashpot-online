@@ -15,7 +15,8 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 // mysql2 removed to fix Render deployment issues
-// Force redeploy - Updated for production - Major update
+// CRITICAL FIX 2025-01-17 16:35 - ALL CYBER ENDPOINTS RETURNING 404 ON PRODUCTION
+// Force complete redeploy - sync-slots-safe, promotions, users endpoints missing
 import uploadRoutes from './routes/upload.js'
 import compressRoutes from './routes/compress.js'
 import backupRoutes from './routes/backup.js'
@@ -943,8 +944,8 @@ app.get('/health', async (req, res) => {
     res.json({ 
       status: 'OK', 
       timestamp: new Date().toISOString(),
-      version: '7.0.6',
-            build: '17', // Updated 2025-01-17 08:15 - URGENT REDEPLOY - MISSING ENDPOINTS
+      version: '7.0.7',
+      build: '18', // Updated 2025-01-17 16:35 - CYBER IMPORT FIX - ALL ENDPOINTS MUST WORK
       uptime: process.uptime(),
       database: 'Connected',
       dbTime: result.rows[0].now
