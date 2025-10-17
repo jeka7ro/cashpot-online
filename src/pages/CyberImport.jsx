@@ -96,6 +96,91 @@ const CyberImport = () => {
     }
   }
 
+  // Selective sync functions for individual modules
+  const handleSyncLocations = async () => {
+    try {
+      toast.loading('Sincronizez locațiile din Cyber...', { id: 'sync-locations' })
+      
+      const response = await axios.post('/api/cyber/sync-locations')
+      
+      if (response.data.success) {
+        toast.success(
+          `Locații sincronizate! ${response.data.syncedCount} locații noi adăugate`, 
+          { id: 'sync-locations' }
+        )
+        fetchCyberLocations()
+      } else {
+        toast.error('Eroare la sincronizare locații: ' + response.data.message, { id: 'sync-locations' })
+      }
+    } catch (error) {
+      console.error('Error syncing locations:', error)
+      toast.error('Eroare la sincronizare locații: ' + (error.response?.data?.message || error.message), { id: 'sync-locations' })
+    }
+  }
+
+  const handleSyncGameMixes = async () => {
+    try {
+      toast.loading('Sincronizez game mixurile din Cyber...', { id: 'sync-game-mixes' })
+      
+      const response = await axios.post('/api/cyber/sync-game-mixes')
+      
+      if (response.data.success) {
+        toast.success(
+          `Game mixuri sincronizate! ${response.data.syncedCount} game mixuri noi adăugate`, 
+          { id: 'sync-game-mixes' }
+        )
+        fetchCyberGameMixes()
+      } else {
+        toast.error('Eroare la sincronizare game mixuri: ' + response.data.message, { id: 'sync-game-mixes' })
+      }
+    } catch (error) {
+      console.error('Error syncing game mixes:', error)
+      toast.error('Eroare la sincronizare game mixuri: ' + (error.response?.data?.message || error.message), { id: 'sync-game-mixes' })
+    }
+  }
+
+  const handleSyncCabinets = async () => {
+    try {
+      toast.loading('Sincronizez cabinetele din Cyber...', { id: 'sync-cabinets' })
+      
+      const response = await axios.post('/api/cyber/sync-cabinets')
+      
+      if (response.data.success) {
+        toast.success(
+          `Cabinete sincronizate! ${response.data.syncedCount} cabinete noi adăugate`, 
+          { id: 'sync-cabinets' }
+        )
+        fetchCyberCabinets()
+      } else {
+        toast.error('Eroare la sincronizare cabinete: ' + response.data.message, { id: 'sync-cabinets' })
+      }
+    } catch (error) {
+      console.error('Error syncing cabinets:', error)
+      toast.error('Eroare la sincronizare cabinete: ' + (error.response?.data?.message || error.message), { id: 'sync-cabinets' })
+    }
+  }
+
+  const handleSyncProviders = async () => {
+    try {
+      toast.loading('Sincronizez furnizorii din Cyber...', { id: 'sync-providers' })
+      
+      const response = await axios.post('/api/cyber/sync-providers')
+      
+      if (response.data.success) {
+        toast.success(
+          `Furnizori sincronizați! ${response.data.syncedCount} furnizori noi adăugați`, 
+          { id: 'sync-providers' }
+        )
+        fetchCyberProviders()
+      } else {
+        toast.error('Eroare la sincronizare furnizori: ' + response.data.message, { id: 'sync-providers' })
+      }
+    } catch (error) {
+      console.error('Error syncing providers:', error)
+      toast.error('Eroare la sincronizare furnizori: ' + (error.response?.data?.message || error.message), { id: 'sync-providers' })
+    }
+  }
+
   const handleFileUpload = (event) => {
     const file = event.target.files[0]
     if (!file) return
@@ -796,6 +881,47 @@ const CyberImport = () => {
                   <span>Sincronizează Cyber</span>
                 </button>
               </>
+            )}
+
+            {/* Selective sync buttons for each module */}
+            {activeTab === 'locations' && (
+              <button
+                onClick={handleSyncLocations}
+                className="px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center space-x-2 transition-all font-medium"
+              >
+                <Database className="w-4 h-4" />
+                <span>Sincronizează Locații</span>
+              </button>
+            )}
+
+            {activeTab === 'gameMixes' && (
+              <button
+                onClick={handleSyncGameMixes}
+                className="px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center space-x-2 transition-all font-medium"
+              >
+                <Database className="w-4 h-4" />
+                <span>Sincronizează Game Mixuri</span>
+              </button>
+            )}
+
+            {activeTab === 'cabinets' && (
+              <button
+                onClick={handleSyncCabinets}
+                className="px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center space-x-2 transition-all font-medium"
+              >
+                <Database className="w-4 h-4" />
+                <span>Sincronizează Cabinete</span>
+              </button>
+            )}
+
+            {activeTab === 'providers' && (
+              <button
+                onClick={handleSyncProviders}
+                className="px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center space-x-2 transition-all font-medium"
+              >
+                <Database className="w-4 h-4" />
+                <span>Sincronizează Furnizori</span>
+              </button>
             )}
             
           <button

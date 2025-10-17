@@ -2797,6 +2797,139 @@ app.get('/api/cyber/slots', async (req, res) => {
   }
 })
 
+// Cyber selective sync endpoints
+app.post('/api/cyber/sync-locations', async (req, res) => {
+  try {
+    console.log('🔄 Syncing locations from Cyber...')
+    
+    // Load Cyber locations data
+    const locationsPath = path.join(__dirname, 'cyber-data', 'locations.json')
+    const cyberLocations = JSON.parse(fs.readFileSync(locationsPath, 'utf8'))
+    
+    let syncedCount = 0
+    
+    for (const cyberLocation of cyberLocations) {
+      try {
+        const exists = await pool.query('SELECT id FROM locations WHERE name = $1', [cyberLocation.name])
+        if (exists.rows.length === 0) {
+          await pool.query(
+            'INSERT INTO locations (name, address, company, status, created_by) VALUES ($1, $2, $3, $4, $5)',
+            [cyberLocation.name, cyberLocation.address || 'Adresă din Cyber', cyberLocation.company || 'Cyber Import', 'Active', 'Cyber Import']
+          )
+          syncedCount++
+          console.log(`   ✅ Added location: ${cyberLocation.name}`)
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Location ${cyberLocation.name} error:`, error.message)
+      }
+    }
+    
+    res.json({ success: true, message: `Locations sync completed: ${syncedCount} new locations added`, syncedCount })
+  } catch (error) {
+    console.error('Error syncing locations:', error)
+    res.status(500).json({ success: false, message: 'Error syncing locations: ' + error.message })
+  }
+})
+
+app.post('/api/cyber/sync-game-mixes', async (req, res) => {
+  try {
+    console.log('🔄 Syncing game mixes from Cyber...')
+    
+    // Load Cyber game mixes data
+    const gameMixesPath = path.join(__dirname, 'cyber-data', 'game-mixes.json')
+    const cyberGameMixes = JSON.parse(fs.readFileSync(gameMixesPath, 'utf8'))
+    
+    let syncedCount = 0
+    
+    for (const cyberGameMix of cyberGameMixes) {
+      try {
+        const exists = await pool.query('SELECT id FROM game_mixes WHERE name = $1', [cyberGameMix.name])
+        if (exists.rows.length === 0) {
+          await pool.query(
+            'INSERT INTO game_mixes (name, provider, games, status, created_by) VALUES ($1, $2, $3, $4, $5)',
+            [cyberGameMix.name, cyberGameMix.provider || null, cyberGameMix.games ? JSON.stringify(cyberGameMix.games) : null, 'Active', 'Cyber Import']
+          )
+          syncedCount++
+          console.log(`   ✅ Added game mix: ${cyberGameMix.name}`)
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Game mix ${cyberGameMix.name} error:`, error.message)
+      }
+    }
+    
+    res.json({ success: true, message: `Game mixes sync completed: ${syncedCount} new game mixes added`, syncedCount })
+  } catch (error) {
+    console.error('Error syncing game mixes:', error)
+    res.status(500).json({ success: false, message: 'Error syncing game mixes: ' + error.message })
+  }
+})
+
+app.post('/api/cyber/sync-cabinets', async (req, res) => {
+  try {
+    console.log('🔄 Syncing cabinets from Cyber...')
+    
+    // Load Cyber cabinets data
+    const cabinetsPath = path.join(__dirname, 'cyber-data', 'cabinets.json')
+    const cyberCabinets = JSON.parse(fs.readFileSync(cabinetsPath, 'utf8'))
+    
+    let syncedCount = 0
+    
+    for (const cyberCabinet of cyberCabinets) {
+      try {
+        const exists = await pool.query('SELECT id FROM cabinets WHERE name = $1 OR model = $1', [cyberCabinet.name])
+        if (exists.rows.length === 0) {
+          await pool.query(
+            'INSERT INTO cabinets (name, model, provider, status, created_by) VALUES ($1, $2, $3, $4, $5)',
+            [cyberCabinet.name, cyberCabinet.model || cyberCabinet.name, cyberCabinet.provider || null, 'Active', 'Cyber Import']
+          )
+          syncedCount++
+          console.log(`   ✅ Added cabinet: ${cyberCabinet.name}`)
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Cabinet ${cyberCabinet.name} error:`, error.message)
+      }
+    }
+    
+    res.json({ success: true, message: `Cabinets sync completed: ${syncedCount} new cabinets added`, syncedCount })
+  } catch (error) {
+    console.error('Error syncing cabinets:', error)
+    res.status(500).json({ success: false, message: 'Error syncing cabinets: ' + error.message })
+  }
+})
+
+app.post('/api/cyber/sync-providers', async (req, res) => {
+  try {
+    console.log('🔄 Syncing providers from Cyber...')
+    
+    // Load Cyber providers data
+    const providersPath = path.join(__dirname, 'cyber-data', 'providers.json')
+    const cyberProviders = JSON.parse(fs.readFileSync(providersPath, 'utf8'))
+    
+    let syncedCount = 0
+    
+    for (const cyberProvider of cyberProviders) {
+      try {
+        const exists = await pool.query('SELECT id FROM providers WHERE name = $1', [cyberProvider.name])
+        if (exists.rows.length === 0) {
+          await pool.query(
+            'INSERT INTO providers (name, company, contact, phone, status, created_by) VALUES ($1, $2, $3, $4, $5, $6)',
+            [cyberProvider.name, cyberProvider.company || 'Cyber Import', cyberProvider.contact || 'Contact ' + cyberProvider.name, cyberProvider.phone || '+40 000 000 000', 'Active', 'Cyber Import']
+          )
+          syncedCount++
+          console.log(`   ✅ Added provider: ${cyberProvider.name}`)
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Provider ${cyberProvider.name} error:`, error.message)
+      }
+    }
+    
+    res.json({ success: true, message: `Providers sync completed: ${syncedCount} new providers added`, syncedCount })
+  } catch (error) {
+    console.error('Error syncing providers:', error)
+    res.status(500).json({ success: false, message: 'Error syncing providers: ' + error.message })
+  }
+})
+
 // SYNC Cyber slots to main slots table
 app.post('/api/cyber/sync-slots', async (req, res) => {
   try {
