@@ -3,13 +3,14 @@ import { X, Save, Wrench } from 'lucide-react'
 import { useData } from '../../contexts/DataContext'
 
 const SoftwareModal = ({ item, onClose, onSave }) => {
-  const { providers, cabinets, gameMixes } = useData()
+  const { providers, cabinets, gameMixes, approvals } = useData()
   
   const [formData, setFormData] = useState({
     name: '',
     provider: '',
     cabinet: '',
     game_mix: '',
+    approval: '',
     version: '',
     notes: ''
   })
@@ -21,6 +22,7 @@ const SoftwareModal = ({ item, onClose, onSave }) => {
         provider: item.provider || '',
         cabinet: item.cabinet || '',
         game_mix: item.game_mix || '',
+        approval: item.approval || '',
         version: item.version || '',
         notes: item.notes || ''
       })
@@ -176,6 +178,32 @@ const SoftwareModal = ({ item, onClose, onSave }) => {
                   .map(gameMix => (
                     <option key={gameMix.id} value={gameMix.name}>
                       {gameMix.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            {/* Aprobare de Tip */}
+            <div className="space-y-2 md:col-span-2">
+              <label className="block text-sm font-semibold text-slate-700">
+                Aprobare de Tip
+              </label>
+              <select
+                name="approval"
+                value={formData.approval}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              >
+                <option value="">Selectează aprobarea</option>
+                {approvals
+                  .filter(approval => {
+                    if (formData.provider && approval.provider !== formData.provider) return false
+                    if (formData.cabinet && approval.cabinet !== formData.cabinet) return false
+                    return true
+                  })
+                  .map(approval => (
+                    <option key={approval.id} value={approval.name}>
+                      {approval.name}
                     </option>
                   ))}
               </select>

@@ -35,10 +35,10 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
         name: item.name || '',
         provider: item.provider || '',
         cabinet: item.cabinet || '',
-        gameMix: item.gameMix || '',
+        gameMix: item.game_mix || item.gameMix || '',
         issuingAuthority: item.issuing_authority || item.issuingAuthority || '',
-        checksumMD5: item.checksumMD5 || '',
-        checksumSHA256: item.checksumSHA256 || '',
+        checksumMD5: item.checksum_md5 || item.checksumMD5 || '',
+        checksumSHA256: item.checksum_sha256 || item.checksumSHA256 || '',
         notes: item.notes || ''
       })
     }
@@ -70,7 +70,18 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    onSave(formData)
+    // Transform to snake_case for backend
+    const dataToSave = {
+      name: formData.name,
+      provider: formData.provider,
+      cabinet: formData.cabinet,
+      game_mix: formData.gameMix,
+      issuing_authority: formData.issuingAuthority,
+      checksum_md5: formData.checksumMD5,
+      checksum_sha256: formData.checksumSHA256,
+      notes: formData.notes
+    }
+    onSave(dataToSave)
   }
 
   return (
