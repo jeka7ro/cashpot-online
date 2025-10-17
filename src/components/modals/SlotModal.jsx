@@ -17,6 +17,7 @@ const SlotModal = ({ item, onClose, onSave }) => {
     max_bet: '',
     rtp: '',
     gaming_places: 1,
+    manufacture_year: '',
     commission_date: '',
     invoice_number: '',
     status: 'Active',
@@ -36,6 +37,7 @@ const SlotModal = ({ item, onClose, onSave }) => {
         max_bet: item.max_bet || '',
         rtp: item.rtp || '',
         gaming_places: item.gaming_places || 1,
+        manufacture_year: item.manufacture_year || '',
         commission_date: item.commission_date || '',
         invoice_number: item.invoice_number || '',
         status: item.status || 'Active',
@@ -283,6 +285,23 @@ const SlotModal = ({ item, onClose, onSave }) => {
                   onChange={handleChange}
                   className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   placeholder="1"
+                />
+              </div>
+
+              {/* Manufacture Year (Optional) */}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-700">
+                  An Fabricat <span className="text-slate-400 text-xs">(opțional)</span>
+                </label>
+                <input
+                  type="number"
+                  name="manufacture_year"
+                  value={formData.manufacture_year}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  placeholder="ex: 2020"
+                  min="1990"
+                  max="2030"
                 />
               </div>
             </div>

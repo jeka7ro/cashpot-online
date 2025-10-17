@@ -229,6 +229,16 @@ const initializeDatabase = async () => {
     } catch (error) {
       console.log('Note: Some columns might already exist:', error.message)
     }
+
+    // Add manufacture_year column to slots table if it doesn't exist
+    try {
+      await pool.query(`
+        ALTER TABLE slots ADD COLUMN IF NOT EXISTS manufacture_year INTEGER
+      `)
+      console.log('✅ Added manufacture_year column to slots table')
+    } catch (error) {
+      console.log('Note: manufacture_year column might already exist:', error.message)
+    }
     
     await pool.query(`
       CREATE TABLE IF NOT EXISTS slots (
@@ -246,6 +256,7 @@ const initializeDatabase = async () => {
         rtp DECIMAL(5,2),
         gaming_places INTEGER DEFAULT 1,
         property_type VARCHAR(50) DEFAULT 'Owned',
+        manufacture_year INTEGER,
         commission_date DATE,
         invoice_number VARCHAR(255),
         status VARCHAR(50) DEFAULT 'Active',
