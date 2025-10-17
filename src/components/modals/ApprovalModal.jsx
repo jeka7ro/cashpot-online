@@ -7,12 +7,14 @@ import { toast } from 'react-hot-toast'
 const ApprovalModal = ({ item, onClose, onSave }) => {
   const { providers, cabinets, gameMixes } = useData()
   const [authorities, setAuthorities] = useState([])
+  const [software, setSoftware] = useState([])
   
   const [formData, setFormData] = useState({
     name: '',
     provider: '',
     cabinet: '',
     gameMix: '',
+    software: '',
     issuingAuthority: '',
     checksumMD5: '',
     checksumSHA256: '',
@@ -22,17 +24,23 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
   const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
-    // Load authorities list for dropdown
-    const loadAuthorities = async () => {
+    // Load authorities and software lists for dropdowns
+    const loadData = async () => {
       try {
-        const res = await fetch('/api/authorities')
-        const data = await res.json()
-        setAuthorities(Array.isArray(data) ? data : [])
+        // Load authorities
+        const authRes = await fetch('/api/authorities')
+        const authData = await authRes.json()
+        setAuthorities(Array.isArray(authData) ? authData : [])
+        
+        // Load software
+        const softRes = await fetch('/api/software')
+        const softData = await softRes.json()
+        setSoftware(Array.isArray(softData) ? softData : [])
       } catch (e) {
-        console.error('Error loading authorities:', e)
+        console.error('Error loading data:', e)
       }
     }
-    loadAuthorities()
+    loadData()
 
     if (item) {
       setFormData({
@@ -40,6 +48,7 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
         provider: item.provider || '',
         cabinet: item.cabinet || '',
         gameMix: item.game_mix || item.gameMix || '',
+        software: item.software || '',
         issuingAuthority: item.issuing_authority || item.issuingAuthority || '',
         checksumMD5: item.checksum_md5 || item.checksumMD5 || '',
         checksumSHA256: item.checksum_sha256 || item.checksumSHA256 || '',
@@ -57,9 +66,15 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
         [name]: value
       }
       
-      // Reset gameMix when provider changes
+      // Reset dependent fields when provider changes
       if (name === 'provider') {
         newData.gameMix = ''
+        newData.software = ''
+      }
+      
+      // Reset software when cabinet changes
+      if (name === 'cabinet') {
+        newData.software = ''
       }
       
       return newData
@@ -141,6 +156,7 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
       provider: formData.provider,
       cabinet: formData.cabinet,
       game_mix: formData.gameMix,
+      software: formData.software,
       issuing_authority: formData.issuingAuthority,
       checksum_md5: formData.checksumMD5,
       checksum_sha256: formData.checksumSHA256,
@@ -259,6 +275,32 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
                     {gameMix.name}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            {/* Software */}
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-700">
+                Software
+              </label>
+              <select
+                name="software"
+                value={formData.software}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                disabled={!formData.provider || !formData.cabinet}
+              >
+                <option value="">Selectează software-ul</option>
+                {software
+                  .filter(soft => 
+                    (!formData.provider || soft.provider === formData.provider) &&
+                    (!formData.cabinet || soft.cabinet === formData.cabinet)
+                  )
+                  .map(soft => (
+                    <option key={soft.id} value={soft.name}>
+                      {soft.name} - {soft.version}
+                    </option>
+                  ))}
               </select>
             </div>
 
