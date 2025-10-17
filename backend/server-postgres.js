@@ -46,11 +46,12 @@ const { Pool } = pg
 const app = express()
 const PORT = process.env.PORT || 5001
 
-// FINAL FIX - 2025-01-17 17:30 - BUILD SYSTEM PERMANENT FIX
-const BUILD_NUMBER = '1'
-const BUILD_DATE = new Date('17.10.2025 - 15:19')
-console.log(`🚀 SERVER STARTING - BUILD ${BUILD_NUMBER} - ${BUILD_DATE}`)
-console.log('🔥 PERMANENT BUILD FIX - ALL ENDPOINTS MUST WORK NOW')
+  // EMERGENCY FIX - 2025-01-17 18:24 - FORCE RENDER REDEPLOY
+  const BUILD_NUMBER = '2'
+  const BUILD_DATE = new Date('17.10.2025 - 18:24')
+  console.log(`🚀 SERVER STARTING - BUILD ${BUILD_NUMBER} - ${BUILD_DATE}`)
+  console.log('🔥 EMERGENCY FIX - PROMOTIONS & CYBER ENDPOINTS MUST WORK')
+  console.log('📦 Version: 1.0.33')
 
 // Authentication middleware to extract user from JWT
 const authenticateUser = async (req, res, next) => {

@@ -27,5 +27,5 @@ services:
         value: cashpot-documents
       - key: S3_PUBLIC_BASE_URL
         value: https://cashpot-documents.s3.eu-central-1.amazonaws.com
-      - key: FORCE_REDEPLOY_TRIGGER
-        value: "1760703565-CRITICAL: Force redeploy with test endpoint"
+  - key: FORCE_REDEPLOY_TRIGGER
+    value: "1760707487-EMERGENCY: Final force redeploy for promotions and cyber"
