@@ -3167,7 +3167,6 @@ app.post('/api/cyber/sync-slots', async (req, res) => {
 // All Cyber routes now handled by cyber.js module
 
 // Start server
-const PORT = process.env.PORT || 5001
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`)
   console.log(`📊 Database: ${process.env.DATABASE_URL ? 'PostgreSQL' : 'SQLite'}`)
