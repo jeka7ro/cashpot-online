@@ -48,7 +48,7 @@ const PORT = process.env.PORT || 5001
 
 // FINAL FIX - 2025-01-17 17:30 - BUILD SYSTEM PERMANENT FIX
 const BUILD_NUMBER = '1'
-const BUILD_DATE = new Date('17.10.2025 - 13:01')
+const BUILD_DATE = new Date('17.10.2025 - 13:12')
 console.log(`🚀 SERVER STARTING - BUILD ${BUILD_NUMBER} - ${BUILD_DATE}`)
 console.log('🔥 PERMANENT BUILD FIX - ALL ENDPOINTS MUST WORK NOW')
 
@@ -3307,6 +3307,28 @@ app.post('/api/companies/upload-document', upload.single('file'), async (req, re
     res.json(result.rows[0])
   } catch (error) {
     console.error('Company document upload error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Generic file upload endpoint
+app.post('/api/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' })
+    }
+
+    // Return file information
+    res.json({
+      success: true,
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+      url: `/uploads/${req.file.filename}`,
+      size: req.file.size,
+      mimetype: req.file.mimetype
+    })
+  } catch (error) {
+    console.error('File upload error:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })
