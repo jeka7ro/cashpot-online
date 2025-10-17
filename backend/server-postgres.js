@@ -48,7 +48,7 @@ const PORT = process.env.PORT || 5001
 
 // FINAL FIX - 2025-01-17 17:30 - BUILD SYSTEM PERMANENT FIX
 const BUILD_NUMBER = '1'
-const BUILD_DATE = new Date('17.10.2025 - 14:01')
+const BUILD_DATE = new Date('17.10.2025 - 14:07')
 console.log(`🚀 SERVER STARTING - BUILD ${BUILD_NUMBER} - ${BUILD_DATE}`)
 console.log('🔥 PERMANENT BUILD FIX - ALL ENDPOINTS MUST WORK NOW')
 
@@ -689,6 +689,25 @@ const initializeDatabase = async () => {
           notes TEXT,
           created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
           updated_by VARCHAR(255),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+
+      // Create promotions table
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS promotions (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          description TEXT,
+          start_date DATE NOT NULL,
+          end_date DATE NOT NULL,
+          total_amount DECIMAL(15,2) DEFAULT 0,
+          awarded_amount DECIMAL(15,2) DEFAULT 0,
+          location VARCHAR(255),
+          status VARCHAR(50) DEFAULT 'active',
+          prizes JSONB DEFAULT '[]',
+          created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
