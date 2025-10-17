@@ -99,9 +99,8 @@ export const AuthProvider = ({ children }) => {
       // Set axios header immediately
       axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`
       
-      // Verify token to get real user data
-      const verifyResponse = await axios.get('/api/auth/verify', { timeout: 10000 })
-      const realUser = verifyResponse.data.user
+      // Get user data from login response (no need to verify again)
+      const { user: realUser } = response.data
       
       if (realUser) {
         const userData = {

@@ -13,7 +13,7 @@ const DataTable = ({
   loading = false, 
   searchTerm = '', 
   onSearchChange,
-  itemsPerPage = 15,
+  itemsPerPage = 50,
   selectedItems = [],
   onSelectAll,
   onSelectItem,
@@ -257,6 +257,8 @@ const DataTable = ({
             <option value={15}>15</option>
             <option value={25}>25</option>
             <option value={50}>50</option>
+            <option value={100}>100</option>
+            <option value={200}>200</option>
           </select>
           <span className="text-sm md:text-base text-slate-600 dark:text-slate-300 font-medium">
             {startIndex + 1}-{Math.min(startIndex + itemsPerPage, data.length)} din {data.length}

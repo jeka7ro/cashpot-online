@@ -70,10 +70,25 @@ const CyberImport = () => {
   }
 
   const handleSyncCyberSlotsSafe = async () => {
+    // Ask user what to import
+    const importType = window.prompt(
+      'Ce vrei să importezi?\n\n' +
+      '1 - Doar jocurile ACTIVE (recomandat)\n' +
+      '2 - Toate jocurile (inclusiv inactive)\n\n' +
+      'Introdu 1 sau 2:'
+    )
+    
+    if (!importType || (importType !== '1' && importType !== '2')) {
+      toast.error('Operațiune anulată')
+      return
+    }
+    
+    const onlyActive = importType === '1'
+    
     try {
-      toast.loading('Importez sloturile noi din Cyber...', { id: 'sync-slots-safe' })
+      toast.loading(`Importez sloturile ${onlyActive ? 'ACTIVE' : 'TOATE'} din Cyber...`, { id: 'sync-slots-safe' })
       
-      const response = await axios.post('/api/cyber/sync-slots-safe')
+      const response = await axios.post('/api/cyber/sync-slots-safe', { onlyActive })
       
       if (response.data.success) {
         toast.success(

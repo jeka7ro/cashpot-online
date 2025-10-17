@@ -239,7 +239,10 @@ const Slots = () => {
       sortable: true,
       render: (item) => {
         const commissionDate = item.commission_date ? new Date(item.commission_date) : null
-        const daysRemaining = commissionDate ? Math.ceil((commissionDate - new Date()) / (1000 * 60 * 60 * 24)) : null
+        const expiryDate = item.expiry_date ? new Date(item.expiry_date) : null
+        
+        // Calculate days remaining until expiry (not commission date)
+        const daysRemaining = expiryDate ? Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24)) : null
         
         return (
           <div className="text-slate-800 font-medium text-base">
@@ -248,7 +251,7 @@ const Slots = () => {
                 <div>{commissionDate.toLocaleDateString('ro-RO')}</div>
                 {daysRemaining !== null && (
                   <div className={`text-xs ${daysRemaining <= 0 ? 'text-red-600' : daysRemaining <= 30 ? 'text-yellow-600' : 'text-green-600'}`}>
-                    {daysRemaining <= 0 ? 'Expirat' : `${daysRemaining} zile rămase`}
+                    {daysRemaining <= 0 ? 'Expirat' : `${daysRemaining} zile până la expirare`}
                   </div>
                 )}
               </div>

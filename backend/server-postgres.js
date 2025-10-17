@@ -3643,7 +3643,8 @@ app.post('/api/promotions/migrate', async (req, res) => {
 // SAFE Cyber sync - only adds new slots, doesn't delete existing ones
 app.post('/api/cyber/sync-slots-safe', authenticateUser, async (req, res) => {
   try {
-    console.log('🔄 SAFE SYNCING Cyber slots - preserving existing data...')
+    const { onlyActive = false } = req.body
+    console.log(`🔄 SAFE SYNCING Cyber slots - preserving existing data... (onlyActive: ${onlyActive})`)
     const pool = req.app.get('pool')
     const slotsPath = path.join(__dirname, 'cyber-data', 'slots.json')
     
@@ -3651,8 +3652,14 @@ app.post('/api/cyber/sync-slots-safe', authenticateUser, async (req, res) => {
       return res.status(404).json({ error: 'Cyber slots data not found' })
     }
     
-    const cyberSlots = JSON.parse(fs.readFileSync(slotsPath, 'utf8'))
+    let cyberSlots = JSON.parse(fs.readFileSync(slotsPath, 'utf8'))
     console.log(`📥 Found ${cyberSlots.length} Cyber slots to sync`)
+    
+    // Filter by status if onlyActive is true
+    if (onlyActive) {
+      cyberSlots = cyberSlots.filter(slot => slot.status === 'Active')
+      console.log(`🎯 Filtered to ${cyberSlots.length} ACTIVE slots only`)
+    }
     
     // Get existing slots to avoid duplicates
     const existingResult = await pool.query('SELECT serial_number FROM slots')
