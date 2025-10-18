@@ -11,10 +11,14 @@ export const useTheme = () => {
 }
 
 export const ThemeProvider = ({ children }) => {
-  const [theme, setTheme] = useState('light')
+  const [theme, setTheme] = useState(() => {
+    // Încarcă tema din sessionStorage
+    return sessionStorage.getItem('theme') || 'dark'
+  })
 
   useEffect(() => {
-    // localStorage REMOVED - using server only
+    // Salvează tema în sessionStorage
+    sessionStorage.setItem('theme', theme)
     
     // Apply theme to document
     if (theme === 'dark') {

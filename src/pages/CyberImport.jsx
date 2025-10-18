@@ -14,6 +14,7 @@ const CyberImport = () => {
   const [cyberCabinets, setCyberCabinets] = useState([])
   const [cyberGameMixes, setCyberGameMixes] = useState([])
   const [cyberProviders, setCyberProviders] = useState([])
+  const [machineAuditSummaries, setMachineAuditSummaries] = useState([])
   const [filteredData, setFilteredData] = useState([])
   const [filteredLocations, setFilteredLocations] = useState([])
   const [filteredCabinets, setFilteredCabinets] = useState([])
@@ -27,7 +28,7 @@ const CyberImport = () => {
   const [selectedGameMixes, setSelectedGameMixes] = useState(new Set())
   const [selectedProviders, setSelectedProviders] = useState(new Set())
   const [showFilters, setShowFilters] = useState(false)
-  const [activeTab, setActiveTab] = useState('slots') // 'slots', 'locations', 'cabinets', 'gameMixes', 'providers'
+  const [activeTab, setActiveTab] = useState('audit') // 'audit', 'slots', 'locations', 'cabinets', 'gameMixes', 'providers'
   const [useFileImport, setUseFileImport] = useState(true) // Default to file import
   const [filters, setFilters] = useState({
     provider: '',
@@ -42,6 +43,21 @@ const CyberImport = () => {
   })
 
   // Handle file upload for slots
+  // Load machine audit summaries data
+  const fetchMachineAuditSummaries = async () => {
+    try {
+      setLoading(true)
+      const response = await axios.get('/api/cyber/machine-audit-summaries')
+      setMachineAuditSummaries(response.data)
+      console.log('✅ Machine audit summaries loaded:', response.data.length)
+    } catch (error) {
+      console.error('❌ Error fetching machine audit summaries:', error)
+      toast.error('Eroare la încărcarea datelor din machine_audit_summaries')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Cyber sync functions
   const handleSyncCyberSlots = async () => {
     const confirmed = window.confirm(
@@ -428,6 +444,7 @@ const CyberImport = () => {
 
   // Auto-load data on component mount
   useEffect(() => {
+    fetchMachineAuditSummaries()
     fetchCyberData()
     fetchCyberLocations()
     fetchCyberCabinets()
@@ -774,6 +791,107 @@ const CyberImport = () => {
     }
   ]
 
+  // Machine Audit Summaries columns
+  const auditColumns = [
+    {
+      key: 'select',
+      title: '',
+      sortable: false,
+      render: (item) => (
+        <input
+          type="checkbox"
+          checked={selectedItems.has(item.serial_number)}
+          onChange={() => toggleItemSelection(item.serial_number)}
+          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+        />
+      )
+    },
+    {
+      key: 'serial_number',
+      title: 'Serial Number',
+      sortable: true,
+      render: (item) => (
+        <div className="font-mono text-sm font-medium text-slate-800 dark:text-slate-200">
+          {item.serial_number || 'N/A'}
+        </div>
+      )
+    },
+    {
+      key: 'producator',
+      title: 'Producător',
+      sortable: true,
+      render: (item) => (
+        <div className="text-slate-800 dark:text-slate-200 font-medium">
+          {item.producator || 'N/A'}
+        </div>
+      )
+    },
+    {
+      key: 'cabinet',
+      title: 'Cabinet',
+      sortable: true,
+      render: (item) => (
+        <div className="text-slate-800 dark:text-slate-200">
+          {item.cabinet || 'N/A'}
+        </div>
+      )
+    },
+    {
+      key: 'mix',
+      title: 'Game Mix',
+      sortable: true,
+      render: (item) => (
+        <div className="text-slate-800 dark:text-slate-200">
+          {formatGameMixName(item.mix)}
+        </div>
+      )
+    },
+    {
+      key: 'location',
+      title: 'Locație',
+      sortable: true,
+      render: (item) => (
+        <div className="text-slate-600 dark:text-slate-400">
+          {item.location || 'N/A'}
+        </div>
+      )
+    },
+    {
+      key: 'address',
+      title: 'Adresă',
+      sortable: true,
+      render: (item) => (
+        <div className="text-slate-800 dark:text-slate-200">
+          <div className="text-sm">{item.address || 'N/A'}</div>
+        </div>
+      )
+    },
+    {
+      key: 'status',
+      title: 'Status',
+      sortable: true,
+      render: (item) => (
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+          item.status === 'Active' ? 'bg-green-100 text-green-800' :
+          item.status === 'Inactive' ? 'bg-red-100 text-red-800' :
+          'bg-gray-100 text-gray-800'
+        }`}>
+          {item.status || 'N/A'}
+        </span>
+      )
+    },
+    {
+      key: 'manufacture_year',
+      title: 'An Fabricat',
+      sortable: true,
+      render: (item) => (
+        <div className="text-slate-600 dark:text-slate-400 text-sm">
+          {item.manufacture_year || 'N/A'}
+        </div>
+      )
+    }
+  ]
+
   // Locations columns
   const locationsColumns = [
     {
@@ -968,7 +1086,8 @@ const CyberImport = () => {
             
           <button
             onClick={() => {
-              if (activeTab === 'slots') fetchCyberData()
+              if (activeTab === 'audit') fetchMachineAuditSummaries()
+              else if (activeTab === 'slots') fetchCyberData()
               else if (activeTab === 'locations') fetchCyberLocations()
               else if (activeTab === 'cabinets') fetchCyberCabinets()
               else if (activeTab === 'gameMixes') fetchCyberGameMixes()
@@ -987,6 +1106,16 @@ const CyberImport = () => {
         <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
           <div className="border-b border-slate-200 dark:border-slate-700">
             <nav className="-mb-px flex space-x-8 px-6">
+              <button
+                onClick={() => setActiveTab('audit')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'audit'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                Machine Audit ({machineAuditSummaries.length})
+              </button>
               <button
                 onClick={() => setActiveTab('slots')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
@@ -1045,31 +1174,37 @@ const CyberImport = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
             <div className="text-2xl font-bold text-slate-800 dark:text-slate-200">
-              {activeTab === 'slots' ? cyberData.length : cyberLocations.length}
+              {activeTab === 'audit' ? machineAuditSummaries.length : 
+               activeTab === 'slots' ? cyberData.length : cyberLocations.length}
             </div>
             <div className="text-sm text-slate-600 dark:text-slate-400">Total înregistrări</div>
           </div>
           <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
             <div className="text-2xl font-bold text-blue-600">
-              {activeTab === 'slots' ? filteredData.length : filteredLocations.length}
+              {activeTab === 'audit' ? machineAuditSummaries.length :
+               activeTab === 'slots' ? filteredData.length : filteredLocations.length}
             </div>
             <div className="text-sm text-slate-600 dark:text-slate-400">Filtrate</div>
           </div>
           <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
             <div className="text-2xl font-bold text-green-600">
-              {activeTab === 'slots' ? selectedItems.size : selectedLocations.size}
+              {activeTab === 'audit' ? selectedItems.size :
+               activeTab === 'slots' ? selectedItems.size : selectedLocations.size}
             </div>
             <div className="text-sm text-slate-600 dark:text-slate-400">Selectate</div>
           </div>
           <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
             <div className="text-2xl font-bold text-purple-600">
-              {activeTab === 'slots' 
-                ? getUniqueValues('provider').length 
-                : getUniqueLocationValues('company').length
+              {activeTab === 'audit' ? 
+                [...new Set(machineAuditSummaries.map(item => item.producator))].length :
+                activeTab === 'slots' 
+                  ? getUniqueValues('provider').length 
+                  : getUniqueLocationValues('company').length
               }
             </div>
             <div className="text-sm text-slate-600 dark:text-slate-400">
-              {activeTab === 'slots' ? 'Provideri' : 'Companii'}
+              {activeTab === 'audit' ? 'Producători' :
+               activeTab === 'slots' ? 'Provideri' : 'Companii'}
             </div>
           </div>
         </div>
@@ -1083,9 +1218,11 @@ const CyberImport = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                 <input
                   type="text"
-                  placeholder={activeTab === 'slots' 
-                    ? "Caută după serial, provider, cabinet..." 
-                    : "Caută după nume, adresă, oraș, companie..."
+                  placeholder={activeTab === 'audit' 
+                    ? "Caută după serial, producător, cabinet, locație..." 
+                    : activeTab === 'slots' 
+                      ? "Caută după serial, provider, cabinet..." 
+                      : "Caută după nume, adresă, oraș, companie..."
                   }
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -1236,14 +1373,16 @@ const CyberImport = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <button
-              onClick={activeTab === 'slots' ? selectAllVisible : selectAllVisibleLocations}
+              onClick={activeTab === 'audit' ? selectAllVisible : 
+                       activeTab === 'slots' ? selectAllVisible : selectAllVisibleLocations}
               className="btn-secondary flex items-center space-x-2"
             >
               <CheckCircle className="w-4 h-4" />
               <span>Selectează toate</span>
             </button>
             <button
-              onClick={activeTab === 'slots' ? deselectAll : deselectAllLocations}
+              onClick={activeTab === 'audit' ? deselectAll : 
+                       activeTab === 'slots' ? deselectAll : deselectAllLocations}
               className="btn-secondary flex items-center space-x-2"
             >
               <XCircle className="w-4 h-4" />
@@ -1253,20 +1392,26 @@ const CyberImport = () => {
 
           <div className="flex items-center space-x-3">
             <button
-              onClick={activeTab === 'slots' ? importSelected : importSelectedLocations}
-              disabled={activeTab === 'slots' ? selectedItems.size === 0 : selectedLocations.size === 0}
+              onClick={activeTab === 'audit' ? importSelected : 
+                       activeTab === 'slots' ? importSelected : importSelectedLocations}
+              disabled={activeTab === 'audit' ? selectedItems.size === 0 :
+                       activeTab === 'slots' ? selectedItems.size === 0 : selectedLocations.size === 0}
               className="btn-primary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Upload className="w-4 h-4" />
-              <span>Importă selectate ({activeTab === 'slots' ? selectedItems.size : selectedLocations.size})</span>
+              <span>Importă selectate ({activeTab === 'audit' ? selectedItems.size : 
+                       activeTab === 'slots' ? selectedItems.size : selectedLocations.size})</span>
             </button>
             <button
-              onClick={activeTab === 'slots' ? importAllVisible : importAllVisibleLocations}
-              disabled={activeTab === 'slots' ? filteredData.length === 0 : filteredLocations.length === 0}
+              onClick={activeTab === 'audit' ? importAllVisible : 
+                       activeTab === 'slots' ? importAllVisible : importAllVisibleLocations}
+              disabled={activeTab === 'audit' ? machineAuditSummaries.length === 0 :
+                       activeTab === 'slots' ? filteredData.length === 0 : filteredLocations.length === 0}
               className="btn-success flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download className="w-4 h-4" />
-              <span>Importă toate ({activeTab === 'slots' ? filteredData.length : filteredLocations.length})</span>
+              <span>Importă toate ({activeTab === 'audit' ? machineAuditSummaries.length : 
+                       activeTab === 'slots' ? filteredData.length : filteredLocations.length})</span>
             </button>
           </div>
         </div>
@@ -1277,7 +1422,8 @@ const CyberImport = () => {
             <table className="w-full">
               <thead className="bg-slate-50 dark:bg-slate-700">
                 <tr>
-                  {(activeTab === 'slots' ? slotsColumns : locationsColumns).map((column) => (
+                  {(activeTab === 'audit' ? auditColumns : 
+                    activeTab === 'slots' ? slotsColumns : locationsColumns).map((column) => (
                     <th
                       key={column.key}
                       className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider"
@@ -1290,28 +1436,35 @@ const CyberImport = () => {
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                 {loading ? (
                   <tr>
-                    <td colSpan={(activeTab === 'slots' ? slotsColumns : locationsColumns).length} className="px-6 py-12 text-center">
+                    <td colSpan={(activeTab === 'audit' ? auditColumns : 
+                      activeTab === 'slots' ? slotsColumns : locationsColumns).length} className="px-6 py-12 text-center">
                       <div className="flex items-center justify-center space-x-2">
                         <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />
                         <span className="text-slate-600 dark:text-slate-400">Se încarcă datele din Cyber...</span>
                       </div>
                     </td>
                   </tr>
-                ) : (activeTab === 'slots' ? filteredData : filteredLocations).length === 0 ? (
+                ) : (activeTab === 'audit' ? machineAuditSummaries : 
+                      activeTab === 'slots' ? filteredData : filteredLocations).length === 0 ? (
                   <tr>
-                    <td colSpan={(activeTab === 'slots' ? slotsColumns : locationsColumns).length} className="px-6 py-12 text-center">
+                    <td colSpan={(activeTab === 'audit' ? auditColumns : 
+                      activeTab === 'slots' ? slotsColumns : locationsColumns).length} className="px-6 py-12 text-center">
                       <div className="text-slate-500 dark:text-slate-400">
-                        {activeTab === 'slots' 
-                          ? (cyberData.length === 0 ? 'Nu există sloturi în Cyber' : 'Nu există rezultate pentru filtrele aplicate')
-                          : (cyberLocations.length === 0 ? 'Nu există locații în Cyber' : 'Nu există rezultate pentru filtrele aplicate')
+                        {activeTab === 'audit' 
+                          ? (machineAuditSummaries.length === 0 ? 'Nu există date în Machine Audit Summaries' : 'Nu există rezultate pentru filtrele aplicate')
+                          : activeTab === 'slots' 
+                            ? (cyberData.length === 0 ? 'Nu există sloturi în Cyber' : 'Nu există rezultate pentru filtrele aplicate')
+                            : (cyberLocations.length === 0 ? 'Nu există locații în Cyber' : 'Nu există rezultate pentru filtrele aplicate')
                         }
                       </div>
                     </td>
                   </tr>
                 ) : (
-                  (activeTab === 'slots' ? filteredData : filteredLocations).map((item, index) => (
+                  (activeTab === 'audit' ? machineAuditSummaries : 
+                    activeTab === 'slots' ? filteredData : filteredLocations).map((item, index) => (
                     <tr key={item.id || index} className="hover:bg-slate-50 dark:hover:bg-slate-700">
-                      {(activeTab === 'slots' ? slotsColumns : locationsColumns).map((column) => (
+                      {(activeTab === 'audit' ? auditColumns : 
+                    activeTab === 'slots' ? slotsColumns : locationsColumns).map((column) => (
                         <td key={column.key} className="px-6 py-4 whitespace-nowrap">
                           {column.render ? column.render(item) : item[column.key]}
                         </td>
