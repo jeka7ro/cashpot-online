@@ -2876,6 +2876,43 @@ app.use('/api/cyber', cyberRoutes)
 
 // Cyber routes now handled by cyber.js module
 
+// ==================== CYBER ENDPOINTS (DIRECT) ====================
+// Load exported data as fallback
+const loadExportedData = (filename) => {
+  try {
+    const filePath = path.join(__dirname, 'cyber-data', filename)
+    if (fs.existsSync(filePath)) {
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+      console.log(`✅ Loaded ${data.length} items from ${filename}`)
+      return data
+    }
+  } catch (error) {
+    console.error(`Error loading ${filename}:`, error.message)
+  }
+  return []
+}
+
+// Get machine audit summaries
+app.get('/api/cyber/machine-audit-summaries', async (req, res) => {
+  try {
+    const auditSummaries = loadExportedData('machine_audit_summaries.json')
+    res.json(auditSummaries)
+  } catch (error) {
+    console.error('Error loading machine audit summaries:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Test Cyber database connection
+app.get('/api/cyber/test', async (req, res) => {
+  try {
+    res.json({ success: true, message: 'Cyber endpoints working', mode: 'json' })
+  } catch (error) {
+    console.error('Cyber connection test error:', error)
+    res.status(500).json({ success: false, message: error.message })
+  }
+})
+
 // Cyber selective sync endpoints
 app.post('/api/cyber/sync-locations', async (req, res) => {
   try {
