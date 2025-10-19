@@ -1,0 +1,18 @@
+CRITICAL ROUTE REGISTRATION FIX - v1.0.36
+==========================================
+
+PROBLEM: Render using cached build - routes not registering
+
+SOLUTION: Multiple build triggers to force rebuild
+
+Expected logs after rebuild:
+- 🚀 SERVER STARTING - All imports loaded successfully!
+- 🔥 CRITICAL BUILD v1.0.35 - [timestamp]
+- 📦 Building for Render deployment - Route registration fix!
+- 🚀 CRITICAL BUILD 999 - [timestamp]
+- 🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+- 📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+- 🔥 Registering ALL routes...
+- ✅ NEW routes registered: /api/promotions, /api/cyber, /api/tasks, /api/messages, /api/notifications
+
+If these DON'T appear after deploy, Render needs manual cache clear!

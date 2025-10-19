@@ -48,17 +48,19 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 dotenv.config()
 
 console.log('🚀 SERVER STARTING - All imports loaded successfully!')
+console.log('🔥 CRITICAL BUILD v1.0.35 - ' + new Date().toISOString())
+console.log('📦 Building for Render deployment - Route registration fix!')
 
 const { Pool } = pg
 const app = express()
 const PORT = process.env.PORT || 3001
 
-  // EMERGENCY FIX - 2025-01-17 18:24 - FORCE RENDER REDEPLOY
-  const BUILD_NUMBER = '2'
-  const BUILD_DATE = new Date('17.10.2025 - 18:24')
-  console.log(`🚀 SERVER STARTING - BUILD ${BUILD_NUMBER} - ${BUILD_DATE}`)
-  console.log('🔥 EMERGENCY FIX - PROMOTIONS & CYBER ENDPOINTS MUST WORK')
-  console.log('📦 Version: 1.0.33')
+  // CRITICAL FIX - 2025-10-19 11:43 - FORCE RENDER REBUILD FOR ROUTES
+  const BUILD_NUMBER = '999'
+  const BUILD_DATE = new Date().toISOString()
+  console.log(`🚀 CRITICAL BUILD ${BUILD_NUMBER} - ${BUILD_DATE}`)
+  console.log('🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK')
+  console.log('📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!')
 
 // Authentication middleware to extract user from JWT
 const authenticateUser = async (req, res, next) => {
