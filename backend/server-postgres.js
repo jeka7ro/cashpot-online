@@ -45,6 +45,7 @@ import { scheduleBackups } from './backup.js'
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
+console.log('🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥')
 dotenv.config()
 
 console.log('💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥')
@@ -3429,6 +3430,20 @@ app.delete('/api/commissions/:id', authenticateUser, async (req, res) => {
     res.status(500).json({ success: false, error: error.message })
   }
 })
+
+// ==================== FINAL ROUTE REGISTRATION ATTEMPT ====================
+console.log('🚀🚀🚀 FINAL ATTEMPT: Registering routes RIGHT before server start! 🚀🚀🚀')
+try {
+  // Remove any existing registrations and re-register
+  app.use('/api/promotions', promotionsRoutes)
+  app.use('/api/cyber', cyberRoutes)
+  app.use('/api/tasks', authenticateUser, tasksRoutes)
+  app.use('/api/messages', authenticateUser, messagesRoutes)
+  app.use('/api/notifications', authenticateUser, notificationsRoutes)
+  console.log('✅✅✅ FINAL SUCCESS: Routes registered before server start! ✅✅✅')
+} catch (error) {
+  console.error('❌❌❌ FINAL ERROR during route registration:', error)
+}
 
 // Start server
 app.listen(PORT, () => {
