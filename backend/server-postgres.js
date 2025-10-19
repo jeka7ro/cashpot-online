@@ -611,6 +611,21 @@ const initializeDatabase = async () => {
       }
     }
 
+    // Add approval workflow columns to tasks table
+    try {
+      await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_by INTEGER`)
+      await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS approved_by INTEGER`)
+      await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS proof_documents TEXT[] DEFAULT '{}'`)
+      await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completion_notes TEXT`)
+      await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completion_date TIMESTAMP`)
+      await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS approval_date TIMESTAMP`)
+      await pool.query(`ALTER TABLE tasks ADD FOREIGN KEY (completed_by) REFERENCES users(id)`)
+      await pool.query(`ALTER TABLE tasks ADD FOREIGN KEY (approved_by) REFERENCES users(id)`)
+      console.log('✅ Tasks table updated with approval workflow columns')
+    } catch (error) {
+      console.log('⚠️ Tasks approval columns may already exist:', error.message)
+    }
+
     // Create admin user if not exists
     const adminCheck = await pool.query('SELECT * FROM users WHERE username = $1', ['admin'])
     

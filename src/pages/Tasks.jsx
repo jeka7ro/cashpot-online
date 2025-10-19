@@ -232,6 +232,49 @@ const Tasks = () => {
           {new Date(task.created_at).toLocaleDateString('ro-RO')}
         </span>
       )
+    },
+    {
+      key: 'actions',
+      label: 'ACȚIUNI',
+      sortable: false,
+      render: (task) => (
+        <div className="flex items-center space-x-2">
+          {/* Complete button - only for assigned users */}
+          {task.assigned_to?.includes(user?.userId) && task.status !== 'completed' && (
+            <button
+              onClick={() => handleComplete(task)}
+              className="px-3 py-1 bg-green-600 text-white text-xs rounded-md hover:bg-green-700 transition-colors"
+            >
+              <CheckSquare className="w-4 h-4 inline mr-1" />
+              Complete
+            </button>
+          )}
+          
+          {/* Approve button - only for creator or admin */}
+          {task.status === 'completed' && !task.approved_by && 
+           (task.created_by === user?.userId || user?.role === 'admin') && (
+            <button
+              onClick={() => handleApprove(task)}
+              className="px-3 py-1 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 transition-colors"
+            >
+              <CheckSquare className="w-4 h-4 inline mr-1" />
+              Aprobă
+            </button>
+          )}
+          
+          {/* Status indicators */}
+          {task.completed_by && (
+            <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+              Finalizat de: {task.completed_by_full_name || task.completed_by_name}
+            </span>
+          )}
+          {task.approved_by && (
+            <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+              Aprobat de: {task.approved_by_full_name || task.approved_by_name}
+            </span>
+          )}
+        </div>
+      )
     }
   ]
 
@@ -243,6 +286,40 @@ const Tasks = () => {
   const handleAdd = () => {
     setEditingTask(null)
     setShowModal(true)
+  }
+
+  // Handle task completion
+  const handleComplete = async (task) => {
+    if (window.confirm('Confirmă finalizarea acestei sarcini?')) {
+      try {
+        const completionNotes = prompt('Adaugă nota de finalizare (opțional):')
+        await axios.put(`/api/tasks/${task.id}/complete`, {
+          completion_notes: completionNotes
+        })
+        toast.success('Sarcina a fost marcată ca finalizată!')
+        refreshData()
+      } catch (error) {
+        console.error('Error completing task:', error)
+        toast.error('Eroare la finalizarea sarcinii!')
+      }
+    }
+  }
+
+  // Handle task approval
+  const handleApprove = async (task) => {
+    if (window.confirm('Confirmă aprobarea finalizării acestei sarcini?')) {
+      try {
+        const approvalNotes = prompt('Adaugă nota de aprobare (opțional):')
+        await axios.put(`/api/tasks/${task.id}/approve`, {
+          approval_notes: approvalNotes
+        })
+        toast.success('Finalizarea sarcinii a fost aprobată!')
+        refreshData()
+      } catch (error) {
+        console.error('Error approving task:', error)
+        toast.error('Eroare la aprobarea sarcinii!')
+      }
+    }
   }
 
   // Quick stats
