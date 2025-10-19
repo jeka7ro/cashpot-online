@@ -2,11 +2,7 @@ import express from 'express'
 
 const router = express.Router()
 
-// Authentication middleware placeholder (will be applied in main server)
-const authenticateUser = (req, res, next) => {
-  req.user = req.user || { userId: 1, username: 'admin', full_name: 'Eugeniu Cazmal' }
-  next()
-}
+// Authentication middleware is applied in main server
 
 // Get all messages for the authenticated user (sent and received)
 router.get('/', async (req, res) => {

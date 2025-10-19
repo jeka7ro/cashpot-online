@@ -2951,6 +2951,8 @@ app.use('/api/tasks', authenticateUser, tasksRoutes)
 app.use('/api/messages', authenticateUser, messagesRoutes)
 app.use('/api/notifications', authenticateUser, notificationsRoutes)
 
+console.log('🔥 ROUTES REGISTERED: /api/tasks, /api/messages, /api/notifications')
+
 // Cyber routes now handled by cyber.js module
 
 // ==================== CYBER ENDPOINTS (DIRECT) ====================
