@@ -49,8 +49,16 @@ router.get('/active', async (req, res) => {
 // Get single promotion
 router.get('/:id', async (req, res) => {
   try {
-    const pool = req.app.get('pool')
     const { id } = req.params
+    console.log(`🔥 DEBUG: /:id endpoint hit with id: ${id}`)
+    
+    // Check if "active" is being passed as an ID parameter
+    if (id === 'active') {
+      console.error('❌ ERROR: "active" is being caught by /:id route instead of /active route!')
+      return res.status(404).json({ success: false, error: 'Route conflict: active endpoint not working' })
+    }
+    
+    const pool = req.app.get('pool')
     const result = await pool.query('SELECT * FROM promotions WHERE id = $1', [id])
     
     if (result.rows.length === 0) {
