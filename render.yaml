@@ -9,8 +9,6 @@ services:
     envVars:
       - key: DATABASE_URL
         value: postgresql://cashpot_user:V8Usuj5Do5KKQzMPHfQU3RXKLbnYSJ4X@dpg-d3ee3s6r433s73eijgig-a.frankfurt-postgres.render.com/cashpot
-      - key: PORT
-        value: 5001
       - key: NODE_ENV
         value: production
       - key: JWT_SECRET

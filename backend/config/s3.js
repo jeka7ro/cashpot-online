@@ -2,6 +2,7 @@ import { S3Client } from '@aws-sdk/client-s3'
 import multerS3 from 'multer-s3'
 import multer from 'multer'
 import path from 'path'
+import fs from 'fs'
 import dotenv from 'dotenv'
 
 dotenv.config()
@@ -12,14 +13,17 @@ const s3Client = new S3Client({
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-  }
+  },
+  // Add signature version for better compatibility
+  forcePathStyle: false,
+  useAccelerateEndpoint: false
 })
 
 // Configure Multer to upload to S3
 const uploadS3 = multer({
   storage: multerS3({
     s3: s3Client,
-    bucket: process.env.AWS_S3_BUCKET || 'cashpot-documents',
+    bucket: process.env.S3_BUCKET_NAME || process.env.AWS_S3_BUCKET || 'cashpot-documents',
     metadata: (req, file, cb) => {
       cb(null, {
         fieldName: file.fieldname,

@@ -46,7 +46,7 @@ dotenv.config()
 
 const { Pool } = pg
 const app = express()
-const PORT = process.env.PORT || 5001
+const PORT = process.env.PORT || 3001
 
   // EMERGENCY FIX - 2025-01-17 18:24 - FORCE RENDER REDEPLOY
   const BUILD_NUMBER = '2'
@@ -963,7 +963,10 @@ const initializeDatabase = async () => {
 
 // Middleware
 app.use(morgan('combined'))
-app.use(cors())
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || ['https://w1n.ro', 'http://localhost:3000'],
+  credentials: true
+}))
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
@@ -2877,41 +2880,51 @@ app.use('/api/cyber', cyberRoutes)
 // Cyber routes now handled by cyber.js module
 
 // ==================== CYBER ENDPOINTS (DIRECT) ====================
-// Load exported data as fallback
-const loadExportedData = (filename) => {
-  try {
-    const filePath = path.join(__dirname, 'cyber-data', filename)
-    if (fs.existsSync(filePath)) {
-      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'))
-      console.log(`✅ Loaded ${data.length} items from ${filename}`)
-      return data
-    }
-  } catch (error) {
-    console.error(`Error loading ${filename}:`, error.message)
-  }
-  return []
-}
+// Note: /api/cyber/machine-audit-summaries and /api/cyber/test are handled by cyberRoutes
 
-// Get machine audit summaries
-app.get('/api/cyber/machine-audit-summaries', async (req, res) => {
+// Get slots with jackpots
+app.get('/api/cyber/slots-with-jackpots', async (req, res) => {
   try {
-    const auditSummaries = loadExportedData('machine_audit_summaries.json')
-    res.json(auditSummaries)
+    const pool = req.app.get('pool')
+    
+    // Get all slots with their jackpots
+    const query = `
+      SELECT 
+        s.*,
+        j.id as jackpot_id,
+        j.jackpot_name,
+        j.jackpot_type,
+        j.current_amount,
+        j.max_amount,
+        j.progress_percentage,
+        j.status as jackpot_status,
+        j.winner,
+        j.triggered_date
+      FROM slots s
+      LEFT JOIN jackpots j ON s.serial_number = j.serial_number
+      ORDER BY s.created_at DESC
+    `
+    
+    const result = await pool.query(query)
+    res.json(result.rows)
   } catch (error) {
-    console.error('Error loading machine audit summaries:', error)
+    console.error('Error fetching slots with jackpots:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })
 
-// Test Cyber database connection
-app.get('/api/cyber/test', async (req, res) => {
+// Get all approvals
+app.get('/api/approvals', async (req, res) => {
   try {
-    res.json({ success: true, message: 'Cyber endpoints working', mode: 'json' })
+    const pool = req.app.get('pool')
+    const result = await pool.query('SELECT * FROM approvals ORDER BY created_at DESC')
+    res.json(result.rows)
   } catch (error) {
-    console.error('Cyber connection test error:', error)
-    res.status(500).json({ success: false, message: error.message })
+    console.error('Approvals GET error:', error)
+    res.status(500).json({ success: false, error: error.message })
   }
 })
+
 
 // Cyber selective sync endpoints
 app.post('/api/cyber/sync-locations', async (req, res) => {

@@ -313,7 +313,7 @@ const Marketing = () => {
               setViewingItem(item)
               setShowDetailModal(true)
             }}
-            loading={loading.promotions}
+            loading={loading}
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
             moduleColor="blue"
