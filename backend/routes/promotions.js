@@ -33,16 +33,13 @@ router.get('/active', async (req, res) => {
 // Get all promotions
 router.get('/', async (req, res) => {
   try {
-    console.log('🔥 DEBUG: /api/promotions endpoint hit')
     const pool = req.app.get('pool')
     
     if (!pool) {
-      console.error('❌ Pool not available in promotions endpoint')
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
     
     const result = await pool.query('SELECT * FROM promotions ORDER BY start_date DESC, created_at DESC')
-    console.log(`✅ Promotions query returned ${result.rows.length} results`)
     res.json(result.rows)
   } catch (error) {
     console.error('Promotions GET error:', error)
@@ -141,6 +138,50 @@ router.delete('/:id', authenticateUser, async (req, res) => {
     res.json({ success: true, message: 'Promotion deleted successfully' })
   } catch (error) {
     console.error('Promotion DELETE error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// TEST: Insert sample promotion if table is empty
+router.post('/test-sample', async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    // Check if promotions table has any data
+    const countResult = await pool.query('SELECT COUNT(*) FROM promotions')
+    const count = parseInt(countResult.rows[0].count)
+    
+    if (count === 0) {
+      // Insert sample promotion
+      const samplePromotion = await pool.query(`
+        INSERT INTO promotions (name, description, start_date, end_date, location, status, prizes, created_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING *
+      `, [
+        'Tombala Weekend-ului',
+        'Promoție specială pentru weekend cu premii mari',
+        new Date().toISOString().split('T')[0], // today
+        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // next week
+        'Locație Centrală',
+        'Active',
+        JSON.stringify([
+          { name: 'Premiul 1', value: 1000, qty: 1 },
+          { name: 'Premiul 2', value: 500, qty: 2 }
+        ]),
+        'system'
+      ])
+      
+      console.log('✅ Sample promotion inserted:', samplePromotion.rows[0])
+      res.json({ success: true, message: 'Sample promotion created', promotion: samplePromotion.rows[0] })
+    } else {
+      res.json({ success: false, message: `Promotions table already has ${count} records` })
+    }
+  } catch (error) {
+    console.error('Test sample promotion error:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })
