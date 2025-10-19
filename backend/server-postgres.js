@@ -118,6 +118,19 @@ const pool = new Pool({
 // Make pool available to routes
 app.set('pool', pool)
 
+// ==================== REGISTER ALL ROUTES EARLY ====================
+// CRITICAL: Routes MUST be registered before any async operations!
+console.log('🔥 Registering ALL routes...')
+
+// NEW CRITICAL ROUTES - MUST BE FIRST
+app.use('/api/promotions', promotionsRoutes)
+app.use('/api/cyber', cyberRoutes)
+app.use('/api/tasks', authenticateUser, tasksRoutes)
+app.use('/api/messages', authenticateUser, messagesRoutes)
+app.use('/api/notifications', authenticateUser, notificationsRoutes)
+
+console.log('✅ NEW routes registered: /api/promotions, /api/cyber, /api/tasks, /api/messages, /api/notifications')
+
 // Test connection
 pool.query('SELECT NOW()', async (err, res) => {
   if (err) {
@@ -2961,21 +2974,9 @@ app.use('/api/onjn-reports', onjnReportsRoutes)
 app.use('/api/metrology', metrologyRoutes)
 app.use('/api/warehouse', warehouseRoutes)
 
-console.log('🔥 DEBUG: About to register NEW routes - promotions, cyber, tasks, messages, notifications')
-
-app.use('/api/promotions', promotionsRoutes)
-app.use('/api/cyber', cyberRoutes)
-
-// NEW MODULES - REGISTER EARLY TO AVOID CONFLICTS
-app.use('/api/tasks', authenticateUser, tasksRoutes)
-app.use('/api/messages', authenticateUser, messagesRoutes)
-app.use('/api/notifications', authenticateUser, notificationsRoutes)
-
-console.log('✅ SUCCESS: All NEW routes registered - /api/promotions, /api/cyber, /api/tasks, /api/messages, /api/notifications')
-
-// ==================== CYBER ROUTES ====================
-// All Cyber endpoints are handled by cyberRoutes module
-// No duplicate direct endpoints after app.use('/api/cyber', cyberRoutes)
+// ==================== NEW ROUTES ALREADY REGISTERED EARLY ====================
+// Routes for promotions, cyber, tasks, messages, notifications
+// are registered at the TOP of the file (line ~126) before any async operations
 
 // Get all approvals
 app.get('/api/approvals', async (req, res) => {
