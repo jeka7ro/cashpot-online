@@ -2960,6 +2960,9 @@ app.use('/api/legal-documents', legalDocumentsRoutes)
 app.use('/api/onjn-reports', onjnReportsRoutes)
 app.use('/api/metrology', metrologyRoutes)
 app.use('/api/warehouse', warehouseRoutes)
+
+console.log('🔥 DEBUG: About to register NEW routes - promotions, cyber, tasks, messages, notifications')
+
 app.use('/api/promotions', promotionsRoutes)
 app.use('/api/cyber', cyberRoutes)
 
@@ -2968,7 +2971,7 @@ app.use('/api/tasks', authenticateUser, tasksRoutes)
 app.use('/api/messages', authenticateUser, messagesRoutes)
 app.use('/api/notifications', authenticateUser, notificationsRoutes)
 
-console.log('🔥 ROUTES REGISTERED: /api/tasks, /api/messages, /api/notifications, /api/promotions, /api/cyber')
+console.log('✅ SUCCESS: All NEW routes registered - /api/promotions, /api/cyber, /api/tasks, /api/messages, /api/notifications')
 
 // ==================== CYBER ROUTES ====================
 // All Cyber endpoints are handled by cyberRoutes module
