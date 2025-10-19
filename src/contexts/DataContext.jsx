@@ -2,7 +2,11 @@ import React, { createContext, useState, useContext, useEffect } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 
-// axios.defaults.baseURL = 'http://localhost:5001' // Commented out to use Vite proxy
+// Configure axios base URL for production via Vercel rewrite or env
+const apiBaseUrl = (typeof window !== 'undefined' && window.__API_BASE_URL__) || import.meta?.env?.VITE_API_URL || ''
+if (apiBaseUrl && !axios.defaults.baseURL) {
+  axios.defaults.baseURL = apiBaseUrl
+}
 
 const DataContext = createContext()
 

@@ -13,6 +13,12 @@ import uploadRoutes from './routes/upload.js'
 import backupRoutes from './routes/backup.js'
 import gamesRoutes from './routes/games.js'
 import slotHistoryRoutes from './routes/slotHistory.js'
+// Register missing feature routes from backend implementation
+import promotionsRoutes from './backend/routes/promotions.js'
+import cyberRoutes from './backend/routes/cyber.js'
+import tasksRoutes from './backend/routes/tasks.js'
+import messagesRoutes from './backend/routes/messages.js'
+import notificationsRoutes from './backend/routes/notifications.js'
 import { scheduleBackups } from './backup.js'
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
@@ -39,6 +45,9 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('render.com') ? { rejectUnauthorized: false } : false
 })
+
+// Make pool available to mounted routers
+app.set('pool', pool)
 
 // Test connection
 pool.query('SELECT NOW()', (err, res) => {
@@ -698,6 +707,42 @@ const initializeDatabase = async () => {
       console.log('✅ Metrology table updated with new fields')
     } catch (error) {
       console.log('⚠️ Metrology new fields may already exist:', error.message)
+    }
+
+    // Promotions table (marketing)
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS promotions (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          description TEXT,
+          start_date DATE NOT NULL,
+          end_date DATE NOT NULL,
+          total_amount DECIMAL(15,2) DEFAULT 0,
+          awarded_amount DECIMAL(15,2) DEFAULT 0,
+          location VARCHAR(255),
+          status VARCHAR(50) DEFAULT 'Active',
+          prizes JSONB DEFAULT '[]',
+          notes TEXT,
+          banner_path VARCHAR(500),
+          regulation_path VARCHAR(500),
+          created_by VARCHAR(255) DEFAULT 'admin',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+      console.log('✅ Promotions table created')
+    } catch (error) {
+      console.log('⚠️ Promotions table may already exist:', error.message)
+    }
+
+    // Ensure attachment columns exist (idempotent)
+    try {
+      await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS banner_path VARCHAR(500)")
+      await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS regulation_path VARCHAR(500)")
+      console.log('✅ Ensured promotions attachment columns exist')
+    } catch (e) {
+      console.log('⚠️ Error ensuring promotions attachment columns:', e.message)
     }
 
     console.log('✅ Database schema initialized')
@@ -2354,6 +2399,19 @@ app.use('/api/backup', backupRoutes)
 // Games routes
 app.use('/api/games', gamesRoutes)
 app.use('/api/slot-history', slotHistoryRoutes)
+
+// Lightweight auth to populate req.user where needed
+const authenticateUser = (req, res, next) => {
+  req.user = req.user || { userId: 1, username: 'admin', full_name: 'Eugeniu Cazmal' }
+  next()
+}
+
+// Marketing and related feature routes
+app.use('/api/promotions', promotionsRoutes)
+app.use('/api/cyber', cyberRoutes)
+app.use('/api/tasks', authenticateUser, tasksRoutes)
+app.use('/api/messages', authenticateUser, messagesRoutes)
+app.use('/api/notifications', authenticateUser, notificationsRoutes)
 
 // Serve static files (PDFs)
 app.use('/uploads', express.static('uploads'))
