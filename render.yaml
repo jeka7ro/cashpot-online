@@ -25,5 +25,5 @@ services:
         value: cashpot-documents
       - key: S3_PUBLIC_BASE_URL
         value: https://cashpot-documents.s3.eu-central-1.amazonaws.com
-  - key: FORCE_REDEPLOY_TRIGGER
-    value: "CRITICAL-FIX-$(date +%s): Remove duplicate routes causing 404 - ALL modules"
+      - key: FORCE_REBUILD_V35
+        value: "2025-10-19T11:36:00Z-CLEAR-CACHE-REQUIRED"
