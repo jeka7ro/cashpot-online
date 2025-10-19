@@ -1,0 +1,13 @@
+CRITICAL REBUILD REQUIRED
+Timestamp: 2025-10-19 11:20:00
+Reason: 404 errors on /api/promotions, /api/tasks, /api/messages, /api/notifications, /api/cyber
+
+All route files are present in git:
+- routes/promotions.js ✓
+- routes/tasks.js ✓  
+- routes/messages.js ✓
+- routes/notifications.js ✓
+- routes/cyber.js ✓
+
+This file forces a complete rebuild on Render.
+
