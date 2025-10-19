@@ -1,0 +1,14 @@
+FORCE DEPLOY - Version 1.0.38
+==============================
+
+BUILD.SH FIX APPLIED - Backend folder route registration fix
+
+This should trigger Render auto-deploy.
+
+If not, manual deploy required!
+
+Expected logs after deploy:
+🚨 CRITICAL: Registering routes IMMEDIATELY after middleware setup!
+✅ CRITICAL ROUTES REGISTERED IMMEDIATELY!
+
+Timestamp: $(date)
