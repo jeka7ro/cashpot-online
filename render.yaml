@@ -1,10 +1,10 @@
 services:
   - type: web
-    name: cashpot-backend-v2
+    name: cashpot-backend-fresh-v3
     env: node
     plan: free
-    buildCommand: cd backend && npm install && echo "🚀 NEW BACKEND v1.0.40 $(date +%s) - $(date)" > build-trigger.txt
-    startCommand: cd backend && echo "🚀 STARTING NEW BACKEND $(cat build-trigger.txt)" && npm start
+    buildCommand: cd backend && npm install && echo "🚀 NUCLEAR BACKEND v1.0.41 $(date +%s) - $(date)" > build-trigger.txt
+    startCommand: cd backend && echo "🚀 STARTING NUCLEAR BACKEND $(cat build-trigger.txt)" && npm start
     healthCheckPath: /health # CRITICAL REDEPLOY 2025-01-17 16:35 - CYBER ENDPOINTS 404 - MUST FIX NOW
     envVars:
       - key: DATABASE_URL
@@ -25,5 +25,5 @@ services:
         value: cashpot-documents
       - key: S3_PUBLIC_BASE_URL
         value: https://cashpot-documents.s3.eu-central-1.amazonaws.com
-      - key: FORCE_REBUILD_V35
-        value: "2025-10-19T11:36:00Z-CLEAR-CACHE-REQUIRED"
+      - key: FORCE_REBUILD_V41
+        value: "2025-10-19T12:35:00Z-NUCLEAR-SINGLE-ROUTE-REGISTRATION"

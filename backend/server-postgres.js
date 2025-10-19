@@ -107,18 +107,7 @@ const authenticateUser = async (req, res, next) => {
   }
 }
 
-// ==================== NUCLEAR ROUTE REGISTRATION ====================
-console.log('💥💥💥 NUCLEAR: REGISTERING ROUTES RIGHT NOW! 💥💥💥')
-try {
-  app.use('/api/promotions', promotionsRoutes)
-  app.use('/api/cyber', cyberRoutes) 
-  app.use('/api/tasks', authenticateUser, tasksRoutes)
-  app.use('/api/messages', authenticateUser, messagesRoutes)
-  app.use('/api/notifications', authenticateUser, notificationsRoutes)
-  console.log('🎉🎉🎉 NUCLEAR SUCCESS: ALL ROUTES REGISTERED! 🎉🎉🎉')
-} catch (error) {
-  console.error('💥💥💥 NUCLEAR ERROR:', error)
-}
+// Routes moved to line 3438 - RIGHT before server start
 
 // AWS S3 Configuration
 const s3Client = new S3Client({
@@ -1080,16 +1069,7 @@ app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
 console.log('🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!')
-console.log('🚨 CRITICAL: Registering routes IMMEDIATELY after middleware setup!')
-
-// CRITICAL ROUTES - REGISTER BEFORE ANY OTHER MIDDLEWARE
-app.use('/api/promotions', promotionsRoutes)
-app.use('/api/cyber', cyberRoutes)
-app.use('/api/tasks', authenticateUser, tasksRoutes)
-app.use('/api/messages', authenticateUser, messagesRoutes)
-app.use('/api/notifications', authenticateUser, notificationsRoutes)
-
-console.log('✅ CRITICAL ROUTES REGISTERED IMMEDIATELY!')
+// Routes moved to line 3438 - RIGHT before server start
 
 // Multer configuration for file uploads
 const storage = multer.diskStorage({
@@ -3431,18 +3411,23 @@ app.delete('/api/commissions/:id', authenticateUser, async (req, res) => {
   }
 })
 
-// ==================== FINAL ROUTE REGISTRATION ATTEMPT ====================
-console.log('🚀🚀🚀 FINAL ATTEMPT: Registering routes RIGHT before server start! 🚀🚀🚀')
+// ==================== NUCLEAR v1.0.41 - SINGLE ROUTE REGISTRATION ====================
+console.log('🚨🚨🚨 NUCLEAR v1.0.41 - ONLY ONE ROUTE REGISTRATION POINT! 🚨🚨🚨')
+console.log('🔥🔥🔥 REGISTERING ALL ROUTES RIGHT BEFORE SERVER START! 🔥🔥🔥')
 try {
-  // Remove any existing registrations and re-register
+  console.log('📋 Registering /api/promotions...')
   app.use('/api/promotions', promotionsRoutes)
+  console.log('📋 Registering /api/cyber...')
   app.use('/api/cyber', cyberRoutes)
+  console.log('📋 Registering /api/tasks...')
   app.use('/api/tasks', authenticateUser, tasksRoutes)
+  console.log('📋 Registering /api/messages...')
   app.use('/api/messages', authenticateUser, messagesRoutes)
+  console.log('📋 Registering /api/notifications...')
   app.use('/api/notifications', authenticateUser, notificationsRoutes)
-  console.log('✅✅✅ FINAL SUCCESS: Routes registered before server start! ✅✅✅')
+  console.log('✅✅✅ NUCLEAR SUCCESS v1.0.41: ALL ROUTES REGISTERED! ✅✅✅')
 } catch (error) {
-  console.error('❌❌❌ FINAL ERROR during route registration:', error)
+  console.error('❌❌❌ NUCLEAR ERROR v1.0.41 during route registration:', error)
 }
 
 // Start server
@@ -3452,4 +3437,3 @@ app.listen(PORT, () => {
   console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`)
   console.log(`📅 Build: ${BUILD_NUMBER} (${BUILD_DATE})`)
 })
-Sun Oct 19 14:19:24 EEST 2025
