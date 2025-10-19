@@ -12,6 +12,11 @@ const authenticateUser = (req, res, next) => {
 router.get('/active', async (req, res) => {
   try {
     const pool = req.app.get('pool')
+    
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+    
     const result = await pool.query(`
       SELECT * FROM promotions 
       WHERE status = 'Active' 

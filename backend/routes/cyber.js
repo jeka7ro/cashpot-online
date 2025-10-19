@@ -44,25 +44,31 @@ router.get('/slots-with-jackpots', async (req, res) => {
       return res.json(slots)
     }
     
-    const query = `
-      SELECT 
-        s.*,
-        j.id as jackpot_id,
-        j.jackpot_name,
-        j.jackpot_type,
-        j.current_amount,
-        j.max_amount,
-        j.progress_percentage,
-        j.status as jackpot_status,
-        j.winner,
-        j.triggered_date
-      FROM slots s
-      LEFT JOIN jackpots j ON s.serial_number = j.serial_number
-      ORDER BY s.created_at DESC
-    `
-    
-    const result = await pool.query(query)
-    res.json(result.rows)
+    try {
+      const query = `
+        SELECT 
+          s.*,
+          j.id as jackpot_id,
+          j.jackpot_name,
+          j.jackpot_type,
+          j.current_amount,
+          j.max_amount,
+          j.progress_percentage,
+          j.status as jackpot_status,
+          j.winner,
+          j.triggered_date
+        FROM slots s
+        LEFT JOIN jackpots j ON s.serial_number = j.serial_number
+        ORDER BY s.created_at DESC
+      `
+      
+      const result = await pool.query(query)
+      res.json(result.rows)
+    } catch (dbError) {
+      console.error('Database error, falling back to JSON:', dbError)
+      const slots = loadExportedData('slots.json')
+      res.json(slots)
+    }
   } catch (error) {
     console.error('Error fetching slots with jackpots:', error)
     const slots = loadExportedData('slots.json')
