@@ -47,6 +47,8 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 dotenv.config()
 
+console.log('🚀 SERVER STARTING - All imports loaded successfully!')
+
 const { Pool } = pg
 const app = express()
 const PORT = process.env.PORT || 3001

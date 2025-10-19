@@ -1,0 +1,8 @@
+FORCE RENDER REBUILD - VERSION 1.0.35
+=========================================
+
+CRITICAL FIX: Route registration moved to line 126
+
+This file forces Render to rebuild from scratch.
+Timestamp: 2025-10-19 11:35:00
+
