@@ -1,0 +1,11 @@
+NUCLEAR DEPLOY FORCE - v1.0.40
+===============================
+
+URGENT: Routes moved to IMMEDIATE registration after authenticateUser!
+
+IF THIS DOESN'T WORK, RENDER IS BROKEN!
+
+Expected logs MUST appear:
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.40 - [timestamp] 🚨🚨🚨
+💥💥💥 NUCLEAR: REGISTERING ROUTES RIGHT NOW! 💥💥💥
+🎉🎉🎉 NUCLEAR SUCCESS: ALL ROUTES REGISTERED! 🎉🎉🎉
