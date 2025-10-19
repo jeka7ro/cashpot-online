@@ -8,6 +8,23 @@ const authenticateUser = (req, res, next) => {
   next()
 }
 
+// Get active promotions (for dashboard) - MUST BE FIRST to avoid /:id conflict
+router.get('/active', async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    const result = await pool.query(`
+      SELECT * FROM promotions 
+      WHERE status = 'Active' 
+      AND end_date >= CURRENT_DATE 
+      ORDER BY start_date ASC
+    `)
+    res.json(result.rows)
+  } catch (error) {
+    console.error('Active promotions GET error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 // Get all promotions
 router.get('/', async (req, res) => {
   try {
@@ -20,44 +37,11 @@ router.get('/', async (req, res) => {
   }
 })
 
-// Get active promotions (for dashboard)
-router.get('/active', async (req, res) => {
-  try {
-    console.log('🔥 DEBUG: /api/promotions/active endpoint hit')
-    const pool = req.app.get('pool')
-    
-    if (!pool) {
-      console.error('❌ Pool not available in /active endpoint')
-      return res.status(500).json({ success: false, error: 'Database pool not available' })
-    }
-    
-    const result = await pool.query(`
-      SELECT * FROM promotions 
-      WHERE status = 'Active' 
-      AND end_date >= CURRENT_DATE 
-      ORDER BY start_date ASC
-    `)
-    
-    console.log(`✅ Active promotions query returned ${result.rows.length} results`)
-    res.json(result.rows)
-  } catch (error) {
-    console.error('❌ Active promotions GET error:', error)
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
 
 // Get single promotion
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params
-    console.log(`🔥 DEBUG: /:id endpoint hit with id: ${id}`)
-    
-    // Check if "active" is being passed as an ID parameter
-    if (id === 'active') {
-      console.error('❌ ERROR: "active" is being caught by /:id route instead of /active route!')
-      return res.status(404).json({ success: false, error: 'Route conflict: active endpoint not working' })
-    }
-    
     const pool = req.app.get('pool')
     const result = await pool.query('SELECT * FROM promotions WHERE id = $1', [id])
     
