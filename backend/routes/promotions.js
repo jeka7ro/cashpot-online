@@ -28,8 +28,16 @@ router.get('/active', async (req, res) => {
 // Get all promotions
 router.get('/', async (req, res) => {
   try {
+    console.log('🔥 DEBUG: /api/promotions endpoint hit')
     const pool = req.app.get('pool')
+    
+    if (!pool) {
+      console.error('❌ Pool not available in promotions endpoint')
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+    
     const result = await pool.query('SELECT * FROM promotions ORDER BY start_date DESC, created_at DESC')
+    console.log(`✅ Promotions query returned ${result.rows.length} results`)
     res.json(result.rows)
   } catch (error) {
     console.error('Promotions GET error:', error)
