@@ -2968,43 +2968,11 @@ app.use('/api/tasks', authenticateUser, tasksRoutes)
 app.use('/api/messages', authenticateUser, messagesRoutes)
 app.use('/api/notifications', authenticateUser, notificationsRoutes)
 
-console.log('🔥 ROUTES REGISTERED: /api/tasks, /api/messages, /api/notifications')
+console.log('🔥 ROUTES REGISTERED: /api/tasks, /api/messages, /api/notifications, /api/promotions, /api/cyber')
 
-// Cyber routes now handled by cyber.js module
-
-// ==================== CYBER ENDPOINTS (DIRECT) ====================
-// Note: /api/cyber/machine-audit-summaries and /api/cyber/test are handled by cyberRoutes
-
-// Get slots with jackpots
-app.get('/api/cyber/slots-with-jackpots', async (req, res) => {
-  try {
-    const pool = req.app.get('pool')
-    
-    // Get all slots with their jackpots
-    const query = `
-      SELECT 
-        s.*,
-        j.id as jackpot_id,
-        j.jackpot_name,
-        j.jackpot_type,
-        j.current_amount,
-        j.max_amount,
-        j.progress_percentage,
-        j.status as jackpot_status,
-        j.winner,
-        j.triggered_date
-      FROM slots s
-      LEFT JOIN jackpots j ON s.serial_number = j.serial_number
-      ORDER BY s.created_at DESC
-    `
-    
-    const result = await pool.query(query)
-    res.json(result.rows)
-  } catch (error) {
-    console.error('Error fetching slots with jackpots:', error)
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
+// ==================== CYBER ROUTES ====================
+// All Cyber endpoints are handled by cyberRoutes module
+// No duplicate direct endpoints after app.use('/api/cyber', cyberRoutes)
 
 // Get all approvals
 app.get('/api/approvals', async (req, res) => {
