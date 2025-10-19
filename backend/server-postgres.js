@@ -47,8 +47,9 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 dotenv.config()
 
-// ==================== NUCLEAR DEPLOY v1.0.39 ====================
-console.log('🚨🚨🚨 NUCLEAR DEPLOY v1.0.39 - ' + new Date().toISOString() + ' 🚨🚨🚨')
+console.log('💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥')
+// ==================== NUCLEAR DEPLOY v1.0.40 ====================
+console.log('🚨🚨🚨 NUCLEAR DEPLOY v1.0.40 - ' + new Date().toISOString() + ' 🚨🚨🚨')
 console.log('🚀 SERVER STARTING - All imports loaded successfully!')
 console.log('🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!')
 console.log('📦 Building for Render deployment - Route registration fix!')
