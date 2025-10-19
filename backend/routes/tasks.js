@@ -132,17 +132,11 @@ router.get('/:id', async (req, res) => {
 // Create new task
 router.post('/', async (req, res) => {
   try {
-    console.log('🔥 DEBUG: POST /api/tasks endpoint hit')
     const pool = req.app.get('pool')
     const { title, description, priority, assigned_to, due_date } = req.body
     const createdBy = req.user?.userId || 1
     
-    console.log('🔥 DEBUG: Request body:', { title, description, priority, assigned_to, due_date })
-    console.log('🔥 DEBUG: User:', req.user)
-    console.log('🔥 DEBUG: CreatedBy:', createdBy)
-    
     if (!pool) {
-      console.error('❌ Pool not available in tasks POST endpoint')
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
 
@@ -152,26 +146,6 @@ router.post('/', async (req, res) => {
 
     // Convert assigned_to array of user IDs to PostgreSQL array format
     const assignedToArray = Array.isArray(assigned_to) ? assigned_to.map(id => parseInt(id)) : []
-
-    // Check if tasks table exists
-    try {
-      const checkTable = await pool.query(`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_name = 'tasks'
-        )
-      `)
-      console.log('🔥 DEBUG: Tasks table exists:', checkTable.rows[0].exists)
-      
-      if (!checkTable.rows[0].exists) {
-        console.error('❌ Tasks table does not exist!')
-        return res.status(500).json({ success: false, error: 'Tasks table not found. Please check database initialization.' })
-      }
-    } catch (checkError) {
-      console.error('❌ Error checking tasks table:', checkError)
-      return res.status(500).json({ success: false, error: 'Database error: ' + checkError.message })
-    }
 
     const result = await pool.query(`
       INSERT INTO tasks (title, description, priority, assigned_to, created_by, due_date)

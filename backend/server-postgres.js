@@ -2947,6 +2947,8 @@ app.use('/api/metrology', metrologyRoutes)
 app.use('/api/warehouse', warehouseRoutes)
 app.use('/api/promotions', promotionsRoutes)
 app.use('/api/cyber', cyberRoutes)
+
+// NEW MODULES - REGISTER EARLY TO AVOID CONFLICTS
 app.use('/api/tasks', authenticateUser, tasksRoutes)
 app.use('/api/messages', authenticateUser, messagesRoutes)
 app.use('/api/notifications', authenticateUser, notificationsRoutes)

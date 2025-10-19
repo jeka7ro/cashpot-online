@@ -375,26 +375,47 @@ const Layout = ({ children }) => {
 
               {/* Notifications Popup */}
               {showNotifications && (
-                <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-gray-200 dark:border-slate-700 z-50 max-h-96 overflow-y-auto">
-                  <div className="p-4 border-b border-gray-200 dark:border-slate-700">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">Notificări</h3>
+                <div className="absolute right-0 top-full mt-2 w-80 bg-white/90 dark:bg-slate-800/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-slate-500/20 border border-white/30 dark:border-slate-700/50 z-50 max-h-96 overflow-hidden">
+                  {/* Header */}
+                  <div className="bg-gradient-to-r from-slate-800 via-blue-800 to-indigo-800 px-6 py-4 flex justify-between items-center relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-indigo-600/20"></div>
+                    <div className="relative z-10 flex items-center space-x-3">
+                      <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl shadow-lg">
+                        <Bell className="w-5 h-5 text-white" />
+                      </div>
+                      <h3 className="text-lg font-bold text-white">Notificări</h3>
+                    </div>
+                    <button 
+                      onClick={() => setShowNotifications(false)}
+                      className="relative z-10 text-white hover:bg-white/20 rounded-2xl p-2 transition-all duration-200"
+                    >
+                      <X size={20} />
+                    </button>
                   </div>
+                  
+                  {/* Content */}
                   <div className="max-h-80 overflow-y-auto">
                     {unreadNotificationsCount === 0 ? (
-                      <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+                      <div className="p-6 text-center text-gray-500 dark:text-gray-400">
+                        <div className="mb-2">
+                          <Bell size={32} className="mx-auto text-gray-300 dark:text-gray-600" />
+                        </div>
                         Nu ai notificări noi
                       </div>
                     ) : (
-                      <div className="divide-y divide-gray-200 dark:divide-slate-700">
+                      <div className="divide-y divide-gray-200/50 dark:divide-slate-700/50">
                         {/* Messages notifications */}
                         {messages.filter(msg => msg.recipient_id === user?.userId && !msg.is_read).slice(0, 5).map((message) => (
-                          <div key={`msg-${message.id}`} className="p-3 hover:bg-gray-50 dark:hover:bg-slate-700">
+                          <div key={`msg-${message.id}`} className="p-4 hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-indigo-50/50 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20 transition-all duration-200">
                             <div className="text-sm text-gray-900 dark:text-white">
-                              <div className="font-medium">Mesaj nou</div>
-                              <div className="text-gray-600 dark:text-gray-300 truncate">
+                              <div className="font-semibold text-blue-600 dark:text-blue-400 mb-1 flex items-center">
+                                <MessageSquare size={14} className="mr-2" />
+                                Mesaj nou
+                              </div>
+                              <div className="text-gray-600 dark:text-gray-300 truncate mb-2">
                                 {message.content}
                               </div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
                                 {new Date(message.created_at).toLocaleString('ro-RO')}
                               </div>
                             </div>
@@ -403,13 +424,15 @@ const Layout = ({ children }) => {
                         
                         {/* System notifications */}
                         {notifications.filter(notif => !notif.is_read).slice(0, 5).map((notification) => (
-                          <div key={`notif-${notification.id}`} className="p-3 hover:bg-gray-50 dark:hover:bg-slate-700">
+                          <div key={`notif-${notification.id}`} className="p-4 hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-indigo-50/50 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20 transition-all duration-200">
                             <div className="text-sm text-gray-900 dark:text-white">
-                              <div className="font-medium">{notification.title}</div>
-                              <div className="text-gray-600 dark:text-gray-300">
+                              <div className="font-semibold text-indigo-600 dark:text-indigo-400 mb-1">
+                                {notification.title}
+                              </div>
+                              <div className="text-gray-600 dark:text-gray-300 mb-2">
                                 {notification.content}
                               </div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
                                 {new Date(notification.created_at).toLocaleString('ro-RO')}
                               </div>
                             </div>
@@ -418,14 +441,15 @@ const Layout = ({ children }) => {
                       </div>
                     )}
                   </div>
+                  
                   {unreadNotificationsCount > 0 && (
-                    <div className="p-3 border-t border-gray-200 dark:border-slate-700">
+                    <div className="p-4 border-t border-gray-200/50 dark:border-slate-700/50 bg-gradient-to-r from-blue-50/30 to-indigo-50/30 dark:from-blue-900/10 dark:to-indigo-900/10">
                       <a 
                         href="/messages" 
-                        className="block w-full text-center text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400"
+                        className="block w-full text-center text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
                         onClick={() => setShowNotifications(false)}
                       >
-                        Vezi toate mesajele
+                        Vezi toate mesajele →
                       </a>
                     </div>
                   )}
