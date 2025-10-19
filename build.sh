@@ -1,6 +1,9 @@
 #!/bin/bash
 echo "=== BUILDING ==="
 echo "Current directory: $(pwd)"
+echo "Changing to backend directory..."
+cd backend
+echo "Backend directory: $(pwd)"
 echo "Running npm install..."
 npm install
 echo "Checking node_modules..."
