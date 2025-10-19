@@ -122,19 +122,7 @@ const pool = new Pool({
 // Make pool available to routes
 app.set('pool', pool)
 
-// ==================== REGISTER ALL ROUTES EARLY ====================
-// CRITICAL: Routes MUST be registered before any async operations!
-console.log('🔥 Registering ALL routes...')
-
-// NEW CRITICAL ROUTES - MUST BE FIRST
-app.use('/api/promotions', promotionsRoutes)
-app.use('/api/cyber', cyberRoutes)
-app.use('/api/tasks', authenticateUser, tasksRoutes)
-app.use('/api/messages', authenticateUser, messagesRoutes)
-app.use('/api/notifications', authenticateUser, notificationsRoutes)
-
-console.log('✅ NEW routes registered: /api/promotions, /api/cyber, /api/tasks, /api/messages, /api/notifications')
-
+// Routes are now registered IMMEDIATELY after middleware setup (line ~1080)
 // Test connection
 pool.query('SELECT NOW()', async (err, res) => {
   if (err) {
@@ -1072,6 +1060,18 @@ app.use(cors({
 }))
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
+
+// ==================== REGISTER CRITICAL ROUTES IMMEDIATELY ====================
+console.log('🚨 CRITICAL: Registering routes IMMEDIATELY after middleware setup!')
+
+// CRITICAL ROUTES - REGISTER BEFORE ANY OTHER MIDDLEWARE
+app.use('/api/promotions', promotionsRoutes)
+app.use('/api/cyber', cyberRoutes)
+app.use('/api/tasks', authenticateUser, tasksRoutes)
+app.use('/api/messages', authenticateUser, messagesRoutes)
+app.use('/api/notifications', authenticateUser, notificationsRoutes)
+
+console.log('✅ CRITICAL ROUTES REGISTERED IMMEDIATELY!')
 
 // Multer configuration for file uploads
 const storage = multer.diskStorage({
