@@ -1061,7 +1061,7 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
-// ==================== REGISTER CRITICAL ROUTES IMMEDIATELY ====================
+console.log('🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!')
 console.log('🚨 CRITICAL: Registering routes IMMEDIATELY after middleware setup!')
 
 // CRITICAL ROUTES - REGISTER BEFORE ANY OTHER MIDDLEWARE
