@@ -35,6 +35,9 @@ export const DataProvider = ({ children }) => {
   const [contracts, setContracts] = useState([])
   const [promotions, setPromotions] = useState([])
   const [approvals, setApprovals] = useState([])
+  const [tasks, setTasks] = useState([])
+  const [messages, setMessages] = useState([])
+  const [notifications, setNotifications] = useState([])
   const [loading, setLoading] = useState(false)
 
   // Calculate statistics
@@ -52,7 +55,10 @@ export const DataProvider = ({ children }) => {
     totalOnjnReports: onjnReports.length,
     totalLegalDocuments: legalDocuments.length,
     totalUsers: users.length,
-    totalGames: games.length
+    totalGames: games.length,
+    totalTasks: tasks.length,
+    totalMessages: messages.length,
+    totalNotifications: notifications.length
   }
 
   // Entity config
@@ -75,7 +81,10 @@ export const DataProvider = ({ children }) => {
     proprietari: { state: proprietari, setState: setProprietari },
     contracts: { state: contracts, setState: setContracts },
     promotions: { state: promotions, setState: setPromotions },
-    approvals: { state: approvals, setState: setApprovals }
+    approvals: { state: approvals, setState: setApprovals },
+    tasks: { state: tasks, setState: setTasks },
+    messages: { state: messages, setState: setMessages },
+    notifications: { state: notifications, setState: setNotifications }
   }
 
   // Fetch all data in parallel for maximum speed
@@ -401,6 +410,9 @@ export const DataProvider = ({ children }) => {
     contracts,
     promotions,
     approvals,
+    tasks,
+    messages,
+    notifications,
     loading,
     statistics,
     createItem,

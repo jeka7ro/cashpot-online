@@ -31,6 +31,8 @@ import ONJNReports from './pages/ONJNReports'
 import LegalDocuments from './pages/LegalDocuments'
 import Users from './pages/Users'
 import Settings from './pages/Settings'
+import Tasks from './pages/Tasks'
+import Messages from './pages/Messages'
 
 function App() {
   return (
@@ -64,6 +66,8 @@ function App() {
             <Route path="/legal-documents" element={<RoleProtectedRoute module={MODULES.LEGAL}><LegalDocuments /></RoleProtectedRoute>} />
             <Route path="/marketing" element={<RoleProtectedRoute module={MODULES.MARKETING}><Marketing /></RoleProtectedRoute>} />
             <Route path="/marketing/:id" element={<RoleProtectedRoute module={MODULES.MARKETING}><PromotionDetail /></RoleProtectedRoute>} />
+            <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
+            <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
             <Route path="/users" element={<RoleProtectedRoute requiredRole="admin"><Users /></RoleProtectedRoute>} />
             <Route path="/settings" element={<RoleProtectedRoute module={MODULES.SETTINGS}><Settings /></RoleProtectedRoute>} />
             

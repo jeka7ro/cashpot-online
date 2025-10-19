@@ -38,6 +38,9 @@ import metrologyRoutes from './routes/metrology.js'
 import warehouseRoutes from './routes/warehouse.js'
 import promotionsRoutes from './routes/promotions.js'
 import cyberRoutes from './routes/cyber.js'
+import tasksRoutes from './routes/tasks.js'
+import messagesRoutes from './routes/messages.js'
+import notificationsRoutes from './routes/notifications.js'
 import { scheduleBackups } from './backup.js'
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
@@ -116,12 +119,15 @@ const pool = new Pool({
 app.set('pool', pool)
 
 // Test connection
-pool.query('SELECT NOW()', (err, res) => {
+pool.query('SELECT NOW()', async (err, res) => {
   if (err) {
     console.error('❌ PostgreSQL connection error:', err)
   } else {
     console.log('✅ Connected to PostgreSQL')
     console.log('⏰ Database time:', res.rows[0].now)
+    
+    // Initialize database schema after connection is established
+    await initializeDatabase()
   }
 })
 
@@ -953,6 +959,71 @@ const initializeDatabase = async () => {
       console.log('✅ Users table updated with new fields including preferences')
     } catch (error) {
       console.log('⚠️ Users new fields may already exist:', error.message)
+    }
+
+    // Create tasks table
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS tasks (
+          id SERIAL PRIMARY KEY,
+          title VARCHAR(255) NOT NULL,
+          description TEXT,
+          status VARCHAR(50) DEFAULT 'pending',
+          priority VARCHAR(20) DEFAULT 'medium',
+          assigned_to INTEGER[] DEFAULT '{}',
+          created_by INTEGER NOT NULL,
+          due_date TIMESTAMP,
+          completed_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (created_by) REFERENCES users(id)
+        )
+      `)
+      console.log('✅ Tasks table created')
+    } catch (error) {
+      console.log('⚠️ Tasks table may already exist:', error.message)
+    }
+
+    // Create messages table
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS messages (
+          id SERIAL PRIMARY KEY,
+          sender_id INTEGER NOT NULL,
+          recipient_id INTEGER NOT NULL,
+          subject VARCHAR(255),
+          content TEXT NOT NULL,
+          file_attachments TEXT[] DEFAULT '{}',
+          is_read BOOLEAN DEFAULT FALSE,
+          read_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (sender_id) REFERENCES users(id),
+          FOREIGN KEY (recipient_id) REFERENCES users(id)
+        )
+      `)
+      console.log('✅ Messages table created')
+    } catch (error) {
+      console.log('⚠️ Messages table may already exist:', error.message)
+    }
+
+    // Create notifications table
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS notifications (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          type VARCHAR(50) NOT NULL,
+          title VARCHAR(255) NOT NULL,
+          content TEXT,
+          is_read BOOLEAN DEFAULT FALSE,
+          related_id INTEGER,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+      `)
+      console.log('✅ Notifications table created')
+    } catch (error) {
+      console.log('⚠️ Notifications table may already exist:', error.message)
     }
 
     console.log('✅ Database schema initialized')
@@ -2876,6 +2947,9 @@ app.use('/api/metrology', metrologyRoutes)
 app.use('/api/warehouse', warehouseRoutes)
 app.use('/api/promotions', promotionsRoutes)
 app.use('/api/cyber', cyberRoutes)
+app.use('/api/tasks', authenticateUser, tasksRoutes)
+app.use('/api/messages', authenticateUser, messagesRoutes)
+app.use('/api/notifications', authenticateUser, notificationsRoutes)
 
 // Cyber routes now handled by cyber.js module
 

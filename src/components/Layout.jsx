@@ -29,17 +29,20 @@ import {
   Moon,
   Sun,
   History,
-  TrendingUp
+  TrendingUp,
+  CheckSquare,
+  MessageSquare
 } from 'lucide-react'
 
 const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [showNotifications, setShowNotifications] = useState(false)
   const { user, logout } = useAuth()
   
   // Show sidebar for all users, but filter menu items based on permissions
   const shouldShowSidebar = true
-  const { companies, locations, providers, platforms, cabinets, gameMixes, slots, warehouse, metrology, approvals, jackpots, invoices, onjnReports, legalDocuments, users, promotions } = useData()
+  const { companies, locations, providers, platforms, cabinets, gameMixes, slots, warehouse, metrology, approvals, jackpots, invoices, onjnReports, legalDocuments, users, promotions, tasks, messages, notifications } = useData()
   const { theme, toggleTheme } = useTheme()
   const location = useLocation()
   
@@ -95,6 +98,18 @@ const Layout = ({ children }) => {
 
     return () => clearInterval(timer)
   }, [])
+
+  // Close notifications popup when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showNotifications && !event.target.closest('.notification-container')) {
+        setShowNotifications(false)
+      }
+    }
+
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [showNotifications])
 
   const allMenuItems = [
     { 
@@ -210,6 +225,20 @@ const Layout = ({ children }) => {
       module: MODULES.MARKETING
     },
     { 
+      id: 'tasks', 
+      label: 'Sarcini', 
+      icon: CheckSquare, 
+      path: '/tasks',
+      count: tasks?.length || 0
+    },
+    { 
+      id: 'messages', 
+      label: 'Mesaje', 
+      icon: MessageSquare, 
+      path: '/messages',
+      count: messages?.filter(msg => msg.recipient_id === user?.userId && !msg.is_read).length || 0
+    },
+    { 
       id: 'users', 
       label: 'Utilizatori', 
       icon: UserIcon, 
@@ -236,6 +265,9 @@ const Layout = ({ children }) => {
     // Check if item requires admin role
     if (item.requiresAdmin && user?.role !== 'admin') return false
     
+    // Allow items without module (like Tasks and Messages) for all authenticated users
+    if (!item.module) return true
+    
     // Get user permissions (from database or default for role)
     const userPermissions = user?.permissions && Object.keys(user.permissions).length > 0 
       ? user.permissions 
@@ -250,6 +282,10 @@ const Layout = ({ children }) => {
   })
 
   const currentPage = menuItems.find(item => item.path === location.pathname)
+
+  // Calculate unread notifications count
+  const unreadNotificationsCount = notifications.filter(notif => !notif.is_read).length + 
+    messages.filter(msg => msg.recipient_id === user?.userId && !msg.is_read).length
 
   // Header style adaptat pentru dark mode
   const headerStyle = theme === 'dark'
@@ -323,10 +359,79 @@ const Layout = ({ children }) => {
               )}
             </button>
             
-            <button className="p-2 rounded-xl hover:bg-white/20 transition-all duration-200 hover:shadow-lg relative hidden sm:block group">
-              <Bell size={18} className="group-hover:scale-110 transition-transform text-white" />
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-r from-red-500 to-pink-500 rounded-full shadow-lg animate-pulse"></span>
-            </button>
+            {/* Notifications Bell */}
+            <div className="relative hidden sm:block notification-container">
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="p-2 rounded-xl hover:bg-white/20 transition-all duration-200 hover:shadow-lg group"
+              >
+                <Bell size={18} className="group-hover:scale-110 transition-transform text-white" />
+                {unreadNotificationsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-gradient-to-r from-red-500 to-pink-500 rounded-full shadow-lg animate-pulse flex items-center justify-center text-xs text-white font-bold">
+                    {unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Notifications Popup */}
+              {showNotifications && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-gray-200 dark:border-slate-700 z-50 max-h-96 overflow-y-auto">
+                  <div className="p-4 border-b border-gray-200 dark:border-slate-700">
+                    <h3 className="font-semibold text-gray-900 dark:text-white">Notificări</h3>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {unreadNotificationsCount === 0 ? (
+                      <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+                        Nu ai notificări noi
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-gray-200 dark:divide-slate-700">
+                        {/* Messages notifications */}
+                        {messages.filter(msg => msg.recipient_id === user?.userId && !msg.is_read).slice(0, 5).map((message) => (
+                          <div key={`msg-${message.id}`} className="p-3 hover:bg-gray-50 dark:hover:bg-slate-700">
+                            <div className="text-sm text-gray-900 dark:text-white">
+                              <div className="font-medium">Mesaj nou</div>
+                              <div className="text-gray-600 dark:text-gray-300 truncate">
+                                {message.content}
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {new Date(message.created_at).toLocaleString('ro-RO')}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        
+                        {/* System notifications */}
+                        {notifications.filter(notif => !notif.is_read).slice(0, 5).map((notification) => (
+                          <div key={`notif-${notification.id}`} className="p-3 hover:bg-gray-50 dark:hover:bg-slate-700">
+                            <div className="text-sm text-gray-900 dark:text-white">
+                              <div className="font-medium">{notification.title}</div>
+                              <div className="text-gray-600 dark:text-gray-300">
+                                {notification.content}
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {new Date(notification.created_at).toLocaleString('ro-RO')}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {unreadNotificationsCount > 0 && (
+                    <div className="p-3 border-t border-gray-200 dark:border-slate-700">
+                      <a 
+                        href="/messages" 
+                        className="block w-full text-center text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400"
+                        onClick={() => setShowNotifications(false)}
+                      >
+                        Vezi toate mesajele
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <div className="flex items-center space-x-3 md:space-x-4">
               {user?.avatar ? (
                 <img 

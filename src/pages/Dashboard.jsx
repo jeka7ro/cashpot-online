@@ -15,6 +15,7 @@ import PromotionsCalendarWidget from '../components/PromotionsCalendarWidget'
 import PromotionsAIWidget from '../components/PromotionsAIWidget'
 import ONJNCurrencyRate from '../components/ONJNCurrencyRate'
 import GamesLibraryWidget from '../components/GamesLibraryWidget'
+import TasksWidget from '../components/TasksWidget'
 import { getVersion, getBuild, getBuildDate } from '../utils/version'
 import {
   DndContext,
@@ -205,10 +206,11 @@ const Dashboard = () => {
       { id: 'onjnCalendar', title: 'Calendar ONJN', visible: true, order: 5 },
       { id: 'systemHealth', title: 'Sănătate Sistem', visible: true, order: 6 },
       { id: 'gamesLibrary', title: 'Jocuri din Librărie', visible: true, order: 7 },
-      { id: 'promotionsActive', title: '🎯 Promoții Active', visible: true, order: 8 },
-      { id: 'promotionsCalendar', title: '📅 Calendar Promoții', visible: true, order: 9 },
-      { id: 'promotionsAI', title: '🤖 Analiză AI Marketing', visible: true, order: 10 },
-      { id: 'performanceCharts', title: 'Grafice Performanță', visible: true, order: 11 }
+      { id: 'tasksWidget', title: '✅ Sarcini', visible: true, order: 8 },
+      { id: 'promotionsActive', title: '🎯 Promoții Active', visible: true, order: 9 },
+      { id: 'promotionsCalendar', title: '📅 Calendar Promoții', visible: true, order: 10 },
+      { id: 'promotionsAI', title: '🤖 Analiză AI Marketing', visible: true, order: 11 },
+      { id: 'performanceCharts', title: 'Grafice Performanță', visible: true, order: 12 }
     ]
   }
 
@@ -1187,6 +1189,8 @@ const Dashboard = () => {
                         return <SystemHealth />
                       case 'gamesLibrary':
                         return <GamesLibraryWidget />
+                      case 'tasksWidget':
+                        return <TasksWidget />
                       case 'promotionsActive':
                         return <PromotionsWidget />
                       case 'promotionsCalendar':
