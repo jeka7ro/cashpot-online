@@ -1099,8 +1099,7 @@ try {
       res.status(500).json({ success: false, error: error.message })
     }
   })
-  // Keep other promotion routes via router
-  app.use('/api/promotions', promotionsRoutes)
+  // REMOVED router conflict - using only direct endpoint above
   console.log('📋 Registering /api/cyber IMMEDIATELY...')
   app.use('/api/cyber', cyberRoutes)
   console.log('📋 Registering /api/tasks IMMEDIATELY...')
