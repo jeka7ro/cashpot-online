@@ -126,6 +126,7 @@ export const DataProvider = ({ children }) => {
         setSlots(slotsData)
       } catch (error) {
         console.error('❌ Error fetching slots with jackpots, trying regular slots:', error)
+        
         // Fallback to regular slots
         try {
           const slotsResponse = await axios.get('/api/slots', { timeout: 10000 })
@@ -133,7 +134,26 @@ export const DataProvider = ({ children }) => {
           console.log(`✅ slots (fallback): ${slotsData.length} items`)
           setSlots(slotsData)
         } catch (fallbackError) {
-          console.error('❌ Error fetching regular slots:', fallbackError)
+          console.error('❌ Error fetching regular slots, trying local file:', fallbackError)
+          
+          // Fallback to local JSON file
+          try {
+            console.log('🔄 Trying to load slots from local file...')
+            const localResponse = await axios.get('/cyber-slots.json', { timeout: 5000 })
+            const localData = Array.isArray(localResponse.data) ? localResponse.data : []
+            console.log(`✅ slots (local file): ${localData.length} items`)
+            
+            if (localData.length > 0) {
+              setSlots(localData)
+              toast.success(`${localData.length} sloturi încărcate din fișier local (mod offline)`)
+              return
+            }
+          } catch (localError) {
+            console.error('❌ Error fetching slots from local file:', localError)
+          }
+          
+          // Final fallback - empty array
+          console.warn('⚠️ All slot data sources failed, using empty array')
           setSlots([])
         }
       }
