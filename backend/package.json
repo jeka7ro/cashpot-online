@@ -1,6 +1,6 @@
 {
   "name": "cashpot-backend",
-  "version": "1.0.45",
+  "version": "1.0.46",
   "description": "CASHPOT ERP Backend API",
   "main": "server-postgres.js",
   "type": "module",
