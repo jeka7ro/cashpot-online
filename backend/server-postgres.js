@@ -1110,7 +1110,7 @@ app.get('/api/promotions', async (req, res) => {
   }
 })
 
-app.post('/api/promotions', authenticateUser, async (req, res) => {
+app.post('/api/promotions', async (req, res) => {
   console.log('🚨🚨🚨 DIRECT POST /api/promotions called!')
   try {
     const pool = req.app.get('pool')
@@ -1119,7 +1119,7 @@ app.post('/api/promotions', authenticateUser, async (req, res) => {
     }
     
     const { name, description, start_date, end_date, location, locations, prizes, status, notes } = req.body
-    const createdBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
+    const createdBy = (req.user && (req.user.full_name || req.user.username)) || 'Eugeniu Cazmal'
     
     console.log('🚨 DIRECT POST data:', { name, description, start_date, end_date, location, locations, prizes })
     
