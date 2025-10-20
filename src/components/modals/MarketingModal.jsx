@@ -310,42 +310,6 @@ const MarketingModal = ({ item, onClose, onSave }) => {
             />
           </div>
 
-          {/* Dates */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                <Calendar className="w-4 h-4 inline mr-2" />
-                Data Start *
-              </label>
-              <input
-                type="date"
-                name="start_date"
-                value={formData.start_date}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 
-                         bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                         focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                <Calendar className="w-4 h-4 inline mr-2" />
-                Data Final *
-              </label>
-              <input
-                type="date"
-                name="end_date"
-                value={formData.end_date}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 
-                         bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                         focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-              />
-            </div>
-          </div>
 
           {/* Prizes Section */}
           <div className="border-t-2 border-slate-200 dark:border-slate-600 pt-6">

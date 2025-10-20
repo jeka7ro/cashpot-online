@@ -864,13 +864,17 @@ const initializeDatabase = async () => {
       `)
       console.log('✅ Promotions table created')
       
-      // Add banner_path and regulation_path columns if they don't exist
+      // Add missing columns if they don't exist
       try {
         await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS banner_path VARCHAR(500)")
         await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS regulation_path VARCHAR(500)")
-        console.log('✅ Added banner_path and regulation_path columns to promotions table')
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS locations JSONB DEFAULT '[]'")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS total_amount DECIMAL(15,2) DEFAULT 0")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS awarded_amount DECIMAL(15,2) DEFAULT 0")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255)")
+        console.log('✅ Added missing columns to promotions table')
       } catch (e) {
-        console.log('⚠️ Error adding attachment columns to promotions:', e.message)
+        console.log('⚠️ Error adding columns to promotions:', e.message)
       }
       
       // Migrate existing promotions to new prizes format
@@ -1075,7 +1079,7 @@ console.log('🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!')
 console.log('🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨')
 try {
   console.log('📋 Registering /api/promotions router IMMEDIATELY...')
-  app.use('/api/promotions', promotionsRoutes)
+  app.use('/api/promotions', authenticateUser, promotionsRoutes)
   console.log('📋 Registering /api/cyber IMMEDIATELY...')
   app.use('/api/cyber', cyberRoutes)
   console.log('📋 Registering /api/tasks IMMEDIATELY...')

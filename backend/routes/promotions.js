@@ -70,21 +70,31 @@ router.get('/:id', async (req, res) => {
 router.post('/', authenticateUser, async (req, res) => {
   try {
     const pool = req.app.get('pool')
-    const { name, description, start_date, end_date, location, prizes, status, notes } = req.body
+    const { name, description, start_date, end_date, location, locations, prizes, status, notes } = req.body
     const createdBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
+    
+    console.log('🚨 PROMOTIONS POST data:', { name, description, start_date, end_date, location, locations, prizes })
     
     // Calculate total amount from prizes
     const prizesArray = Array.isArray(prizes) ? prizes : []
     const totalAmount = prizesArray.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0)
     
+    // Handle locations array
+    const locationsArray = Array.isArray(locations) ? locations : []
+    
+    // Use first location's dates if no global dates provided
+    const globalStartDate = start_date || (locationsArray[0]?.start_date) || new Date().toISOString().split('T')[0]
+    const globalEndDate = end_date || (locationsArray[0]?.end_date) || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    
     const result = await pool.query(
       `INSERT INTO promotions 
-       (name, description, start_date, end_date, total_amount, awarded_amount, location, status, prizes, notes, created_by, created_at) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP) 
+       (name, description, start_date, end_date, total_amount, awarded_amount, location, locations, status, prizes, notes, created_by, created_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP) 
        RETURNING *`,
-      [name, description, start_date, end_date, totalAmount, 0, location, status || 'Active', JSON.stringify(prizesArray), notes, createdBy]
+      [name, description, globalStartDate, globalEndDate, totalAmount, 0, location || '', JSON.stringify(locationsArray), status || 'Active', JSON.stringify(prizesArray), notes, createdBy]
     )
     
+    console.log('✅ Promotion created:', result.rows[0].id)
     res.status(201).json(result.rows[0])
   } catch (error) {
     console.error('Promotion POST error:', error)
