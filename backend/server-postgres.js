@@ -868,9 +868,6 @@ const initializeDatabase = async () => {
       } catch (e) {
         console.log('⚠️ Error adding columns to promotions:', e.message)
       }
-    } catch (error) {
-      console.log('⚠️ Promotions table may already exist:', error.message)
-    }
     
     // Remove CASCADE constraint from slot_history if it exists
     try {
@@ -1050,7 +1047,7 @@ const initializeDatabase = async () => {
       console.log('⚠️ Promotions migration skipped:', migError.message)
     }
 
-  console.log('✅ Database schema initialized')
+    console.log('✅ Database schema initialized')
   } catch (error) {
     console.error('❌ Database initialization error:', error)
   }
