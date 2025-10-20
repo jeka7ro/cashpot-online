@@ -156,6 +156,25 @@ export const DataProvider = ({ children }) => {
         entityConfig[entity].setState(data)
       })
       
+      // SPECIAL FALLBACK FOR PROMOTIONS - if empty, try direct API call
+      const promotionsIndex = regularEntities.findIndex(e => e === 'promotions')
+      if (promotionsIndex !== -1) {
+        const promotionsResponse = regularResponses[promotionsIndex]
+        const promotionsData = Array.isArray(promotionsResponse.data) ? promotionsResponse.data : []
+        if (promotionsData.length === 0) {
+          console.log('🚨 PROMOTIONS EMPTY - trying direct API call...')
+          try {
+            const directPromotionsResponse = await axios.get('/api/promotions', { timeout: 5000 })
+            if (Array.isArray(directPromotionsResponse.data) && directPromotionsResponse.data.length > 0) {
+              console.log(`✅ Direct promotions fetch: ${directPromotionsResponse.data.length} items`)
+              setPromotions(directPromotionsResponse.data)
+            }
+          } catch (promoError) {
+            console.error('❌ Direct promotions fetch failed:', promoError)
+          }
+        }
+      }
+      
       console.log('⚡ All data loaded!')
     } catch (error) {
       console.error('Error fetching data:', error)
