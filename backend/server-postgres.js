@@ -3012,6 +3012,88 @@ app.get('/api/approvals', async (req, res) => {
   }
 })
 
+// Create approval - POST endpoint
+app.post('/api/approvals', authenticateUser, upload.single('file'), async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+    
+    const { name, provider, cabinet, game_mix, checksum_md5, checksum_sha256, notes } = req.body
+    const createdBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
+    
+    let attachments = []
+    if (req.file) {
+      // Handle file upload - could be uploaded to S3 or stored locally
+      const fileUrl = `/uploads/${req.file.filename}`
+      attachments.push({
+        filename: req.file.originalname,
+        url: fileUrl,
+        uploadedAt: new Date().toISOString()
+      })
+    }
+    
+    const result = await pool.query(
+      `INSERT INTO approvals (name, provider, cabinet, game_mix, checksum_md5, checksum_sha256, attachments, notes, created_by, created_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP) 
+       RETURNING *`,
+      [name, provider, cabinet, game_mix, checksum_md5, checksum_sha256, JSON.stringify(attachments), notes, createdBy]
+    )
+    
+    res.status(201).json(result.rows[0])
+  } catch (error) {
+    console.error('Approvals POST error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Update approval - PUT endpoint
+app.put('/api/approvals/:id', authenticateUser, upload.single('file'), async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+    
+    const { id } = req.params
+    const { name, provider, cabinet, game_mix, checksum_md5, checksum_sha256, notes } = req.body
+    
+    // Get existing attachments
+    const existingResult = await pool.query('SELECT attachments FROM approvals WHERE id = $1', [id])
+    if (existingResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Approval not found' })
+    }
+    
+    let attachments = existingResult.rows[0].attachments || []
+    
+    // Add new file if uploaded
+    if (req.file) {
+      const fileUrl = `/uploads/${req.file.filename}`
+      attachments.push({
+        filename: req.file.originalname,
+        url: fileUrl,
+        uploadedAt: new Date().toISOString()
+      })
+    }
+    
+    const result = await pool.query(
+      `UPDATE approvals 
+       SET name = $1, provider = $2, cabinet = $3, game_mix = $4, 
+           checksum_md5 = $5, checksum_sha256 = $6, attachments = $7, 
+           notes = $8, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $9 
+       RETURNING *`,
+      [name, provider, cabinet, game_mix, checksum_md5, checksum_sha256, JSON.stringify(attachments), notes, id]
+    )
+    
+    res.json(result.rows[0])
+  } catch (error) {
+    console.error('Approvals PUT error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 
 // Cyber selective sync endpoints
 app.post('/api/cyber/sync-locations', async (req, res) => {
