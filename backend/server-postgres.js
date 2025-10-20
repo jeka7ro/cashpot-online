@@ -1104,6 +1104,26 @@ app.get('/api/promotions', async (req, res) => {
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
+
+    // Check if promotions table exists first
+    try {
+      const tableCheck = await pool.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables
+          WHERE table_schema = 'public'
+          AND table_name = 'promotions'
+        )
+      `)
+
+      if (!tableCheck.rows[0].exists) {
+        console.log('❌ Promotions table does not exist')
+        return res.json([])
+      }
+    } catch (tableError) {
+      console.error('❌ Error checking promotions table:', tableError)
+      return res.json([])
+    }
+
     const result = await pool.query('SELECT * FROM promotions ORDER BY start_date DESC, created_at DESC')
     console.log(`✅ DIRECT GET found ${result.rows.length} promotions`)
     res.json(result.rows)
