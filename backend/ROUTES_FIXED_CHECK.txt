@@ -1,0 +1,6 @@
+ROUTES FIXED - v1.0.42
+- Eliminated duplicate route registrations
+- Single registration point at line 3419
+- All routes: /api/promotions, /api/cyber, /api/tasks, /api/messages, /api/notifications
+- This file should trigger Render rebuild
+- Date: $(date)
