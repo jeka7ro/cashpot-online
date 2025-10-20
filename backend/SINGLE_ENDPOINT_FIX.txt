@@ -1,0 +1,6 @@
+🚨 SINGLE ENDPOINT FIX v1.0.48 🚨
+
+Removed duplicate /api/promotions endpoint.
+Now using ONLY the final endpoint right before app.listen().
+
+This should resolve the 404 issue - no more conflicts!

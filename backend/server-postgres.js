@@ -50,7 +50,7 @@ dotenv.config()
 
 console.log('💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥')
 // ==================== NUCLEAR DEPLOY v1.0.41 ====================
-console.log('🚨🚨🚨 NUCLEAR DEPLOY v1.0.47 - FINAL EMERGENCY BEFORE LISTEN! 🚨🚨🚨')
+console.log('🚨🚨🚨 NUCLEAR DEPLOY v1.0.48 - SINGLE ENDPOINT ONLY! 🚨🚨🚨')
 console.log('💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥')
 console.log('🚀 SERVER STARTING - All imports loaded successfully!')
 console.log('🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!')
@@ -1072,7 +1072,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 console.log('🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!')
 
 // ==================== IMMEDIATE ROUTE REGISTRATION ====================
-console.log('🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.47! 🚨🚨🚨')
+console.log('🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.48! 🚨🚨🚨')
 try {
   console.log('📋 Registering /api/promotions IMMEDIATELY...')
   app.use('/api/promotions', promotionsRoutes)
@@ -1089,28 +1089,7 @@ try {
   console.error('❌❌❌ IMMEDIATE ERROR during route registration:', error)
 }
 
-// EMERGENCY DIRECT ENDPOINT FOR TESTING
-app.get('/api/promotions', async (req, res) => {
-  console.log('🚨 EMERGENCY DIRECT /api/promotions endpoint called!')
-  try {
-    const pool = req.app.get('pool')
-    
-    if (!pool) {
-      console.log('❌ No database pool available for emergency endpoint')
-      return res.status(500).json({ success: false, error: 'Database pool not available' })
-    }
-    
-    console.log('✅ Database pool found, querying promotions...')
-    const result = await pool.query('SELECT * FROM promotions ORDER BY start_date DESC, created_at DESC')
-    console.log(`✅ Emergency endpoint returned ${result.rows.length} promotions`)
-    res.json(result.rows)
-  } catch (error) {
-    console.error('❌ Emergency endpoint error:', error)
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
-
-console.log('🚨 EMERGENCY DIRECT ENDPOINT /api/promotions ADDED!')
+// REMOVED FIRST EMERGENCY ENDPOINT - USING ONLY THE FINAL ONE BEFORE app.listen()
 
 // Multer configuration for file uploads
 const storage = multer.diskStorage({
