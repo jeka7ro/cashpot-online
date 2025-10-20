@@ -4,13 +4,13 @@
     { "src": "package.json", "use": "@vercel/static-build", "config": { "distDir": "src/dist" } }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "https://cashpot-backend.onrender.com/api/$1" },
-    { "src": "/uploads/(.*)", "dest": "https://cashpot-backend.onrender.com/uploads/$1" },
+    { "src": "/api/(.*)", "dest": "https://cashpot-backend-working.onrender.com/api/$1" },
+    { "src": "/uploads/(.*)", "dest": "https://cashpot-backend-working.onrender.com/uploads/$1" },
     { "src": "/assets/(.*)", "dest": "/assets/$1" },
     { "src": "/favicon.svg", "dest": "/favicon.svg" },
     { "src": "/(.*)", "dest": "/index.html" }
   ],
   "env": {
-    "VITE_API_URL": "https://cashpot-backend.onrender.com"
+    "VITE_API_URL": "https://cashpot-backend-working.onrender.com"
   }
 }
