@@ -1,79 +1,44 @@
 import React, { useState, useEffect } from 'react'
-import { X, TrendingUp, Calendar, MapPin, Award, DollarSign, Plus, Trash2 } from 'lucide-react'
-import { useData } from '../../contexts/DataContext'
+import { X, Save, TrendingUp, Calendar, DollarSign } from 'lucide-react'
 
 const MarketingModal = ({ item, onClose, onSave }) => {
-  const { locations } = useData()
-  
   const [formData, setFormData] = useState({
-    name: '',
+    title: '',
     description: '',
     start_date: '',
     end_date: '',
-    location: '',
-    locations: [{ location: '', start_date: '', end_date: '' }], // Multiple locations with different dates
-    prizes: [{ amount: '', currency: 'RON', date: '', winner: '' }],
+    discount_percent: '',
     status: 'Active',
     notes: ''
   })
 
   useEffect(() => {
     if (item) {
-      // Parse prizes from JSONB or old format
-      let parsedPrizes = [{ amount: '', currency: 'RON', date: '', winner: '' }]
-      
-      if (item.prizes) {
-        // New format: JSONB array
-        parsedPrizes = typeof item.prizes === 'string' 
-          ? JSON.parse(item.prizes) 
-          : item.prizes
-      } else if (item.prize_amount) {
-        // Old format: single prize
-        parsedPrizes = [{
-          amount: item.prize_amount || '',
-          currency: item.prize_currency || 'RON',
-          date: item.prize_date ? item.prize_date.split('T')[0] : '',
-          winner: item.winner || ''
-        }]
+      // Format dates for date inputs (YYYY-MM-DD format)
+      const formatDateForInput = (dateString) => {
+        if (!dateString) return ''
+        const date = new Date(dateString)
+        if (isNaN(date.getTime())) return ''
+        return date.toISOString().split('T')[0]
       }
-      
-      // Parse locations from JSONB or old format
-      let parsedLocations = [{ location: '', start_date: '', end_date: '' }]
-      
-      if (item.locations) {
-        parsedLocations = typeof item.locations === 'string' 
-          ? JSON.parse(item.locations) 
-          : item.locations
-      } else if (item.location) {
-        // Old format: single location
-        parsedLocations = [{
-          location: item.location || '',
-          start_date: item.start_date ? item.start_date.split('T')[0] : '',
-          end_date: item.end_date ? item.end_date.split('T')[0] : ''
-        }]
-      }
-      
+
       setFormData({
-        name: item.name || '',
+        title: item.title || item.name || '',
         description: item.description || '',
-        start_date: item.start_date ? item.start_date.split('T')[0] : '',
-        end_date: item.end_date ? item.end_date.split('T')[0] : '',
-        location: item.location || '',
-        locations: parsedLocations.length > 0 ? parsedLocations : [{ location: '', start_date: '', end_date: '' }],
-        prizes: parsedPrizes.length > 0 ? parsedPrizes : [{ amount: '', currency: 'RON', date: '', winner: '' }],
+        start_date: formatDateForInput(item.start_date),
+        end_date: formatDateForInput(item.end_date),
+        discount_percent: item.discount_percent || '',
         status: item.status || 'Active',
         notes: item.notes || ''
       })
     } else {
       // Reset form for new item
       setFormData({
-        name: '',
+        title: '',
         description: '',
         start_date: '',
         end_date: '',
-        location: '',
-        locations: [{ location: '', start_date: '', end_date: '' }],
-        prizes: [{ amount: '', currency: 'RON', date: '', winner: '' }],
+        discount_percent: '',
         status: 'Active',
         notes: ''
       })
@@ -88,429 +53,184 @@ const MarketingModal = ({ item, onClose, onSave }) => {
     }))
   }
 
-  const handleLocationChange = (index, field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      locations: prev.locations.map((loc, i) => 
-        i === index ? { ...loc, [field]: value } : loc
-      )
-    }))
-  }
-
-  const addLocation = () => {
-    setFormData(prev => ({
-      ...prev,
-      locations: [...prev.locations, { location: '', start_date: '', end_date: '' }]
-    }))
-  }
-
-  const removeLocation = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      locations: prev.locations.filter((_, i) => i !== index)
-    }))
-  }
-
-  const handlePrizeChange = (index, field, value) => {
-    const newPrizes = [...formData.prizes]
-    newPrizes[index][field] = value
-    setFormData(prev => ({
-      ...prev,
-      prizes: newPrizes
-    }))
-  }
-
-  const addPrize = () => {
-    setFormData(prev => ({
-      ...prev,
-      prizes: [...prev.prizes, { amount: '', currency: 'RON', date: '', winner: '' }]
-    }))
-  }
-
-  const removePrize = (index) => {
-    if (formData.prizes.length === 1) {
-      alert('Trebuie să existe cel puțin un premiu!')
-      return
-    }
-    setFormData(prev => ({
-      ...prev,
-      prizes: prev.prizes.filter((_, i) => i !== index)
-    }))
-  }
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    
-    // Validate at least one prize with amount
-    const validPrizes = formData.prizes.filter(p => p.amount && parseFloat(p.amount) > 0)
-    if (validPrizes.length === 0) {
-      alert('Adaugă cel puțin un premiu cu sumă validă!')
-      return
+    try {
+      await onSave(formData)
+    } catch (error) {
+      console.error('Error saving promotion:', error)
     }
-    
-    // Sort prizes by date (earliest first)
-    const sortedPrizes = validPrizes.sort((a, b) => {
-      if (!a.date) return 1
-      if (!b.date) return -1
-      return new Date(a.date) - new Date(b.date)
-    })
-    
-    onSave({
-      ...formData,
-      prizes: sortedPrizes
-    })
   }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-indigo-500 p-6 rounded-t-2xl">
-          <div className="flex items-center justify-between">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4">
-              <div className="p-3 bg-white bg-opacity-20 rounded-2xl backdrop-blur-sm">
-                <TrendingUp className="w-8 h-8 text-white" />
+              <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl shadow-lg shadow-blue-500/25">
+                <TrendingUp className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-white">
-                  {item ? 'Editare Promoție' : 'Promoție Nouă'}
-                </h2>
-                <p className="text-blue-100 text-sm">Marketing & Tombole</p>
+                <h3 className="text-2xl font-bold text-slate-800 dark:text-white">
+                  {item ? 'Editare Promoție' : 'Adaugă Promoție'}
+                </h3>
+                <p className="text-slate-600 dark:text-slate-400">
+                  {item ? 'Modifică detaliile promoției' : 'Creează o nouă promoție'}
+                </p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-all"
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
             >
-              <X className="w-6 h-6 text-white" />
+              <X className="w-5 h-5 text-slate-600 dark:text-slate-400" />
             </button>
           </div>
-        </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Basic Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                <TrendingUp className="w-4 h-4 inline mr-2" />
-                Nume Promoție *
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                placeholder="Ex: Tombola Paște 2025"
-                className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 
-                         bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                         focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-              />
-            </div>
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Title */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Titlu Promoție *
+                </label>
+                <input
+                  type="text"
+                  name="title"
+                  value={formData.title}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                  placeholder="Introdu titlul promoției"
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                <MapPin className="w-4 h-4 inline mr-2" />
-                Locații (Multiple săli cu date diferite) *
-              </label>
-              <div className="space-y-4">
-                {formData.locations.map((loc, index) => (
-                  <div key={index} className="p-4 border border-slate-200 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-800">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Sala {index + 1}
-                      </h4>
-                      {formData.locations.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeLocation(index)}
-                          className="text-red-500 hover:text-red-700 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                          Locație
-                        </label>
-                        <select
-                          value={loc.location}
-                          onChange={(e) => handleLocationChange(index, 'location', e.target.value)}
-                          required
-                          className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 
-                                   bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                                   focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-all text-sm"
-                        >
-                          <option value="">Selectează sala</option>
-                          {locations.map(location => (
-                            <option key={location.id} value={location.name}>{location.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                          Data început
-                        </label>
-                        <input
-                          type="date"
-                          value={loc.start_date}
-                          onChange={(e) => handleLocationChange(index, 'start_date', e.target.value)}
-                          className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 
-                                   bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                                   focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-all text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                          Data sfârșit
-                        </label>
-                        <input
-                          type="date"
-                          value={loc.end_date}
-                          onChange={(e) => handleLocationChange(index, 'end_date', e.target.value)}
-                          className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 
-                                   bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                                   focus:border-blue-500 focus:ring-1 focus:ring-blue-200 transition-all text-sm"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={addLocation}
-                  className="w-full py-2 px-4 border-2 border-dashed border-slate-300 dark:border-slate-600 
-                           rounded-lg text-slate-600 dark:text-slate-400 hover:border-blue-500 
-                           hover:text-blue-500 transition-all flex items-center justify-center space-x-2"
+              {/* Description */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Descriere
+                </label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  rows={3}
+                  className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                  placeholder="Descrie promoția..."
+                />
+              </div>
+
+              {/* Start Date */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Data Începere *
+                </label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                  <input
+                    type="date"
+                    name="start_date"
+                    value={formData.start_date}
+                    onChange={handleChange}
+                    required
+                    className="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              {/* End Date */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Data Sfârșit *
+                </label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                  <input
+                    type="date"
+                    name="end_date"
+                    value={formData.end_date}
+                    onChange={handleChange}
+                    required
+                    className="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              {/* Discount Percent */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Procent Reducere %
+                </label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                  <input
+                    type="number"
+                    name="discount_percent"
+                    value={formData.discount_percent}
+                    onChange={handleChange}
+                    min="0"
+                    max="100"
+                    className="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                    placeholder="15"
+                  />
+                </div>
+              </div>
+
+              {/* Status */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Status
+                </label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>Adaugă altă sală</span>
-                </button>
+                  <option value="Active">Activ</option>
+                  <option value="Inactive">Inactiv</option>
+                  <option value="Pending">În așteptare</option>
+                </select>
+              </div>
+
+              {/* Notes */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Note
+                </label>
+                <textarea
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleChange}
+                  rows={2}
+                  className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                  placeholder="Note adiționale..."
+                />
               </div>
             </div>
-          </div>
 
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              Descriere
-            </label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              rows={3}
-              placeholder="Descriere promoție..."
-              className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 
-                       bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                       focus:border-pink-500 focus:ring-2 focus:ring-pink-200 transition-all"
-            />
-          </div>
-
-          {/* Dates */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                <Calendar className="w-4 h-4 inline mr-2" />
-                Data Start *
-              </label>
-              <input
-                type="date"
-                name="start_date"
-                value={formData.start_date}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 
-                         bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                         focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                <Calendar className="w-4 h-4 inline mr-2" />
-                Data Final *
-              </label>
-              <input
-                type="date"
-                name="end_date"
-                value={formData.end_date}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 
-                         bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                         focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-              />
-            </div>
-          </div>
-
-          {/* Prizes Section */}
-          <div className="border-t-2 border-slate-200 dark:border-slate-600 pt-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center">
-                <Award className="w-5 h-5 mr-2 text-pink-500" />
-                Premii (Data Acordare)
-              </h3>
+            {/* Actions */}
+            <div className="flex justify-end space-x-3 pt-6 border-t border-slate-200 dark:border-slate-700">
               <button
                 type="button"
-                onClick={addPrize}
-                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 
-                         text-white rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all shadow-lg"
+                onClick={onClose}
+                className="px-6 py-3 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
-                <Plus className="w-4 h-4" />
-                <span>Adaugă Premiu</span>
+                Anulează
+              </button>
+              <button
+                type="submit"
+                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-lg flex items-center space-x-2 transition-all shadow-lg font-medium"
+              >
+                <Save className="w-4 h-4" />
+                <span>{item ? 'Actualizează' : 'Salvează'}</span>
               </button>
             </div>
-
-            <div className="space-y-4">
-              {formData.prizes.map((prize, index) => (
-                <div key={index} className="bg-slate-50 dark:bg-slate-700 p-4 rounded-xl border-2 border-slate-200 dark:border-slate-600">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                      Premiu #{index + 1}
-                    </span>
-                    {formData.prizes.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removePrize(index)}
-                        className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-all"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="md:col-span-1">
-                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                        Sumă *
-                      </label>
-                      <input
-                        type="number"
-                        value={prize.amount || ''}
-                        onChange={(e) => handlePrizeChange(index, 'amount', e.target.value)}
-                        required
-                        placeholder="5000"
-                        min="0"
-                        step="0.01"
-                        className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-500 
-                                 bg-white dark:bg-slate-600 text-slate-900 dark:text-white text-base font-medium
-                                 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-                      />
-                    </div>
-
-                    <div className="md:col-span-1">
-                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                        Monedă
-                      </label>
-                      <select
-                        value={prize.currency || 'RON'}
-                        onChange={(e) => handlePrizeChange(index, 'currency', e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-500 
-                                 bg-white dark:bg-slate-600 text-slate-900 dark:text-white text-base font-medium
-                                 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-                      >
-                        <option value="RON">RON</option>
-                        <option value="EUR">EUR</option>
-                        <option value="USD">USD</option>
-                      </select>
-                    </div>
-
-                    <div className="md:col-span-1">
-                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                        Data Acordare *
-                      </label>
-                      <input
-                        type="date"
-                        value={prize.date || ''}
-                        onChange={(e) => handlePrizeChange(index, 'date', e.target.value)}
-                        required
-                        className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-500 
-                                 bg-white dark:bg-slate-600 text-slate-900 dark:text-white text-base font-medium
-                                 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-                      />
-                    </div>
-
-                    <div className="md:col-span-1">
-                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                        Câștigător
-                      </label>
-                      <input
-                        type="text"
-                        value={prize.winner || ''}
-                        onChange={(e) => handlePrizeChange(index, 'winner', e.target.value)}
-                        placeholder="Nume câștigător"
-                        className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-500 
-                                 bg-white dark:bg-slate-600 text-slate-900 dark:text-white text-base font-medium
-                                 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Status & Notes */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Status
-              </label>
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 
-                         bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                         focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-              >
-                <option value="Active">Activ</option>
-                <option value="Completed">Finalizat</option>
-                <option value="Cancelled">Anulat</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Note
-              </label>
-              <input
-                type="text"
-                name="notes"
-                value={formData.notes}
-                onChange={handleChange}
-                placeholder="Note adiționale..."
-                className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 
-                         bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                         focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-              />
-            </div>
-          </div>
-
-          {/* Buttons */}
-          <div className="flex justify-end space-x-4 pt-6 border-t-2 border-slate-200 dark:border-slate-600">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-6 py-3 rounded-xl border-2 border-slate-300 dark:border-slate-600 
-                       text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 
-                       transition-all font-medium"
-            >
-              Anulează
-            </button>
-            <button
-              type="submit"
-              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl 
-                       hover:from-blue-600 hover:to-indigo-600 transition-all shadow-lg font-medium"
-            >
-              {item ? 'Salvează Modificările' : 'Creează Promoție'}
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   )
