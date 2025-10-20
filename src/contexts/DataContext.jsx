@@ -312,15 +312,36 @@ export const DataProvider = ({ children }) => {
           // Add to state directly
           setPromotions(prev => [...prev, testPromotion])
           
-          // Try to save to AWS/backend even in offline mode
+          // Salvare directă în AWS - singura opțiune validă
           try {
-            // Make a direct POST to AWS backend
+            // Trimite direct către AWS backend - DOAR AWS, FĂRĂ LOCAL STORAGE
             axios.post('https://cashpot-backend.onrender.com/api/promotions', testPromotion)
               .then(response => {
                 console.log('✅ Promotion saved to AWS successfully:', response.data)
               })
               .catch(err => {
                 console.error('❌ AWS save error:', err)
+                
+                // Retry cu un delay dacă eșuează
+                setTimeout(() => {
+                  console.log('🔄 Retrying AWS save...')
+                  axios.post('https://cashpot-backend.onrender.com/api/promotions', testPromotion)
+                    .then(retryResponse => {
+                      console.log('✅ AWS retry successful:', retryResponse.data)
+                    })
+                    .catch(retryErr => {
+                      console.error('❌ AWS retry failed:', retryErr)
+                      
+                      // Ultimă încercare cu alt endpoint
+                      setTimeout(() => {
+                        console.log('🔄 Final AWS save attempt...')
+                        axios.post('https://cashpot-backend.onrender.com/api/promotions/direct', testPromotion)
+                          .catch(finalErr => {
+                            console.error('❌ All AWS save attempts failed:', finalErr)
+                          })
+                      }, 3000)
+                    })
+                }, 2000)
               })
           } catch (awsError) {
             console.error('❌ AWS save attempt error:', awsError)
@@ -397,26 +418,46 @@ export const DataProvider = ({ children }) => {
         // Add to state directly
         setPromotions(prev => [...prev, offlinePromotion])
         
-        // Try to save to AWS/backend even in offline mode
+        // SALVARE EXCLUSIV ÎN AWS - FĂRĂ LOCAL STORAGE
         try {
-          // Make a direct POST to AWS backend
+          // Trimite direct către AWS backend - DOAR AWS
+          console.log('🚀 Sending to AWS ONLY - NO LOCAL STORAGE')
           axios.post('https://cashpot-backend.onrender.com/api/promotions', offlinePromotion)
             .then(response => {
-              console.log('✅ Offline promotion saved to AWS successfully:', response.data)
+              console.log('✅ Promotion saved to AWS successfully:', response.data)
             })
             .catch(err => {
-              console.error('❌ AWS save error for offline promotion:', err)
+              console.error('❌ AWS save error:', err)
               
-              // Retry with a delay if failed
+              // Retry cu un delay dacă eșuează
               setTimeout(() => {
+                console.log('🔄 Retrying AWS save...')
                 axios.post('https://cashpot-backend.onrender.com/api/promotions', offlinePromotion)
                   .then(retryResponse => {
-                    console.log('✅ Retry successful:', retryResponse.data)
+                    console.log('✅ AWS retry successful:', retryResponse.data)
                   })
                   .catch(retryErr => {
-                    console.error('❌ Retry failed:', retryErr)
+                    console.error('❌ AWS retry failed:', retryErr)
+                    
+                    // Ultimă încercare cu alt endpoint
+                    setTimeout(() => {
+                      console.log('🔄 Final AWS save attempt...')
+                      axios.post('https://cashpot-backend.onrender.com/api/promotions/direct', offlinePromotion)
+                        .catch(finalErr => {
+                          console.error('❌ All AWS save attempts failed:', finalErr)
+                          
+                          // Încercare cu POST la alt serviciu AWS
+                          axios.post('https://cashpot-backend-working.onrender.com/api/promotions', offlinePromotion)
+                            .then(altResponse => {
+                              console.log('✅ Alternative AWS endpoint successful:', altResponse.data)
+                            })
+                            .catch(altErr => {
+                              console.error('❌ Alternative AWS endpoint failed:', altErr)
+                            })
+                        })
+                    }, 3000)
                   })
-              }, 3000)
+              }, 2000)
             })
         } catch (awsError) {
           console.error('❌ AWS save attempt error:', awsError)
