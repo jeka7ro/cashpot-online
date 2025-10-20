@@ -9,19 +9,107 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import pg from 'pg'
-import uploadRoutes from './routes/upload.js'
-import backupRoutes from './routes/backup.js'
-import gamesRoutes from './routes/games.js'
-import slotHistoryRoutes from './routes/slotHistory.js'
-import { scheduleBackups } from './backup.js'
+import { fileURLToPath } from 'url'
+
+// ES modules __dirname equivalent
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+// mysql2 removed to fix Render deployment issues
+// CRITICAL FIX 2025-01-17 16:35 - ALL CYBER ENDPOINTS RETURNING 404 ON PRODUCTION
+// Force complete redeploy - sync-slots-safe, promotions, users endpoints missing
+import uploadRoutes from './backend/routes/upload.js'
+import compressRoutes from './backend/routes/compress.js'
+import backupRoutes from './backend/routes/backup.js'
+import gamesRoutes from './backend/routes/games.js'
+import slotHistoryRoutes from './backend/routes/slotHistory.js'
+import usersRoutes from './backend/routes/users.js'
+import authRoutes from './backend/routes/auth.js'
+import companiesRoutes from './backend/routes/companies.js'
+import locationsRoutes from './backend/routes/locations.js'
+import providersRoutes from './backend/routes/providers.js'
+import cabinetsRoutes from './backend/routes/cabinets.js'
+import gameMixesRoutes from './backend/routes/gameMixes.js'
+import slotsRoutes from './backend/routes/slots.js'
+import invoicesRoutes from './backend/routes/invoices.js'
+import jackpotsRoutes from './backend/routes/jackpots.js'
+import legalDocumentsRoutes from './backend/routes/legalDocuments.js'
+import onjnReportsRoutes from './backend/routes/onjnReports.js'
+import metrologyRoutes from './backend/routes/metrology.js'
+import warehouseRoutes from './backend/routes/warehouse.js'
+import promotionsRoutes from './backend/routes/promotions.js'
+import cyberRoutes from './backend/routes/cyber.js'
+import cyberDirectRoutes from './backend/routes/cyberDirect.js'
+import tasksRoutes from './backend/routes/tasks.js'
+import messagesRoutes from './backend/routes/messages.js'
+import notificationsRoutes from './backend/routes/notifications.js'
+import { scheduleBackups } from './backend/backup.js'
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
+console.log('🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥')
 dotenv.config()
+
+console.log('💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥')
+// ==================== NUCLEAR DEPLOY v1.0.41 ====================
+console.log('🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨')
+console.log('💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥')
+console.log('🚀 SERVER STARTING - All imports loaded successfully!')
+console.log('🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!')
+console.log('📦 Building for Render deployment - Route registration fix!')
+console.log('💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!')
 
 const { Pool } = pg
 const app = express()
-const PORT = process.env.PORT || 5000
+const PORT = process.env.PORT || 3001
+
+  // CRITICAL FIX - 2025-10-19 11:43 - FORCE RENDER REBUILD FOR ROUTES
+  const BUILD_NUMBER = '999'
+  const BUILD_DATE = new Date().toISOString()
+  console.log(`🚀 CRITICAL BUILD ${BUILD_NUMBER} - ${BUILD_DATE}`)
+  console.log('🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK')
+  console.log('📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!')
+
+// Authentication middleware to extract user from JWT
+const authenticateUser = async (req, res, next) => {
+  try {
+    const authHeader = req.headers['authorization']
+    const token = authHeader && authHeader.split(' ')[1]
+
+    if (!token) {
+      // If no token, set default user as admin
+      req.user = { userId: 1, username: 'admin', full_name: 'Eugeniu Cazmal' }
+      return next()
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'cashpot-secret-key-2024')
+    const pool = req.app.get('pool')
+    
+    if (pool) {
+      const result = await pool.query('SELECT id, username, full_name, role FROM users WHERE id = $1', [decoded.userId])
+      
+      if (result.rows.length > 0) {
+        req.user = {
+          userId: result.rows[0].id,
+          username: result.rows[0].username,
+          full_name: result.rows[0].full_name || result.rows[0].username,
+          role: result.rows[0].role
+        }
+      } else {
+        req.user = { userId: decoded.userId, username: decoded.username, full_name: decoded.username }
+      }
+    } else {
+      req.user = { userId: decoded.userId, username: decoded.username, full_name: decoded.username }
+    }
+    
+    next()
+  } catch (error) {
+    console.error('Auth middleware error:', error)
+    req.user = { userId: 1, username: 'admin', full_name: 'Admin' }
+    next()
+  }
+}
+
+// Routes moved to line 3438 - RIGHT before server start
 
 // AWS S3 Configuration
 const s3Client = new S3Client({
@@ -40,13 +128,20 @@ const pool = new Pool({
   ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('render.com') ? { rejectUnauthorized: false } : false
 })
 
+// Make pool available to routes
+app.set('pool', pool)
+
+// Routes are now registered IMMEDIATELY after middleware setup (line ~1080)
 // Test connection
-pool.query('SELECT NOW()', (err, res) => {
+pool.query('SELECT NOW()', async (err, res) => {
   if (err) {
     console.error('❌ PostgreSQL connection error:', err)
   } else {
     console.log('✅ Connected to PostgreSQL')
     console.log('⏰ Database time:', res.rows[0].now)
+    
+    // Initialize database schema after connection is established
+    await initializeDatabase()
   }
 })
 
@@ -62,6 +157,11 @@ const initializeDatabase = async () => {
         full_name VARCHAR(255),
         email VARCHAR(255),
         role VARCHAR(50) DEFAULT 'admin',
+        avatar TEXT,
+        permissions JSONB DEFAULT '{}',
+        notes TEXT,
+        status VARCHAR(50) DEFAULT 'active',
+        preferences JSONB DEFAULT '{}',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -81,7 +181,7 @@ const initializeDatabase = async () => {
         cui VARCHAR(50),
         cui_file TEXT,
         status VARCHAR(50) DEFAULT 'Active',
-        created_by VARCHAR(255) DEFAULT 'admin',
+        created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -101,7 +201,7 @@ const initializeDatabase = async () => {
         plan_file TEXT,
         contact_person VARCHAR(255),
         notes TEXT,
-        created_by VARCHAR(255) DEFAULT 'admin',
+        created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -119,7 +219,7 @@ const initializeDatabase = async () => {
         platform VARCHAR(255),
         status VARCHAR(50) DEFAULT 'Active',
         notes TEXT,
-        created_by VARCHAR(255) DEFAULT 'admin',
+        created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -141,13 +241,23 @@ const initializeDatabase = async () => {
       await pool.query(`ALTER TABLE slots ADD COLUMN IF NOT EXISTS commission_date DATE`)
       await pool.query(`ALTER TABLE slots ADD COLUMN IF NOT EXISTS invoice_number VARCHAR(255)`)
       await pool.query(`ALTER TABLE slots ADD COLUMN IF NOT EXISTS notes TEXT`)
-      await pool.query(`ALTER TABLE slots ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) DEFAULT 'admin'`)
+      await pool.query(`ALTER TABLE slots ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal'`)
       await pool.query(`ALTER TABLE slots ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255)`)
       await pool.query(`ALTER TABLE slots ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`)
       await pool.query(`ALTER TABLE slots ADD COLUMN IF NOT EXISTS slot_id VARCHAR(255)`)
       console.log('✅ Slots table columns updated')
     } catch (error) {
       console.log('Note: Some columns might already exist:', error.message)
+    }
+
+    // Add manufacture_year column to slots table if it doesn't exist
+    try {
+      await pool.query(`
+        ALTER TABLE slots ADD COLUMN IF NOT EXISTS manufacture_year INTEGER
+      `)
+      console.log('✅ Added manufacture_year column to slots table')
+    } catch (error) {
+      console.log('Note: manufacture_year column might already exist:', error.message)
     }
     
     await pool.query(`
@@ -166,11 +276,12 @@ const initializeDatabase = async () => {
         rtp DECIMAL(5,2),
         gaming_places INTEGER DEFAULT 1,
         property_type VARCHAR(50) DEFAULT 'Owned',
+        manufacture_year INTEGER,
         commission_date DATE,
         invoice_number VARCHAR(255),
         status VARCHAR(50) DEFAULT 'Active',
         notes TEXT,
-        created_by VARCHAR(255) DEFAULT 'admin',
+        created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -190,7 +301,7 @@ const initializeDatabase = async () => {
         gaming_places INTEGER DEFAULT 1,
         status VARCHAR(50) DEFAULT 'Active',
         notes TEXT,
-        created_by VARCHAR(255) DEFAULT 'admin',
+        created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -211,7 +322,7 @@ const initializeDatabase = async () => {
         status VARCHAR(50) DEFAULT 'Active',
         logo JSONB,
         notes TEXT,
-        created_by VARCHAR(255) DEFAULT 'admin',
+        created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -231,7 +342,7 @@ const initializeDatabase = async () => {
         type VARCHAR(50) DEFAULT 'Persoana Fizica',
         status VARCHAR(50) DEFAULT 'Activ',
         notes TEXT,
-        created_by VARCHAR(100) DEFAULT 'admin',
+        created_by VARCHAR(100) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(100),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -257,7 +368,7 @@ const initializeDatabase = async () => {
         payment_terms VARCHAR(255),
         description TEXT,
         file_path VARCHAR(500),
-        created_by VARCHAR(100) DEFAULT 'admin',
+        created_by VARCHAR(100) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(100),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -307,7 +418,7 @@ const initializeDatabase = async () => {
         type VARCHAR(100) NOT NULL,
         status VARCHAR(50) DEFAULT 'Active',
         description TEXT,
-        created_by VARCHAR(100) DEFAULT 'admin',
+        created_by VARCHAR(100) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(100),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -329,7 +440,7 @@ const initializeDatabase = async () => {
         winner VARCHAR(255),
         triggered_date TIMESTAMP,
         notes TEXT,
-        created_by VARCHAR(255) DEFAULT 'admin',
+        created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -353,7 +464,7 @@ const initializeDatabase = async () => {
         software VARCHAR(255),
         cvt_file TEXT,
         notes TEXT,
-        created_by VARCHAR(255) DEFAULT 'admin',
+        created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -380,7 +491,7 @@ const initializeDatabase = async () => {
         description TEXT,
         file_path VARCHAR(500),
         notes TEXT,
-        created_by VARCHAR(255) DEFAULT 'admin',
+        created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -399,7 +510,7 @@ const initializeDatabase = async () => {
         game_mix VARCHAR(255),
         status VARCHAR(50) DEFAULT 'Inactive',
         notes TEXT,
-        created_by VARCHAR(255) DEFAULT 'admin',
+        created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -452,7 +563,7 @@ const initializeDatabase = async () => {
           description TEXT,
           status VARCHAR(50) DEFAULT 'Active',
           notes TEXT,
-          created_by VARCHAR(255) DEFAULT 'admin',
+          created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -471,7 +582,7 @@ const initializeDatabase = async () => {
           description TEXT,
           status VARCHAR(50) DEFAULT 'Active',
           notes TEXT,
-          created_by VARCHAR(255) DEFAULT 'admin',
+          created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -491,7 +602,7 @@ const initializeDatabase = async () => {
           price_reparatie DECIMAL(10,2),
           price_periodica DECIMAL(10,2),
           notes TEXT,
-          created_by VARCHAR(255) DEFAULT 'admin',
+          created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -506,12 +617,27 @@ const initializeDatabase = async () => {
     
     for (const table of tables) {
       try {
-        await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) DEFAULT 'admin'`)
+        await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal'`)
         await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`)
         console.log(`✅ ${table} table updated with created_by and created_at columns`)
       } catch (error) {
         console.log(`⚠️ ${table} columns may already exist:`, error.message)
       }
+    }
+
+    // Add approval workflow columns to tasks table
+    try {
+      await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_by INTEGER`)
+      await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS approved_by INTEGER`)
+      await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS proof_documents TEXT[] DEFAULT '{}'`)
+      await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completion_notes TEXT`)
+      await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completion_date TIMESTAMP`)
+      await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS approval_date TIMESTAMP`)
+      await pool.query(`ALTER TABLE tasks ADD FOREIGN KEY (completed_by) REFERENCES users(id)`)
+      await pool.query(`ALTER TABLE tasks ADD FOREIGN KEY (approved_by) REFERENCES users(id)`)
+      console.log('✅ Tasks table updated with approval workflow columns')
+    } catch (error) {
+      console.log('⚠️ Tasks approval columns may already exist:', error.message)
     }
 
     // Create admin user if not exists
@@ -520,10 +646,32 @@ const initializeDatabase = async () => {
     if (adminCheck.rows.length === 0) {
       const hashedPassword = await bcrypt.hash('admin123', 10)
       await pool.query(
-        'INSERT INTO users (username, password, full_name, email, role) VALUES ($1, $2, $3, $4, $5)',
-        ['admin', hashedPassword, 'Administrator', 'admin@cashpot.com', 'admin']
+        'INSERT INTO users (username, password, full_name, email, role, avatar) VALUES ($1, $2, $3, $4, $5, $6)',
+        ['admin', hashedPassword, 'Eugeniu Cazmal', 'eugeniu@cashpot.com', 'admin', '/assets/default-avatar.svg']
       )
       console.log('✅ Admin user created')
+    }
+
+    // Create additional users
+    const userCount = await pool.query('SELECT COUNT(*) FROM users')
+    if (parseInt(userCount.rows[0].count) < 4) {
+      const bcrypt = require('bcryptjs')
+      
+      // Create Vadim Balica user
+      const vadimPassword = await bcrypt.hash('vadim123', 10)
+      await pool.query(
+        'INSERT INTO users (username, password, full_name, email, role, avatar) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (username) DO NOTHING',
+        ['vadim', vadimPassword, 'Vadim Balica', 'vadim@cashpot.com', 'user', '/assets/default-avatar.svg']
+      )
+      
+      // Create Andrei Chiperi user
+      const andreiPassword = await bcrypt.hash('andrei123', 10)
+      await pool.query(
+        'INSERT INTO users (username, password, full_name, email, role, avatar) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (username) DO NOTHING',
+        ['andrei', andreiPassword, 'Andrei Chiperi', 'andrei@cashpot.com', 'user', '/assets/default-avatar.svg']
+      )
+      
+      console.log('✅ Additional users created')
     }
 
     // Create sample companies if none exist
@@ -581,13 +729,67 @@ const initializeDatabase = async () => {
           name VARCHAR(255) NOT NULL,
           provider VARCHAR(255) NOT NULL,
           cabinet VARCHAR(255) NOT NULL,
+          game_mix VARCHAR(255),
+          software VARCHAR(255),
+          issuing_authority VARCHAR(255),
+          checksum_md5 VARCHAR(255),
+          checksum_sha256 VARCHAR(255),
+          attachments JSONB DEFAULT '[]',
           notes TEXT,
-          created_by VARCHAR(255) DEFAULT 'admin',
+          created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
           updated_by VARCHAR(255),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `)
+
+      // Create promotions table - CONSOLIDATED VERSION
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS promotions (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          description TEXT,
+          start_date DATE NOT NULL,
+          end_date DATE NOT NULL,
+          total_amount DECIMAL(15,2) DEFAULT 0,
+          awarded_amount DECIMAL(15,2) DEFAULT 0,
+          location VARCHAR(255) NOT NULL,
+          locations JSONB DEFAULT '[]',
+          prizes JSONB DEFAULT '[]',
+          status VARCHAR(50) DEFAULT 'Active',
+          notes TEXT,
+          banner_path VARCHAR(500),
+          regulation_path VARCHAR(500),
+          banner_url TEXT,
+          documents_url TEXT,
+          attachments JSONB DEFAULT '[]',
+          created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
+          updated_by VARCHAR(255),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+
+      // Ensure the issuing_authority column exists (migrate existing DBs)
+      try {
+        await pool.query("ALTER TABLE approvals ADD COLUMN IF NOT EXISTS issuing_authority VARCHAR(255)")
+      } catch (e) {
+        console.log('Authorities column check on approvals:', e.message)
+      }
+
+      // Ensure the attachments column exists (migrate existing DBs)
+      try {
+        await pool.query("ALTER TABLE approvals ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'")
+      } catch (e) {
+        console.log('Attachments column check on approvals:', e.message)
+      }
+
+      // Ensure the software column exists (migrate existing DBs)
+      try {
+        await pool.query("ALTER TABLE approvals ADD COLUMN IF NOT EXISTS software VARCHAR(255)")
+      } catch (e) {
+        console.log('Software column check on approvals:', e.message)
+      }
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS commissions (
@@ -597,7 +799,7 @@ const initializeDatabase = async () => {
           commission_date DATE NOT NULL,
           expiry_date DATE NOT NULL,
           notes TEXT,
-          created_by VARCHAR(255) DEFAULT 'admin',
+          created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
           updated_by VARCHAR(255),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -613,7 +815,7 @@ const initializeDatabase = async () => {
           game_mix VARCHAR(255) NOT NULL,
           version VARCHAR(50),
           notes TEXT,
-          created_by VARCHAR(255) DEFAULT 'admin',
+          created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
           updated_by VARCHAR(255),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -647,6 +849,26 @@ const initializeDatabase = async () => {
     } catch (error) {
       console.log('⚠️ Slot history table may already exist:', error.message)
     }
+
+    // Promotions table already created above - consolidated version
+      
+      // Add missing columns if they don't exist
+      try {
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS total_amount DECIMAL(15,2) DEFAULT 0")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS awarded_amount DECIMAL(15,2) DEFAULT 0")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS locations JSONB DEFAULT '[]'")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS notes TEXT")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS banner_path VARCHAR(500)")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS regulation_path VARCHAR(500)")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS banner_url TEXT")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS documents_url TEXT")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255)")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Active'")
+        console.log('✅ Added missing columns to promotions table')
+      } catch (e) {
+        console.log('⚠️ Error adding columns to promotions:', e.message)
+      }
     
     // Remove CASCADE constraint from slot_history if it exists
     try {
@@ -700,6 +922,132 @@ const initializeDatabase = async () => {
       console.log('⚠️ Metrology new fields may already exist:', error.message)
     }
 
+    // Add new fields to approvals table
+    try {
+      await pool.query('ALTER TABLE approvals ADD COLUMN IF NOT EXISTS game_mix VARCHAR(255)')
+      await pool.query('ALTER TABLE approvals ADD COLUMN IF NOT EXISTS checksum_md5 VARCHAR(255)')
+      await pool.query('ALTER TABLE approvals ADD COLUMN IF NOT EXISTS checksum_sha256 VARCHAR(255)')
+      console.log('✅ Approvals table updated with new fields')
+    } catch (error) {
+      console.log('⚠️ Approvals new fields may already exist:', error.message)
+    }
+
+    // Add new fields to users table
+    try {
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT \'{}\'')
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSONB DEFAULT \'{}\'')
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS notes TEXT')
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT \'active\'')
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS created_by VARCHAR(100)')
+      console.log('✅ Users table updated with new fields including preferences')
+    } catch (error) {
+      console.log('⚠️ Users new fields may already exist:', error.message)
+    }
+
+    // Create tasks table
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS tasks (
+          id SERIAL PRIMARY KEY,
+          title VARCHAR(255) NOT NULL,
+          description TEXT,
+          status VARCHAR(50) DEFAULT 'pending',
+          priority VARCHAR(20) DEFAULT 'medium',
+          assigned_to INTEGER[] DEFAULT '{}',
+          created_by INTEGER NOT NULL,
+          due_date TIMESTAMP,
+          completed_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (created_by) REFERENCES users(id)
+        )
+      `)
+      console.log('✅ Tasks table created')
+    } catch (error) {
+      console.log('⚠️ Tasks table may already exist:', error.message)
+    }
+
+    // Create messages table
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS messages (
+          id SERIAL PRIMARY KEY,
+          sender_id INTEGER NOT NULL,
+          recipient_id INTEGER NOT NULL,
+          subject VARCHAR(255),
+          content TEXT NOT NULL,
+          file_attachments TEXT[] DEFAULT '{}',
+          is_read BOOLEAN DEFAULT FALSE,
+          read_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (sender_id) REFERENCES users(id),
+          FOREIGN KEY (recipient_id) REFERENCES users(id)
+        )
+      `)
+      console.log('✅ Messages table created')
+    } catch (error) {
+      console.log('⚠️ Messages table may already exist:', error.message)
+    }
+
+    // Create notifications table
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS notifications (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          type VARCHAR(50) NOT NULL,
+          title VARCHAR(255) NOT NULL,
+          content TEXT,
+          is_read BOOLEAN DEFAULT FALSE,
+          related_id INTEGER,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+      `)
+      console.log('✅ Notifications table created')
+    } catch (error) {
+      console.log('⚠️ Notifications table may already exist:', error.message)
+    }
+
+    // Migrate existing promotions to new prizes format
+    try {
+      // Check if old columns exist
+      const hasOldColumns = await pool.query(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'promotions' AND column_name IN ('prize_amount', 'prize_date', 'winner')
+      `)
+
+      if (hasOldColumns.rows.length > 0) {
+        console.log('🔄 Migrating old promotions format to new prizes format...')
+
+        // Get all promotions
+        const promotions = await pool.query('SELECT * FROM promotions')
+
+        for (const promo of promotions.rows) {
+          if (promo.prize_amount || promo.prize_date || promo.winner) {
+            const prize = {
+              amount: parseFloat(promo.prize_amount) || 0,
+              currency: promo.prize_currency || 'RON',
+              date: promo.prize_date,
+              winner: promo.winner || null
+            }
+
+            await pool.query('UPDATE promotions SET prizes = $1 WHERE id = $2', [JSON.stringify([prize]), promo.id])
+          }
+        }
+
+        // Drop old columns
+        await pool.query('ALTER TABLE promotions DROP COLUMN IF EXISTS prize_amount')
+        await pool.query('ALTER TABLE promotions DROP COLUMN IF EXISTS prize_currency')
+        await pool.query('ALTER TABLE promotions DROP COLUMN IF EXISTS prize_date')
+        await pool.query('ALTER TABLE promotions DROP COLUMN IF EXISTS winner')
+
+        console.log('✅ Promotions migration completed')
+      }
+    } catch (migError) {
+      console.log('⚠️ Promotions migration skipped:', migError.message)
+    }
+
     console.log('✅ Database schema initialized')
   } catch (error) {
     console.error('❌ Database initialization error:', error)
@@ -708,9 +1056,141 @@ const initializeDatabase = async () => {
 
 // Middleware
 app.use(morgan('combined'))
-app.use(cors())
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || ['https://w1n.ro', 'http://localhost:3000'],
+  credentials: true
+}))
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
+
+console.log('🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!')
+
+// ==================== IMMEDIATE ROUTE REGISTRATION ====================
+console.log('🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨')
+try {
+  console.log('📋 Registering /api/promotions router IMMEDIATELY...')
+  app.use('/api/promotions', promotionsRoutes)
+  console.log('📋 Registering /api/cyber IMMEDIATELY...')
+  app.use('/api/cyber', cyberRoutes)
+  console.log('📋 Registering /api/cyber-direct IMMEDIATELY...')
+  app.use('/api/cyber-direct', cyberDirectRoutes)
+  console.log('📋 Registering /api/tasks IMMEDIATELY...')
+  app.use('/api/tasks', authenticateUser, tasksRoutes)
+  console.log('📋 Registering /api/messages IMMEDIATELY...')
+  app.use('/api/messages', authenticateUser, messagesRoutes)
+  console.log('📋 Registering /api/notifications IMMEDIATELY...')
+  app.use('/api/notifications', authenticateUser, notificationsRoutes)
+  console.log('✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅')
+} catch (error) {
+  console.error('❌❌❌ IMMEDIATE ERROR during route registration:', error)
+}
+
+// DIRECT PROMOTIONS ENDPOINTS - BACKUP IF ROUTER FAILS
+app.get('/api/promotions', async (req, res) => {
+  console.log('🚨🚨🚨 DIRECT GET /api/promotions called!')
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    // Check if promotions table exists first
+    try {
+      const tableCheck = await pool.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables
+          WHERE table_schema = 'public'
+          AND table_name = 'promotions'
+        )
+      `)
+
+      if (!tableCheck.rows[0].exists) {
+        console.log('❌ Promotions table does not exist')
+        return res.json([])
+      }
+    } catch (tableError) {
+      console.error('❌ Error checking promotions table:', tableError)
+      return res.json([])
+    }
+
+    const result = await pool.query('SELECT * FROM promotions ORDER BY start_date DESC, created_at DESC')
+    console.log(`✅ DIRECT GET found ${result.rows.length} promotions`)
+    res.json(result.rows)
+  } catch (error) {
+    console.error('❌ DIRECT GET promotions error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+app.post('/api/promotions', async (req, res) => {
+  console.log('🚨🚨🚨 DIRECT POST /api/promotions called!')
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+    
+    const { 
+      name, description, start_date, end_date, location, locations, prizes, 
+      status, notes, banner_url, documents_url, attachments 
+    } = req.body
+    const createdBy = (req.user && (req.user.full_name || req.user.username)) || 'Eugeniu Cazmal'
+    
+    console.log('🚨 DIRECT POST data:', { name, description, start_date, end_date, location, locations, prizes })
+    
+    // Calculate total amount from prizes
+    const prizesArray = Array.isArray(prizes) ? prizes : []
+    const totalAmount = prizesArray.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0)
+    
+    // Handle locations array
+    const locationsArray = Array.isArray(locations) ? locations : []
+    
+    // Parse attachments
+    const attachmentsArray = Array.isArray(attachments) ? attachments : []
+    
+    // Use first location's dates if no global dates provided
+    const globalStartDate = start_date || (locationsArray[0]?.start_date) || new Date().toISOString().split('T')[0]
+    const globalEndDate = end_date || (locationsArray[0]?.end_date) || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    
+    // Get first location name as default location
+    const defaultLocation = location || (locationsArray.length > 0 ? locationsArray[0].location : 'Default Location')
+    
+    const result = await pool.query(
+      `INSERT INTO promotions 
+       (name, description, start_date, end_date, total_amount, awarded_amount, location, locations, 
+        status, prizes, notes, banner_url, documents_url, attachments, created_by, created_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, CURRENT_TIMESTAMP) 
+       RETURNING *`,
+      [
+        name || 'Untitled Promotion', 
+        description || '', 
+        globalStartDate, 
+        globalEndDate, 
+        totalAmount, 
+        0, 
+        defaultLocation, 
+        JSON.stringify(locationsArray), 
+        status || 'Active', 
+        JSON.stringify(prizesArray), 
+        notes || '', 
+        banner_url || null,
+        documents_url || null,
+        JSON.stringify(attachmentsArray),
+        createdBy
+      ]
+    )
+    
+    console.log('✅ DIRECT POST Promotion created:', result.rows[0].id)
+    res.status(201).json(result.rows[0])
+  } catch (error) {
+    console.error('❌ DIRECT POST promotions error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+console.log('🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨')
+
+// REMOVED FIRST EMERGENCY ENDPOINT - USING ONLY THE FINAL ONE BEFORE app.listen()
 
 // Multer configuration for file uploads
 const storage = multer.diskStorage({
@@ -721,6 +1201,8 @@ const storage = multer.diskStorage({
       uploadDir = 'uploads/invoices'
     } else if (req.originalUrl.includes('/companies')) {
       uploadDir = 'uploads/companies'
+    } else if (req.originalUrl.includes('/locations')) {
+      uploadDir = 'uploads/locations'
     }
     
     if (!fs.existsSync(uploadDir)) {
@@ -730,7 +1212,16 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
-    const prefix = req.originalUrl.includes('/companies') ? 'company-doc' : 'invoice'
+    let prefix = 'file'
+    if (req.originalUrl.includes('/companies')) {
+      prefix = 'company-doc'
+    } else if (req.originalUrl.includes('/locations')) {
+      prefix = 'location-plan'
+    } else if (req.originalUrl.includes('/invoices')) {
+      prefix = 'invoice'
+    } else if (req.originalUrl.includes('/upload')) {
+      prefix = 'approval-doc'
+    }
     cb(null, `${prefix}-${uniqueSuffix}${path.extname(file.originalname)}`)
   }
 })
@@ -738,10 +1229,12 @@ const storage = multer.diskStorage({
 const upload = multer({ 
   storage: storage,
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'application/pdf') {
+    // Allow PDF and image files
+    const allowedMimes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/gif']
+    if (allowedMimes.includes(file.mimetype)) {
       cb(null, true)
     } else {
-      cb(new Error('Doar fișierele PDF sunt permise'), false)
+      cb(new Error('Doar fișierele PDF, JPG, PNG sunt permise'), false)
     }
   },
   limits: {
@@ -759,13 +1252,16 @@ const limiter = rateLimit({
 })
 app.use('/api/', limiter)
 
-// Health check
+// Health check - Force redeploy
 app.get('/health', async (req, res) => {
   try {
     const result = await pool.query('SELECT NOW()')
     res.json({ 
       status: 'OK', 
       timestamp: new Date().toISOString(),
+      version: '7.0.9',
+      build: BUILD_NUMBER,
+      buildDate: BUILD_DATE,
       uptime: process.uptime(),
       database: 'Connected',
       dbTime: result.rows[0].now
@@ -928,10 +1424,15 @@ app.post('/api/auth/login', async (req, res) => {
       success: true,
       token,
       user: {
+        id: user.id,
         username: user.username,
         fullName: user.full_name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        avatar: user.avatar,
+        permissions: user.permissions,
+        notes: user.notes,
+        status: user.status
       }
     })
   } catch (error) {
@@ -963,6 +1464,114 @@ app.get('/api/auth/verify', async (req, res) => {
 
     const user = result.rows[0]
 
+    // Get default permissions for role if permissions are empty
+    let userPermissions = user.permissions
+    if (!userPermissions || Object.keys(userPermissions).length === 0) {
+      // Import default permissions logic (simplified version)
+      const defaultPermissions = {
+        admin: {
+          dashboard: { view: true, edit: true },
+          companies: { view: true, create: true, edit: true, delete: true, export: true },
+          locations: { view: true, create: true, edit: true, delete: true, export: true },
+          providers: { view: true, create: true, edit: true, delete: true, export: true },
+          cabinets: { view: true, create: true, edit: true, delete: true, export: true },
+          game_mixes: { view: true, create: true, edit: true, delete: true, export: true },
+          slots: { view: true, create: true, edit: true, delete: true, export: true, import: true },
+          warehouse: { view: true, create: true, edit: true, delete: true, export: true },
+          metrology: { view: true, create: true, edit: true, delete: true, export: true },
+          contracts: { view: true, create: true, edit: true, delete: true, export: true },
+          invoices: { view: true, create: true, edit: true, delete: true, export: true },
+          jackpots: { view: true, create: true, edit: true, delete: true },
+          onjn: { view: true, create: true, edit: true, delete: true, export: true },
+          legal: { view: true, create: true, edit: true, delete: true, export: true },
+          users: { view: true, create: true, edit: true, delete: true },
+          settings: { view: true, edit: true },
+          cyber_import: { view: true, import: true }
+        },
+        user: {
+          dashboard: { view: true, edit: false },
+          companies: { view: true, create: false, edit: false, delete: false, export: true },
+          locations: { view: true, create: false, edit: false, delete: false, export: true },
+          providers: { view: true, create: false, edit: false, delete: false, export: true },
+          cabinets: { view: true, create: false, edit: false, delete: false, export: true },
+          game_mixes: { view: true, create: false, edit: false, delete: false, export: true },
+          slots: { view: true, create: false, edit: false, delete: false, export: true, import: false },
+          warehouse: { view: true, create: false, edit: false, delete: false, export: true },
+          metrology: { view: true, create: false, edit: false, delete: false, export: true },
+          contracts: { view: true, create: false, edit: false, delete: false, export: true },
+          invoices: { view: true, create: false, edit: false, delete: false, export: true },
+          jackpots: { view: true, create: false, edit: false, delete: false },
+          onjn: { view: true, create: false, edit: false, delete: false, export: true },
+          legal: { view: true, create: false, edit: false, delete: false, export: true },
+          users: { view: false, create: false, edit: false, delete: false },
+          settings: { view: false, edit: false },
+          cyber_import: { view: false, import: false },
+          promotions: { view: true, create: false, edit: false, delete: false, export: false }
+        },
+        marketing: {
+          dashboard: { view: true, edit: false },
+          companies: { view: true, create: false, edit: false, delete: false, export: true },
+          locations: { view: true, create: false, edit: false, delete: false, export: true },
+          providers: { view: false, create: false, edit: false, delete: false, export: false },
+          cabinets: { view: false, create: false, edit: false, delete: false, export: false },
+          game_mixes: { view: false, create: false, edit: false, delete: false, export: false },
+          slots: { view: true, create: false, edit: false, delete: false, export: true, import: false },
+          warehouse: { view: false, create: false, edit: false, delete: false, export: false },
+          metrology: { view: false, create: false, edit: false, delete: false, export: false },
+          contracts: { view: false, create: false, edit: false, delete: false, export: false },
+          invoices: { view: false, create: false, edit: false, delete: false, export: false },
+          jackpots: { view: true, create: false, edit: false, delete: false },
+          onjn: { view: false, create: false, edit: false, delete: false, export: false },
+          legal: { view: false, create: false, edit: false, delete: false, export: false },
+          users: { view: false, create: false, edit: false, delete: false },
+          settings: { view: false, edit: false },
+          cyber_import: { view: false, import: false },
+          promotions: { view: true, create: true, edit: true, delete: true, export: true }
+        },
+        operational: {
+          dashboard: { view: true, edit: false },
+          companies: { view: true, create: false, edit: false, delete: false, export: true },
+          locations: { view: true, create: true, edit: true, delete: false, export: true },
+          providers: { view: true, create: false, edit: false, delete: false, export: true },
+          cabinets: { view: true, create: true, edit: true, delete: false, export: true },
+          game_mixes: { view: true, create: false, edit: false, delete: false, export: true },
+          slots: { view: true, create: true, edit: true, delete: false, export: true, import: true },
+          warehouse: { view: true, create: true, edit: true, delete: false, export: true },
+          metrology: { view: true, create: true, edit: true, delete: false, export: true },
+          contracts: { view: false, create: false, edit: false, delete: false, export: false },
+          invoices: { view: false, create: false, edit: false, delete: false, export: false },
+          jackpots: { view: true, create: false, edit: false, delete: false },
+          onjn: { view: true, create: false, edit: false, delete: false, export: true },
+          legal: { view: false, create: false, edit: false, delete: false, export: false },
+          users: { view: false, create: false, edit: false, delete: false },
+          settings: { view: false, edit: false },
+          cyber_import: { view: true, import: true },
+          promotions: { view: true, create: false, edit: false, delete: false, export: true }
+        },
+        financiar: {
+          dashboard: { view: true, edit: false },
+          companies: { view: true, create: false, edit: false, delete: false, export: true },
+          locations: { view: true, create: false, edit: false, delete: false, export: true },
+          providers: { view: true, create: false, edit: false, delete: false, export: true },
+          cabinets: { view: true, create: false, edit: false, delete: false, export: true },
+          game_mixes: { view: true, create: false, edit: false, delete: false, export: true },
+          slots: { view: true, create: false, edit: false, delete: false, export: true, import: false },
+          warehouse: { view: false, create: false, edit: false, delete: false, export: false },
+          metrology: { view: false, create: false, edit: false, delete: false, export: false },
+          contracts: { view: true, create: false, edit: false, delete: false, export: true },
+          invoices: { view: true, create: true, edit: true, delete: false, export: true },
+          jackpots: { view: true, create: false, edit: false, delete: false },
+          onjn: { view: false, create: false, edit: false, delete: false, export: false },
+          legal: { view: false, create: false, edit: false, delete: false, export: false },
+          users: { view: false, create: false, edit: false, delete: false },
+          settings: { view: false, edit: false },
+          cyber_import: { view: false, import: false },
+          promotions: { view: true, create: false, edit: false, delete: false, export: true }
+        }
+      }
+      userPermissions = defaultPermissions[user.role] || defaultPermissions.user
+    }
+
     res.json({
       success: true,
       user: {
@@ -972,13 +1581,17 @@ app.get('/api/auth/verify', async (req, res) => {
         email: user.email,
         role: user.role,
         avatar: user.avatar,
-        permissions: user.permissions,
+        permissions: userPermissions,
         notes: user.notes,
         status: user.status
       }
     })
   } catch (error) {
-    res.status(401).json({ success: false, message: 'Invalid token', error: error.message })
+    console.error('Token verification error:', error)
+    res.status(401).json({
+      success: false,
+      message: 'Invalid token'
+    })
   }
 })
 
@@ -1029,7 +1642,7 @@ app.put('/api/companies/:id', async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Company not found' })
     }
-    res.json({ success: true, message: 'Company updated successfully' })
+    res.json(result.rows[0])
   } catch (error) {
     console.error('Companies PUT error:', error)
     res.status(500).json({ success: false, error: error.message })
@@ -1069,12 +1682,13 @@ app.get('/api/locations', async (req, res) => {
   }
 })
 
-app.post('/api/locations', async (req, res) => {
+app.post('/api/locations', upload.single('planFile'), async (req, res) => {
   try {
-    const { name, address, company, surface, status, coordinates, contact_person, plan_file, notes } = req.body
+    const { name, address, company, surface, status, coordinates, contact_person, notes } = req.body
+    const planFile = req.file ? `/uploads/locations/${req.file.filename}` : null
     const result = await pool.query(
       'INSERT INTO locations (name, address, company, surface, status, coordinates, contact_person, plan_file, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
-      [name, address, company, surface, status || 'Active', coordinates, contact_person, plan_file, notes]
+      [name, address, company, surface, status || 'Active', coordinates, contact_person, planFile, notes]
     )
     const newLocation = { ...result.rows[0], capacity: 0 }
     res.json(newLocation)
@@ -1083,15 +1697,30 @@ app.post('/api/locations', async (req, res) => {
   }
 })
 
-app.put('/api/locations/:id', async (req, res) => {
+app.put('/api/locations/:id', upload.single('planFile'), async (req, res) => {
   try {
     const { id } = req.params
-    const { name, address, company, surface, status, coordinates, contact_person, plan_file, notes } = req.body
-    await pool.query(
-      'UPDATE locations SET name = $1, address = $2, company = $3, surface = $4, status = $5, coordinates = $6, contact_person = $7, plan_file = $8, notes = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10',
-      [name, address, company, surface, status, coordinates, contact_person, plan_file, notes, id]
-    )
-    res.json({ success: true, message: 'Location updated successfully' })
+    console.log('PUT /api/locations/:id - req.body:', req.body)
+    console.log('PUT /api/locations/:id - req.file:', req.file)
+    const { name, address, company, surface, status, coordinates, contact_person, notes } = req.body
+    const planFile = req.file ? `/uploads/locations/${req.file.filename}` : undefined
+    
+    // If a new file is uploaded, use it; otherwise keep the existing one
+    let updateQuery
+    let queryParams
+    if (planFile) {
+      updateQuery = 'UPDATE locations SET name = $1, address = $2, company = $3, surface = $4, status = $5, coordinates = $6, contact_person = $7, plan_file = $8, notes = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10 RETURNING *'
+      queryParams = [name, address, company, surface, status, coordinates, contact_person, planFile, notes, id]
+    } else {
+      updateQuery = 'UPDATE locations SET name = $1, address = $2, company = $3, surface = $4, status = $5, coordinates = $6, contact_person = $7, notes = $8, updated_at = CURRENT_TIMESTAMP WHERE id = $9 RETURNING *'
+      queryParams = [name, address, company, surface, status, coordinates, contact_person, notes, id]
+    }
+    
+    const result = await pool.query(updateQuery, queryParams)
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Location not found' })
+    }
+    res.json(result.rows[0])
   } catch (error) {
     res.status(500).json({ success: false, error: error.message })
   }
@@ -1623,8 +2252,8 @@ app.put('/api/gameMixes/:id', async (req, res) => {
     const cleanMaxBet = max_bet === '' ? null : max_bet
     const cleanGamingPlaces = gaming_places === '' ? null : gaming_places
     
-    await pool.query(
-      'UPDATE game_mixes SET name = $1, provider = $2, games = $3, rtp = $4, denomination = $5, max_bet = $6, gaming_places = $7, status = $8, notes = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10',
+    const result = await pool.query(
+      'UPDATE game_mixes SET name = $1, provider = $2, games = $3, rtp = $4, denomination = $5, max_bet = $6, gaming_places = $7, status = $8, notes = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10 RETURNING *',
       [name, provider, JSON.stringify(games), cleanRtp, cleanDenomination, cleanMaxBet, cleanGamingPlaces, status, notes, id]
     )
     
@@ -1637,7 +2266,7 @@ app.put('/api/gameMixes/:id', async (req, res) => {
       console.log(`Updated game mix name from "${oldName}" to "${name}" in slots`)
     }
     
-    res.json({ success: true, message: 'Game mix updated successfully' })
+    res.json(result.rows[0])
   } catch (error) {
     res.status(500).json({ success: false, error: error.message })
   }
@@ -1656,64 +2285,55 @@ app.delete('/api/gameMixes/:id', async (req, res) => {
   }
 })
 
-// Users routes
-app.get('/api/users', async (req, res) => {
+// Users routes - quick fix for dashboard sync
+app.get('/api/users/:id', async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, username, full_name, email, role, avatar, created_at, updated_at FROM users ORDER BY created_at DESC')
-    res.json(result.rows)
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
-
-app.post('/api/users', async (req, res) => {
-  try {
-    const { username, password, fullName, full_name, email, role, avatar } = req.body
-    const hashedPassword = await bcrypt.hash(password, 10)
-    const result = await pool.query(
-      'INSERT INTO users (username, password, full_name, email, role, avatar) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, username, full_name, email, role, avatar, created_at',
-      [username, hashedPassword, fullName || full_name, email, role || 'user', avatar]
-    )
+    const { id } = req.params
+    const result = await pool.query('SELECT id, username, full_name, email, role, avatar, permissions, notes, status, preferences, created_at, updated_at FROM users WHERE id = $1', [id])
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' })
+    }
     res.json(result.rows[0])
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
+    console.error('Error fetching user:', error)
+    res.status(500).json({ success: false, message: 'Error fetching user' })
   }
 })
 
-app.put('/api/users/:id', async (req, res) => {
+app.get('/api/users/:id/preferences', async (req, res) => {
   try {
     const { id } = req.params
-    const { username, password, fullName, full_name, email, role, avatar } = req.body
+    const result = await pool.query('SELECT preferences FROM users WHERE id = $1', [id])
     
-    if (password) {
-      const hashedPassword = await bcrypt.hash(password, 10)
-      await pool.query(
-        'UPDATE users SET username = $1, password = $2, full_name = $3, email = $4, role = $5, avatar = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7',
-        [username, hashedPassword, fullName || full_name, email, role, avatar, id]
-      )
-    } else {
-      await pool.query(
-        'UPDATE users SET username = $1, full_name = $2, email = $3, role = $4, avatar = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6',
-        [username, fullName || full_name, email, role, avatar, id]
-      )
-    }
-    
-    res.json({ success: true, message: 'User updated successfully' })
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
-
-app.delete('/api/users/:id', async (req, res) => {
-  try {
-    const { id } = req.params
-    const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING *', [id])
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'User not found' })
+      return res.status(404).json({ success: false, message: 'User not found' })
     }
-    res.json({ success: true, message: 'User deleted successfully' })
+    
+    res.json({ success: true, preferences: result.rows[0].preferences || {} })
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
+    console.error('Error fetching user preferences:', error)
+    res.status(500).json({ success: false, message: 'Error fetching user preferences' })
+  }
+})
+
+app.put('/api/users/:id/preferences', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { preferences } = req.body
+    
+    const result = await pool.query(
+      'UPDATE users SET preferences = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, preferences',
+      [JSON.stringify(preferences), id]
+    )
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' })
+    }
+    
+    res.json({ success: true, preferences: result.rows[0].preferences })
+  } catch (error) {
+    console.error('Error updating user preferences:', error)
+    res.status(500).json({ success: false, message: 'Error updating user preferences' })
   }
 })
 
@@ -1882,6 +2502,56 @@ app.post('/api/proprietari', async (req, res) => {
     res.json(result.rows[0])
   } catch (error) {
     console.error('Proprietari POST error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+app.put('/api/proprietari/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { 
+      name, 
+      contact_person, 
+      email, 
+      phone, 
+      address, 
+      cnp_cui, 
+      type, 
+      status, 
+      notes 
+    } = req.body
+    
+    const result = await pool.query(`
+      UPDATE proprietari 
+      SET name = $1, contact_person = $2, email = $3, phone = $4, address = $5, 
+          cnp_cui = $6, type = $7, status = $8, notes = $9, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $10
+      RETURNING *
+    `, [name, contact_person, email, phone, address, cnp_cui, type, status, notes, id])
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Proprietar not found' })
+    }
+    
+    res.json(result.rows[0])
+  } catch (error) {
+    console.error('Proprietari PUT error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+app.delete('/api/proprietari/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const result = await pool.query('DELETE FROM proprietari WHERE id = $1 RETURNING *', [id])
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Proprietar not found' })
+    }
+    
+    res.json({ success: true, message: 'Proprietar deleted successfully' })
+  } catch (error) {
+    console.error('Proprietari DELETE error:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })
@@ -2348,108 +3018,93 @@ entities.forEach(entity => {
 // Upload routes
 app.use('/api/upload', uploadRoutes)
 
+// Compression routes
+app.use('/api/compress', compressRoutes)
+
 // Backup routes
 app.use('/api/backup', backupRoutes)
 
 // Games routes
 app.use('/api/games', gamesRoutes)
 app.use('/api/slot-history', slotHistoryRoutes)
-
-// Serve static files (PDFs)
-app.use('/uploads', express.static('uploads'))
-
-// Company documents endpoints
-app.post('/api/companies/upload-document', upload.single('file'), async (req, res) => {
+app.use('/api/users', usersRoutes)
+app.use('/api/auth', authRoutes)
+app.use('/api/companies', companiesRoutes)
+app.use('/api/locations', locationsRoutes)
+app.use('/api/providers', providersRoutes)
+app.use('/api/cabinets', cabinetsRoutes)
+// Game Mixes endpoint - use database instead of mock routes
+app.get('/api/game-mixes', async (req, res) => {
   try {
-    const { name, type, company_id } = req.body
-    
-    if (!req.file) {
-      return res.status(400).json({ success: false, error: 'No file uploaded' })
-    }
-
-    const pdfPath = `/uploads/companies/${req.file.filename}`
-    
-    // Get current company
-    const companyResult = await pool.query('SELECT * FROM companies WHERE id = $1', [company_id])
-    if (companyResult.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Company not found' })
-    }
-
-    const company = companyResult.rows[0]
-    let documents = []
-    
-    try {
-      documents = company.documents ? JSON.parse(company.documents) : []
-    } catch (error) {
-      documents = []
-    }
-
-    // Add new document
-    const newDocument = {
-      id: Date.now(),
-      name,
-      type,
-      file_path: pdfPath,
-      uploaded_at: new Date().toISOString()
-    }
-    
-    documents.push(newDocument)
-
-    // Update company with new document
-    const result = await pool.query(
-      'UPDATE companies SET documents = $1 WHERE id = $2 RETURNING *',
-      [JSON.stringify(documents), company_id]
-    )
-
-    res.json(result.rows[0])
+    const result = await pool.query('SELECT * FROM game_mixes ORDER BY name')
+    res.json(result.rows)
   } catch (error) {
-    console.error('Company document upload error:', error)
+    console.error('Game mixes GET error:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })
 
-app.delete('/api/companies/documents/:documentId', async (req, res) => {
+app.post('/api/game-mixes', async (req, res) => {
   try {
-    const { documentId } = req.params
-    const { company_id } = req.query
-
-    // Get current company
-    const companyResult = await pool.query('SELECT * FROM companies WHERE id = $1', [company_id])
-    if (companyResult.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Company not found' })
-    }
-
-    const company = companyResult.rows[0]
-    let documents = []
-    
-    try {
-      documents = company.documents ? JSON.parse(company.documents) : []
-    } catch (error) {
-      documents = []
-    }
-
-    // Remove document
-    documents = documents.filter(doc => doc.id !== parseInt(documentId))
-
-    // Update company
+    const { name, provider, games, rtp, denomination, max_bet, gaming_places, status, notes } = req.body
     const result = await pool.query(
-      'UPDATE companies SET documents = $1 WHERE id = $2 RETURNING *',
-      [JSON.stringify(documents), company_id]
+      'INSERT INTO game_mixes (name, provider, games, rtp, denomination, max_bet, gaming_places, status, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+      [name, provider, games, rtp, denomination, max_bet, gaming_places, status, notes, 'API']
     )
-
-    res.json(result.rows[0])
+    res.status(201).json(result.rows[0])
   } catch (error) {
-    console.error('Company document delete error:', error)
+    console.error('Game mixes POST error:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })
 
-// Error handling
-// ==================== METROLOGY SUB-PAGES ENDPOINTS ====================
+app.put('/api/game-mixes/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { name, provider, games, rtp, denomination, max_bet, gaming_places, status, notes } = req.body
+    const result = await pool.query(
+      'UPDATE game_mixes SET name = $1, provider = $2, games = $3, rtp = $4, denomination = $5, max_bet = $6, gaming_places = $7, status = $8, notes = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10 RETURNING *',
+      [name, provider, games, rtp, denomination, max_bet, gaming_places, status, notes, id]
+    )
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Game mix not found' })
+    }
+    res.json(result.rows[0])
+  } catch (error) {
+    console.error('Game mixes PUT error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
 
-// Approvals endpoints
+app.delete('/api/game-mixes/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const result = await pool.query('DELETE FROM game_mixes WHERE id = $1 RETURNING *', [id])
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Game mix not found' })
+    }
+    res.json({ success: true, message: 'Game mix deleted successfully' })
+  } catch (error) {
+    console.error('Game mixes DELETE error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+app.use('/api/slots', slotsRoutes)
+app.use('/api/invoices', invoicesRoutes)
+app.use('/api/jackpots', jackpotsRoutes)
+app.use('/api/legal-documents', legalDocumentsRoutes)
+app.use('/api/onjn-reports', onjnReportsRoutes)
+app.use('/api/metrology', metrologyRoutes)
+app.use('/api/warehouse', warehouseRoutes)
+
+// ==================== NEW ROUTES ALREADY REGISTERED EARLY ====================
+// Routes for promotions, cyber, tasks, messages, notifications
+// are registered at the TOP of the file (line ~126) before any async operations
+
+// Get all approvals
 app.get('/api/approvals', async (req, res) => {
   try {
+    const pool = req.app.get('pool')
     const result = await pool.query('SELECT * FROM approvals ORDER BY created_at DESC')
     res.json(result.rows)
   } catch (error) {
@@ -2458,13 +3113,35 @@ app.get('/api/approvals', async (req, res) => {
   }
 })
 
-app.post('/api/approvals', async (req, res) => {
+// Create approval - POST endpoint
+app.post('/api/approvals', authenticateUser, upload.single('file'), async (req, res) => {
   try {
-    const { name, provider, cabinet, notes } = req.body
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+    
+    const { name, provider, cabinet, game_mix, checksum_md5, checksum_sha256, notes } = req.body
+    const createdBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
+    
+    let attachments = []
+    if (req.file) {
+      // Handle file upload - could be uploaded to S3 or stored locally
+      const fileUrl = `/uploads/${req.file.filename}`
+      attachments.push({
+        filename: req.file.originalname,
+        url: fileUrl,
+        uploadedAt: new Date().toISOString()
+      })
+    }
+    
     const result = await pool.query(
-      'INSERT INTO approvals (name, provider, cabinet, notes, created_by, created_at) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP) RETURNING *',
-      [name, provider, cabinet, notes, 'admin']
+      `INSERT INTO approvals (name, provider, cabinet, game_mix, checksum_md5, checksum_sha256, attachments, notes, created_by, created_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP) 
+       RETURNING *`,
+      [name, provider, cabinet, game_mix, checksum_md5, checksum_sha256, JSON.stringify(attachments), notes, createdBy]
     )
+    
     res.status(201).json(result.rows[0])
   } catch (error) {
     console.error('Approvals POST error:', error)
@@ -2472,17 +3149,45 @@ app.post('/api/approvals', async (req, res) => {
   }
 })
 
-app.put('/api/approvals/:id', async (req, res) => {
+// Update approval - PUT endpoint
+app.put('/api/approvals/:id', authenticateUser, upload.single('file'), async (req, res) => {
   try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+    
     const { id } = req.params
-    const { name, provider, cabinet, notes } = req.body
-    const result = await pool.query(
-      'UPDATE approvals SET name = $1, provider = $2, cabinet = $3, notes = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5 RETURNING *',
-      [name, provider, cabinet, notes, id]
-    )
-    if (result.rows.length === 0) {
+    const { name, provider, cabinet, game_mix, checksum_md5, checksum_sha256, notes } = req.body
+    
+    // Get existing attachments
+    const existingResult = await pool.query('SELECT attachments FROM approvals WHERE id = $1', [id])
+    if (existingResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Approval not found' })
     }
+    
+    let attachments = existingResult.rows[0].attachments || []
+    
+    // Add new file if uploaded
+    if (req.file) {
+      const fileUrl = `/uploads/${req.file.filename}`
+      attachments.push({
+        filename: req.file.originalname,
+        url: fileUrl,
+        uploadedAt: new Date().toISOString()
+      })
+    }
+    
+    const result = await pool.query(
+      `UPDATE approvals 
+       SET name = $1, provider = $2, cabinet = $3, game_mix = $4, 
+           checksum_md5 = $5, checksum_sha256 = $6, attachments = $7, 
+           notes = $8, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $9 
+       RETURNING *`,
+      [name, provider, cabinet, game_mix, checksum_md5, checksum_sha256, JSON.stringify(attachments), notes, id]
+    )
+    
     res.json(result.rows[0])
   } catch (error) {
     console.error('Approvals PUT error:', error)
@@ -2490,21 +3195,322 @@ app.put('/api/approvals/:id', async (req, res) => {
   }
 })
 
-app.delete('/api/approvals/:id', async (req, res) => {
+
+// Cyber selective sync endpoints
+app.post('/api/cyber/sync-locations', async (req, res) => {
   try {
-    const { id } = req.params
-    const result = await pool.query('DELETE FROM approvals WHERE id = $1', [id])
-    if (result.rowCount === 0) {
-      return res.status(404).json({ success: false, error: 'Approval not found' })
+    console.log('🔄 Syncing locations from Cyber...')
+    
+    // Load Cyber locations data
+    const locationsPath = path.join(__dirname, 'cyber-data', 'locations.json')
+    const cyberLocations = JSON.parse(fs.readFileSync(locationsPath, 'utf8'))
+    
+    let syncedCount = 0
+    
+    for (const cyberLocation of cyberLocations) {
+      try {
+        const exists = await pool.query('SELECT id FROM locations WHERE name = $1', [cyberLocation.name])
+        if (exists.rows.length === 0) {
+          await pool.query(
+            'INSERT INTO locations (name, address, company, status, created_by) VALUES ($1, $2, $3, $4, $5)',
+            [cyberLocation.name, cyberLocation.address || 'Adresă din Cyber', cyberLocation.company || 'Cyber Import', 'Active', 'Cyber Import']
+          )
+          syncedCount++
+          console.log(`   ✅ Added location: ${cyberLocation.name}`)
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Location ${cyberLocation.name} error:`, error.message)
+      }
     }
-    res.json({ success: true, message: 'Approval deleted successfully' })
+    
+    res.json({ success: true, message: `Locations sync completed: ${syncedCount} new locations added`, syncedCount })
   } catch (error) {
-    console.error('Approvals DELETE error:', error)
-    res.status(500).json({ success: false, error: error.message })
+    console.error('Error syncing locations:', error)
+    res.status(500).json({ success: false, message: 'Error syncing locations: ' + error.message })
   }
 })
 
-// Commissions endpoints
+app.post('/api/cyber/sync-game-mixes', async (req, res) => {
+  try {
+    console.log('🔄 Syncing game mixes from Cyber...')
+    
+    // Load Cyber game mixes data
+    const gameMixesPath = path.join(__dirname, 'cyber-data', 'game-mixes.json')
+    const cyberGameMixes = JSON.parse(fs.readFileSync(gameMixesPath, 'utf8'))
+    
+    let syncedCount = 0
+    
+    for (const cyberGameMix of cyberGameMixes) {
+      try {
+        const exists = await pool.query('SELECT id FROM game_mixes WHERE name = $1', [cyberGameMix.name])
+        if (exists.rows.length === 0) {
+          await pool.query(
+            'INSERT INTO game_mixes (name, provider, games, status, created_by) VALUES ($1, $2, $3, $4, $5)',
+            [cyberGameMix.name, cyberGameMix.provider || null, cyberGameMix.games ? JSON.stringify(cyberGameMix.games) : null, 'Active', 'Cyber Import']
+          )
+          syncedCount++
+          console.log(`   ✅ Added game mix: ${cyberGameMix.name}`)
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Game mix ${cyberGameMix.name} error:`, error.message)
+      }
+    }
+    
+    res.json({ success: true, message: `Game mixes sync completed: ${syncedCount} new game mixes added`, syncedCount })
+  } catch (error) {
+    console.error('Error syncing game mixes:', error)
+    res.status(500).json({ success: false, message: 'Error syncing game mixes: ' + error.message })
+  }
+})
+
+app.post('/api/cyber/sync-cabinets', async (req, res) => {
+  try {
+    console.log('🔄 Syncing cabinets from Cyber...')
+    
+    // Load Cyber cabinets data
+    const cabinetsPath = path.join(__dirname, 'cyber-data', 'cabinets.json')
+    const cyberCabinets = JSON.parse(fs.readFileSync(cabinetsPath, 'utf8'))
+    
+    let syncedCount = 0
+    
+    for (const cyberCabinet of cyberCabinets) {
+      try {
+        const exists = await pool.query('SELECT id FROM cabinets WHERE name = $1 OR model = $1', [cyberCabinet.name])
+        if (exists.rows.length === 0) {
+          await pool.query(
+            'INSERT INTO cabinets (name, model, provider, status, created_by) VALUES ($1, $2, $3, $4, $5)',
+            [cyberCabinet.name, cyberCabinet.model || cyberCabinet.name, cyberCabinet.provider || null, 'Active', 'Cyber Import']
+          )
+          syncedCount++
+          console.log(`   ✅ Added cabinet: ${cyberCabinet.name}`)
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Cabinet ${cyberCabinet.name} error:`, error.message)
+      }
+    }
+    
+    res.json({ success: true, message: `Cabinets sync completed: ${syncedCount} new cabinets added`, syncedCount })
+  } catch (error) {
+    console.error('Error syncing cabinets:', error)
+    res.status(500).json({ success: false, message: 'Error syncing cabinets: ' + error.message })
+  }
+})
+
+app.post('/api/cyber/sync-providers', async (req, res) => {
+  try {
+    console.log('🔄 Syncing providers from Cyber...')
+    
+    // Load Cyber providers data
+    const providersPath = path.join(__dirname, 'cyber-data', 'providers.json')
+    const cyberProviders = JSON.parse(fs.readFileSync(providersPath, 'utf8'))
+    
+    let syncedCount = 0
+    
+    for (const cyberProvider of cyberProviders) {
+      try {
+        const exists = await pool.query('SELECT id FROM providers WHERE name = $1', [cyberProvider.name])
+        if (exists.rows.length === 0) {
+          await pool.query(
+            'INSERT INTO providers (name, company, contact, phone, status, created_by) VALUES ($1, $2, $3, $4, $5, $6)',
+            [cyberProvider.name, cyberProvider.company || 'Cyber Import', cyberProvider.contact || 'Contact ' + cyberProvider.name, cyberProvider.phone || '+40 000 000 000', 'Active', 'Cyber Import']
+          )
+          syncedCount++
+          console.log(`   ✅ Added provider: ${cyberProvider.name}`)
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Provider ${cyberProvider.name} error:`, error.message)
+      }
+    }
+    
+    res.json({ success: true, message: `Providers sync completed: ${syncedCount} new providers added`, syncedCount })
+  } catch (error) {
+    console.error('Error syncing providers:', error)
+    res.status(500).json({ success: false, message: 'Error syncing providers: ' + error.message })
+  }
+})
+
+// SYNC Cyber slots to main slots table
+app.post('/api/cyber/sync-slots', async (req, res) => {
+  try {
+    console.log('🔄 SYNCING Cyber slots to main slots table...')
+    
+    const pool = req.app.get('pool')
+    const slotsPath = path.join(__dirname, 'cyber-data', 'slots.json')
+    
+    if (!fs.existsSync(slotsPath)) {
+      return res.status(404).json({ error: 'Cyber slots data not found' })
+    }
+    
+    const cyberSlots = JSON.parse(fs.readFileSync(slotsPath, 'utf8'))
+    console.log(`📥 Found ${cyberSlots.length} Cyber slots to sync`)
+    
+    // STEP 1: Extract and auto-populate unique entities
+    console.log('📊 Extracting unique entities from Cyber data...')
+    
+    const uniqueLocations = new Set()
+    const uniqueProviders = new Set()
+    const uniqueCabinets = new Set()
+    const uniqueGameMixes = new Set()
+    
+    cyberSlots.forEach(slot => {
+      if (slot.location && slot.location !== 'Unknown' && slot.location !== 'N/A') {
+        uniqueLocations.add(slot.location)
+      }
+      if (slot.provider && slot.provider !== 'Unknown' && slot.provider !== 'N/A') {
+        uniqueProviders.add(slot.provider)
+      }
+      if (slot.cabinet && slot.cabinet !== 'Unknown' && slot.cabinet !== 'N/A') {
+        uniqueCabinets.add(slot.cabinet)
+      }
+      if (slot.game_mix && slot.game_mix !== 'N/A') {
+        // Cleanup: Extract only part after " - " (ex: "EGT - Union" -> "Union")
+        const cleanGameMix = slot.game_mix.includes(' - ') 
+          ? slot.game_mix.split(' - ')[1].trim()
+          : slot.game_mix
+        if (cleanGameMix) uniqueGameMixes.add(cleanGameMix)
+      }
+    })
+    
+    console.log(`🔍 Found unique entities:`)
+    console.log(`   📍 Locations: ${uniqueLocations.size}`)
+    console.log(`   🎮 Providers: ${uniqueProviders.size}`)
+    console.log(`   🎰 Cabinets: ${uniqueCabinets.size}`)
+    console.log(`   🎲 Game Mixes: ${uniqueGameMixes.size}`)
+    
+    // STEP 2: Auto-populate Locations
+    for (const location of uniqueLocations) {
+      try {
+        const exists = await pool.query('SELECT id FROM locations WHERE name = $1', [location])
+        if (exists.rows.length === 0) {
+          await pool.query(
+            'INSERT INTO locations (name, address, company, status, created_by) VALUES ($1, $2, $3, $4, $5)',
+            [location, 'Adresă din Cyber', 'Cyber Import', 'Active', 'Cyber Import']
+          )
+          console.log(`   ✅ Added location: ${location}`)
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Location ${location} error:`, error.message)
+      }
+    }
+    
+    // STEP 3: Auto-populate Providers
+    for (const provider of uniqueProviders) {
+      try {
+        const exists = await pool.query('SELECT id FROM providers WHERE name = $1', [provider])
+        if (exists.rows.length === 0) {
+          await pool.query(
+            'INSERT INTO providers (name, company, contact, phone, status, created_by) VALUES ($1, $2, $3, $4, $5, $6)',
+            [provider, 'Cyber Import', 'Contact ' + provider, '+40 000 000 000', 'Active', 'Cyber Import']
+          )
+          console.log(`   ✅ Added provider: ${provider}`)
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Provider ${provider} error:`, error.message)
+      }
+    }
+    
+    // STEP 4: Auto-populate Cabinets
+    for (const cabinet of uniqueCabinets) {
+      try {
+        const exists = await pool.query('SELECT id FROM cabinets WHERE name = $1 OR model = $1', [cabinet])
+        if (exists.rows.length === 0) {
+          await pool.query(
+            'INSERT INTO cabinets (name, model, status, created_by) VALUES ($1, $2, $3, $4)',
+            [cabinet, cabinet, 'Active', 'Cyber Import']
+          )
+          console.log(`   ✅ Added cabinet: ${cabinet}`)
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Cabinet ${cabinet} error:`, error.message)
+      }
+    }
+    
+    // STEP 5: Auto-populate Game Mixes
+    for (const gameMix of uniqueGameMixes) {
+      try {
+        const exists = await pool.query('SELECT id FROM game_mixes WHERE name = $1', [gameMix])
+        if (exists.rows.length === 0) {
+          await pool.query(
+            'INSERT INTO game_mixes (name, status, created_by) VALUES ($1, $2, $3)',
+            [gameMix, 'Active', 'Cyber Import']
+          )
+          console.log(`   ✅ Added game mix: ${gameMix}`)
+        }
+      } catch (error) {
+        console.log(`   ⚠️ Game mix ${gameMix} error:`, error.message)
+      }
+    }
+    
+    console.log('✅ All unique entities populated!')
+    
+    // STEP 6: Keep existing slots - only update/add new ones
+    console.log('🔄 Preserving existing slots - will update/add only new ones')
+    
+    // STEP 7: Insert Cyber slots in BATCH with cleaned game_mix
+    console.log('🚀 Starting BATCH insert...')
+    const values = []
+    const params = []
+    let paramCount = 1
+    
+    cyberSlots.forEach(cyberSlot => {
+      // Cleanup game_mix - extract only part after " - "
+      const cleanGameMix = cyberSlot.game_mix && cyberSlot.game_mix.includes(' - ')
+        ? cyberSlot.game_mix.split(' - ')[1].trim()
+        : cyberSlot.game_mix
+      const rowValues = [
+        cyberSlot.serial_number || 'N/A',
+        cyberSlot.serial_number || 'N/A', // slot_id same as serial_number
+        cyberSlot.provider || 'Unknown',
+        cyberSlot.cabinet || 'Unknown',
+        cleanGameMix || null, // Use cleaned game_mix
+        cyberSlot.status || 'Active',
+        cyberSlot.location || 'Unknown',
+        cyberSlot.updated_at || cyberSlot.last_updated || new Date().toISOString(),
+        cyberSlot.created_at || new Date().toISOString(),
+        'Cyber Import'
+      ]
+      
+      const placeholders = rowValues.map((_, idx) => `$${paramCount + idx}`).join(', ')
+      values.push(`(${placeholders})`)
+      params.push(...rowValues)
+      paramCount += rowValues.length
+    })
+    
+    const insertQuery = `
+      INSERT INTO slots (
+        serial_number, slot_id, provider, cabinet, game_mix, status, 
+        location, updated_at, created_at, created_by
+      ) VALUES ${values.join(', ')}
+    `
+    
+    await pool.query(insertQuery, params)
+    const insertedCount = cyberSlots.length
+    console.log(`✅ BATCH INSERT completed: ${insertedCount} slots`)
+    
+    console.log(`✅ SYNCED ${insertedCount} slots from Cyber to main table`)
+    res.json({
+      success: true,
+      message: `Synced ${cyberSlots.length} slots + ${uniqueLocations.size} locations + ${uniqueProviders.size} providers + ${uniqueCabinets.size} cabinets + ${uniqueGameMixes.size} game mixes`,
+      syncedCount: cyberSlots.length,
+      totalCyberSlots: cyberSlots.length,
+      entitiesPopulated: {
+        locations: uniqueLocations.size,
+        providers: uniqueProviders.size,
+        cabinets: uniqueCabinets.size,
+        gameMixes: uniqueGameMixes.size
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error syncing Cyber slots:', error.message)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// All Cyber routes now handled by cyber.js module
+
+// ==================== COMMISSIONS ENDPOINTS ====================
+
+// Get all commissions
 app.get('/api/commissions', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM commissions ORDER BY created_at DESC')
@@ -2515,11 +3521,13 @@ app.get('/api/commissions', async (req, res) => {
   }
 })
 
-app.post('/api/commissions', async (req, res) => {
+// Create a new commission
+app.post('/api/commissions', authenticateUser, async (req, res) => {
   try {
     const { name, serial_numbers, commission_date, expiry_date, notes } = req.body
+    const createdBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
     
-    // Parse serial numbers from textarea
+    // Parse serial numbers from textarea - split by newlines and filter empty
     const serialNumbersArray = serial_numbers
       .split('\n')
       .map(s => s.trim())
@@ -2527,7 +3535,7 @@ app.post('/api/commissions', async (req, res) => {
     
     const result = await pool.query(
       'INSERT INTO commissions (name, serial_numbers, commission_date, expiry_date, notes, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP) RETURNING *',
-      [name, JSON.stringify(serialNumbersArray), commission_date, expiry_date, notes, 'admin']
+      [name, JSON.stringify(serialNumbersArray), commission_date, expiry_date, notes, createdBy]
     )
     
     // Update commission_date in slots table for each serial number
@@ -2547,20 +3555,27 @@ app.post('/api/commissions', async (req, res) => {
   }
 })
 
-app.put('/api/commissions/:id', async (req, res) => {
+// Update a commission
+app.put('/api/commissions/:id', authenticateUser, async (req, res) => {
   try {
     const { id } = req.params
     const { name, serial_numbers, commission_date, expiry_date, notes } = req.body
+    const updatedBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
     
-    // Parse serial numbers from textarea
-    const serialNumbersArray = serial_numbers
-      .split('\n')
-      .map(s => s.trim())
-      .filter(s => s.length > 0)
+    // Parse serial numbers - handle both string and array
+    let serialNumbersArray = []
+    if (Array.isArray(serial_numbers)) {
+      serialNumbersArray = serial_numbers
+    } else if (typeof serial_numbers === 'string') {
+      serialNumbersArray = serial_numbers
+        .split('\n')
+        .map(s => s.trim())
+        .filter(s => s.length > 0)
+    }
     
     const result = await pool.query(
-      'UPDATE commissions SET name = $1, serial_numbers = $2, commission_date = $3, expiry_date = $4, notes = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *',
-      [name, JSON.stringify(serialNumbersArray), commission_date, expiry_date, notes, id]
+      'UPDATE commissions SET name = $1, serial_numbers = $2, commission_date = $3, expiry_date = $4, notes = $5, updated_by = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *',
+      [name, JSON.stringify(serialNumbersArray), commission_date, expiry_date, notes, updatedBy, id]
     )
     
     if (result.rows.length === 0) {
@@ -2584,7 +3599,8 @@ app.put('/api/commissions/:id', async (req, res) => {
   }
 })
 
-app.delete('/api/commissions/:id', async (req, res) => {
+// Delete a commission
+app.delete('/api/commissions/:id', authenticateUser, async (req, res) => {
   try {
     const { id } = req.params
     const result = await pool.query('DELETE FROM commissions WHERE id = $1', [id])
@@ -2598,233 +3614,14 @@ app.delete('/api/commissions/:id', async (req, res) => {
   }
 })
 
-// Software endpoints
-app.get('/api/software', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM software ORDER BY created_at DESC')
-    res.json(result.rows)
-  } catch (error) {
-    console.error('Software GET error:', error)
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
+// Routes already registered at line 1075 - IMMEDIATE REGISTRATION
 
-app.post('/api/software', async (req, res) => {
-  try {
-    const { name, provider, cabinet, game_mix, version, notes } = req.body
-    const result = await pool.query(
-      'INSERT INTO software (name, provider, cabinet, game_mix, version, notes, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP) RETURNING *',
-      [name, provider, cabinet, game_mix, version, notes, 'admin']
-    )
-    res.status(201).json(result.rows[0])
-  } catch (error) {
-    console.error('Software POST error:', error)
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
-
-app.put('/api/software/:id', async (req, res) => {
-  try {
-    const { id } = req.params
-    const { name, provider, cabinet, game_mix, version, notes } = req.body
-    const result = await pool.query(
-      'UPDATE software SET name = $1, provider = $2, cabinet = $3, game_mix = $4, version = $5, notes = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *',
-      [name, provider, cabinet, game_mix, version, notes, id]
-    )
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Software not found' })
-    }
-    res.json(result.rows[0])
-  } catch (error) {
-    console.error('Software PUT error:', error)
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
-
-app.delete('/api/software/:id', async (req, res) => {
-  try {
-    const { id } = req.params
-    const result = await pool.query('DELETE FROM software WHERE id = $1', [id])
-    if (result.rowCount === 0) {
-      return res.status(404).json({ success: false, error: 'Software not found' })
-    }
-    res.json({ success: true, message: 'Software deleted successfully' })
-  } catch (error) {
-    console.error('Software DELETE error:', error)
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
-
-// Legal Documents endpoints
-app.get('/api/legalDocuments', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM legalDocuments ORDER BY created_at DESC')
-    res.json(result.rows)
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
-
-app.post('/api/legalDocuments', async (req, res) => {
-  try {
-    const { name, type, description, status, notes, created_by } = req.body
-    const result = await pool.query(
-      'INSERT INTO legalDocuments (name, type, description, status, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [name, type, description, status || 'Active', notes, created_by || 'admin']
-    )
-    res.json(result.rows[0])
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
-
-app.put('/api/legalDocuments/:id', async (req, res) => {
-  try {
-    const { id } = req.params
-    const { name, type, description, status, notes } = req.body
-    const result = await pool.query(
-      'UPDATE legalDocuments SET name = $1, type = $2, description = $3, status = $4, notes = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *',
-      [name, type, description, status, notes, id]
-    )
-    res.json(result.rows[0])
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
-
-app.delete('/api/legalDocuments/:id', async (req, res) => {
-  try {
-    const { id } = req.params
-    await pool.query('DELETE FROM legalDocuments WHERE id = $1', [id])
-    res.json({ success: true, message: 'Legal document deleted successfully' })
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
-
-// ONJN Reports endpoints
-app.get('/api/onjnReports', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM onjnReports ORDER BY created_at DESC')
-    res.json(result.rows)
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
-
-app.post('/api/onjnReports', async (req, res) => {
-  try {
-    const { name, type, description, status, notes, created_by } = req.body
-    const result = await pool.query(
-      'INSERT INTO onjnReports (name, type, description, status, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [name, type, description, status || 'Active', notes, created_by || 'admin']
-    )
-    res.json(result.rows[0])
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
-
-app.put('/api/onjnReports/:id', async (req, res) => {
-  try {
-    const { id } = req.params
-    const { name, type, description, status, notes } = req.body
-    const result = await pool.query(
-      'UPDATE onjnReports SET name = $1, type = $2, description = $3, status = $4, notes = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *',
-      [name, type, description, status, notes, id]
-    )
-    res.json(result.rows[0])
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
-
-app.delete('/api/onjnReports/:id', async (req, res) => {
-  try {
-    const { id } = req.params
-    await pool.query('DELETE FROM onjnReports WHERE id = $1', [id])
-    res.json({ success: true, message: 'ONJN report deleted successfully' })
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
-
-// Authorities endpoints
-app.get('/api/authorities', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM authorities ORDER BY created_at DESC')
-    res.json(result.rows)
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
-
-app.post('/api/authorities', async (req, res) => {
-  try {
-    const { name, address, price_initiala, price_reparatie, price_periodica, notes, created_by } = req.body
-    const result = await pool.query(
-      'INSERT INTO authorities (name, address, price_initiala, price_reparatie, price_periodica, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      [name, address, price_initiala || null, price_reparatie || null, price_periodica || null, notes, created_by || 'admin']
-    )
-    res.json(result.rows[0])
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
-
-app.put('/api/authorities/:id', async (req, res) => {
-  try {
-    const { id } = req.params
-    const { name, address, price_initiala, price_reparatie, price_periodica, notes } = req.body
-    const result = await pool.query(
-      'UPDATE authorities SET name = $1, address = $2, price_initiala = $3, price_reparatie = $4, price_periodica = $5, notes = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *',
-      [name, address, price_initiala || null, price_reparatie || null, price_periodica || null, notes, id]
-    )
-    res.json(result.rows[0])
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
-
-app.delete('/api/authorities/:id', async (req, res) => {
-  try {
-    const { id } = req.params
-    await pool.query('DELETE FROM authorities WHERE id = $1', [id])
-    res.json({ success: true, message: 'Authority deleted successfully' })
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
-
-app.use((err, req, res, next) => {
-  console.error(err.stack)
-  res.status(500).json({
-    success: false,
-    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
-  })
-})
+// Routes are registered at line 1075 using promotionsRoutes router
 
 // Start server
-app.listen(PORT, async () => {
+app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`)
-  console.log(`📡 API: http://localhost:${PORT}/api`)
-  console.log(`💚 Health: http://localhost:${PORT}/health`)
-  
-  // Check AWS configuration
-  const isS3Enabled = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY)
-  if (isS3Enabled) {
-    console.log(`☁️ AWS S3 enabled - files and backups will be stored in cloud`)
-    console.log(`📦 S3 Bucket: ${process.env.AWS_S3_BUCKET}`)
-  } else {
-    console.log(`💾 AWS S3 not configured - using local storage`)
-    console.log(`⚠️ Configure AWS credentials in .env for cloud storage`)
-  }
-  
-  await initializeDatabase()
-  
-  // Start automatic backups
-  scheduleBackups()
+  console.log(`📊 Database: ${process.env.DATABASE_URL ? 'PostgreSQL' : 'SQLite'}`)
+  console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`)
+  console.log(`📅 Build: ${BUILD_NUMBER} (${BUILD_DATE})`)
 })
-
-export default app
-

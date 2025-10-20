@@ -3,7 +3,6 @@ services:
     name: cashpot-backend
     env: node
     plan: free
-    rootDirectory: backend
     buildCommand: npm install && echo "🚀 ES MODULES FIX v1.0.53 $(date +%s) - $(date)" > build-trigger.txt
     startCommand: echo "🚀 STARTING ES MODULES FIX $(cat build-trigger.txt)" && npm start
     healthCheckPath: /health # CRITICAL REDEPLOY 2025-01-17 16:35 - CYBER ENDPOINTS 404 - MUST FIX NOW
