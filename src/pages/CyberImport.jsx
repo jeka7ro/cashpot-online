@@ -395,6 +395,7 @@ const CyberImport = () => {
     setLoading(true)
     try {
       const response = await axios.get('/api/cyber/locations', { timeout: 5000 })
+      // Ensure data is always an array
       const data = Array.isArray(response.data) ? response.data : []
       setCyberLocations(data)
       setFilteredLocations(data)
@@ -405,6 +406,7 @@ const CyberImport = () => {
       // Fallback to real data from JSON file
       try {
         const response = await axios.get('/cyber-locations.json')
+        // Ensure data is always an array
         const data = Array.isArray(response.data) ? response.data : []
         setCyberLocations(data)
         setFilteredLocations(data)
@@ -599,11 +601,21 @@ const CyberImport = () => {
 
   // Get unique values for slots filters
   const getUniqueValues = (field) => {
+    // Ensure cyberData is an array before calling map
+    if (!Array.isArray(cyberData)) {
+      console.warn('cyberData is not an array:', cyberData)
+      return []
+    }
     return [...new Set(cyberData.map(item => item[field]).filter(Boolean))]
   }
 
   // Get unique values for locations filters
   const getUniqueLocationValues = (field) => {
+    // Ensure cyberLocations is an array before calling map
+    if (!Array.isArray(cyberLocations)) {
+      console.warn('cyberLocations is not an array:', cyberLocations)
+      return []
+    }
     return [...new Set(cyberLocations.map(item => item[field]).filter(Boolean))]
   }
 
@@ -631,12 +643,24 @@ const CyberImport = () => {
 
   // Select all visible slots
   const selectAllVisible = () => {
+    // Ensure filteredData is an array before calling map
+    if (!Array.isArray(filteredData)) {
+      console.warn('filteredData is not an array:', filteredData)
+      setSelectedItems(new Set())
+      return
+    }
     const visibleIds = filteredData.map(item => item.id)
     setSelectedItems(new Set(visibleIds))
   }
 
   // Select all visible locations
   const selectAllVisibleLocations = () => {
+    // Ensure filteredLocations is an array before calling map
+    if (!Array.isArray(filteredLocations)) {
+      console.warn('filteredLocations is not an array:', filteredLocations)
+      setSelectedLocations(new Set())
+      return
+    }
     const visibleIds = filteredLocations.map(item => item.id)
     setSelectedLocations(new Set(visibleIds))
   }
@@ -659,6 +683,13 @@ const CyberImport = () => {
     }
 
     try {
+      // Ensure filteredData is an array before calling filter
+      if (!Array.isArray(filteredData)) {
+        console.warn('filteredData is not an array:', filteredData)
+        toast.error('Date invalide pentru import')
+        return
+      }
+      
       const itemsToImport = filteredData.filter(item => selectedItems.has(item.id))
       
       const response = await axios.post('/api/slots/import-marina', {
@@ -684,6 +715,13 @@ const CyberImport = () => {
     }
 
     try {
+      // Ensure filteredLocations is an array before calling filter
+      if (!Array.isArray(filteredLocations)) {
+        console.warn('filteredLocations is not an array:', filteredLocations)
+        toast.error('Date invalide pentru import')
+        return
+      }
+      
       const itemsToImport = filteredLocations.filter(item => selectedLocations.has(item.id))
       
       const response = await axios.post('/api/locations/import-marina', {
