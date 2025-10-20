@@ -1,6 +1,7 @@
-const express = require('express')
+import express from 'express'
+import mysql from 'mysql2/promise'
+
 const router = express.Router()
-const mysql = require('mysql2/promise')
 
 // Cyber database connection config
 const cyberDbConfig = {
@@ -209,5 +210,5 @@ router.get('/test-connection', async (req, res) => {
   }
 })
 
-module.exports = router
+export default router
 
