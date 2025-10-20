@@ -50,7 +50,7 @@ dotenv.config()
 
 console.log('💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥')
 // ==================== NUCLEAR DEPLOY v1.0.41 ====================
-console.log('🚨🚨🚨 NUCLEAR DEPLOY v1.0.43 - FINAL RENDER FIX! 🚨🚨🚨')
+console.log('🚨🚨🚨 NUCLEAR DEPLOY v1.0.45 - IMMEDIATE ROUTE FIX! 🚨🚨🚨')
 console.log('💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥')
 console.log('🚀 SERVER STARTING - All imports loaded successfully!')
 console.log('🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!')
@@ -1070,7 +1070,24 @@ app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
 console.log('🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!')
-// Routes moved to line 3438 - RIGHT before server start
+
+// ==================== IMMEDIATE ROUTE REGISTRATION ====================
+console.log('🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.45! 🚨🚨🚨')
+try {
+  console.log('📋 Registering /api/promotions IMMEDIATELY...')
+  app.use('/api/promotions', promotionsRoutes)
+  console.log('📋 Registering /api/cyber IMMEDIATELY...')
+  app.use('/api/cyber', cyberRoutes)
+  console.log('📋 Registering /api/tasks IMMEDIATELY...')
+  app.use('/api/tasks', authenticateUser, tasksRoutes)
+  console.log('📋 Registering /api/messages IMMEDIATELY...')
+  app.use('/api/messages', authenticateUser, messagesRoutes)
+  console.log('📋 Registering /api/notifications IMMEDIATELY...')
+  app.use('/api/notifications', authenticateUser, notificationsRoutes)
+  console.log('✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅')
+} catch (error) {
+  console.error('❌❌❌ IMMEDIATE ERROR during route registration:', error)
+}
 
 // Multer configuration for file uploads
 const storage = multer.diskStorage({
@@ -3412,24 +3429,7 @@ app.delete('/api/commissions/:id', authenticateUser, async (req, res) => {
   }
 })
 
-// ==================== NUCLEAR v1.0.41 - SINGLE ROUTE REGISTRATION ====================
-console.log('🚨🚨🚨 NUCLEAR v1.0.41 - ONLY ONE ROUTE REGISTRATION POINT! 🚨🚨🚨')
-console.log('🔥🔥🔥 REGISTERING ALL ROUTES RIGHT BEFORE SERVER START! 🔥🔥🔥')
-try {
-  console.log('📋 Registering /api/promotions...')
-  app.use('/api/promotions', promotionsRoutes)
-  console.log('📋 Registering /api/cyber...')
-  app.use('/api/cyber', cyberRoutes)
-  console.log('📋 Registering /api/tasks...')
-  app.use('/api/tasks', authenticateUser, tasksRoutes)
-  console.log('📋 Registering /api/messages...')
-  app.use('/api/messages', authenticateUser, messagesRoutes)
-  console.log('📋 Registering /api/notifications...')
-  app.use('/api/notifications', authenticateUser, notificationsRoutes)
-  console.log('✅✅✅ NUCLEAR SUCCESS v1.0.41: ALL ROUTES REGISTERED! ✅✅✅')
-} catch (error) {
-  console.error('❌❌❌ NUCLEAR ERROR v1.0.41 during route registration:', error)
-}
+// Routes already registered at line 1075 - IMMEDIATE REGISTRATION
 
 // Start server
 app.listen(PORT, () => {

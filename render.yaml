@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: cashpot-backend-working
+    name: cashpot-backend
     env: node
     plan: free
     buildCommand: cd backend && npm install && echo "🚀 NUCLEAR BACKEND v1.0.42 $(date +%s) - $(date)" > build-trigger.txt
