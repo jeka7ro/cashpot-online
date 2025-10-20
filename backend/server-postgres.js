@@ -742,7 +742,7 @@ const initializeDatabase = async () => {
         )
       `)
 
-      // Create promotions table
+      // Create promotions table - CONSOLIDATED VERSION
       await pool.query(`
         CREATE TABLE IF NOT EXISTS promotions (
           id SERIAL PRIMARY KEY,
@@ -752,10 +752,18 @@ const initializeDatabase = async () => {
           end_date DATE NOT NULL,
           total_amount DECIMAL(15,2) DEFAULT 0,
           awarded_amount DECIMAL(15,2) DEFAULT 0,
-          location VARCHAR(255),
-          status VARCHAR(50) DEFAULT 'active',
+          location VARCHAR(255) NOT NULL,
+          locations JSONB DEFAULT '[]',
           prizes JSONB DEFAULT '[]',
+          status VARCHAR(50) DEFAULT 'Active',
+          notes TEXT,
+          banner_path VARCHAR(500),
+          regulation_path VARCHAR(500),
+          banner_url TEXT,
+          documents_url TEXT,
+          attachments JSONB DEFAULT '[]',
           created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
+          updated_by VARCHAR(255),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -841,82 +849,24 @@ const initializeDatabase = async () => {
       console.log('⚠️ Slot history table may already exist:', error.message)
     }
 
-    // Create marketing/promotions table
-    try {
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS promotions (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255) NOT NULL,
-          description TEXT,
-          start_date DATE NOT NULL,
-          end_date DATE NOT NULL,
-          location VARCHAR(255) NOT NULL,
-          prizes JSONB DEFAULT '[]',
-          status VARCHAR(50) DEFAULT 'Active',
-          notes TEXT,
-          banner_path VARCHAR(500),
-          regulation_path VARCHAR(500),
-          created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
-          updated_by VARCHAR(255),
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `)
-      console.log('✅ Promotions table created')
+    // Promotions table already created above - consolidated version
       
       // Add missing columns if they don't exist
       try {
-        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS banner_path VARCHAR(500)")
-        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS regulation_path VARCHAR(500)")
-        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS locations JSONB DEFAULT '[]'")
         await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS total_amount DECIMAL(15,2) DEFAULT 0")
         await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS awarded_amount DECIMAL(15,2) DEFAULT 0")
-        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255)")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS locations JSONB DEFAULT '[]'")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS notes TEXT")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS banner_path VARCHAR(500)")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS regulation_path VARCHAR(500)")
         await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS banner_url TEXT")
         await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS documents_url TEXT")
         await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255)")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Active'")
         console.log('✅ Added missing columns to promotions table')
       } catch (e) {
         console.log('⚠️ Error adding columns to promotions:', e.message)
-      }
-      
-      // Migrate existing promotions to new prizes format
-      try {
-        // Check if old columns exist
-        const hasOldColumns = await pool.query(`
-          SELECT column_name FROM information_schema.columns 
-          WHERE table_name = 'promotions' AND column_name IN ('prize_amount', 'prize_date', 'winner')
-        `)
-        
-        if (hasOldColumns.rows.length > 0) {
-          console.log('🔄 Migrating old promotions format to new prizes format...')
-          
-          // Get all promotions
-          const promotions = await pool.query('SELECT * FROM promotions')
-          
-          for (const promo of promotions.rows) {
-            if (promo.prize_amount || promo.prize_date || promo.winner) {
-              const prize = {
-                amount: parseFloat(promo.prize_amount) || 0,
-                currency: promo.prize_currency || 'RON',
-                date: promo.prize_date,
-                winner: promo.winner || null
-              }
-              
-              await pool.query('UPDATE promotions SET prizes = $1 WHERE id = $2', [JSON.stringify([prize]), promo.id])
-            }
-          }
-          
-          // Drop old columns
-          await pool.query('ALTER TABLE promotions DROP COLUMN IF EXISTS prize_amount')
-          await pool.query('ALTER TABLE promotions DROP COLUMN IF EXISTS prize_currency')
-          await pool.query('ALTER TABLE promotions DROP COLUMN IF EXISTS prize_date')
-          await pool.query('ALTER TABLE promotions DROP COLUMN IF EXISTS winner')
-          
-          console.log('✅ Promotions migration completed')
-        }
-      } catch (migError) {
-        console.log('⚠️ Promotions migration skipped:', migError.message)
       }
     } catch (error) {
       console.log('⚠️ Promotions table may already exist:', error.message)
@@ -1059,6 +1009,45 @@ const initializeDatabase = async () => {
       console.log('✅ Notifications table created')
     } catch (error) {
       console.log('⚠️ Notifications table may already exist:', error.message)
+    }
+
+    // Migrate existing promotions to new prizes format
+    try {
+      // Check if old columns exist
+      const hasOldColumns = await pool.query(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'promotions' AND column_name IN ('prize_amount', 'prize_date', 'winner')
+      `)
+
+      if (hasOldColumns.rows.length > 0) {
+        console.log('🔄 Migrating old promotions format to new prizes format...')
+
+        // Get all promotions
+        const promotions = await pool.query('SELECT * FROM promotions')
+
+        for (const promo of promotions.rows) {
+          if (promo.prize_amount || promo.prize_date || promo.winner) {
+            const prize = {
+              amount: parseFloat(promo.prize_amount) || 0,
+              currency: promo.prize_currency || 'RON',
+              date: promo.prize_date,
+              winner: promo.winner || null
+            }
+
+            await pool.query('UPDATE promotions SET prizes = $1 WHERE id = $2', [JSON.stringify([prize]), promo.id])
+          }
+        }
+
+        // Drop old columns
+        await pool.query('ALTER TABLE promotions DROP COLUMN IF EXISTS prize_amount')
+        await pool.query('ALTER TABLE promotions DROP COLUMN IF EXISTS prize_currency')
+        await pool.query('ALTER TABLE promotions DROP COLUMN IF EXISTS prize_date')
+        await pool.query('ALTER TABLE promotions DROP COLUMN IF EXISTS winner')
+
+        console.log('✅ Promotions migration completed')
+      }
+    } catch (migError) {
+      console.log('⚠️ Promotions migration skipped:', migError.message)
     }
 
     console.log('✅ Database schema initialized')
