@@ -872,6 +872,9 @@ const initializeDatabase = async () => {
         await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS total_amount DECIMAL(15,2) DEFAULT 0")
         await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS awarded_amount DECIMAL(15,2) DEFAULT 0")
         await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255)")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS banner_url TEXT")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS documents_url TEXT")
+        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'")
         console.log('✅ Added missing columns to promotions table')
       } catch (e) {
         console.log('⚠️ Error adding columns to promotions:', e.message)
@@ -1118,7 +1121,10 @@ app.post('/api/promotions', async (req, res) => {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
     
-    const { name, description, start_date, end_date, location, locations, prizes, status, notes } = req.body
+    const { 
+      name, description, start_date, end_date, location, locations, prizes, 
+      status, notes, banner_url, documents_url, attachments 
+    } = req.body
     const createdBy = (req.user && (req.user.full_name || req.user.username)) || 'Eugeniu Cazmal'
     
     console.log('🚨 DIRECT POST data:', { name, description, start_date, end_date, location, locations, prizes })
@@ -1130,6 +1136,9 @@ app.post('/api/promotions', async (req, res) => {
     // Handle locations array
     const locationsArray = Array.isArray(locations) ? locations : []
     
+    // Parse attachments
+    const attachmentsArray = Array.isArray(attachments) ? attachments : []
+    
     // Use first location's dates if no global dates provided
     const globalStartDate = start_date || (locationsArray[0]?.start_date) || new Date().toISOString().split('T')[0]
     const globalEndDate = end_date || (locationsArray[0]?.end_date) || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
@@ -1139,10 +1148,27 @@ app.post('/api/promotions', async (req, res) => {
     
     const result = await pool.query(
       `INSERT INTO promotions 
-       (name, description, start_date, end_date, total_amount, awarded_amount, location, locations, status, prizes, notes, created_by, created_at) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP) 
+       (name, description, start_date, end_date, total_amount, awarded_amount, location, locations, 
+        status, prizes, notes, banner_url, documents_url, attachments, created_by, created_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, CURRENT_TIMESTAMP) 
        RETURNING *`,
-      [name || 'Untitled Promotion', description || '', globalStartDate, globalEndDate, totalAmount, 0, defaultLocation, JSON.stringify(locationsArray), status || 'Active', JSON.stringify(prizesArray), notes || '', createdBy]
+      [
+        name || 'Untitled Promotion', 
+        description || '', 
+        globalStartDate, 
+        globalEndDate, 
+        totalAmount, 
+        0, 
+        defaultLocation, 
+        JSON.stringify(locationsArray), 
+        status || 'Active', 
+        JSON.stringify(prizesArray), 
+        notes || '', 
+        banner_url || null,
+        documents_url || null,
+        JSON.stringify(attachmentsArray),
+        createdBy
+      ]
     )
     
     console.log('✅ DIRECT POST Promotion created:', result.rows[0].id)

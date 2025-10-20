@@ -70,7 +70,10 @@ router.get('/:id', async (req, res) => {
 router.post('/', authenticateUser, async (req, res) => {
   try {
     const pool = req.app.get('pool')
-    const { name, description, start_date, end_date, location, locations, prizes, status, notes } = req.body
+    const { 
+      name, description, start_date, end_date, location, locations, prizes, 
+      status, notes, banner_url, documents_url, attachments 
+    } = req.body
     const createdBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
     
     console.log('🚨 PROMOTIONS POST data:', { name, description, start_date, end_date, location, locations, prizes })
@@ -89,12 +92,32 @@ router.post('/', authenticateUser, async (req, res) => {
     // Get first location name as default location
     const defaultLocation = location || (locationsArray.length > 0 ? locationsArray[0].location : 'Default Location')
     
+    // Parse attachments
+    const attachmentsArray = Array.isArray(attachments) ? attachments : []
+    
     const result = await pool.query(
       `INSERT INTO promotions 
-       (name, description, start_date, end_date, total_amount, awarded_amount, location, locations, status, prizes, notes, created_by, created_at) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP) 
+       (name, description, start_date, end_date, total_amount, awarded_amount, location, locations, 
+        status, prizes, notes, banner_url, documents_url, attachments, created_by, created_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, CURRENT_TIMESTAMP) 
        RETURNING *`,
-      [name || 'Untitled Promotion', description || '', globalStartDate, globalEndDate, totalAmount, 0, defaultLocation, JSON.stringify(locationsArray), status || 'Active', JSON.stringify(prizesArray), notes || '', createdBy]
+      [
+        name || 'Untitled Promotion', 
+        description || '', 
+        globalStartDate, 
+        globalEndDate, 
+        totalAmount, 
+        0, 
+        defaultLocation, 
+        JSON.stringify(locationsArray), 
+        status || 'Active', 
+        JSON.stringify(prizesArray), 
+        notes || '', 
+        banner_url || null,
+        documents_url || null,
+        JSON.stringify(attachmentsArray),
+        createdBy
+      ]
     )
     
     console.log('✅ Promotion created:', result.rows[0].id)
@@ -110,20 +133,47 @@ router.put('/:id', authenticateUser, async (req, res) => {
   try {
     const pool = req.app.get('pool')
     const { id } = req.params
-    const { name, description, start_date, end_date, location, prizes, status, notes, awarded_amount } = req.body
+    const { 
+      name, description, start_date, end_date, location, locations, prizes, 
+      status, notes, awarded_amount, banner_url, documents_url, attachments 
+    } = req.body
     
     // Calculate total amount from prizes
     const prizesArray = Array.isArray(prizes) ? prizes : []
     const totalAmount = prizesArray.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0)
     
+    // Handle locations array
+    const locationsArray = Array.isArray(locations) ? locations : []
+    
+    // Parse attachments
+    const attachmentsArray = Array.isArray(attachments) ? attachments : []
+    
     const result = await pool.query(
       `UPDATE promotions 
        SET name = $1, description = $2, start_date = $3, end_date = $4, 
-           total_amount = $5, awarded_amount = $6, location = $7, status = $8, 
-           prizes = $9, notes = $10, updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $11 
+           total_amount = $5, awarded_amount = $6, location = $7, locations = $8, status = $9, 
+           prizes = $10, notes = $11, banner_url = $12, documents_url = $13, attachments = $14,
+           updated_at = CURRENT_TIMESTAMP, updated_by = $15
+       WHERE id = $16 
        RETURNING *`,
-      [name, description, start_date, end_date, totalAmount, awarded_amount || 0, location, status, JSON.stringify(prizesArray), notes, id]
+      [
+        name, 
+        description, 
+        start_date, 
+        end_date, 
+        totalAmount, 
+        awarded_amount || 0, 
+        location, 
+        JSON.stringify(locationsArray),
+        status, 
+        JSON.stringify(prizesArray), 
+        notes, 
+        banner_url,
+        documents_url,
+        JSON.stringify(attachmentsArray),
+        req.user?.full_name || req.user?.username || 'Eugeniu Cazmal',
+        id
+      ]
     )
     
     if (result.rows.length === 0) {
