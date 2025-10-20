@@ -50,7 +50,8 @@ dotenv.config()
 
 console.log('💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥')
 // ==================== NUCLEAR DEPLOY v1.0.41 ====================
-console.log('🚨🚨🚨 NUCLEAR DEPLOY v1.0.41 - FORCE REBUILD CURRENT SERVICE! 🚨🚨🚨')
+console.log('🚨🚨🚨 NUCLEAR DEPLOY v1.0.42 - FORCE REBUILD CURRENT SERVICE! 🚨🚨🚨')
+console.log('💥💥💥 THIS IS THE NEW VERSION - RENDER MUST REBUILD! 💥💥💥')
 console.log('🚀 SERVER STARTING - All imports loaded successfully!')
 console.log('🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!')
 console.log('📦 Building for Render deployment - Route registration fix!')
