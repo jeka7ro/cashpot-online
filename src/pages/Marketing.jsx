@@ -1,75 +1,37 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import Layout from '../components/Layout'
 import DataTable from '../components/DataTable'
-import StatCard from '../components/StatCard'
 import MarketingModal from '../components/modals/MarketingModal'
 import MarketingDetailModal from '../components/modals/MarketingDetailModal'
-import { TrendingUp, Plus, Calendar, Award, AlertTriangle } from 'lucide-react'
+import { TrendingUp, Plus, Award } from 'lucide-react'
 
 const Marketing = () => {
-  const navigate = useNavigate()
-  const { promotions, locations, createItem, updateItem, deleteItem, loading } = useData()
+  const { promotions, createItem, updateItem, deleteItem, loading } = useData()
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedItems, setSelectedItems] = useState([])
   const [viewingItem, setViewingItem] = useState(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
-  const [activeTab, setActiveTab] = useState('promotions') // 'promotions' or 'happy-hour'
 
   // Filter promotions
   const filteredPromotions = promotions.filter(promo =>
-    promo.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    promo.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    promo.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    promo.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    promo.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    promo.name?.toLowerCase().includes(searchTerm.toLowerCase())
   )
-
-  // Calculate days remaining
-  const getDaysRemaining = (endDate) => {
-    if (!endDate) return null
-    const today = new Date()
-    const end = new Date(endDate)
-    const diffTime = end - today
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    return diffDays
-  }
 
   // Columns definition
   const columns = [
     {
-      key: 'banner',
-      label: 'BANNER',
-      sortable: false,
-      render: (item) => (
-        <div className="flex items-center justify-center">
-          {item.banner_path ? (
-            <img
-              src={`/uploads/promotions/${item.banner_path}`}
-              alt="Banner promoție"
-              className="w-12 h-12 object-cover rounded-lg border border-slate-200 dark:border-slate-600"
-            />
-          ) : (
-            <div className="w-12 h-12 bg-gradient-to-br from-pink-100 to-rose-100 dark:from-pink-900/20 dark:to-rose-900/20 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-600">
-              <Award className="w-6 h-6 text-pink-500 dark:text-pink-400" />
-            </div>
-          )}
-        </div>
-      )
-    },
-    {
-      key: 'name',
+      key: 'title',
       label: 'DENUMIRE PROMOȚIE',
       sortable: true,
       render: (item) => (
         <div className="space-y-1">
-          <button
-            onClick={() => navigate(`/marketing/${item.id}`)}
-            className="text-slate-900 dark:text-white font-semibold text-base hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left"
-          >
-            {item.name}
-          </button>
+          <div className="text-slate-900 dark:text-white font-semibold text-base">
+            {item.title || item.name || 'Fără titlu'}
+          </div>
           {item.description && (
             <div className="text-slate-600 dark:text-slate-400 text-sm">
               {item.description.substring(0, 60)}...
@@ -82,103 +44,53 @@ const Marketing = () => {
       key: 'period',
       label: 'PERIOADA',
       sortable: true,
-      render: (item) => (
-        <div className="space-y-1">
-          <div className="text-slate-800 font-medium text-base">
-            {new Date(item.start_date).toLocaleDateString('ro-RO')} - {new Date(item.end_date).toLocaleDateString('ro-RO')}
-          </div>
-          <div className="text-slate-500 text-sm">
-            {getDaysRemaining(item.end_date) !== null && (
-              getDaysRemaining(item.end_date) > 0 
-                ? `${getDaysRemaining(item.end_date)} zile rămase`
-                : getDaysRemaining(item.end_date) === 0
-                ? 'Se termină astăzi'
-                : `Expirat cu ${Math.abs(getDaysRemaining(item.end_date))} zile`
-            )}
-          </div>
-        </div>
-      )
-    },
-    {
-      key: 'location',
-      label: 'LOCAȚIE',
-      sortable: true,
-      render: (item) => (
-        <div className="text-slate-800 font-medium text-base">
-          {item.location || 'N/A'}
-        </div>
-      )
-    },
-    {
-      key: 'prize',
-      label: 'PREMII',
-      sortable: true,
       render: (item) => {
-        let prizes = []
-        if (item.prizes) {
-          prizes = typeof item.prizes === 'string' ? JSON.parse(item.prizes) : item.prizes
-        } else if (item.prize_amount) {
-          prizes = [{
-            amount: item.prize_amount,
-            currency: item.prize_currency || 'RON',
-            date: item.prize_date
-          }]
-        }
-        
-        const totalAmount = prizes.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0)
-        const nextPrizeDate = prizes.find(p => p.date && new Date(p.date) >= new Date())?.date
-        
+        if (!item.start_date && !item.end_date) return 'N/A'
         return (
-          <div className="space-y-1">
-            <div className="text-lg font-bold text-green-600 dark:text-green-400">
-              {totalAmount > 0 ? `${totalAmount.toLocaleString('ro-RO')} ${prizes[0]?.currency || 'RON'}` : 'N/A'}
-            </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
-              {prizes.length} {prizes.length === 1 ? 'premiu' : 'premii'}
-            </div>
-            {nextPrizeDate && (
-              <div className="text-xs text-pink-600 dark:text-pink-400 font-semibold">
-                Următor: {new Date(nextPrizeDate).toLocaleDateString('ro-RO', { day: 'numeric', month: 'short' })}
-              </div>
-            )}
+          <div className="text-slate-800 font-medium text-base">
+            {item.start_date ? new Date(item.start_date).toLocaleDateString('ro-RO') : 'N/A'} - 
+            {item.end_date ? new Date(item.end_date).toLocaleDateString('ro-RO') : 'N/A'}
           </div>
         )
       }
+    },
+    {
+      key: 'discount_percent',
+      label: 'REDUCERE',
+      sortable: true,
+      render: (item) => (
+        <div className="text-green-600 font-bold text-lg">
+          {item.discount_percent ? `${item.discount_percent}%` : 'N/A'}
+        </div>
+      )
     },
     {
       key: 'status',
       label: 'STATUS',
       sortable: true,
       render: (item) => {
-        const daysRemaining = getDaysRemaining(item.end_date)
-        const isActive = item.status === 'Active' && daysRemaining > 0
-        const isExpiringSoon = daysRemaining <= 7 && daysRemaining > 0
+        const today = new Date()
+        const endDate = item.end_date ? new Date(item.end_date) : null
+        const isActive = endDate && endDate >= today
         
         return (
-          <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
-            isActive && !isExpiringSoon
+          <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+            isActive
               ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-              : isExpiringSoon
-              ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
               : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300'
           }`}>
-            {isActive && !isExpiringSoon ? 'Activ' : isExpiringSoon ? 'Expiră curând' : 'Încheiat'}
+            {isActive ? 'Activ' : 'Inactiv'}
           </span>
         )
       }
     },
     {
-      key: 'created_info',
-      label: 'CREAT DE / DATA',
+      key: 'created_at',
+      label: 'DATA CREARE',
       sortable: true,
       render: (item) => (
-        <div className="space-y-1">
-          <div className="text-slate-800 font-medium text-base">
-            {item.created_by || 'N/A'}
-          </div>
-          <div className="text-slate-500 text-sm">
-            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
-          </div>
+        <div className="text-slate-600 text-sm">
+          {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
         </div>
       )
     }
@@ -195,7 +107,8 @@ const Marketing = () => {
   }
 
   const handleDelete = async (item) => {
-    if (window.confirm(`Sigur vrei să ștergi promoția "${item.name}"?`)) {
+    const itemName = item.title || item.name || 'această promoție'
+    if (window.confirm(`Sigur vrei să ștergi ${itemName}?`)) {
       await deleteItem('promotions', item.id)
     }
   }
@@ -210,22 +123,12 @@ const Marketing = () => {
     setEditingItem(null)
   }
 
-  // Statistics
-  const activePromotions = promotions.filter(p => {
-    const daysRemaining = getDaysRemaining(p.end_date)
-    return p.status === 'Active' && daysRemaining > 0
-  })
-
-  const totalPrizePool = promotions.reduce((sum, p) => {
-    let prizes = []
-    if (p.prizes) {
-      prizes = typeof p.prizes === 'string' ? JSON.parse(p.prizes) : p.prizes
-    } else if (p.prize_amount) {
-      prizes = [{ amount: p.prize_amount }]
+  // Create a test promotion if none exist
+  useEffect(() => {
+    if (!loading && promotions.length === 0) {
+      console.log('📝 No promotions found, will create test promotion via API call')
     }
-    const promoTotal = prizes.reduce((s, prize) => s + (parseFloat(prize.amount) || 0), 0)
-    return sum + promoTotal
-  }, 0)
+  }, [loading, promotions.length])
 
   return (
     <Layout>
@@ -238,123 +141,82 @@ const Marketing = () => {
                 <TrendingUp className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-slate-800">Marketing & Promoții</h2>
-                <p className="text-slate-600">Gestionare tombole și campanii promoționale</p>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Marketing</h2>
+                <p className="text-slate-600 dark:text-slate-400">Gestionare promoții și campanii</p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
-              {/* Tabs */}
-              <div className="flex space-x-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
-                <button
-                  onClick={() => setActiveTab('promotions')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                    activeTab === 'promotions'
-                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  Promoții
-                </button>
-                <button
-                  onClick={() => setActiveTab('happy-hour')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                    activeTab === 'happy-hour'
-                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  Happy Hour
-                </button>
-              </div>
-              <button
-                onClick={handleAdd}
-                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-xl flex items-center space-x-2 transition-all shadow-lg font-medium"
-              >
-                <Plus size={18} />
-                <span>Adaugă {activeTab === 'promotions' ? 'Promoție' : 'Happy Hour'}</span>
-              </button>
-            </div>
+            <button
+              onClick={handleAdd}
+              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-xl flex items-center space-x-2 transition-all shadow-lg font-medium"
+            >
+              <Plus size={18} />
+              <span>Adaugă Promoție</span>
+            </button>
           </div>
         </div>
 
-        {/* Statistics Cards */}
+        {/* Statistics */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <StatCard
-            title={activeTab === 'promotions' ? 'Promoții Active' : 'Sesiuni Happy Hour'}
-            value={activeTab === 'promotions' ? activePromotions.length : 0}
-            icon={Award}
-            color="green"
-            trend={null}
-          />
-          <StatCard
-            title={activeTab === 'promotions' ? 'Total Promoții' : 'Premii pe Sesiune'}
-            value={activeTab === 'promotions' ? promotions.length : 10}
-            icon={Calendar}
-            color="blue"
-            trend={null}
-          />
-          <StatCard
-            title={activeTab === 'promotions' ? 'Fond Total Premii' : 'Valoare Totală'}
-            value={`${totalPrizePool.toLocaleString('ro-RO')} RON`}
-            icon={TrendingUp}
-            color="amber"
-            trend={null}
-          />
-        </div>
-
-        {/* Content based on active tab */}
-        {activeTab === 'promotions' ? (
-          <DataTable
-            data={filteredPromotions}
-            columns={columns}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onRowClick={(item) => {
-              setViewingItem(item)
-              setShowDetailModal(true)
-            }}
-            loading={loading}
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            moduleColor="blue"
-          />
-        ) : (
           <div className="card p-6">
-            <div className="text-center py-12">
-              <div className="p-4 bg-gradient-to-r from-orange-500 to-red-500 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                <Award className="w-8 h-8 text-white" />
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-600 dark:text-slate-400 text-sm">Total Promoții</p>
+                <p className="text-2xl font-bold text-slate-800 dark:text-white">{promotions.length}</p>
               </div>
-              <h3 className="text-xl font-semibold text-slate-800 mb-2">Happy Hour Sessions</h3>
-              <p className="text-slate-600 mb-6">
-                Gestionare sesiuni Happy Hour cu multiple premii pe sesiune
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
-                <div className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg">
-                  <h4 className="font-semibold text-slate-800 mb-2">Sesiunea 1</h4>
-                  <p className="text-sm text-slate-600 mb-2">10 premii diferite</p>
-                  <p className="text-sm text-green-600 font-medium">1,000 - 10,000 RON</p>
-                </div>
-                <div className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg">
-                  <h4 className="font-semibold text-slate-800 mb-2">Sesiunea 2</h4>
-                  <p className="text-sm text-slate-600 mb-2">8 premii diferite</p>
-                  <p className="text-sm text-green-600 font-medium">500 - 5,000 RON</p>
-                </div>
-                <div className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg">
-                  <h4 className="font-semibold text-slate-800 mb-2">Sesiunea 3</h4>
-                  <p className="text-sm text-slate-600 mb-2">12 premii diferite</p>
-                  <p className="text-sm text-green-600 font-medium">2,000 - 15,000 RON</p>
-                </div>
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                <Award className="w-6 h-6 text-blue-600 dark:text-blue-400" />
               </div>
-              <button
-                onClick={() => {/* TODO: Implement Happy Hour creation */}}
-                className="mt-6 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-xl flex items-center space-x-2 transition-all shadow-lg font-medium mx-auto"
-              >
-                <Plus size={18} />
-                <span>Creează Sesiune Happy Hour</span>
-              </button>
             </div>
           </div>
-        )}
+          
+          <div className="card p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-600 dark:text-slate-400 text-sm">Promoții Active</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {promotions.filter(p => {
+                    const today = new Date()
+                    const endDate = p.end_date ? new Date(p.end_date) : null
+                    return endDate && endDate >= today
+                  }).length}
+                </p>
+              </div>
+              <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                <TrendingUp className="w-6 h-6 text-green-600 dark:text-green-400" />
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-600 dark:text-slate-400 text-sm">Status</p>
+                <p className="text-lg font-bold text-slate-800 dark:text-white">
+                  {loading ? 'Se încarcă...' : 'Gata'}
+                </p>
+              </div>
+              <div className="p-3 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                <TrendingUp className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Promotions Table */}
+        <DataTable
+          data={filteredPromotions}
+          columns={columns}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onRowClick={(item) => {
+            setViewingItem(item)
+            setShowDetailModal(true)
+          }}
+          loading={loading}
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          moduleColor="blue"
+        />
 
         {/* Add/Edit Modal */}
         {showModal && (
@@ -384,4 +246,3 @@ const Marketing = () => {
 }
 
 export default Marketing
-
