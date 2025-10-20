@@ -5,16 +5,35 @@ import { useData } from '../../contexts/DataContext'
 const MarketingModal = ({ item, onClose, onSave }) => {
   const { locations } = useData()
   
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    start_date: '',
-    end_date: '',
-    location: '',
-    locations: [{ location: '', start_date: '', end_date: '' }], // Multiple locations with different dates
-    prizes: [{ amount: '', currency: 'RON', date: '', winner: '' }],
-    status: 'Active',
-    notes: ''
+  // Helper functions for default dates
+  const getToday = () => {
+    return new Date().toISOString().split('T')[0]
+  }
+  
+  const getDefaultEndDate = () => {
+    return '2025-12-31'
+  }
+  
+  const getDefaultPrizeDate = () => {
+    return '2025-12-31'
+  }
+  
+  const [formData, setFormData] = useState(() => {
+    const today = new Date().toISOString().split('T')[0]
+    const defaultEndDate = '2025-12-31'
+    const defaultPrizeDate = '2025-12-31'
+    
+    return {
+      name: '',
+      description: '',
+      start_date: today,
+      end_date: defaultEndDate,
+      location: '',
+      locations: [{ location: '', start_date: today, end_date: defaultEndDate }], // Multiple locations with different dates
+      prizes: [{ amount: '', currency: 'RON', date: defaultPrizeDate, winner: '' }],
+      status: 'Active',
+      notes: ''
+    }
   })
 
   useEffect(() => {
@@ -65,15 +84,19 @@ const MarketingModal = ({ item, onClose, onSave }) => {
         notes: item.notes || ''
       })
     } else {
-      // Reset form for new item
+      // Reset form for new item with default dates
+      const today = getToday()
+      const defaultEndDate = getDefaultEndDate()
+      const defaultPrizeDate = getDefaultPrizeDate()
+      
       setFormData({
         name: '',
         description: '',
-        start_date: '',
-        end_date: '',
+        start_date: today,
+        end_date: defaultEndDate,
         location: '',
-        locations: [{ location: '', start_date: '', end_date: '' }],
-        prizes: [{ amount: '', currency: 'RON', date: '', winner: '' }],
+        locations: [{ location: '', start_date: today, end_date: defaultEndDate }],
+        prizes: [{ amount: '', currency: 'RON', date: defaultPrizeDate, winner: '' }],
         status: 'Active',
         notes: ''
       })
@@ -98,9 +121,11 @@ const MarketingModal = ({ item, onClose, onSave }) => {
   }
 
   const addLocation = () => {
+    const today = getToday()
+    const defaultEndDate = getDefaultEndDate()
     setFormData(prev => ({
       ...prev,
-      locations: [...prev.locations, { location: '', start_date: '', end_date: '' }]
+      locations: [...prev.locations, { location: '', start_date: today, end_date: defaultEndDate }]
     }))
   }
 
@@ -121,9 +146,10 @@ const MarketingModal = ({ item, onClose, onSave }) => {
   }
 
   const addPrize = () => {
+    const defaultPrizeDate = getDefaultPrizeDate()
     setFormData(prev => ({
       ...prev,
-      prizes: [...prev.prizes, { amount: '', currency: 'RON', date: '', winner: '' }]
+      prizes: [...prev.prizes, { amount: '', currency: 'RON', date: defaultPrizeDate, winner: '' }]
     }))
   }
 
