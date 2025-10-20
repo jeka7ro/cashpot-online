@@ -1050,7 +1050,7 @@ const initializeDatabase = async () => {
       console.log('⚠️ Promotions migration skipped:', migError.message)
     }
 
-    console.log('✅ Database schema initialized')
+  console.log('✅ Database schema initialized')
   } catch (error) {
     console.error('❌ Database initialization error:', error)
   }
