@@ -1074,32 +1074,8 @@ console.log('🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!')
 // ==================== IMMEDIATE ROUTE REGISTRATION ====================
 console.log('🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨')
 try {
-  console.log('📋 Registering /api/promotions IMMEDIATELY...')
-  // REPLACED router with direct endpoint
-  app.get('/api/promotions', async (req, res) => {
-    console.log('🚨 DIRECT /api/promotions endpoint called!')
-    try {
-      const pool = req.app.get('pool')
-      if (!pool) {
-        return res.status(500).json({ success: false, error: 'Database pool not available' })
-      }
-      const result = await pool.query('SELECT * FROM promotions ORDER BY start_date DESC, created_at DESC')
-      if (result.rows.length === 0) {
-        // Create test promotion
-        const insertResult = await pool.query(`
-          INSERT INTO promotions (title, description, start_date, end_date, discount_percent, created_at, updated_at) 
-          VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) 
-          RETURNING *
-        `, ['🎉 Test Promotion', 'Auto-created test promotion', new Date(), new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 10])
-        return res.json([insertResult.rows[0]])
-      }
-      res.json(result.rows)
-    } catch (error) {
-      console.error('Direct /api/promotions error:', error)
-      res.status(500).json({ success: false, error: error.message })
-    }
-  })
-  // REMOVED router conflict - using only direct endpoint above
+  console.log('📋 Registering /api/promotions router IMMEDIATELY...')
+  app.use('/api/promotions', promotionsRoutes)
   console.log('📋 Registering /api/cyber IMMEDIATELY...')
   app.use('/api/cyber', cyberRoutes)
   console.log('📋 Registering /api/tasks IMMEDIATELY...')
@@ -3457,39 +3433,7 @@ app.delete('/api/commissions/:id', authenticateUser, async (req, res) => {
 
 // Routes already registered at line 1075 - IMMEDIATE REGISTRATION
 
-// FINAL GUARANTEE ENDPOINT - RIGHT BEFORE SERVER START
-app.get('/api/promotions', async (req, res) => {
-  console.log('🚨🚨🚨 FINAL GUARANTEE /api/promotions endpoint called! 🚨🚨🚨')
-  try {
-    const pool = req.app.get('pool')
-    if (!pool) {
-      console.log('❌ No database pool')
-      return res.status(500).json({ success: false, error: 'Database pool not available' })
-    }
-    
-    console.log('✅ Pool found, querying promotions...')
-    const result = await pool.query('SELECT * FROM promotions ORDER BY created_at DESC')
-    
-    if (result.rows.length === 0) {
-      console.log('📝 No promotions, creating test...')
-      const insertResult = await pool.query(`
-        INSERT INTO promotions (title, description, start_date, end_date, discount_percent, created_at, updated_at) 
-        VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) 
-        RETURNING *
-      `, ['Test Promotion', 'Test description', new Date(), new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), 15])
-      console.log('✅ Test promotion created:', insertResult.rows[0].id)
-      return res.json([insertResult.rows[0]])
-    }
-    
-    console.log(`✅ Found ${result.rows.length} promotions`)
-    res.json(result.rows)
-  } catch (error) {
-    console.error('❌ Final guarantee error:', error)
-    res.status(500).json({ success: false, error: error.message })
-  }
-})
-
-console.log('🚨🚨🚨 FINAL GUARANTEE ENDPOINT ADDED BEFORE SERVER START! 🚨🚨🚨')
+// Routes are registered at line 1075 using promotionsRoutes router
 
 // Start server
 app.listen(PORT, () => {
