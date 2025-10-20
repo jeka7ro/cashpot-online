@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: cashpot-backend-fresh-v3
+    name: cashpot-backend
     env: node
     plan: free
     buildCommand: cd backend && npm install && echo "🚀 NUCLEAR BACKEND v1.0.41 $(date +%s) - $(date)" > build-trigger.txt
@@ -25,5 +25,5 @@ services:
         value: cashpot-documents
       - key: S3_PUBLIC_BASE_URL
         value: https://cashpot-documents.s3.eu-central-1.amazonaws.com
-      - key: FORCE_REBUILD_V41
-        value: "2025-10-19T12:35:00Z-NUCLEAR-SINGLE-ROUTE-REGISTRATION"
+      - key: FORCE_REBUILD_V41_HOTFIX
+        value: "2025-10-19T12:42:00Z-FORCE-REBUILD-CURRENT-SERVICE-NOW"

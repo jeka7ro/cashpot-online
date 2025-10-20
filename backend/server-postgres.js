@@ -49,8 +49,8 @@ console.log('🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥')
 dotenv.config()
 
 console.log('💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥')
-// ==================== NUCLEAR DEPLOY v1.0.40 ====================
-console.log('🚨🚨🚨 NUCLEAR DEPLOY v1.0.40 - ' + new Date().toISOString() + ' 🚨🚨🚨')
+// ==================== NUCLEAR DEPLOY v1.0.41 ====================
+console.log('🚨🚨🚨 NUCLEAR DEPLOY v1.0.41 - FORCE REBUILD CURRENT SERVICE! 🚨🚨🚨')
 console.log('🚀 SERVER STARTING - All imports loaded successfully!')
 console.log('🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!')
 console.log('📦 Building for Render deployment - Route registration fix!')
