@@ -190,6 +190,53 @@ export const DataProvider = ({ children }) => {
     fetchAllData()
   }, [])
 
+  // Create test weekly tombola with 5 prizes
+  const createTestWeeklyTombola = async () => {
+    // Get current date
+    const today = new Date()
+    const startDate = new Date().toISOString().split('T')[0]
+    
+    // Create 5 weekly dates starting from next Monday
+    const nextMonday = new Date(today)
+    nextMonday.setDate(today.getDate() + (8 - today.getDay()) % 7) // Next Monday
+    
+    const prizeDates = []
+    for (let i = 0; i < 5; i++) {
+      const date = new Date(nextMonday)
+      date.setDate(nextMonday.getDate() + (i * 7)) // Add weeks
+      prizeDates.push(date.toISOString().split('T')[0])
+    }
+    
+    // End date is 1 week after last prize
+    const lastPrizeDate = new Date(prizeDates[4])
+    lastPrizeDate.setDate(lastPrizeDate.getDate() + 7)
+    const endDate = lastPrizeDate.toISOString().split('T')[0]
+    
+    // Create prizes array - 10,000 RON each week
+    const prizes = prizeDates.map((date, index) => ({
+      amount: '10000',
+      currency: 'RON',
+      date: date,
+      winner: ''
+    }))
+    
+    // Create tombola data
+    const tombolaData = {
+      name: 'Tombola Craiova - Premii Săptămânale',
+      description: 'Tombola cu 5 premii săptămânale a câte 10.000 lei fiecare. Extragerea are loc în fiecare luni.',
+      start_date: startDate,
+      end_date: endDate,
+      location: 'Craiova',
+      locations: [{ location: 'Craiova', start_date: startDate, end_date: endDate }],
+      prizes: prizes,
+      status: 'Active',
+      notes: 'Creat automat pentru testare'
+    }
+    
+    // Create the promotion
+    return createItem('promotions', tombolaData)
+  }
+
   // Create item
   const createItem = async (entity, data) => {
     try {
@@ -465,6 +512,10 @@ export const DataProvider = ({ children }) => {
   }
 
   const value = {
+    // Test functions
+    createTestWeeklyTombola,
+    
+    // Data entities
     companies,
     locations,
     providers,

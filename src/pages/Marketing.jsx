@@ -7,7 +7,7 @@ import MarketingModal from '../components/modals/MarketingModal'
 import MarketingDetailModal from '../components/modals/MarketingDetailModal'
 
 const Marketing = () => {
-  const { promotions, loading, createItem, updateItem, deleteItem } = useData()
+  const { promotions, loading, createItem, updateItem, deleteItem, createTestWeeklyTombola } = useData()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
@@ -229,6 +229,14 @@ const Marketing = () => {
               </div>
             </div>
             <div className="flex items-center space-x-3">
+              <button
+                onClick={async () => {
+                  await createTestWeeklyTombola()
+                }}
+                className="btn-secondary flex items-center space-x-2"
+              >
+                <span>Crează Tombola Craiova</span>
+              </button>
               <button
                 onClick={handleCreate}
                 className="btn-primary flex items-center space-x-2"
