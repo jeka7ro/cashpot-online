@@ -1,5 +1,7 @@
 import express from 'express'
 
+console.log('🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨')
+
 const router = express.Router()
 
 // Authentication middleware placeholder (will be applied in main server)
