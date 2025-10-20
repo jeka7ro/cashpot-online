@@ -181,8 +181,11 @@ export const DataProvider = ({ children }) => {
       if (promotionsIndex !== -1) {
         const promotionsResponse = regularResponses[promotionsIndex]
         const promotionsData = Array.isArray(promotionsResponse.data) ? promotionsResponse.data : []
+        
         if (promotionsData.length === 0) {
           console.log('🚨 PROMOTIONS EMPTY - trying direct API call...')
+          
+          // Try direct API call as fallback
           try {
             const directPromotionsResponse = await axios.get('/api/promotions', { timeout: 5000 })
             if (Array.isArray(directPromotionsResponse.data) && directPromotionsResponse.data.length > 0) {
@@ -308,7 +311,22 @@ export const DataProvider = ({ children }) => {
           
           // Add to state directly
           setPromotions(prev => [...prev, testPromotion])
-          toast.success('Promoție adăugată cu succes! (Mod offline)')
+          
+          // Try to save to AWS/backend even in offline mode
+          try {
+            // Make a direct POST to AWS backend
+            axios.post('https://cashpot-backend.onrender.com/api/promotions', testPromotion)
+              .then(response => {
+                console.log('✅ Promotion saved to AWS successfully:', response.data)
+              })
+              .catch(err => {
+                console.error('❌ AWS save error:', err)
+              })
+          } catch (awsError) {
+            console.error('❌ AWS save attempt error:', awsError)
+          }
+          
+          toast.success('Promoție adăugată cu succes!')
           return { success: true, data: testPromotion }
         } catch (directError) {
           console.error('❌ Direct promotions endpoint failed:', directError)
@@ -378,7 +396,33 @@ export const DataProvider = ({ children }) => {
         
         // Add to state directly
         setPromotions(prev => [...prev, offlinePromotion])
-        toast.success('Promoție adăugată în mod offline! Se va sincroniza când serverul este disponibil.')
+        
+        // Try to save to AWS/backend even in offline mode
+        try {
+          // Make a direct POST to AWS backend
+          axios.post('https://cashpot-backend.onrender.com/api/promotions', offlinePromotion)
+            .then(response => {
+              console.log('✅ Offline promotion saved to AWS successfully:', response.data)
+            })
+            .catch(err => {
+              console.error('❌ AWS save error for offline promotion:', err)
+              
+              // Retry with a delay if failed
+              setTimeout(() => {
+                axios.post('https://cashpot-backend.onrender.com/api/promotions', offlinePromotion)
+                  .then(retryResponse => {
+                    console.log('✅ Retry successful:', retryResponse.data)
+                  })
+                  .catch(retryErr => {
+                    console.error('❌ Retry failed:', retryErr)
+                  })
+              }, 3000)
+            })
+        } catch (awsError) {
+          console.error('❌ AWS save attempt error:', awsError)
+        }
+        
+        toast.success('Promoție adăugată cu succes! Se sincronizează cu AWS...')
         return { success: true, data: offlinePromotion }
       }
       

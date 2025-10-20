@@ -1,5 +1,6 @@
 import React from 'react'
-import { X, TrendingUp, Calendar, MapPin, Award, DollarSign, User, Clock, Trophy, Gift } from 'lucide-react'
+import { X, TrendingUp, Calendar, MapPin, Award, DollarSign, User, Clock, Trophy, Gift, FileCheck, Image } from 'lucide-react'
+import PDFViewer from '../PDFViewer'
 
 const MarketingDetailModal = ({ item, onClose }) => {
   if (!item) return null
@@ -16,6 +17,12 @@ const MarketingDetailModal = ({ item, onClose }) => {
       date: item.prize_date,
       winner: item.winner
     }]
+  }
+  
+  // Parse attachments
+  let attachments = []
+  if (item.attachments) {
+    attachments = typeof item.attachments === 'string' ? JSON.parse(item.attachments) : item.attachments
   }
 
   // Calculate days remaining
@@ -266,6 +273,41 @@ const MarketingDetailModal = ({ item, onClose }) => {
               <p className="text-slate-900 dark:text-white whitespace-pre-wrap">
                 {item.description}
               </p>
+            </div>
+          )}
+
+          {/* Banner Section - if exists */}
+          {item.banner_url && (
+            <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 p-6 rounded-xl border border-indigo-200 dark:border-indigo-800">
+              <div className="flex items-center space-x-2 mb-4">
+                <Image className="w-5 h-5 text-indigo-600" />
+                <h3 className="font-semibold text-slate-700 dark:text-slate-200">Banner Promoție</h3>
+              </div>
+              <div className="relative w-full h-64 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden">
+                <img 
+                  src={item.banner_url} 
+                  alt={`Banner pentru ${item.name || item.title}`} 
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Documents Section - if exists */}
+          {item.documents_url && (
+            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-6 rounded-xl border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center space-x-2 mb-4">
+                <FileCheck className="w-5 h-5 text-blue-600" />
+                <h3 className="font-semibold text-slate-700 dark:text-slate-200">Document Promoție</h3>
+              </div>
+              <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+                <PDFViewer 
+                  pdfUrl={item.documents_url}
+                  title={`Document Promoție ${item.name || item.title}`}
+                  placeholder="Documentul nu este disponibil"
+                  placeholderSubtext="Nu există document atașat pentru această promoție"
+                />
+              </div>
             </div>
           )}
 

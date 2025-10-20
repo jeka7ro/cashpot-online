@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { X, TrendingUp, Calendar, MapPin, Award, DollarSign, Plus, Trash2 } from 'lucide-react'
+import { X, TrendingUp, Calendar, MapPin, Award, DollarSign, Plus, Trash2, FileCheck, Image } from 'lucide-react'
 import { useData } from '../../contexts/DataContext'
+import PDFViewer from '../PDFViewer'
 
 const MarketingModal = ({ item, onClose, onSave }) => {
   const { locations } = useData()
@@ -32,7 +33,13 @@ const MarketingModal = ({ item, onClose, onSave }) => {
       locations: [{ location: '', start_date: today, end_date: defaultEndDate }], // Multiple locations with different dates
       prizes: [{ amount: '', currency: 'RON', date: defaultPrizeDate, winner: '' }],
       status: 'Active',
-      notes: ''
+      notes: '',
+      // New fields for file attachments
+      attachments: [],
+      bannerFile: null,
+      bannerPreview: null,
+      documentsFile: null,
+      documentsPreview: null
     }
   })
 
@@ -72,6 +79,14 @@ const MarketingModal = ({ item, onClose, onSave }) => {
         }]
       }
       
+      // Parse attachments
+      let parsedAttachments = []
+      if (item.attachments) {
+        parsedAttachments = typeof item.attachments === 'string'
+          ? JSON.parse(item.attachments)
+          : item.attachments
+      }
+      
       setFormData({
         name: item.name || item.title || '',
         description: item.description || '',
@@ -81,7 +96,13 @@ const MarketingModal = ({ item, onClose, onSave }) => {
         locations: parsedLocations.length > 0 ? parsedLocations : [{ location: '', start_date: '', end_date: '' }],
         prizes: parsedPrizes.length > 0 ? parsedPrizes : [{ amount: '', currency: 'RON', date: '', winner: '' }],
         status: item.status || 'Active',
-        notes: item.notes || ''
+        notes: item.notes || '',
+        // File attachments
+        attachments: parsedAttachments || [],
+        bannerFile: item.banner_url || null,
+        bannerPreview: item.banner_url || null,
+        documentsFile: item.documents_url || null,
+        documentsPreview: item.documents_url || null
       })
     } else {
       // Reset form for new item with default dates
@@ -98,7 +119,13 @@ const MarketingModal = ({ item, onClose, onSave }) => {
         locations: [{ location: '', start_date: today, end_date: defaultEndDate }],
         prizes: [{ amount: '', currency: 'RON', date: defaultPrizeDate, winner: '' }],
         status: 'Active',
-        notes: ''
+        notes: '',
+        // Reset file attachments
+        attachments: [],
+        bannerFile: null,
+        bannerPreview: null,
+        documentsFile: null,
+        documentsPreview: null
       })
     }
   }, [item])
@@ -164,6 +191,57 @@ const MarketingModal = ({ item, onClose, onSave }) => {
     }))
   }
 
+  // Handle file uploads
+  const handleBannerChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setFormData(prev => ({
+          ...prev,
+          bannerFile: file,
+          bannerPreview: e.target.result
+        }))
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+  
+  const handleDocumentsChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setFormData(prev => ({
+          ...prev,
+          documentsFile: file,
+          documentsPreview: e.target.result
+        }))
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+  
+  const handleDeleteBanner = () => {
+    if (window.confirm('Sigur doriți să ștergeți banner-ul?')) {
+      setFormData(prev => ({
+        ...prev,
+        bannerFile: null,
+        bannerPreview: null
+      }))
+    }
+  }
+  
+  const handleDeleteDocuments = () => {
+    if (window.confirm('Sigur doriți să ștergeți documentele?')) {
+      setFormData(prev => ({
+        ...prev,
+        documentsFile: null,
+        documentsPreview: null
+      }))
+    }
+  }
+
   const handleSubmit = (e) => {
     e.preventDefault()
     
@@ -181,10 +259,28 @@ const MarketingModal = ({ item, onClose, onSave }) => {
       return new Date(a.date) - new Date(b.date)
     })
     
-    onSave({
+    // Create FormData for file uploads
+    const formDataToSubmit = new FormData()
+    
+    // Add banner file if exists
+    if (formData.bannerFile && formData.bannerFile instanceof File) {
+      formDataToSubmit.append('banner', formData.bannerFile)
+    }
+    
+    // Add documents file if exists
+    if (formData.documentsFile && formData.documentsFile instanceof File) {
+      formDataToSubmit.append('documents', formData.documentsFile)
+    }
+    
+    // Prepare data to save
+    const dataToSave = {
       ...formData,
-      prizes: sortedPrizes
-    })
+      prizes: sortedPrizes,
+      banner_url: formData.bannerPreview,
+      documents_url: formData.documentsPreview
+    }
+    
+    onSave(dataToSave)
   }
 
   return (
@@ -444,8 +540,130 @@ const MarketingModal = ({ item, onClose, onSave }) => {
             </div>
           </div>
 
+          {/* Banner Upload Section */}
+          <div className="border-t-2 border-slate-200 dark:border-slate-600 pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center">
+                <Image className="w-5 h-5 mr-2 text-blue-500" />
+                Banner Promoție
+              </h3>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Imagine Banner (JPG, PNG)
+                </label>
+                <input
+                  type="file"
+                  name="bannerFile"
+                  accept=".jpg,.jpeg,.png"
+                  onChange={handleBannerChange}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 
+                            bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                            focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all
+                            file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold 
+                            file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+              </div>
+              
+              {formData.bannerPreview && (
+                <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <Image className="w-5 h-5 text-blue-600" />
+                      <div>
+                        <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                          Banner încărcat
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Imagine Banner</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleDeleteBanner}
+                      className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                      title="Șterge banner"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  
+                  <div className="relative w-full h-40 bg-slate-100 dark:bg-slate-800 rounded-lg overflow-hidden">
+                    <img 
+                      src={formData.bannerPreview} 
+                      alt="Banner Preview" 
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Documents Upload Section */}
+          <div className="border-t-2 border-slate-200 dark:border-slate-600 pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center">
+                <FileCheck className="w-5 h-5 mr-2 text-blue-500" />
+                Documente Promoție
+              </h3>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Document (PDF)
+                </label>
+                <input
+                  type="file"
+                  name="documentsFile"
+                  accept=".pdf"
+                  onChange={handleDocumentsChange}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 
+                            bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                            focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all
+                            file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold 
+                            file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+              </div>
+              
+              {formData.documentsPreview && (
+                <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <FileCheck className="w-5 h-5 text-blue-600" />
+                      <div>
+                        <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                          Document încărcat
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">PDF Document</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleDeleteDocuments}
+                      className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                      title="Șterge documentul"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  
+                  {/* PDF Viewer */}
+                  <PDFViewer 
+                    pdfUrl={formData.documentsPreview}
+                    title={`Document Promoție ${formData.name}`}
+                    placeholder="Documentul nu este disponibil"
+                    placeholderSubtext="Atașează documentul pentru vizualizare"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Status & Notes */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t-2 border-slate-200 dark:border-slate-600 pt-6">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 Status
@@ -455,8 +673,8 @@ const MarketingModal = ({ item, onClose, onSave }) => {
                 value={formData.status}
                 onChange={handleChange}
                 className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 
-                         bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                         focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                          bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                          focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
               >
                 <option value="Active">Activ</option>
                 <option value="Completed">Finalizat</option>
@@ -475,8 +693,8 @@ const MarketingModal = ({ item, onClose, onSave }) => {
                 onChange={handleChange}
                 placeholder="Note adiționale..."
                 className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 
-                         bg-white dark:bg-slate-700 text-slate-900 dark:text-white
-                         focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                          bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                          focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
               />
             </div>
           </div>
