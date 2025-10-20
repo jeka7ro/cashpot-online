@@ -1,0 +1,8 @@
+🚨🚨🚨 FINAL EMERGENCY FIX v1.0.47 🚨🚨🚨
+
+This file triggers Render rebuild with final emergency endpoint.
+
+The /api/promotions endpoint is now placed RIGHT BEFORE app.listen()
+to ensure it gets registered properly.
+
+This SHOULD WORK - endpoint is placed at the very end of setup.

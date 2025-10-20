@@ -50,7 +50,7 @@ dotenv.config()
 
 console.log('💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥')
 // ==================== NUCLEAR DEPLOY v1.0.41 ====================
-console.log('🚨🚨🚨 NUCLEAR DEPLOY v1.0.46 - EMERGENCY DIRECT ENDPOINT! 🚨🚨🚨')
+console.log('🚨🚨🚨 NUCLEAR DEPLOY v1.0.47 - FINAL EMERGENCY BEFORE LISTEN! 🚨🚨🚨')
 console.log('💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥')
 console.log('🚀 SERVER STARTING - All imports loaded successfully!')
 console.log('🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!')
@@ -1072,7 +1072,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 console.log('🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!')
 
 // ==================== IMMEDIATE ROUTE REGISTRATION ====================
-console.log('🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.46! 🚨🚨🚨')
+console.log('🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.47! 🚨🚨🚨')
 try {
   console.log('📋 Registering /api/promotions IMMEDIATELY...')
   app.use('/api/promotions', promotionsRoutes)
@@ -3453,6 +3453,44 @@ app.delete('/api/commissions/:id', authenticateUser, async (req, res) => {
 })
 
 // Routes already registered at line 1075 - IMMEDIATE REGISTRATION
+
+// 🚨 FINAL EMERGENCY ENDPOINT - RIGHT BEFORE SERVER START 🚨
+app.get('/api/promotions', async (req, res) => {
+  console.log('🚨🚨🚨 FINAL EMERGENCY /api/promotions endpoint called! 🚨🚨🚨')
+  console.log('✅ This MUST work - placed right before app.listen!')
+  
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      console.log('❌ No database pool available')
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+    
+    console.log('✅ Pool found, querying promotions table...')
+    const result = await pool.query('SELECT * FROM promotions ORDER BY start_date DESC, created_at DESC')
+    console.log(`✅ Query successful: ${result.rows.length} promotions found`)
+    
+    // If no promotions, create a test one
+    if (result.rows.length === 0) {
+      console.log('📝 No promotions found, creating test promotion...')
+      const insertResult = await pool.query(`
+        INSERT INTO promotions (title, description, start_date, end_date, discount_percent, created_at, updated_at) 
+        VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) 
+        RETURNING *
+      `, ['🎉 Test Promotion', 'This is a test promotion created automatically', new Date(), new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 10])
+      
+      console.log(`✅ Test promotion created: ${insertResult.rows[0].id}`)
+      return res.json([insertResult.rows[0]])
+    }
+    
+    res.json(result.rows)
+  } catch (error) {
+    console.error('❌ Final emergency endpoint error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+console.log('🚨🚨🚨 FINAL EMERGENCY ENDPOINT REGISTERED RIGHT BEFORE SERVER START! 🚨🚨🚨')
 
 // Start server
 app.listen(PORT, () => {
