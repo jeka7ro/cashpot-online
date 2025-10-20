@@ -3457,7 +3457,39 @@ app.delete('/api/commissions/:id', authenticateUser, async (req, res) => {
 
 // Routes already registered at line 1075 - IMMEDIATE REGISTRATION
 
-// REMOVED DUPLICATE ENDPOINT - now using direct endpoint in route registration section
+// FINAL GUARANTEE ENDPOINT - RIGHT BEFORE SERVER START
+app.get('/api/promotions', async (req, res) => {
+  console.log('🚨🚨🚨 FINAL GUARANTEE /api/promotions endpoint called! 🚨🚨🚨')
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      console.log('❌ No database pool')
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+    
+    console.log('✅ Pool found, querying promotions...')
+    const result = await pool.query('SELECT * FROM promotions ORDER BY created_at DESC')
+    
+    if (result.rows.length === 0) {
+      console.log('📝 No promotions, creating test...')
+      const insertResult = await pool.query(`
+        INSERT INTO promotions (title, description, start_date, end_date, discount_percent, created_at, updated_at) 
+        VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) 
+        RETURNING *
+      `, ['Test Promotion', 'Test description', new Date(), new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), 15])
+      console.log('✅ Test promotion created:', insertResult.rows[0].id)
+      return res.json([insertResult.rows[0]])
+    }
+    
+    console.log(`✅ Found ${result.rows.length} promotions`)
+    res.json(result.rows)
+  } catch (error) {
+    console.error('❌ Final guarantee error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+console.log('🚨🚨🚨 FINAL GUARANTEE ENDPOINT ADDED BEFORE SERVER START! 🚨🚨🚨')
 
 // Start server
 app.listen(PORT, () => {

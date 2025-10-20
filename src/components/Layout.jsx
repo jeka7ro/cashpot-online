@@ -218,7 +218,7 @@ const Layout = ({ children }) => {
     },
     { 
       id: 'marketing', 
-      label: 'Marketing & Promoții', 
+      label: 'Marketing', 
       icon: TrendingUp, 
       path: '/marketing',
       count: promotions?.length || 0,
