@@ -42,6 +42,37 @@ const CyberImport = () => {
     status: ''
   })
 
+  // Fetch yesterday's data from Cyber DB (direct connection)
+  const fetchYesterdayFromCyberDB = async () => {
+    try {
+      setLoading(true)
+      toast.loading('Conectare la baza de date Cyber...', { id: 'cyber-db' })
+      
+      const response = await axios.get('/api/cyber-direct/fetch-yesterday')
+      
+      if (response.data.success) {
+        const yesterdayData = response.data.data
+        setMachineAuditSummaries(yesterdayData)
+        setActiveTab('audit')
+        toast.success(
+          `✅ ${yesterdayData.length} înregistrări din ${response.data.date} încărcate din Cyber DB!`,
+          { id: 'cyber-db', duration: 5000 }
+        )
+        console.log('✅ Yesterday data from Cyber DB:', yesterdayData)
+      } else {
+        throw new Error(response.data.error || 'Eroare la citirea datelor')
+      }
+    } catch (error) {
+      console.error('❌ Error fetching from Cyber DB:', error)
+      toast.error(
+        `Eroare la conectarea la Cyber DB: ${error.response?.data?.error || error.message}`,
+        { id: 'cyber-db', duration: 6000 }
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Handle file upload for slots
   // Load machine audit summaries data
   const fetchMachineAuditSummaries = async () => {
@@ -1136,6 +1167,18 @@ const CyberImport = () => {
               onChange={handleFileUpload}
               className="hidden"
             />
+            
+            {/* Cyber DB Direct Import Button for Audit Tab */}
+            {activeTab === 'audit' && (
+              <button
+                onClick={fetchYesterdayFromCyberDB}
+                className="px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg flex items-center space-x-2 transition-all font-medium shadow-lg"
+                disabled={loading}
+              >
+                <Database className="w-4 h-4" />
+                <span>📅 Cyber DB (Ieri)</span>
+              </button>
+            )}
             
             {/* Cyber Sync Buttons */}
             {activeTab === 'slots' && (
