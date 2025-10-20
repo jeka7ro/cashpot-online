@@ -1,0 +1,6 @@
+🚨 DIRECT ENDPOINT IN ROUTES v1.0.49 🚨
+
+Replaced app.use('/api/promotions', promotionsRoutes) with direct endpoint
+in the route registration section (line 1079).
+
+This ensures the endpoint is registered early and should work!
