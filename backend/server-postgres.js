@@ -1079,7 +1079,7 @@ console.log('🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!')
 console.log('🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨')
 try {
   console.log('📋 Registering /api/promotions router IMMEDIATELY...')
-  app.use('/api/promotions', authenticateUser, promotionsRoutes)
+  app.use('/api/promotions', promotionsRoutes)
   console.log('📋 Registering /api/cyber IMMEDIATELY...')
   app.use('/api/cyber', cyberRoutes)
   console.log('📋 Registering /api/tasks IMMEDIATELY...')
@@ -1092,6 +1092,68 @@ try {
 } catch (error) {
   console.error('❌❌❌ IMMEDIATE ERROR during route registration:', error)
 }
+
+// DIRECT PROMOTIONS ENDPOINTS - BACKUP IF ROUTER FAILS
+app.get('/api/promotions', async (req, res) => {
+  console.log('🚨🚨🚨 DIRECT GET /api/promotions called!')
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+    const result = await pool.query('SELECT * FROM promotions ORDER BY start_date DESC, created_at DESC')
+    console.log(`✅ DIRECT GET found ${result.rows.length} promotions`)
+    res.json(result.rows)
+  } catch (error) {
+    console.error('❌ DIRECT GET promotions error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+app.post('/api/promotions', authenticateUser, async (req, res) => {
+  console.log('🚨🚨🚨 DIRECT POST /api/promotions called!')
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+    
+    const { name, description, start_date, end_date, location, locations, prizes, status, notes } = req.body
+    const createdBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
+    
+    console.log('🚨 DIRECT POST data:', { name, description, start_date, end_date, location, locations, prizes })
+    
+    // Calculate total amount from prizes
+    const prizesArray = Array.isArray(prizes) ? prizes : []
+    const totalAmount = prizesArray.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0)
+    
+    // Handle locations array
+    const locationsArray = Array.isArray(locations) ? locations : []
+    
+    // Use first location's dates if no global dates provided
+    const globalStartDate = start_date || (locationsArray[0]?.start_date) || new Date().toISOString().split('T')[0]
+    const globalEndDate = end_date || (locationsArray[0]?.end_date) || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    
+    // Get first location name as default location
+    const defaultLocation = location || (locationsArray.length > 0 ? locationsArray[0].location : 'Default Location')
+    
+    const result = await pool.query(
+      `INSERT INTO promotions 
+       (name, description, start_date, end_date, total_amount, awarded_amount, location, locations, status, prizes, notes, created_by, created_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP) 
+       RETURNING *`,
+      [name || 'Untitled Promotion', description || '', globalStartDate, globalEndDate, totalAmount, 0, defaultLocation, JSON.stringify(locationsArray), status || 'Active', JSON.stringify(prizesArray), notes || '', createdBy]
+    )
+    
+    console.log('✅ DIRECT POST Promotion created:', result.rows[0].id)
+    res.status(201).json(result.rows[0])
+  } catch (error) {
+    console.error('❌ DIRECT POST promotions error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+console.log('🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨')
 
 // REMOVED FIRST EMERGENCY ENDPOINT - USING ONLY THE FINAL ONE BEFORE app.listen()
 

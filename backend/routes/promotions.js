@@ -86,12 +86,15 @@ router.post('/', authenticateUser, async (req, res) => {
     const globalStartDate = start_date || (locationsArray[0]?.start_date) || new Date().toISOString().split('T')[0]
     const globalEndDate = end_date || (locationsArray[0]?.end_date) || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     
+    // Get first location name as default location
+    const defaultLocation = location || (locationsArray.length > 0 ? locationsArray[0].location : 'Default Location')
+    
     const result = await pool.query(
       `INSERT INTO promotions 
        (name, description, start_date, end_date, total_amount, awarded_amount, location, locations, status, prizes, notes, created_by, created_at) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP) 
        RETURNING *`,
-      [name, description, globalStartDate, globalEndDate, totalAmount, 0, location || '', JSON.stringify(locationsArray), status || 'Active', JSON.stringify(prizesArray), notes, createdBy]
+      [name || 'Untitled Promotion', description || '', globalStartDate, globalEndDate, totalAmount, 0, defaultLocation, JSON.stringify(locationsArray), status || 'Active', JSON.stringify(prizesArray), notes || '', createdBy]
     )
     
     console.log('✅ Promotion created:', result.rows[0].id)
