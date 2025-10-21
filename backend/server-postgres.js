@@ -1055,6 +1055,8 @@ const initializeDatabase = async () => {
 }
 
 // Middleware
+// Trust proxy for Render deployment (enables proper IP detection behind reverse proxy)
+app.set('trust proxy', true)
 app.use(morgan('combined'))
 app.use(cors({
   origin: process.env.CORS_ORIGIN || ['https://w1n.ro', 'http://localhost:3000'],

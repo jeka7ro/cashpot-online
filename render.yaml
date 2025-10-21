@@ -28,4 +28,4 @@ services:
       - key: FORCE_REBUILD_V153_ES_MODULES
         value: "2025-10-20T13:52:00Z-ES-MODULES-FIX"
       - key: FORCE_REDEPLOY_TRIGGER
-        value: "2025-10-21-09:50:00-PATH-FIX"
+        value: "2025-10-21-10:05:00-PROXY-FIX"
