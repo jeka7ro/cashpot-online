@@ -17,33 +17,33 @@ const __dirname = path.dirname(__filename)
 // mysql2 removed to fix Render deployment issues
 // CRITICAL FIX 2025-01-17 16:35 - ALL CYBER ENDPOINTS RETURNING 404 ON PRODUCTION
 // Force complete redeploy - sync-slots-safe, promotions, users endpoints missing
-import uploadRoutes from '../routes/upload.js'
-import compressRoutes from '../routes/compress.js'
-import backupRoutes from '../routes/backup.js'
-import gamesRoutes from '../routes/games.js'
-import slotHistoryRoutes from '../routes/slotHistory.js'
-import usersRoutes from '../routes/users.js'
-import authRoutes from '../routes/auth.js'
-import companiesRoutes from '../routes/companies.js'
-import locationsRoutes from '../routes/locations.js'
-import providersRoutes from '../routes/providers.js'
-import cabinetsRoutes from '../routes/cabinets.js'
-import gameMixesRoutes from '../routes/gameMixes.js'
-import slotsRoutes from '../routes/slots.js'
-import invoicesRoutes from '../routes/invoices.js'
-import jackpotsRoutes from '../routes/jackpots.js'
-import legalDocumentsRoutes from '../routes/legalDocuments.js'
-import onjnReportsRoutes from '../routes/onjnReports.js'
-import onjnOperatorsRoutes, { refreshProgressManager } from '../routes/onjnOperators.js'
-import brandsRoutes from '../routes/brands.js'
-import metrologyRoutes from '../routes/metrology.js'
-import warehouseRoutes from '../routes/warehouse.js'
-import promotionsRoutes from '../routes/promotions.js'
-import cyberRoutes from '../routes/cyber.js'
-// import cyberDirectRoutes from '../routes/cyberDirect.js' // DISABLED - using JSON import only
-import tasksRoutes from '../routes/tasks.js'
-import messagesRoutes from '../routes/messages.js'
-import notificationsRoutes from '../routes/notifications.js'
+import uploadRoutes from './routes/upload.js'
+import compressRoutes from './routes/compress.js'
+import backupRoutes from './routes/backup.js'
+import gamesRoutes from './routes/games.js'
+import slotHistoryRoutes from './routes/slotHistory.js'
+import usersRoutes from './routes/users.js'
+import authRoutes from './routes/auth.js'
+import companiesRoutes from './routes/companies.js'
+import locationsRoutes from './routes/locations.js'
+import providersRoutes from './routes/providers.js'
+import cabinetsRoutes from './routes/cabinets.js'
+import gameMixesRoutes from './routes/gameMixes.js'
+import slotsRoutes from './routes/slots.js'
+import invoicesRoutes from './routes/invoices.js'
+import jackpotsRoutes from './routes/jackpots.js'
+import legalDocumentsRoutes from './routes/legalDocuments.js'
+import onjnReportsRoutes from './routes/onjnReports.js'
+import onjnOperatorsRoutes, { refreshProgressManager } from './routes/onjnOperators.js'
+import brandsRoutes from './routes/brands.js'
+import metrologyRoutes from './routes/metrology.js'
+import warehouseRoutes from './routes/warehouse.js'
+import promotionsRoutes from './routes/promotions.js'
+import cyberRoutes from './routes/cyber.js'
+// import cyberDirectRoutes from './routes/cyberDirect.js' // DISABLED - using JSON import only
+import tasksRoutes from './routes/tasks.js'
+import messagesRoutes from './routes/messages.js'
+import notificationsRoutes from './routes/notifications.js'
 import { scheduleBackups } from './backup.js'
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
@@ -3172,8 +3172,8 @@ app.post('/api/onjn-operators/import-json', async (req, res) => {
     
     // Try multiple possible locations for the JSON file
     const possiblePaths = [
-      path.join(__dirname, 'onjn-scraped-data.json'),
       path.join(__dirname, 'backend', 'onjn-scraped-data.json'),
+      path.join(__dirname, 'onjn-scraped-data.json'),
       path.join(__dirname, '..', 'backend', 'onjn-scraped-data.json')
     ]
     
