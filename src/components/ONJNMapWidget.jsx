@@ -1,29 +1,44 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
-import { Map, MapPin, TrendingUp, AlertCircle, Target } from 'lucide-react'
+import { Map, MapPin, TrendingUp, AlertCircle, Target, Navigation } from 'lucide-react'
 
-const ONJNMapWidget = () => {
+const ONJNMapWidget = ({ operators = [] }) => {
   const [mapData, setMapData] = useState({
     counties: [],
     hotspots: [],
-    competition: []
+    competition: [],
+    cashpotAreas: []
   })
   const [loading, setLoading] = useState(true)
   const [selectedCounty, setSelectedCounty] = useState(null)
+  const [showMap, setShowMap] = useState(false)
 
   useEffect(() => {
-    loadMapData()
-  }, [])
+    if (operators.length > 0) {
+      loadMapData()
+    } else {
+      loadMapDataFromAPI()
+    }
+  }, [operators])
 
-  const loadMapData = async () => {
+  const loadMapDataFromAPI = async () => {
     try {
       const response = await axios.get('/api/onjn-operators')
+      processMapData(response.data)
+    } catch (error) {
+      console.error('Error loading map data:', error)
+      setLoading(false)
+    }
+  }
+
+  const processMapData = (data) => {
+    try {
       
       // Group by county
       const countyStats = {}
       const cityStats = {}
       
-      response.data.forEach(op => {
+      data.forEach(op => {
         // County stats
         if (op.county) {
           if (!countyStats[op.county]) {
@@ -32,7 +47,8 @@ const ONJNMapWidget = () => {
               total: 0,
               active: 0,
               brands: new Set(),
-              cities: new Set()
+              cities: new Set(),
+              cashpotSlots: 0
             }
           }
           countyStats[op.county].total++
@@ -45,9 +61,13 @@ const ONJNMapWidget = () => {
           if (op.city) {
             countyStats[op.county].cities.add(op.city)
           }
+          // Focus on CASHPOT competition
+          if (op.brand_name && op.brand_name.toLowerCase().includes('cashpot')) {
+            countyStats[op.county].cashpotSlots++
+          }
         }
         
-        // City stats for hotspots
+        // City stats for CASHPOT competition hotspots
         if (op.city) {
           const key = `${op.city}, ${op.county}`
           if (!cityStats[key]) {
@@ -57,6 +77,7 @@ const ONJNMapWidget = () => {
               total: 0,
               active: 0,
               brands: new Set(),
+              cashpotSlots: 0,
               competition: 0
             }
           }
@@ -67,6 +88,9 @@ const ONJNMapWidget = () => {
           if (op.brand_name) {
             cityStats[key].brands.add(op.brand_name)
           }
+          if (op.brand_name && op.brand_name.toLowerCase().includes('cashpot')) {
+            cityStats[key].cashpotSlots++
+          }
         }
       })
       
@@ -75,28 +99,42 @@ const ONJNMapWidget = () => {
         .map(c => ({ ...c, brands: c.brands.size, cities: c.cities.size }))
         .sort((a, b) => b.total - a.total)
       
+      // Focus on areas where CASHPOT has competition
       const hotspots = Object.values(cityStats)
+        .filter(c => c.cashpotSlots > 0) // Only areas with CASHPOT
         .map(c => ({ 
           ...c, 
           brands: c.brands.size,
-          competition: c.brands.size > 3 ? 'high' : c.brands.size > 1 ? 'medium' : 'low'
+          competition: c.brands.size > 3 ? 'high' : c.brands.size > 1 ? 'medium' : 'low',
+          cashpotDensity: c.cashpotSlots / c.total
         }))
         .sort((a, b) => b.total - a.total)
-        .slice(0, 10)
+        .slice(0, 15) // More areas since it's CASHPOT-focused
       
-      // Competition analysis
+      // Competition analysis specifically around CASHPOT
       const competition = hotspots.map(spot => ({
         ...spot,
         density: spot.total / 10, // devices per km² (simplified)
-        competitionLevel: spot.brands
+        competitionLevel: spot.brands,
+        cashpotMarketShare: ((spot.cashpotSlots / spot.total) * 100).toFixed(1)
       }))
       
-      setMapData({ counties, hotspots, competition })
+      // Areas where CASHPOT could expand (low CASHPOT presence, high competition)
+      const cashpotAreas = Object.values(cityStats)
+        .filter(c => c.cashpotSlots === 0 && c.brands.size > 1) // No CASHPOT but has competition
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 10)
+      
+      setMapData({ counties, hotspots: competition, competition, cashpotAreas })
     } catch (error) {
       console.error('Error loading map data:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadMapData = () => {
+    processMapData(operators)
   }
 
   if (loading) {
@@ -130,30 +168,102 @@ const ONJNMapWidget = () => {
           <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl shadow-lg shadow-green-500/25">
             <Map className="w-5 h-5 text-white" />
           </div>
-          <h3 className="text-lg font-bold text-slate-800 dark:text-white">Hartă Concurență</h3>
+          <div>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white">Concurență CASHPOT</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Zone cu prezență CASHPOT</p>
+          </div>
         </div>
+        <button
+          onClick={() => setShowMap(!showMap)}
+          className="flex items-center space-x-2 px-4 py-2 bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-lg transition-colors text-sm font-medium"
+        >
+          <Navigation className="w-4 h-4" />
+          <span>{showMap ? 'Lista' : 'Harta'}</span>
+        </button>
       </div>
 
       {/* Legend */}
-      <div className="mb-6 flex items-center space-x-4 text-xs">
+      <div className="mb-6 flex flex-wrap items-center gap-4 text-xs">
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 rounded-full bg-green-500"></div>
-          <span className="text-slate-600 dark:text-slate-400">Concurență mică (1 brand)</span>
+          <span className="text-slate-600 dark:text-slate-400">CASHPOT dominant</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-          <span className="text-slate-600 dark:text-slate-400">Medie (2-3 branduri)</span>
+          <span className="text-slate-600 dark:text-slate-400">Concurență medie</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 rounded-full bg-red-500"></div>
-          <span className="text-slate-600 dark:text-slate-400">Mare (4+ branduri)</span>
+          <span className="text-slate-600 dark:text-slate-400">Concurență ridicată</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+          <span className="text-slate-600 dark:text-slate-400">Oportunități (fără CASHPOT)</span>
         </div>
       </div>
+
+      {/* Map View */}
+      {showMap && (
+        <div className="mb-6 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-xl p-6">
+          <div className="text-center mb-4">
+            <h4 className="text-lg font-bold text-slate-800 dark:text-white mb-2">Hartă România - Sloturi ONJN</h4>
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              Distribuția sloturilor și brandurilor în România ({mapData.counties.length} județe analizate)
+            </p>
+          </div>
+          
+          {/* Simplified Romania Map - Using CSS Grid */}
+          <div className="relative bg-white dark:bg-slate-700 rounded-xl p-4 border-2 border-slate-200 dark:border-slate-600">
+            <div className="grid grid-cols-6 gap-1 h-64">
+              {/* Mock Romania counties visualization */}
+              {mapData.counties.slice(0, 12).map((county, index) => {
+                const intensity = Math.min(county.total / 500, 1) // Normalize to 0-1
+                const bgIntensity = `bg-opacity-${Math.round(intensity * 100)}`
+                return (
+                  <div
+                    key={county.county}
+                    className={`rounded border-2 cursor-pointer transition-all hover:scale-105 ${
+                      county.cashpotSlots > 0 
+                        ? 'bg-green-500 border-green-600' 
+                        : county.total > 300 
+                          ? 'bg-blue-500 border-blue-600' 
+                          : 'bg-slate-300 border-slate-400'
+                    } bg-opacity-60 hover:bg-opacity-80`}
+                    title={`${county.county}: ${county.total} sloturi, ${county.cashpotSlots} CASHPOT`}
+                  >
+                    <div className="text-xs p-1 text-white font-bold text-center">
+                      {county.county.length > 8 ? county.county.substring(0, 6) + '...' : county.county}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            
+            {/* Map Legend */}
+            <div className="mt-4 flex justify-center space-x-6 text-xs">
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 bg-green-500 rounded"></div>
+                <span>Cu CASHPOT</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                <span>Zone active</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 bg-slate-300 rounded"></div>
+                <span>Zone inactive</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Hotspots List */}
       <div className="space-y-3">
         <div className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">Top 10 Zone Concurență</h4>
+          <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            {showMap ? 'Zone CASHPOT în România' : 'Zone cu concurență CASHPOT'}
+          </h4>
           <Target className="w-4 h-4 text-slate-500" />
         </div>
 
@@ -187,17 +297,23 @@ const ONJNMapWidget = () => {
                         </span>
                       </div>
                       
-                      <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                      <div className="mt-2 grid grid-cols-4 gap-2 text-xs">
                         <div>
-                          <div className="text-slate-500 dark:text-slate-400">Aparate</div>
+                          <div className="text-slate-500 dark:text-slate-400">Total</div>
                           <div className="font-bold text-slate-800 dark:text-slate-200">
                             {spot.total}
                           </div>
                         </div>
                         <div>
-                          <div className="text-slate-500 dark:text-slate-400">Active</div>
-                          <div className="font-bold text-green-600 dark:text-green-400">
-                            {spot.active}
+                          <div className="text-slate-500 dark:text-slate-400">CASHPOT</div>
+                          <div className="font-bold text-emerald-600 dark:text-emerald-400">
+                            {spot.cashpotSlots || 0}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-slate-500 dark:text-slate-400">Pondere</div>
+                          <div className="font-bold text-indigo-600 dark:text-indigo-400">
+                            {spot.cashpotMarketShare || '0.0'}%
                           </div>
                         </div>
                         <div>

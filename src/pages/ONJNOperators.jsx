@@ -7,6 +7,7 @@ import DataTable from '../components/DataTable'
 import { toast } from 'react-hot-toast'
 import ONJNStatsWidget from '../components/ONJNStatsWidget'
 import ONJNCitiesWidget from '../components/ONJNCitiesWidget'
+import ONJNCountiesWidget from '../components/ONJNCountiesWidget'
 import ONJNBrandsWidget from '../components/ONJNBrandsWidget'
 import ONJNMapWidget from '../components/ONJNMapWidget'
 
@@ -548,11 +549,14 @@ const ONJNOperators = () => {
 
         {/* Smart Widgets */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
-          <ONJNStatsWidget />
-          <ONJNCitiesWidget />
-          <ONJNBrandsWidget />
-          <ONJNMapWidget />
+          <ONJNStatsWidget stats={stats} loading={loading} />
+          <ONJNCitiesWidget operators={operators} />
+          <ONJNCountiesWidget operators={operators} />
+          <ONJNBrandsWidget operators={operators} />
         </div>
+
+        {/* Map Widget - Full Width */}
+        <ONJNMapWidget operators={operators} />
 
         {/* Filters */}
         <div className="card p-6">

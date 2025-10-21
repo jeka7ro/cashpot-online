@@ -1,34 +1,74 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
-import { MapPin, TrendingUp, Building2 } from 'lucide-react'
+import { MapPin, TrendingUp, Building2, ChevronDown, ChevronRight } from 'lucide-react'
 
-const ONJNCitiesWidget = () => {
+const ONJNCitiesWidget = ({ operators = [] }) => {
   const [cities, setCities] = useState([])
   const [loading, setLoading] = useState(true)
+  const [expandedCity, setExpandedCity] = useState(null)
 
   useEffect(() => {
-    loadCities()
-  }, [])
+    if (operators.length > 0) {
+      loadCities()
+    } else {
+      loadCitiesFromAPI()
+    }
+  }, [operators])
 
-  const loadCities = async () => {
+  const loadCitiesFromAPI = async () => {
     try {
       const response = await axios.get('/api/onjn-operators')
-      
-      // Group by city and count
+      processCitiesData(response.data)
+    } catch (error) {
+      console.error('Error loading cities:', error)
+      setLoading(false)
+    }
+  }
+
+  const processCitiesData = (data) => {
+    try {
+      // Group by city and count - București as unified city
       const cityStats = {}
-      response.data.forEach(op => {
+      const bucharestSectors = {}
+      
+      data.forEach(op => {
         if (op.city) {
-          if (!cityStats[op.city]) {
-            cityStats[op.city] = {
-              city: op.city,
-              county: op.county,
-              total: 0,
-              active: 0
+          let cityKey = op.city
+          let displayCity = op.city
+          
+          // Unify all Bucharest sectors as "București"
+          if (op.city.toLowerCase().includes('bucurești') || 
+              op.county?.toLowerCase().includes('sector') ||
+              op.city.toLowerCase().includes('sector')) {
+            cityKey = 'București'
+            displayCity = 'București'
+            
+            // Collect sector data for expansion
+            if (!bucharestSectors[op.county || op.city]) {
+              bucharestSectors[op.county || op.city] = {
+                sector: op.county || op.city,
+                total: 0,
+                active: 0
+              }
+            }
+            bucharestSectors[op.county || op.city].total++
+            if (op.status === 'În exploatare') {
+              bucharestSectors[op.county || op.city].active++
             }
           }
-          cityStats[op.city].total++
+          
+          if (!cityStats[cityKey]) {
+            cityStats[cityKey] = {
+              city: displayCity,
+              county: cityKey === 'București' ? 'București' : op.county,
+              total: 0,
+              active: 0,
+              sectors: cityKey === 'București' ? bucharestSectors : null
+            }
+          }
+          cityStats[cityKey].total++
           if (op.status === 'În exploatare') {
-            cityStats[op.city].active++
+            cityStats[cityKey].active++
           }
         }
       })
@@ -40,10 +80,14 @@ const ONJNCitiesWidget = () => {
       
       setCities(citiesArray)
     } catch (error) {
-      console.error('Error loading cities:', error)
+      console.error('Error processing cities data:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadCities = () => {
+    processCitiesData(operators)
   }
 
   if (loading) {
@@ -84,20 +128,33 @@ const ONJNCitiesWidget = () => {
             const percentage = (city.total / maxCount) * 100
             const activePercentage = city.total > 0 ? ((city.active / city.total) * 100).toFixed(0) : 0
             
+            const isExpanded = expandedCity === city.city
+            const hasSectors = city.sectors && Object.keys(city.sectors).length > 0
+            
             return (
               <div key={city.city} className="relative">
-                <div className="flex items-center justify-between mb-1">
+                <div 
+                  className={`flex items-center justify-between mb-1 ${hasSectors ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg p-2 -m-2' : ''}`}
+                  onClick={() => hasSectors && setExpandedCity(isExpanded ? null : city.city)}
+                >
                   <div className="flex items-center space-x-2">
                     <span className="text-lg font-bold text-slate-400 dark:text-slate-500 w-6">
                       {index + 1}
                     </span>
-                    <div>
-                      <div className="font-semibold text-slate-800 dark:text-slate-200">
-                        {city.city}
+                    <div className="flex items-center space-x-2">
+                      <div>
+                        <div className="font-semibold text-slate-800 dark:text-slate-200">
+                          {city.city}
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">
+                          {city.county}
+                        </div>
                       </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
-                        {city.county}
-                      </div>
+                      {hasSectors && (
+                        <div className="text-slate-400">
+                          {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="text-right">
@@ -107,6 +164,11 @@ const ONJNCitiesWidget = () => {
                     <div className="text-xs text-green-600 dark:text-green-400">
                       {city.active} active ({activePercentage}%)
                     </div>
+                    {hasSectors && (
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                        {Object.keys(city.sectors).length} sectoare
+                      </div>
+                    )}
                   </div>
                 </div>
                 
@@ -117,6 +179,41 @@ const ONJNCitiesWidget = () => {
                     style={{ width: `${percentage}%` }}
                   ></div>
                 </div>
+
+                {/* Expanded Sectors for Bucharest */}
+                {isExpanded && hasSectors && (
+                  <div className="mt-3 ml-8 space-y-2 border-l-2 border-blue-200 dark:border-blue-700 pl-4">
+                    {Object.values(city.sectors).map((sector, sectorIndex) => {
+                      const sectorPercentage = (sector.total / city.total) * 100
+                      return (
+                        <div key={sector.sector} className="text-sm">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <span className="font-medium text-slate-700 dark:text-slate-300">
+                                {sector.sector}
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <span className="font-bold text-blue-600 dark:text-blue-400 text-sm">
+                                {sector.total}
+                              </span>
+                              <span className="text-xs text-green-600 dark:text-green-400 ml-2">
+                                {sector.active} active
+                              </span>
+                            </div>
+                          </div>
+                          <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-blue-400 rounded-full transition-all duration-500"
+                              style={{ width: `${sectorPercentage}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )
           })

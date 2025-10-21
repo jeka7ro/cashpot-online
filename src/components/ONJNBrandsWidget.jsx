@@ -2,21 +2,34 @@ import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Award, TrendingUp, Target } from 'lucide-react'
 
-const ONJNBrandsWidget = () => {
+const ONJNBrandsWidget = ({ operators = [] }) => {
   const [brands, setBrands] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadBrands()
-  }, [])
+    if (operators.length > 0) {
+      loadBrands()
+    } else {
+      loadBrandsFromAPI()
+    }
+  }, [operators])
 
-  const loadBrands = async () => {
+  const loadBrandsFromAPI = async () => {
     try {
       const response = await axios.get('/api/onjn-operators')
+      processBrandsData(response.data)
+    } catch (error) {
+      console.error('Error loading brands:', error)
+      setLoading(false)
+    }
+  }
+
+  const processBrandsData = (data) => {
+    try {
       
-      // Group by brand and count
+      // Group by brand and count - handle multiple brands per operator
       const brandStats = {}
-      response.data.forEach(op => {
+      data.forEach(op => {
         const brand = op.brand_name || 'Necunoscut'
         if (!brandStats[brand]) {
           brandStats[brand] = {
@@ -48,6 +61,10 @@ const ONJNBrandsWidget = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const loadBrands = () => {
+    processBrandsData(operators)
   }
 
   if (loading) {
