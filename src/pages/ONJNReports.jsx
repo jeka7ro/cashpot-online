@@ -179,7 +179,7 @@ const ONJNReports = () => {
               </div>
               <div>
                 <h3 className="text-lg font-bold text-slate-800 dark:text-white">Operatori ONJN</h3>
-                <p className="text-slate-600 dark:text-slate-400">Date sincronizate din Registrul Public ONJN pentru MAX BET</p>
+                <p className="text-slate-600 dark:text-slate-400">TOȚI operatorii din Registrul Public ONJN (până la 25,000 sloturi)</p>
               </div>
             </div>
             <ExternalLink className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
@@ -187,7 +187,7 @@ const ONJNReports = () => {
           <div className="mt-4 grid grid-cols-4 gap-4">
             <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-3">
               <div className="text-xs text-slate-600 dark:text-slate-400">Total Sloturi</div>
-              <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">2,864+</div>
+              <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">25K+</div>
             </div>
             <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
               <div className="text-xs text-slate-600 dark:text-slate-400">În Exploatare</div>

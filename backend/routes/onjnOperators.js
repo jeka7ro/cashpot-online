@@ -50,8 +50,10 @@ const isDateExpired = (dateStr) => {
 }
 
 // Scrape single page from ONJN
-const scrapePage = async (pageNumber) => {
-  const url = `https://registru.onjn.gov.ro/mijloace-de-joc/1?in_use=1&company_id=18&page=${pageNumber}`
+const scrapePage = async (pageNumber, companyId = null) => {
+  // If companyId provided, filter by company, otherwise get ALL operators
+  const companyFilter = companyId ? `&company_id=${companyId}` : ''
+  const url = `https://registru.onjn.gov.ro/mijloace-de-joc/1?in_use=1${companyFilter}&page=${pageNumber}`
   
   console.log(`🕷️ Scraping page ${pageNumber}: ${url}`)
   
@@ -228,17 +230,50 @@ router.post('/refresh', async (req, res) => {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
     
-    console.log('🚀 Starting ONJN scraping...')
+    // Get parameters from request body
+    const { 
+      companyId = null,  // null = ALL operators, 18 = MAX BET, etc.
+      maxPages = null    // null = auto-detect, number = limit pages
+    } = req.body || {}
     
-    const totalPages = 58 // 2864 slots ÷ 50 per page
-    let allSlots = []
-    let successPages = 0
+    console.log('🚀 Starting ONJN scraping...')
+    console.log(`📋 Company filter: ${companyId || 'ALL OPERATORS'}`)
+    console.log(`📄 Max pages: ${maxPages || 'AUTO-DETECT'}`)
+    
+    // First, scrape page 1 to detect total pages
+    const firstPage = await scrapePage(1, companyId)
+    
+    // Try to detect total results from page (we'll use a reasonable default)
+    // For ALL operators: ~103,689 slots = ~2074 pages
+    // For MAX BET (company_id=18): ~2,864 slots = ~58 pages
+    let totalPages
+    if (maxPages) {
+      totalPages = maxPages
+    } else if (companyId === 18) {
+      totalPages = 58  // MAX BET specific
+    } else if (companyId) {
+      totalPages = 100  // Default for specific company
+    } else {
+      totalPages = 500  // Limit to 500 pages (25,000 slots) for ALL to avoid overload
+    }
+    
+    console.log(`📊 Total pages to scrape: ${totalPages}`)
+    
+    let allSlots = [...firstPage]
+    let successPages = 1
     let errorPages = 0
     
-    // Scrape all pages
-    for (let page = 1; page <= totalPages; page++) {
+    // Scrape remaining pages
+    for (let page = 2; page <= totalPages; page++) {
       try {
-        const slots = await scrapePage(page)
+        const slots = await scrapePage(page, companyId)
+        
+        // If page returns no results, we've reached the end
+        if (slots.length === 0) {
+          console.log(`📭 Page ${page} returned no results - stopping scraping`)
+          break
+        }
+        
         allSlots = allSlots.concat(slots)
         successPages++
         

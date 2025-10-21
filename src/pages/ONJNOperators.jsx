@@ -54,12 +54,17 @@ const ONJNOperators = () => {
   const handleRefresh = async () => {
     try {
       setRefreshing(true)
-      toast.loading('Sincronizare ONJN în curs... Poate dura 2-3 minute.', { id: 'refresh' })
+      toast.loading('Sincronizare ONJN în curs... Poate dura 8-10 minute pentru TOȚI operatorii.', { id: 'refresh' })
       
-      const response = await axios.post('/api/onjn-operators/refresh')
+      // Send request with no companyId filter to get ALL operators
+      // maxPages: 500 = ~25,000 slots (limit to avoid overload)
+      const response = await axios.post('/api/onjn-operators/refresh', {
+        companyId: null,  // null = ALL operators
+        maxPages: 500     // Limit to 500 pages (~25,000 slots)
+      })
       
       toast.success(
-        `✅ Sincronizare completă!\n${response.data.inserted} adăugate, ${response.data.updated} actualizate`,
+        `✅ Sincronizare completă!\n${response.data.scraped.toLocaleString('ro-RO')} sloturi scanate\n${response.data.inserted} adăugate, ${response.data.updated} actualizate`,
         { id: 'refresh', duration: 5000 }
       )
       
@@ -255,7 +260,7 @@ const ONJNOperators = () => {
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Operatori ONJN</h2>
-                <p className="text-slate-600 dark:text-slate-400">Date sincronizate din Registrul Public ONJN</p>
+                <p className="text-slate-600 dark:text-slate-400">TOȚI operatorii din Registrul Public ONJN (până la 25,000 sloturi)</p>
               </div>
             </div>
             <button
