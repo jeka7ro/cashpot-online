@@ -3434,6 +3434,169 @@ app.put('/api/approvals/:id', authenticateUser, upload.single('file'), async (re
   }
 })
 
+// ==================== AUTHORITIES ENDPOINTS ====================
+
+// Get all authorities
+app.get('/api/authorities', async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    const result = await pool.query('SELECT * FROM authorities ORDER BY name ASC')
+    res.json(result.rows)
+  } catch (error) {
+    console.error('Authorities GET error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Create authority
+app.post('/api/authorities', authenticateUser, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+    
+    const { name, type, contact_info, address, email, phone, website } = req.body
+    
+    const result = await pool.query(
+      `INSERT INTO authorities (name, type, contact_info, address, email, phone, website, created_at, updated_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) 
+       RETURNING *`,
+      [name, type, contact_info, address, email, phone, website]
+    )
+    
+    res.json(result.rows[0])
+  } catch (error) {
+    console.error('Authorities POST error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Update authority
+app.put('/api/authorities/:id', authenticateUser, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+    
+    const { id } = req.params
+    const { name, type, contact_info, address, email, phone, website } = req.body
+    
+    const result = await pool.query(
+      `UPDATE authorities 
+       SET name = $1, type = $2, contact_info = $3, address = $4, email = $5, phone = $6, website = $7, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $8 
+       RETURNING *`,
+      [name, type, contact_info, address, email, phone, website, id]
+    )
+    
+    res.json(result.rows[0])
+  } catch (error) {
+    console.error('Authorities PUT error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Delete authority
+app.delete('/api/authorities/:id', authenticateUser, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+    
+    const { id } = req.params
+    await pool.query('DELETE FROM authorities WHERE id = $1', [id])
+    
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Authorities DELETE error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// ==================== SOFTWARE ENDPOINTS ====================
+
+// Get all software
+app.get('/api/software', async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    const result = await pool.query('SELECT * FROM software ORDER BY name ASC')
+    res.json(result.rows)
+  } catch (error) {
+    console.error('Software GET error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Create software
+app.post('/api/software', authenticateUser, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+    
+    const { name, version, provider, description, checksum_md5, checksum_sha256 } = req.body
+    
+    const result = await pool.query(
+      `INSERT INTO software (name, version, provider, description, checksum_md5, checksum_sha256, created_at, updated_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) 
+       RETURNING *`,
+      [name, version, provider, description, checksum_md5, checksum_sha256]
+    )
+    
+    res.json(result.rows[0])
+  } catch (error) {
+    console.error('Software POST error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Update software
+app.put('/api/software/:id', authenticateUser, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+    
+    const { id } = req.params
+    const { name, version, provider, description, checksum_md5, checksum_sha256 } = req.body
+    
+    const result = await pool.query(
+      `UPDATE software 
+       SET name = $1, version = $2, provider = $3, description = $4, checksum_md5 = $5, checksum_sha256 = $6, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $7 
+       RETURNING *`,
+      [name, version, provider, description, checksum_md5, checksum_sha256, id]
+    )
+    
+    res.json(result.rows[0])
+  } catch (error) {
+    console.error('Software PUT error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Delete software
+app.delete('/api/software/:id', authenticateUser, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+    
+    const { id } = req.params
+    await pool.query('DELETE FROM software WHERE id = $1', [id])
+    
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Software DELETE error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
 
 // Cyber selective sync endpoints
 app.post('/api/cyber/sync-locations', async (req, res) => {
