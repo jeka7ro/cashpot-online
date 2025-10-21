@@ -172,7 +172,7 @@ const ONJNOperators = () => {
       // Start the refresh
       const response = await axios.post('/api/onjn-operators/refresh', {
         companyId: null,  // null = ALL operators
-        maxPages: 2200    // Allow all ~103,689 slots (~2,074 pages + buffer)
+        maxPages: 1000    // Allow all ~48,755 slots (~975 pages + buffer)
       })
       
       if (response.data.success) {
