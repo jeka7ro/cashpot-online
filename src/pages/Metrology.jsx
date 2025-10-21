@@ -381,32 +381,859 @@ const Metrology = () => {
       label: 'DOCUMENT CVT', 
       sortable: false,
       render: (item) => (
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center justify-center">
           {item.cvtFile ? (
-            <>
+            <button
+              onClick={() => window.open(item.cvtFile, '_blank')}
+              className="p-2 bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-900/20 dark:hover:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 rounded-lg transition-colors"
+              title="Vizualizează documentul CVT"
+            >
+              <Eye className="w-5 h-5" />
+            </button>
+          ) : (
+            <span className="text-slate-400 text-sm">-</span>
+          )}
+        </div>
+      )
+    },
+    { 
+      key: 'created_info', 
+      label: 'CREAT DE / DATA', 
+      sortable: true, 
+      render: (item) => (
+        <div className="space-y-1">
+          <div className="text-slate-800 dark:text-slate-200 font-medium text-sm">
+            {item.created_by || 'Necunoscut'}
+          </div>
+          <div className="text-slate-500 dark:text-slate-400 text-xs">
+            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+          </div>
+        </div>
+      )
+    }
+  ]
+
+  // Approvals columns
+  const approvalsColumns = [
+    { 
+      key: 'approval_number', 
+      label: 'NUMĂR APROBARE', 
+      sortable: true,
+      render: (item) => (
+        <button
+          onClick={() => navigate(`/approval-detail/${item.id}`)}
+          className="text-blue-600 hover:text-blue-800 font-semibold hover:underline transition-colors"
+        >
+          {item.approval_number}
+        </button>
+      )
+    },
+    { key: 'approval_type', label: 'TIP APROBARE', sortable: true },
+    { key: 'provider', label: 'FURNIZOR', sortable: true },
+    { key: 'cabinet', label: 'CABINET', sortable: true },
+    { 
+      key: 'approval_date', 
+      label: 'DATA APROBARE', 
+      sortable: true,
+      render: (item) => (
+        <div className="text-slate-600">
+          {item.approval_date ? new Date(item.approval_date).toLocaleDateString('ro-RO') : 'N/A'}
+        </div>
+      )
+    },
+    { 
+      key: 'expiry_date', 
+      label: 'DATA EXPIRARE', 
+      sortable: true,
+      render: (item) => {
+        if (!item.expiry_date) return <span className="text-slate-400">N/A</span>
+        
+        const expiryDate = new Date(item.expiry_date)
+        const today = new Date()
+        const diffTime = expiryDate - today
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        
+        let colorClass = 'text-green-600'
+        if (diffDays < 0) {
+          colorClass = 'text-red-600'
+        } else if (diffDays <= 30) {
+          colorClass = 'text-orange-600'
+        }
+        
+        return (
+          <div className={colorClass}>
+            {expiryDate.toLocaleDateString('ro-RO')}
+          </div>
+        )
+      }
+    },
+    { 
+      key: 'created_info', 
+      label: 'CREAT DE / DATA', 
+      sortable: true, 
+      render: (item) => (
+        <div className="space-y-1">
+          <div className="text-slate-800 dark:text-slate-200 font-medium text-sm">
+            {item.created_by || 'Necunoscut'}
+          </div>
+          <div className="text-slate-500 dark:text-slate-400 text-xs">
+            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+          </div>
+        </div>
+      )
+    }
+  ]
+
+  // Commissions columns
+  const commissionsColumns = [
+    { key: 'commission_number', label: 'NUMĂR COMISIE', sortable: true },
+    { key: 'members', label: 'MEMBRI', sortable: false, render: (item) => {
+      const membersList = item.members ? (typeof item.members === 'string' ? item.members.split(',') : item.members) : []
+      return (
+        <div className="text-sm">
+          {membersList.length > 0 ? membersList.join(', ') : 'N/A'}
+        </div>
+      )
+    }},
+    { 
+      key: 'date_formed', 
+      label: 'DATA FORMARE', 
+      sortable: true,
+      render: (item) => (
+        <div className="text-slate-600">
+          {item.date_formed ? new Date(item.date_formed).toLocaleDateString('ro-RO') : 'N/A'}
+        </div>
+      )
+    },
+    { key: 'status', label: 'STATUS', sortable: true },
+    { 
+      key: 'created_info', 
+      label: 'CREAT DE / DATA', 
+      sortable: true, 
+      render: (item) => (
+        <div className="space-y-1">
+          <div className="text-slate-800 dark:text-slate-200 font-medium text-sm">
+            {item.created_by || 'Necunoscut'}
+          </div>
+          <div className="text-slate-500 dark:text-slate-400 text-xs">
+            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+          </div>
+        </div>
+      )
+    }
+  ]
+
+  // Software columns
+  const softwareColumns = [
+    { key: 'software_name', label: 'NUME SOFTWARE', sortable: true },
+    { key: 'version', label: 'VERSIUNE', sortable: true },
+    { key: 'provider', label: 'FURNIZOR', sortable: true },
+    { 
+      key: 'release_date', 
+      label: 'DATA LANSARE', 
+      sortable: true,
+      render: (item) => (
+        <div className="text-slate-600">
+          {item.release_date ? new Date(item.release_date).toLocaleDateString('ro-RO') : 'N/A'}
+        </div>
+      )
+    },
+    { key: 'status', label: 'STATUS', sortable: true },
+    { 
+      key: 'created_info', 
+      label: 'CREAT DE / DATA', 
+      sortable: true, 
+      render: (item) => (
+        <div className="space-y-1">
+          <div className="text-slate-800 dark:text-slate-200 font-medium text-sm">
+            {item.created_by || 'Necunoscut'}
+          </div>
+          <div className="text-slate-500 dark:text-slate-400 text-xs">
+            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+          </div>
+        </div>
+      )
+    }
+  ]
+
+  // Authorities columns
+  const authoritiesColumns = [
+    { key: 'authority_name', label: 'NUME AUTORITATE', sortable: true },
+    { key: 'contact_person', label: 'PERSOANĂ CONTACT', sortable: true },
+    { key: 'contact_email', label: 'EMAIL', sortable: true },
+    { key: 'contact_phone', label: 'TELEFON', sortable: true },
+    { key: 'address', label: 'ADRESĂ', sortable: true },
+    { 
+      key: 'created_info', 
+      label: 'CREAT DE / DATA', 
+      sortable: true, 
+      render: (item) => (
+        <div className="space-y-1">
+          <div className="text-slate-800 dark:text-slate-200 font-medium text-sm">
+            {item.created_by || 'Necunoscut'}
+          </div>
+          <div className="text-slate-500 dark:text-slate-400 text-xs">
+            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+          </div>
+        </div>
+      )
+    }
+  ]
+
+  // Render main table
+  if (!activeTab) {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="card p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="p-3 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-2xl shadow-lg shadow-cyan-500/25">
+                  <Activity className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Metrologie</h2>
+                  <p className="text-slate-600 dark:text-slate-400">Gestionare certificate și verificări tehnice</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => setShowONJNCalendar(true)}
+                  className="btn-secondary flex items-center space-x-2"
+                >
+                  <Calendar className="w-4 h-4" />
+                  <span>Calendar ONJN</span>
+                </button>
+                <button
+                  onClick={handleCreate}
+                  className="btn-primary flex items-center space-x-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Adaugă CVT</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Sub-navigation */}
+          <div className="card p-4">
+            <div className="flex space-x-2 overflow-x-auto">
               <button
-                onClick={() => {
-                  if (item.cvtFile) {
-                    const link = document.createElement('a')
-                    link.href = item.cvtFile
-                    link.download = `CVT-${item.cvt_number}.pdf`
-                    link.click()
-                  }
-                }}
-                className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
-                title="Vizualizează documentul CVT"
+                onClick={() => setActiveTab(null)}
+                className="px-4 py-2 bg-cyan-100 text-cyan-700 rounded-lg font-medium whitespace-nowrap"
               >
-                <Eye className="w-4 h-4" />
+                CVT-uri
               </button>
               <button
+                onClick={() => setActiveTab('approvals')}
+                className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg font-medium whitespace-nowrap transition-colors"
+              >
+                Aprobări
+              </button>
+              <button
+                onClick={() => setActiveTab('commissions')}
+                className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg font-medium whitespace-nowrap transition-colors"
+              >
+                Comisii
+              </button>
+              <button
+                onClick={() => setActiveTab('software')}
+                className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg font-medium whitespace-nowrap transition-colors"
+              >
+                Software
+              </button>
+              <button
+                onClick={() => setActiveTab('authorities')}
+                className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg font-medium whitespace-nowrap transition-colors"
+              >
+                Autorități
+              </button>
+            </div>
+          </div>
+
+          {/* Search and Filters */}
+          <div className="card p-6">
+            <div className="flex items-center space-x-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Caută după număr CVT, furnizor, cabinet..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                />
+              </div>
+              <ExportButtons
+                data={filteredMetrology}
+                filename="metrology"
+                onExportExcel={() => exportToExcel(filteredMetrology, 'metrology')}
+                onExportPDF={() => exportToPDF(filteredMetrology, 'metrology')}
+              />
+            </div>
+          </div>
+
+          {/* Metrology Table */}
+          <div className="card p-6">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+              </div>
+            ) : filteredMetrology.length === 0 ? (
+              <div className="text-center py-12">
+                <Activity className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-slate-600 mb-2">Nu există certificate</h3>
+                <p className="text-slate-500">Adaugă primul certificat pentru a începe</p>
+              </div>
+            ) : (
+              <DataTable
+                data={filteredMetrology}
+                columns={columns}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                searchTerm={searchTerm}
+                selectedItems={selectedItems}
+                onSelectAll={handleSelectAll}
+                onSelectItem={handleSelectItem}
+                moduleColor="cyan"
+              />
+            )}
+          </div>
+
+          {/* Modals */}
+          {showModal && (
+            <MetrologyModal
+              item={editingItem}
+              onClose={() => {
+                setShowModal(false)
+                setEditingItem(null)
+              }}
+              onSave={handleSave}
+              providers={providers}
+              cabinets={cabinets}
+              gameMixes={gameMixes}
+            />
+          )}
+
+          {showDetailModal && (
+            <MetrologyDetailModal
+              item={viewingItem}
+              onClose={() => {
+                setShowDetailModal(false)
+                setViewingItem(null)
+              }}
+            />
+          )}
+
+          {showONJNCalendar && (
+            <ONJNCalendarModal
+              onClose={() => setShowONJNCalendar(false)}
+            />
+          )}
+        </div>
+      </Layout>
+    )
+  }
+
+  // Render Approvals tab
+  if (activeTab === 'approvals') {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="card p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => setActiveTab(null)}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                >
+                  <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                </button>
+                <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl shadow-lg shadow-blue-500/25">
+                  <FileCheck className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Aprobări de Tip</h2>
+                  <p className="text-slate-600 dark:text-slate-400">Gestionare aprobări echipamente</p>
+                </div>
+              </div>
+              <button
                 onClick={() => {
-                  if (item.cvtFile) {
-                    const link = document.createElement('a')
-                    link.href = item.cvtFile
-                    link.download = `CVT-${item.cvt_number}.pdf`
-                    link.click()
+                  setEditingApproval(null)
+                  setShowApprovalModal(true)
+                }}
+                className="btn-primary flex items-center space-x-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Adaugă Aprobare</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Sub-navigation */}
+          <div className="card p-4">
+            <div className="flex space-x-2 overflow-x-auto">
+              <button
+                onClick={() => setActiveTab(null)}
+                className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg font-medium whitespace-nowrap transition-colors"
+              >
+                CVT-uri
+              </button>
+              <button
+                onClick={() => setActiveTab('approvals')}
+                className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg font-medium whitespace-nowrap"
+              >
+                Aprobări
+              </button>
+              <button
+                onClick={() => setActiveTab('commissions')}
+                className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg font-medium whitespace-nowrap transition-colors"
+              >
+                Comisii
+              </button>
+              <button
+                onClick={() => setActiveTab('software')}
+                className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg font-medium whitespace-nowrap transition-colors"
+              >
+                Software
+              </button>
+              <button
+                onClick={() => setActiveTab('authorities')}
+                className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg font-medium whitespace-nowrap transition-colors"
+              >
+                Autorități
+              </button>
+            </div>
+          </div>
+
+          {/* Approvals Table */}
+          <div className="card p-6">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+              </div>
+            ) : approvals.length === 0 ? (
+              <div className="text-center py-12">
+                <FileCheck className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-slate-600 mb-2">Nu există aprobări</h3>
+                <p className="text-slate-500">Adaugă prima aprobare pentru a începe</p>
+              </div>
+            ) : (
+              <DataTable
+                data={approvals}
+                columns={approvalsColumns}
+                onEdit={(item) => {
+                  setEditingApproval(item)
+                  setShowApprovalModal(true)
+                }}
+                onDelete={async (item) => {
+                  if (window.confirm('Sigur vrei să ștergi această aprobare?')) {
+                    await deleteItem('approvals', item.id)
                   }
                 }}
+                moduleColor="blue"
+              />
+            )}
+          </div>
+
+          {/* Modals */}
+          {showApprovalModal && (
+            <ApprovalModal
+              item={editingApproval}
+              onClose={() => {
+                setShowApprovalModal(false)
+                setEditingApproval(null)
+              }}
+              onSave={handleApprovalSave}
+              providers={providers}
+              cabinets={cabinets}
+            />
+          )}
+        </div>
+      </Layout>
+    )
+  }
+
+  // Render Commissions tab
+  if (activeTab === 'commissions') {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="card p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => setActiveTab(null)}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                >
+                  <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                </button>
+                <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl shadow-lg shadow-purple-500/25">
+                  <Users className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Comisii Metrologie</h2>
+                  <p className="text-slate-600 dark:text-slate-400">Gestionare comisii de verificare</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setEditingCommission(null)
+                  setShowCommissionModal(true)
+                }}
+                className="btn-primary flex items-center space-x-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Adaugă Comisie</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Sub-navigation */}
+          <div className="card p-4">
+            <div className="flex space-x-2 overflow-x-auto">
+              <button
+                onClick={() => setActiveTab(null)}
+                className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg font-medium whitespace-nowrap transition-colors"
+              >
+                CVT-uri
+              </button>
+              <button
+                onClick={() => setActiveTab('approvals')}
+                className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg font-medium whitespace-nowrap transition-colors"
+              >
+                Aprobări
+              </button>
+              <button
+                onClick={() => setActiveTab('commissions')}
+                className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg font-medium whitespace-nowrap"
+              >
+                Comisii
+              </button>
+              <button
+                onClick={() => setActiveTab('software')}
+                className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg font-medium whitespace-nowrap transition-colors"
+              >
+                Software
+              </button>
+              <button
+                onClick={() => setActiveTab('authorities')}
+                className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg font-medium whitespace-nowrap transition-colors"
+              >
+                Autorități
+              </button>
+            </div>
+          </div>
+
+          {/* Commissions Table */}
+          <div className="card p-6">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+              </div>
+            ) : commissions.length === 0 ? (
+              <div className="text-center py-12">
+                <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-slate-600 mb-2">Nu există comisii</h3>
+                <p className="text-slate-500">Adaugă prima comisie pentru a începe</p>
+              </div>
+            ) : (
+              <DataTable
+                data={commissions}
+                columns={commissionsColumns}
+                onEdit={(item) => {
+                  setEditingCommission(item)
+                  setShowCommissionModal(true)
+                }}
+                onDelete={async (item) => {
+                  if (window.confirm('Sigur vrei să ștergi această comisie?')) {
+                    const response = await fetch(`/api/commissions/${item.id}`, {
+                      method: 'DELETE'
+                    })
+                    if (response.ok) {
+                      const newData = await fetch('/api/commissions')
+                      const data = await newData.json()
+                      setCommissions(data)
+                    }
+                  }
+                }}
+                moduleColor="purple"
+              />
+            )}
+          </div>
+
+          {/* Modals */}
+          {showCommissionModal && (
+            <CommissionModal
+              item={editingCommission}
+              onClose={() => {
+                setShowCommissionModal(false)
+                setEditingCommission(null)
+              }}
+              onSave={handleCommissionSave}
+            />
+          )}
+        </div>
+      </Layout>
+    )
+  }
+
+  // Render Software tab
+  if (activeTab === 'software') {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="card p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => setActiveTab(null)}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                >
+                  <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                </button>
+                <div className="p-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl shadow-lg shadow-green-500/25">
+                  <Settings className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Software Jocuri</h2>
+                  <p className="text-slate-600 dark:text-slate-400">Gestionare versiuni software</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setEditingSoftware(null)
+                  setShowSoftwareModal(true)
+                }}
+                className="btn-primary flex items-center space-x-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Adaugă Software</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Sub-navigation */}
+          <div className="card p-4">
+            <div className="flex space-x-2 overflow-x-auto">
+              <button
+                onClick={() => setActiveTab(null)}
+                className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg font-medium whitespace-nowrap transition-colors"
+              >
+                CVT-uri
+              </button>
+              <button
+                onClick={() => setActiveTab('approvals')}
+                className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg font-medium whitespace-nowrap transition-colors"
+              >
+                Aprobări
+              </button>
+              <button
+                onClick={() => setActiveTab('commissions')}
+                className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg font-medium whitespace-nowrap transition-colors"
+              >
+                Comisii
+              </button>
+              <button
+                onClick={() => setActiveTab('software')}
+                className="px-4 py-2 bg-green-100 text-green-700 rounded-lg font-medium whitespace-nowrap"
+              >
+                Software
+              </button>
+              <button
+                onClick={() => setActiveTab('authorities')}
+                className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg font-medium whitespace-nowrap transition-colors"
+              >
+                Autorități
+              </button>
+            </div>
+          </div>
+
+          {/* Software Table */}
+          <div className="card p-6">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+              </div>
+            ) : software.length === 0 ? (
+              <div className="text-center py-12">
+                <Settings className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-slate-600 mb-2">Nu există software</h3>
+                <p className="text-slate-500">Adaugă primul software pentru a începe</p>
+              </div>
+            ) : (
+              <DataTable
+                data={software}
+                columns={softwareColumns}
+                onEdit={(item) => {
+                  setEditingSoftware(item)
+                  setShowSoftwareModal(true)
+                }}
+                onDelete={async (item) => {
+                  if (window.confirm('Sigur vrei să ștergi acest software?')) {
+                    const response = await fetch(`/api/software/${item.id}`, {
+                      method: 'DELETE'
+                    })
+                    if (response.ok) {
+                      const newData = await fetch('/api/software')
+                      const data = await newData.json()
+                      setSoftware(data)
+                    }
+                  }
+                }}
+                moduleColor="green"
+              />
+            )}
+          </div>
+
+          {/* Modals */}
+          {showSoftwareModal && (
+            <SoftwareModal
+              item={editingSoftware}
+              onClose={() => {
+                setShowSoftwareModal(false)
+                setEditingSoftware(null)
+              }}
+              onSave={handleSoftwareSave}
+              providers={providers}
+            />
+          )}
+        </div>
+      </Layout>
+    )
+  }
+
+  // Render Authorities tab
+  if (activeTab === 'authorities') {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="card p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => setActiveTab(null)}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                >
+                  <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                </button>
+                <div className="p-3 bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl shadow-lg shadow-orange-500/25">
+                  <Wrench className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Autorități Metrologie</h2>
+                  <p className="text-slate-600 dark:text-slate-400">Gestionare autorități de verificare</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setEditingAuthority(null)
+                  setShowAuthorityModal(true)
+                }}
+                className="btn-primary flex items-center space-x-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Adaugă Autoritate</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Sub-navigation */}
+          <div className="card p-4">
+            <div className="flex space-x-2 overflow-x-auto">
+              <button
+                onClick={() => setActiveTab(null)}
+                className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg font-medium whitespace-nowrap transition-colors"
+              >
+                CVT-uri
+              </button>
+              <button
+                onClick={() => setActiveTab('approvals')}
+                className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg font-medium whitespace-nowrap transition-colors"
+              >
+                Aprobări
+              </button>
+              <button
+                onClick={() => setActiveTab('commissions')}
+                className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg font-medium whitespace-nowrap transition-colors"
+              >
+                Comisii
+              </button>
+              <button
+                onClick={() => setActiveTab('software')}
+                className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg font-medium whitespace-nowrap transition-colors"
+              >
+                Software
+              </button>
+              <button
+                onClick={() => setActiveTab('authorities')}
+                className="px-4 py-2 bg-orange-100 text-orange-700 rounded-lg font-medium whitespace-nowrap"
+              >
+                Autorități
+              </button>
+            </div>
+          </div>
+
+          {/* Authorities Table */}
+          <div className="card p-6">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+              </div>
+            ) : authorities.length === 0 ? (
+              <div className="text-center py-12">
+                <Wrench className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-slate-600 mb-2">Nu există autorități</h3>
+                <p className="text-slate-500">Adaugă prima autoritate pentru a începe</p>
+              </div>
+            ) : (
+              <DataTable
+                data={authorities}
+                columns={authoritiesColumns}
+                onEdit={(item) => {
+                  setEditingAuthority(item)
+                  setShowAuthorityModal(true)
+                }}
+                onDelete={async (item) => {
+                  if (window.confirm('Sigur vrei să ștergi această autoritate?')) {
+                    const response = await fetch(`/api/authorities/${item.id}`, {
+                      method: 'DELETE'
+                    })
+                    if (response.ok) {
+                      const newData = await fetch('/api/authorities')
+                      const data = await newData.json()
+                      setAuthorities(data)
+                    }
+                  }
+                }}
+                moduleColor="orange"
+              />
+            )}
+          </div>
+
+          {/* Modals */}
+          {showAuthorityModal && (
+            <AuthorityModal
+              item={editingAuthority}
+              onClose={() => {
+                setShowAuthorityModal(false)
+                setEditingAuthority(null)
+              }}
+              onSave={handleAuthoritySave}
+            />
+          )}
+        </div>
+      </Layout>
+    )
+  }
+}
+
+export default Metrology
                 className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
                 title="Descarcă documentul CVT"
               >
