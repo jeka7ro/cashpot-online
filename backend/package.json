@@ -9,7 +9,8 @@
     "dev": "nodemon server-postgres.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "export-marina": "node export-marina-data.js",
-    "compress-pdfs": "node scripts/compress-existing-pdfs.js"
+    "compress-pdfs": "node scripts/compress-existing-pdfs.js",
+    "import-onjn": "node scripts/import-onjn-data.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.450.0",
@@ -18,7 +19,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "archiver": "^7.0.1",
-    "axios": "^1.6.0",
+    "axios": "^1.12.2",
     "bcryptjs": "^2.4.3",
     "cheerio": "^1.1.2",
     "compression": "^1.8.1",
