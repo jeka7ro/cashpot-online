@@ -278,7 +278,7 @@ router.post('/refresh', async (req, res) => {
     const firstPage = await scrapePage(1, companyId)
     
     // Try to detect total results from page (we'll use a reasonable default)
-    // For ALL operators: ~48,755 slots = ~975 pages
+    // For ALL operators: ~58,533 slots = ~1,171 pages (including out of service)
     // For MAX BET (company_id=18): ~2,864 slots = ~58 pages
     let totalPages
     if (maxPages) {
@@ -288,7 +288,7 @@ router.post('/refresh', async (req, res) => {
     } else if (companyId) {
       totalPages = 100  // Default for specific company
     } else {
-      totalPages = 1000  // Allow all ~48,755 slots (~975 pages + buffer for safety)
+      totalPages = 1200  // Allow all ~58,533 slots (~1,171 pages + buffer for safety)
     }
     
     console.log(`📊 Total pages to scrape: ${totalPages}`)
