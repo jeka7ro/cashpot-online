@@ -38,7 +38,7 @@ import metrologyRoutes from './routes/metrology.js'
 import warehouseRoutes from './routes/warehouse.js'
 import promotionsRoutes from './routes/promotions.js'
 import cyberRoutes from './routes/cyber.js'
-import cyberDirectRoutes from './routes/cyberDirect.js'
+// import cyberDirectRoutes from './routes/cyberDirect.js' // DISABLED - using JSON import only
 import tasksRoutes from './routes/tasks.js'
 import messagesRoutes from './routes/messages.js'
 import notificationsRoutes from './routes/notifications.js'
@@ -1072,8 +1072,8 @@ try {
   app.use('/api/promotions', promotionsRoutes)
   console.log('📋 Registering /api/cyber IMMEDIATELY...')
   app.use('/api/cyber', cyberRoutes)
-  console.log('📋 Registering /api/cyber-direct IMMEDIATELY...')
-  app.use('/api/cyber-direct', cyberDirectRoutes)
+  // console.log('📋 Registering /api/cyber-direct IMMEDIATELY...')
+  // app.use('/api/cyber-direct', cyberDirectRoutes) // DISABLED - using JSON import only
   console.log('📋 Registering /api/tasks IMMEDIATELY...')
   app.use('/api/tasks', authenticateUser, tasksRoutes)
   console.log('📋 Registering /api/messages IMMEDIATELY...')
