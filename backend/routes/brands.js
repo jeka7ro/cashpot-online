@@ -1,9 +1,6 @@
 import express from 'express'
 import multer from 'multer'
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
-import { authenticateUser } from '../middleware/authenticate.js'
-import { authorizePermission } from '../middleware/authorizePermission.js'
-import { MODULES } from '../../src/utils/permissions.js'
 
 const router = express.Router()
 
@@ -45,7 +42,7 @@ const uploadToS3 = async (file, folder = 'brands') => {
 // @route   GET /api/brands
 // @desc    Get all brands
 // @access  Private
-router.get('/', authenticateUser, authorizePermission(MODULES.ONJN), async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const pool = req.app.get('pool')
     
@@ -74,7 +71,7 @@ router.get('/', authenticateUser, authorizePermission(MODULES.ONJN), async (req,
 // @route   GET /api/brands/:brandName
 // @desc    Get single brand with all slots
 // @access  Private
-router.get('/:brandName', authenticateUser, authorizePermission(MODULES.ONJN), async (req, res) => {
+router.get('/:brandName', async (req, res) => {
   try {
     const pool = req.app.get('pool')
     const { brandName } = req.params
@@ -112,7 +109,7 @@ router.get('/:brandName', authenticateUser, authorizePermission(MODULES.ONJN), a
 // @route   POST /api/brands
 // @desc    Create or update brand
 // @access  Private
-router.post('/', authenticateUser, authorizePermission(MODULES.ONJN), upload.single('logo'), async (req, res) => {
+router.post('/', upload.single('logo'), async (req, res) => {
   try {
     const pool = req.app.get('pool')
     const userId = req.user?.userId || 1
@@ -168,7 +165,7 @@ router.post('/', authenticateUser, authorizePermission(MODULES.ONJN), upload.sin
 // @route   DELETE /api/brands/:id
 // @desc    Delete brand
 // @access  Private (Admin only)
-router.delete('/:id', authenticateUser, authorizePermission(MODULES.ONJN), async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const pool = req.app.get('pool')
     const { id } = req.params
@@ -185,7 +182,7 @@ router.delete('/:id', authenticateUser, authorizePermission(MODULES.ONJN), async
 // @route   POST /api/brands/sync-from-onjn
 // @desc    Auto-create brands from ONJN operators data
 // @access  Private
-router.post('/sync-from-onjn', authenticateUser, authorizePermission(MODULES.ONJN), async (req, res) => {
+router.post('/sync-from-onjn', async (req, res) => {
   try {
     const pool = req.app.get('pool')
     const userId = req.user?.userId || 1
