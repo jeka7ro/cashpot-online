@@ -3,8 +3,8 @@ services:
     name: cashpot-backend
     env: node
     plan: free
-    buildCommand: cd backend && npm install && cd .. && cp package-backend.json package.json
-    startCommand: npm start
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && node server-postgres.js
     healthCheckPath: /health # CRITICAL REDEPLOY 2025-01-17 16:35 - CYBER ENDPOINTS 404 - MUST FIX NOW
     envVars:
       - key: DATABASE_URL
