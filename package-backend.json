@@ -1,0 +1,9 @@
+{
+  "name": "cashpot-backend-starter",
+  "version": "1.0.53",
+  "type": "module",
+  "scripts": {
+    "start": "cd backend && node server-postgres.js"
+  }
+}
+
