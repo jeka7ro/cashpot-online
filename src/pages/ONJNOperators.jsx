@@ -14,6 +14,7 @@ const ONJNOperators = () => {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [lastUpdate, setLastUpdate] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filters, setFilters] = useState({
     company: '',
@@ -34,6 +35,18 @@ const ONJNOperators = () => {
       setLoading(true)
       const response = await axios.get('/api/onjn-operators')
       setOperators(response.data)
+      
+      // Detect last update from most recent last_scraped_at
+      if (response.data.length > 0) {
+        const lastScraped = response.data
+          .map(op => op.last_scraped_at)
+          .filter(Boolean)
+          .sort((a, b) => new Date(b) - new Date(a))[0]
+        
+        if (lastScraped) {
+          setLastUpdate(new Date(lastScraped))
+        }
+      }
     } catch (error) {
       console.error('Error loading ONJN operators:', error)
       toast.error('Eroare la încărcarea datelor ONJN!')
@@ -261,6 +274,20 @@ const ONJNOperators = () => {
               <div>
                 <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Operatori ONJN</h2>
                 <p className="text-slate-600 dark:text-slate-400">TOȚI operatorii din Registrul Public ONJN (până la 25,000 sloturi)</p>
+                {lastUpdate && (
+                  <div className="mt-2 flex items-center space-x-2">
+                    <Calendar className="w-4 h-4 text-slate-500" />
+                    <span className="text-sm text-slate-500 dark:text-slate-400">
+                      Ultima actualizare: {lastUpdate.toLocaleString('ro-RO', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric', 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
             <button
@@ -272,6 +299,23 @@ const ONJNOperators = () => {
               <span>{refreshing ? 'Sincronizare...' : 'Refresh ONJN'}</span>
             </button>
           </div>
+          
+          {/* Empty State - First Time */}
+          {!loading && operators.length === 0 && (
+            <div className="mt-4 bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-200 dark:border-yellow-700 rounded-xl p-4">
+              <div className="flex items-center space-x-3">
+                <AlertCircle className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+                <div>
+                  <h3 className="font-semibold text-yellow-800 dark:text-yellow-300">
+                    Baza de date este goală
+                  </h3>
+                  <p className="text-sm text-yellow-700 dark:text-yellow-400">
+                    Apasă butonul "Refresh ONJN" pentru a sincroniza datele (8-10 minute, ~25,000 sloturi)
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Statistics */}
