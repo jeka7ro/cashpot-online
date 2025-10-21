@@ -34,7 +34,7 @@ import invoicesRoutes from './routes/invoices.js'
 import jackpotsRoutes from './routes/jackpots.js'
 import legalDocumentsRoutes from './routes/legalDocuments.js'
 import onjnReportsRoutes from './routes/onjnReports.js'
-import onjnOperatorsRoutes from './routes/onjnOperators.js'
+import onjnOperatorsRoutes, { refreshProgressManager } from './routes/onjnOperators.js'
 import brandsRoutes from './routes/brands.js'
 import metrologyRoutes from './routes/metrology.js'
 import warehouseRoutes from './routes/warehouse.js'
@@ -3146,8 +3146,190 @@ app.use('/api/invoices', invoicesRoutes)
 app.use('/api/jackpots', jackpotsRoutes)
 app.use('/api/legal-documents', legalDocumentsRoutes)
 app.use('/api/onjn-reports', onjnReportsRoutes)
-app.use('/api/onjn-operators', onjnOperatorsRoutes)
-app.use('/api/brands', brandsRoutes)
+
+// Public endpoint for refresh status (no authentication required)
+app.get('/api/onjn-operators/refresh-status', (req, res) => {
+  res.json(refreshProgressManager.get())
+})
+
+// Public endpoint for JSON import (no authentication required)
+app.post('/api/onjn-operators/import-json', async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+    
+    // Check if already importing
+    const currentProgress = refreshProgressManager.get()
+    if (currentProgress && currentProgress.status === 'running') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Import deja în curs. Vă rugăm să așteptați finalizarea.' 
+      })
+    }
+    
+    // Try multiple possible locations for the JSON file
+    const possiblePaths = [
+      path.join(__dirname, 'onjn-scraped-data.json'),
+      path.join(__dirname, 'backend', 'onjn-scraped-data.json'),
+      path.join(__dirname, '..', 'backend', 'onjn-scraped-data.json')
+    ]
+    
+    let jsonFilePath = null
+    for (const possiblePath of possiblePaths) {
+      if (fs.existsSync(possiblePath)) {
+        jsonFilePath = possiblePath
+        break
+      }
+    }
+    
+    if (!jsonFilePath) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Fișierul JSON nu a fost găsit pe server' 
+      })
+    }
+    
+    // Read and parse JSON file
+    const rawData = fs.readFileSync(jsonFilePath, 'utf8')
+    const data = JSON.parse(rawData)
+    
+    console.log(`📊 Importing ${data.length} slots from JSON file`)
+    
+    // Set progress to running
+    refreshProgressManager.set({
+      status: 'running',
+      currentPage: 0,
+      totalPages: Math.ceil(data.length / 100),
+      currentStep: 'Import din JSON în curs...',
+      slotsFound: data.length,
+      inserted: 0,
+      updated: 0,
+      errors: 0,
+      startTime: new Date()
+    })
+    
+    let inserted = 0
+    let updated = 0
+    let errors = 0
+    
+    // Process in batches of 100
+    const batchSize = 100
+    for (let i = 0; i < data.length; i += batchSize) {
+      const batch = data.slice(i, i + batchSize)
+      
+      for (const slot of batch) {
+        try {
+          // Check if slot exists
+          const existing = await pool.query(
+            'SELECT id FROM onjn_operators WHERE serial_number = $1',
+            [slot.serial_number]
+          )
+          
+          if (existing.rows.length > 0) {
+            // Update existing
+            await pool.query(`
+              UPDATE onjn_operators SET
+                company_name = $1,
+                brand_name = $2,
+                county = $3,
+                city = $4,
+                address = $5,
+                status = $6,
+                license_number = $7,
+                license_expiry = $8,
+                updated_at = NOW()
+              WHERE serial_number = $9
+            `, [
+              slot.company_name,
+              slot.brand_name,
+              slot.county,
+              slot.city,
+              slot.address,
+              slot.status,
+              slot.license_number,
+              slot.license_expiry,
+              slot.serial_number
+            ])
+            updated++
+          } else {
+            // Insert new
+            await pool.query(`
+              INSERT INTO onjn_operators (
+                serial_number, company_name, brand_name, county, city, 
+                address, status, license_number, license_expiry, created_at, updated_at
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+            `, [
+              slot.serial_number,
+              slot.company_name,
+              slot.brand_name,
+              slot.county,
+              slot.city,
+              slot.address,
+              slot.status,
+              slot.license_number,
+              slot.license_expiry
+            ])
+            inserted++
+          }
+        } catch (error) {
+          console.error(`❌ Error processing slot ${slot.serial_number}:`, error.message)
+          errors++
+        }
+      }
+      
+      // Update progress
+      const progress = Math.round(((i + batch.length) / data.length) * 100)
+      refreshProgressManager.set(prev => ({
+        ...prev,
+        currentPage: Math.floor(i / batchSize) + 1,
+        currentStep: `Import în curs... ${progress}%`,
+        inserted,
+        updated,
+        errors
+      }))
+    }
+    
+    // Mark as completed
+    refreshProgressManager.set(prev => ({
+      ...prev,
+      status: 'completed',
+      currentStep: 'Import completat!',
+      inserted,
+      updated,
+      errors
+    }))
+    
+    res.json({
+      success: true,
+      message: 'Import completat cu succes!',
+      total: data.length,
+      inserted,
+      updated,
+      errors
+    })
+    
+  } catch (error) {
+    console.error('JSON import error:', error)
+    
+    // Mark as failed
+    refreshProgressManager.set(prev => ({
+      ...prev,
+      status: 'failed',
+      currentStep: `Eroare: ${error.message}`
+    }))
+    
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    })
+  }
+})
+
+app.use('/api/onjn-operators', authenticateUser, onjnOperatorsRoutes)
+app.use('/api/brands', authenticateUser, brandsRoutes)
 app.use('/api/metrology', metrologyRoutes)
 app.use('/api/warehouse', warehouseRoutes)
 
