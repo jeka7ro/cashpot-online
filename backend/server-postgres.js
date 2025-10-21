@@ -34,6 +34,7 @@ import invoicesRoutes from './routes/invoices.js'
 import jackpotsRoutes from './routes/jackpots.js'
 import legalDocumentsRoutes from './routes/legalDocuments.js'
 import onjnReportsRoutes from './routes/onjnReports.js'
+import onjnOperatorsRoutes from './routes/onjnOperators.js'
 import metrologyRoutes from './routes/metrology.js'
 import warehouseRoutes from './routes/warehouse.js'
 import promotionsRoutes from './routes/promotions.js'
@@ -590,6 +591,36 @@ const initializeDatabase = async () => {
       console.log('✅ ONJN Reports table created')
     } catch (error) {
       console.log('⚠️ ONJN Reports table may already exist:', error.message)
+    }
+
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS onjn_operators (
+          id SERIAL PRIMARY KEY,
+          serial_number VARCHAR(50) UNIQUE NOT NULL,
+          details_uuid VARCHAR(100) UNIQUE NOT NULL,
+          equipment_type VARCHAR(100),
+          company_name VARCHAR(200),
+          brand_name VARCHAR(100),
+          license_number VARCHAR(100),
+          slot_address TEXT,
+          city VARCHAR(100),
+          county VARCHAR(100),
+          authorization_date DATE,
+          expiry_date DATE,
+          status VARCHAR(50),
+          is_expired BOOLEAN DEFAULT FALSE,
+          onjn_list_url TEXT,
+          onjn_details_url TEXT,
+          last_scraped_at TIMESTAMP,
+          created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+      console.log('✅ ONJN Operators table created')
+    } catch (error) {
+      console.log('⚠️ ONJN Operators table may already exist:', error.message)
     }
 
     try {
@@ -3097,6 +3128,7 @@ app.use('/api/invoices', invoicesRoutes)
 app.use('/api/jackpots', jackpotsRoutes)
 app.use('/api/legal-documents', legalDocumentsRoutes)
 app.use('/api/onjn-reports', onjnReportsRoutes)
+app.use('/api/onjn-operators', onjnOperatorsRoutes)
 app.use('/api/metrology', metrologyRoutes)
 app.use('/api/warehouse', warehouseRoutes)
 

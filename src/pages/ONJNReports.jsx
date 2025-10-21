@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import ExportButtons from '../components/ExportButtons'
 import { useData } from '../contexts/DataContext'
-import { Shield, Plus, Search, Upload, Download } from 'lucide-react'
+import { Shield, Plus, Search, Upload, Download, Building2, ExternalLink } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import DataTable from '../components/DataTable'
 import ONJNReportModal from '../components/modals/ONJNReportModal'
 
 const ONJNReports = () => {
   const { onjnReports, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
+  const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
@@ -164,6 +166,40 @@ const ONJNReports = () => {
                 <Plus className="w-4 h-4" />
                 <span>Adaugă Raport</span>
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Access Card - ONJN Operators */}
+        <div className="card p-6 hover:shadow-xl transition-shadow cursor-pointer" onClick={() => navigate('/onjn-operators')}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl shadow-lg shadow-indigo-500/25">
+                <Building2 className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white">Operatori ONJN</h3>
+                <p className="text-slate-600 dark:text-slate-400">Date sincronizate din Registrul Public ONJN pentru MAX BET</p>
+              </div>
+            </div>
+            <ExternalLink className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <div className="mt-4 grid grid-cols-4 gap-4">
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-3">
+              <div className="text-xs text-slate-600 dark:text-slate-400">Total Sloturi</div>
+              <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">2,864+</div>
+            </div>
+            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
+              <div className="text-xs text-slate-600 dark:text-slate-400">În Exploatare</div>
+              <div className="text-xl font-bold text-green-600 dark:text-green-400">Live</div>
+            </div>
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+              <div className="text-xs text-slate-600 dark:text-slate-400">Filtre Avansate</div>
+              <div className="text-xl font-bold text-blue-600 dark:text-blue-400">✓</div>
+            </div>
+            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3">
+              <div className="text-xs text-slate-600 dark:text-slate-400">Auto Refresh</div>
+              <div className="text-xl font-bold text-purple-600 dark:text-purple-400">✓</div>
             </div>
           </div>
         </div>

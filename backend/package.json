@@ -19,6 +19,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "archiver": "^7.0.1",
     "bcryptjs": "^2.4.3",
+    "cheerio": "^1.1.2",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
