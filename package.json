@@ -1,16 +1,16 @@
 {
   "name": "cashpot-backend",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "description": "CASHPOT ERP Backend API",
   "main": "server-postgres.js",
   "type": "module",
   "scripts": {
-    "start": "node server-postgres.js",
-    "dev": "nodemon server-postgres.js",
+    "start": "cd backend && node server-postgres.js",
+    "dev": "cd backend && nodemon server-postgres.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "vercel-build": "cd src && npm install && npm run build",
     "build": "cd src && npm install && npm run build",
-    "export-marina": "node export-marina-data.js"
+    "export-marina": "cd backend && node export-marina-data.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.450.0",
