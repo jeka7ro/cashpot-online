@@ -1,6 +1,6 @@
 import express from 'express'
 import axios from 'axios'
-import * as cheerio from 'cheerio'
+import { load } from 'cheerio'
 
 const router = express.Router()
 
@@ -67,7 +67,7 @@ const scrapePage = async (pageNumber, companyId = null) => {
       timeout: 30000
     })
     
-    const $ = cheerio.load(response.data)
+    const $ = load(response.data)
     const slots = []
     
     // Find all table rows (skip header)
@@ -204,6 +204,7 @@ router.get('/stats', async (req, res) => {
     const expiringSoonResult = await pool.query(`
       SELECT COUNT(*) as count FROM onjn_operators 
       WHERE expiry_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'
+      AND expiry_date > CURRENT_DATE
     `)
     
     res.json({
@@ -222,17 +223,20 @@ router.get('/stats', async (req, res) => {
 })
 
 // Global variable to track refresh progress
-let refreshProgress = null
+let _refreshProgress = null
 
-// GET /api/onjn-operators/refresh-status - Get refresh progress
-router.get('/refresh-status', async (req, res) => {
-  res.json(refreshProgress)
-})
+// Export methods to access refreshProgress
+const refreshProgressManager = {
+  get: () => _refreshProgress,
+  set: (value) => { _refreshProgress = value }
+}
+
+export { refreshProgressManager }
 
 // POST /api/onjn-operators/refresh - Scrape all pages from ONJN
 router.post('/refresh', async (req, res) => {
   // Check if already refreshing
-  if (refreshProgress && refreshProgress.status === 'running') {
+  if (_refreshProgress && _refreshProgress.status === 'running') {
     return res.status(400).json({ 
       success: false, 
       error: 'Sincronizare deja în curs. Vă rugăm să așteptați finalizarea.' 
@@ -256,7 +260,7 @@ router.post('/refresh', async (req, res) => {
     console.log(`📄 Max pages: ${maxPages || 'AUTO-DETECT'}`)
     
     // Initialize progress tracking
-    refreshProgress = {
+    _refreshProgress = {
       status: 'running',
       currentPage: 0,
       totalPages: 0,
@@ -269,8 +273,8 @@ router.post('/refresh', async (req, res) => {
     }
     
     // First, scrape page 1 to detect total pages
-    refreshProgress.currentStep = 'Scraping page 1...'
-    refreshProgress.currentPage = 1
+    _refreshProgress.currentStep = 'Scraping page 1...'
+    _refreshProgress.currentPage = 1
     const firstPage = await scrapePage(1, companyId)
     
     // Try to detect total results from page (we'll use a reasonable default)
@@ -284,14 +288,14 @@ router.post('/refresh', async (req, res) => {
     } else if (companyId) {
       totalPages = 100  // Default for specific company
     } else {
-      totalPages = 500  // Limit to 500 pages (25,000 slots) for ALL to avoid overload
+      totalPages = 2200  // Allow all ~103,689 slots (~2,074 pages + buffer for safety)
     }
     
     console.log(`📊 Total pages to scrape: ${totalPages}`)
     
     // Update progress with total pages
-    refreshProgress.totalPages = totalPages
-    refreshProgress.slotsFound = firstPage.length
+    _refreshProgress.totalPages = totalPages
+    _refreshProgress.slotsFound = firstPage.length
     
     let allSlots = [...firstPage]
     let successPages = 1
@@ -300,8 +304,8 @@ router.post('/refresh', async (req, res) => {
     // Scrape remaining pages
     for (let page = 2; page <= totalPages; page++) {
       try {
-        refreshProgress.currentStep = `Scraping page ${page}/${totalPages}...`
-        refreshProgress.currentPage = page
+        _refreshProgress.currentStep = `Scraping page ${page}/${totalPages}...`
+        _refreshProgress.currentPage = page
         
         const slots = await scrapePage(page, companyId)
         
@@ -313,20 +317,20 @@ router.post('/refresh', async (req, res) => {
         
         allSlots = allSlots.concat(slots)
         successPages++
-        refreshProgress.slotsFound = allSlots.length
+        _refreshProgress.slotsFound = allSlots.length
         
         // Delay between requests to avoid rate limiting
         if (page < totalPages) {
-          await new Promise(resolve => setTimeout(resolve, 1000)) // 1 second delay
+          await new Promise(resolve => setTimeout(resolve, 500)) // 0.5 second delay for faster scraping
         }
       } catch (error) {
         console.error(`Failed to scrape page ${page}:`, error.message)
         errorPages++
-        refreshProgress.errors++
+        _refreshProgress.errors++
         
         // Continue with next page even if one fails
         if (page < totalPages) {
-          await new Promise(resolve => setTimeout(resolve, 2000)) // 2 seconds delay after error
+          await new Promise(resolve => setTimeout(resolve, 1000)) // 1 second delay after error
         }
       }
     }
@@ -334,9 +338,9 @@ router.post('/refresh', async (req, res) => {
     console.log(`📊 Scraping complete: ${allSlots.length} slots from ${successPages} pages (${errorPages} errors)`)
     
     // Update progress for database operations
-    refreshProgress.currentStep = 'Saving to database...'
-    refreshProgress.inserted = 0
-    refreshProgress.updated = 0
+    _refreshProgress.currentStep = 'Saving to database...'
+    _refreshProgress.inserted = 0
+    _refreshProgress.updated = 0
     
     // Insert/Update slots in database
     let inserted = 0
@@ -348,56 +352,87 @@ router.post('/refresh', async (req, res) => {
       
       // Update progress every 100 slots
       if (i % 100 === 0) {
-        refreshProgress.currentStep = `Saving to database... (${i}/${allSlots.length})`
+        _refreshProgress.currentStep = `Saving to database... (${i}/${allSlots.length})`
       }
       try {
-        // Check if slot exists
+        // Check if slot exists and get current data for comparison
         const existing = await pool.query(
-          'SELECT id FROM onjn_operators WHERE serial_number = $1',
+          `SELECT id, details_uuid, equipment_type, company_name, brand_name, 
+                  license_number, slot_address, city, county, authorization_date, 
+                  expiry_date, status, is_expired, onjn_list_url, onjn_details_url 
+           FROM onjn_operators WHERE serial_number = $1`,
           [slot.serial_number]
         )
         
         if (existing.rows.length > 0) {
-          // Update existing
-          await pool.query(`
-            UPDATE onjn_operators SET
-              details_uuid = $1,
-              equipment_type = $2,
-              company_name = $3,
-              brand_name = $4,
-              license_number = $5,
-              slot_address = $6,
-              city = $7,
-              county = $8,
-              authorization_date = $9,
-              expiry_date = $10,
-              status = $11,
-              is_expired = $12,
-              onjn_list_url = $13,
-              onjn_details_url = $14,
-              last_scraped_at = $15,
-              updated_at = CURRENT_TIMESTAMP
-            WHERE serial_number = $16
-          `, [
-            slot.details_uuid,
-            slot.equipment_type,
-            slot.company_name,
-            slot.brand_name,
-            slot.license_number,
-            slot.slot_address,
-            slot.city,
-            slot.county,
-            slot.authorization_date,
-            slot.expiry_date,
-            slot.status,
-            slot.is_expired,
-            slot.onjn_list_url,
-            slot.onjn_details_url,
-            slot.last_scraped_at,
-            slot.serial_number
-          ])
-          updated++
-          refreshProgress.updated = updated
+          const existingData = existing.rows[0]
+          
+          // Check if any data has changed
+          const hasChanged = (
+            existingData.details_uuid !== slot.details_uuid ||
+            existingData.equipment_type !== slot.equipment_type ||
+            existingData.company_name !== slot.company_name ||
+            existingData.brand_name !== slot.brand_name ||
+            existingData.license_number !== slot.license_number ||
+            existingData.slot_address !== slot.slot_address ||
+            existingData.city !== slot.city ||
+            existingData.county !== slot.county ||
+            (existingData.authorization_date?.getTime() !== new Date(slot.authorization_date || 0).getTime()) ||
+            (existingData.expiry_date?.getTime() !== new Date(slot.expiry_date || 0).getTime()) ||
+            existingData.status !== slot.status ||
+            existingData.is_expired !== slot.is_expired ||
+            existingData.onjn_list_url !== slot.onjn_list_url ||
+            existingData.onjn_details_url !== slot.onjn_details_url
+          )
+          
+          if (hasChanged) {
+            // Update existing only if data changed
+            await pool.query(`
+              UPDATE onjn_operators SET
+                details_uuid = $1,
+                equipment_type = $2,
+                company_name = $3,
+                brand_name = $4,
+                license_number = $5,
+                slot_address = $6,
+                city = $7,
+                county = $8,
+                authorization_date = $9,
+                expiry_date = $10,
+                status = $11,
+                is_expired = $12,
+                onjn_list_url = $13,
+                onjn_details_url = $14,
+                last_scraped_at = $15,
+                updated_at = CURRENT_TIMESTAMP
+              WHERE serial_number = $16
+            `, [
+              slot.details_uuid,
+              slot.equipment_type,
+              slot.company_name,
+              slot.brand_name,
+              slot.license_number,
+              slot.slot_address,
+              slot.city,
+              slot.county,
+              slot.authorization_date,
+              slot.expiry_date,
+              slot.status,
+              slot.is_expired,
+              slot.onjn_list_url,
+              slot.onjn_details_url,
+              slot.last_scraped_at,
+              slot.serial_number
+            ])
+            updated++
+            _refreshProgress.updated = updated
+          } else {
+            // Just update last_scraped_at if no changes
+            await pool.query(
+              'UPDATE onjn_operators SET last_scraped_at = $1 WHERE serial_number = $2',
+              [slot.last_scraped_at, slot.serial_number]
+            )
+          }
         } else {
           // Insert new
           await pool.query(`
@@ -426,22 +461,22 @@ router.post('/refresh', async (req, res) => {
             slot.last_scraped_at
           ])
           inserted++
-          refreshProgress.inserted = inserted
+          _refreshProgress.inserted = inserted
         }
       } catch (error) {
         console.error(`Error saving slot ${slot.serial_number}:`, error.message)
         errors++
-        refreshProgress.errors++
+        _refreshProgress.errors++
       }
     }
     
     console.log(`✅ Database update complete: ${inserted} inserted, ${updated} updated, ${errors} errors`)
     
     // Mark as completed
-    refreshProgress.status = 'completed'
-    refreshProgress.currentStep = 'Completed successfully!'
-    refreshProgress.endTime = new Date()
-    refreshProgress.duration = refreshProgress.endTime - refreshProgress.startTime
+    _refreshProgress.status = 'completed'
+    _refreshProgress.currentStep = 'Completed successfully!'
+    _refreshProgress.endTime = new Date()
+    _refreshProgress.duration = _refreshProgress.endTime - _refreshProgress.startTime
     
     res.json({
       success: true,
@@ -459,17 +494,17 @@ router.post('/refresh', async (req, res) => {
   } catch (error) {
     console.error('Error refreshing ONJN operators:', error)
     // Mark as failed
-    if (refreshProgress) {
-      refreshProgress.status = 'failed'
-      refreshProgress.currentStep = `Error: ${error.message}`
-      refreshProgress.endTime = new Date()
+    if (_refreshProgress) {
+      _refreshProgress.status = 'failed'
+      _refreshProgress.currentStep = `Error: ${error.message}`
+      _refreshProgress.endTime = new Date()
     }
     res.status(500).json({ success: false, error: error.message })
   } finally {
     // Clear progress after 30 seconds if completed or failed
     setTimeout(() => {
-      if (refreshProgress && (refreshProgress.status === 'completed' || refreshProgress.status === 'failed')) {
-        refreshProgress = null
+      if (_refreshProgress && (_refreshProgress.status === 'completed' || _refreshProgress.status === 'failed')) {
+        _refreshProgress = null
       }
     }, 30000)
   }
