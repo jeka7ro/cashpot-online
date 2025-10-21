@@ -1,16 +1,17 @@
 import React, { useState } from 'react'
 import Layout from '../components/Layout'
 import { useData } from '../contexts/DataContext'
-import { TrendingUp, Plus, Search, Paperclip, ExternalLink } from 'lucide-react'
+import { TrendingUp, Plus, Search, Eye, Calendar, Clock, Brain } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import MarketingModal from '../components/modals/MarketingModal'
 import MarketingDetailModal from '../components/modals/MarketingDetailModal'
 import PromotionsWidget from '../components/PromotionsWidget'
 import PromotionsCalendarWidget from '../components/PromotionsCalendarWidget'
-import PromotionsAIWidget from '../components/PromotionsAIWidget'
+import { useNavigate } from 'react-router-dom'
 
 const Marketing = () => {
   const { promotions, loading, createItem, updateItem, deleteItem, createTestWeeklyTombola } = useData()
+  const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
@@ -93,6 +94,50 @@ const Marketing = () => {
     setEditingItem(null)
   }
 
+  // Helper function to calculate days remaining/expired
+  const calculateDaysInfo = (item) => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const startDate = item.start_date ? new Date(item.start_date) : null
+    const endDate = item.end_date ? new Date(item.end_date) : null
+    
+    if (startDate) startDate.setHours(0, 0, 0, 0)
+    if (endDate) endDate.setHours(0, 0, 0, 0)
+    
+    // Check if not started yet
+    if (startDate && startDate > today) {
+      const daysUntilStart = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24))
+      return {
+        text: `Începe în ${daysUntilStart} ${daysUntilStart === 1 ? 'zi' : 'zile'}`,
+        color: 'text-blue-600',
+        icon: Calendar
+      }
+    }
+    
+    // Check if expired
+    if (endDate && endDate < today) {
+      const daysExpired = Math.ceil((today - endDate) / (1000 * 60 * 60 * 24))
+      return {
+        text: `Expirat de ${daysExpired} ${daysExpired === 1 ? 'zi' : 'zile'}`,
+        color: 'text-red-600',
+        icon: Clock
+      }
+    }
+    
+    // Active - show days until end
+    if (endDate && endDate >= today) {
+      const daysRemaining = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24))
+      return {
+        text: `${daysRemaining} ${daysRemaining === 1 ? 'zi' : 'zile'} rămase`,
+        color: 'text-green-600',
+        icon: Clock
+      }
+    }
+    
+    return { text: '-', color: 'text-gray-400', icon: Clock }
+  }
+
   // Define columns for promotions table
   const columns = [
     { 
@@ -126,32 +171,33 @@ const Marketing = () => {
       )
     },
     { 
-      key: 'start_date', 
-      label: 'DATA ÎNCEPERE', 
+      key: 'dates_period', 
+      label: 'PERIOADA', 
       sortable: true,
       render: (item) => (
-        <div className="text-slate-800 font-medium text-base">
-          {item.start_date ? new Date(item.start_date).toLocaleDateString('ro-RO') : 'N/A'}
+        <div className="space-y-1">
+          <div className="flex items-center text-sm text-slate-700 dark:text-slate-300">
+            <Calendar className="w-3.5 h-3.5 mr-1 text-green-600" />
+            {item.start_date ? new Date(item.start_date).toLocaleDateString('ro-RO') : 'N/A'}
+          </div>
+          <div className="flex items-center text-sm text-slate-700 dark:text-slate-300">
+            <Calendar className="w-3.5 h-3.5 mr-1 text-red-600" />
+            {item.end_date ? new Date(item.end_date).toLocaleDateString('ro-RO') : 'N/A'}
+          </div>
         </div>
       )
     },
-    { 
-      key: 'dates', 
-      label: 'DATA SFÂRȘIT / CREARE', 
-      sortable: true,
+    {
+      key: 'days_info',
+      label: 'ZILE',
+      sortable: false,
       render: (item) => {
-        const endDate = item.end_date ? new Date(item.end_date) : null
-        const today = new Date()
-        const isExpired = endDate && endDate < today
-        
+        const info = calculateDaysInfo(item)
+        const Icon = info.icon
         return (
-          <div className="space-y-1">
-            <div className={`font-medium text-base ${isExpired ? 'text-red-600' : 'text-slate-800'}`}>
-              {item.end_date ? new Date(item.end_date).toLocaleDateString('ro-RO') : 'N/A'}
-            </div>
-            <div className="text-slate-500 text-xs">
-              {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
-            </div>
+          <div className={`flex items-center space-x-1 font-medium text-sm ${info.color}`}>
+            <Icon className="w-4 h-4" />
+            <span>{info.text}</span>
           </div>
         )
       }
@@ -194,36 +240,41 @@ const Marketing = () => {
       label: 'REGULAMENT', 
       sortable: false,
       render: (item) => {
-        if (!item.rules_document) {
+        if (!item.rules_document && !item.documents_url) {
           return (
-            <div className="text-slate-400 text-sm flex items-center">
-              <Paperclip className="w-4 h-4 mr-1 opacity-30" />
-              <span>-</span>
+            <div className="text-slate-400 text-sm">
+              -
             </div>
           )
         }
         
+        const documentUrl = item.rules_document || item.documents_url
+        
         return (
-          <div className="flex items-center space-x-2">
+          <div className="flex justify-center">
             <button
-              onClick={() => window.open(item.rules_document, '_blank')}
-              className="flex items-center space-x-1 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg transition-colors group"
+              onClick={() => window.open(documentUrl, '_blank')}
+              className="p-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg transition-colors"
               title="Vizualizează regulamentul"
             >
-              <Paperclip className="w-4 h-4" />
-              <ExternalLink className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <Eye className="w-5 h-5" />
             </button>
           </div>
         )
       }
     },
     { 
-      key: 'created_by', 
-      label: 'CREAT DE', 
+      key: 'created_info', 
+      label: 'CREAT DE / DATA', 
       sortable: true, 
       render: (item) => (
-        <div className="text-slate-800 font-medium text-base">
-          {item.created_by || 'N/A'}
+        <div className="space-y-1">
+          <div className="text-slate-800 dark:text-slate-200 font-medium text-sm">
+            {item.created_by || 'Necunoscut'}
+          </div>
+          <div className="text-slate-500 dark:text-slate-400 text-xs">
+            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+          </div>
         </div>
       )
     }
@@ -246,12 +297,11 @@ const Marketing = () => {
             </div>
             <div className="flex items-center space-x-3">
               <button
-                onClick={async () => {
-                  await createTestWeeklyTombola()
-                }}
+                onClick={() => navigate('/marketing-ai')}
                 className="btn-secondary flex items-center space-x-2"
               >
-                <span>Crează Tombola Craiova</span>
+                <Brain className="w-4 h-4" />
+                <span>Analiză AI</span>
               </button>
               <button
                 onClick={handleCreate}
@@ -280,6 +330,12 @@ const Marketing = () => {
           </div>
         </div>
 
+        {/* Marketing Tools - Smart Widgets */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <PromotionsWidget />
+          <PromotionsCalendarWidget />
+        </div>
+
         {/* Promotions Table */}
         <div className="card p-6">
           {loading ? (
@@ -305,13 +361,6 @@ const Marketing = () => {
               moduleColor="blue"
             />
           )}
-        </div>
-
-        {/* Marketing Tools - from Dashboard */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          <PromotionsWidget />
-          <PromotionsCalendarWidget />
-          <PromotionsAIWidget />
         </div>
 
         {/* Modals */}
