@@ -17,6 +17,8 @@ const ONJNOperators = () => {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [lastUpdate, setLastUpdate] = useState(null)
+  const [refreshProgress, setRefreshProgress] = useState(null)
+  const [progressInterval, setProgressInterval] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filters, setFilters] = useState({
     company: '',
@@ -26,8 +28,34 @@ const ONJNOperators = () => {
     license: ''
   })
 
-  // Load data
+  // Check existing refresh on mount
   useEffect(() => {
+    const checkExistingRefresh = async () => {
+      try {
+        const response = await axios.get('/api/onjn-operators/refresh-status')
+        if (response.data && response.data.status === 'running') {
+          setRefreshProgress(response.data)
+          setRefreshing(true)
+          // Start polling for existing refresh
+          const interval = setInterval(() => {
+            axios.get('/api/onjn-operators/refresh-status')
+              .then(res => {
+                setRefreshProgress(res.data)
+                if (res.data && (res.data.status === 'completed' || res.data.status === 'failed')) {
+                  clearInterval(interval)
+                  setRefreshing(false)
+                }
+              })
+              .catch(console.error)
+          }, 2000)
+          setProgressInterval(interval)
+        }
+      } catch (error) {
+        console.error('Error checking refresh status:', error)
+      }
+    }
+    
+    checkExistingRefresh()
     loadData()
     loadStats()
   }, [])
@@ -66,33 +94,83 @@ const ONJNOperators = () => {
     }
   }
 
+  // Function to fetch progress
+  const fetchProgress = async () => {
+    try {
+      const response = await axios.get('/api/onjn-operators/refresh-status')
+      setRefreshProgress(response.data)
+      
+      // If completed or failed, stop polling
+      if (response.data && (response.data.status === 'completed' || response.data.status === 'failed')) {
+        if (progressInterval) {
+          clearInterval(progressInterval)
+          setProgressInterval(null)
+        }
+        
+        if (response.data.status === 'completed') {
+          toast.success(
+            `✅ Sincronizare completă!\n${response.data.slotsFound?.toLocaleString('ro-RO')} sloturi scanate\n${response.data.inserted} adăugate, ${response.data.updated} actualizate`,
+            { id: 'refresh', duration: 8000 }
+          )
+          // Reload data
+          await loadData()
+          await loadStats()
+        } else {
+          toast.error(`❌ Sincronizare eșuată: ${response.data.currentStep}`, { id: 'refresh' })
+        }
+        
+        setRefreshing(false)
+      }
+    } catch (error) {
+      console.error('Error fetching progress:', error)
+    }
+  }
+
   const handleRefresh = async () => {
+    // Check if already refreshing
+    if (refreshProgress && refreshProgress.status === 'running') {
+      toast.error('Sincronizare deja în curs. Vă rugăm să așteptați finalizarea.', { id: 'refresh-warning' })
+      return
+    }
+
     try {
       setRefreshing(true)
-      toast.loading('Sincronizare ONJN în curs... Poate dura 8-10 minute pentru TOȚI operatorii.', { id: 'refresh' })
+      setRefreshProgress(null)
+      toast.loading('Sincronizare ONJN în curs...', { id: 'refresh' })
       
-      // Send request with no companyId filter to get ALL operators
-      // maxPages: 500 = ~25,000 slots (limit to avoid overload)
+      // Start the refresh
       const response = await axios.post('/api/onjn-operators/refresh', {
         companyId: null,  // null = ALL operators
         maxPages: 500     // Limit to 500 pages (~25,000 slots)
       })
       
-      toast.success(
-        `✅ Sincronizare completă!\n${response.data.scraped.toLocaleString('ro-RO')} sloturi scanate\n${response.data.inserted} adăugate, ${response.data.updated} actualizate`,
-        { id: 'refresh', duration: 5000 }
-      )
-      
-      // Reload data
-      await loadData()
-      await loadStats()
+      if (response.data.success) {
+        // Start polling for progress
+        const interval = setInterval(fetchProgress, 2000) // Poll every 2 seconds
+        setProgressInterval(interval)
+        
+        // Initial progress fetch
+        setTimeout(fetchProgress, 500)
+      }
     } catch (error) {
-      console.error('Error refreshing:', error)
-      toast.error('Eroare la sincronizarea ONJN!', { id: 'refresh' })
-    } finally {
+      console.error('Error starting refresh:', error)
+      if (error.response?.status === 400) {
+        toast.error('Sincronizare deja în curs. Vă rugăm să așteptați finalizarea.', { id: 'refresh' })
+      } else {
+        toast.error('Eroare la pornirea sincronizării ONJN!', { id: 'refresh' })
+      }
       setRefreshing(false)
     }
   }
+
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (progressInterval) {
+        clearInterval(progressInterval)
+      }
+    }
+  }, [progressInterval])
 
   // Get unique values for filters
   const companies = [...new Set(operators.map(op => op.company_name).filter(Boolean))].sort()
@@ -304,13 +382,90 @@ const ONJNOperators = () => {
             </div>
             <button
               onClick={handleRefresh}
-              disabled={refreshing}
-              className="btn-primary flex items-center space-x-2"
+              disabled={refreshing || (refreshProgress && refreshProgress.status === 'running')}
+              className="btn-primary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              <span>{refreshing ? 'Sincronizare...' : 'Refresh ONJN'}</span>
+              <span>
+                {refreshing ? 'Sincronizare...' : 'Refresh ONJN'}
+              </span>
             </button>
           </div>
+
+          {/* Progress Status Bar */}
+          {refreshProgress && (
+            <div className="mt-4 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl p-6 text-white">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <RefreshCw className="w-6 h-6 animate-spin" />
+                  <div>
+                    <h3 className="font-bold text-lg">Sincronizare ONJN în curs...</h3>
+                    <p className="text-indigo-100 text-sm">{refreshProgress.currentStep}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold">
+                    {refreshProgress.currentPage}/{refreshProgress.totalPages}
+                  </div>
+                  <div className="text-indigo-100 text-sm">pagini</div>
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="mb-4">
+                <div className="flex justify-between text-sm text-indigo-100 mb-2">
+                  <span>Progres</span>
+                  <span>
+                    {refreshProgress.totalPages > 0 
+                      ? Math.round((refreshProgress.currentPage / refreshProgress.totalPages) * 100)
+                      : 0}%
+                  </span>
+                </div>
+                <div className="w-full bg-indigo-300 bg-opacity-30 rounded-full h-3">
+                  <div 
+                    className="bg-white rounded-full h-3 transition-all duration-500 ease-out"
+                    style={{ 
+                      width: `${refreshProgress.totalPages > 0 
+                        ? Math.min((refreshProgress.currentPage / refreshProgress.totalPages) * 100, 100)
+                        : 0}%` 
+                    }}
+                  ></div>
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="bg-white bg-opacity-20 rounded-lg p-3 text-center">
+                  <div className="font-bold text-lg">{refreshProgress.slotsFound?.toLocaleString('ro-RO') || 0}</div>
+                  <div className="text-indigo-100">Sloturi găsite</div>
+                </div>
+                <div className="bg-white bg-opacity-20 rounded-lg p-3 text-center">
+                  <div className="font-bold text-lg">{refreshProgress.inserted || 0}</div>
+                  <div className="text-indigo-100">Adăugate</div>
+                </div>
+                <div className="bg-white bg-opacity-20 rounded-lg p-3 text-center">
+                  <div className="font-bold text-lg">{refreshProgress.updated || 0}</div>
+                  <div className="text-indigo-100">Actualizate</div>
+                </div>
+                <div className="bg-white bg-opacity-20 rounded-lg p-3 text-center">
+                  <div className="font-bold text-lg">{refreshProgress.errors || 0}</div>
+                  <div className="text-indigo-100">Erori</div>
+                </div>
+              </div>
+
+              {/* Time Info */}
+              {refreshProgress.startTime && (
+                <div className="mt-4 text-center text-indigo-100 text-sm">
+                  Sincronizarea a început la: {new Date(refreshProgress.startTime).toLocaleTimeString('ro-RO')}
+                  {refreshProgress.duration && (
+                    <span className="ml-4">
+                      Durată: {Math.round(refreshProgress.duration / 1000 / 60)} minute
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           
           {/* Empty State - First Time */}
           {!loading && operators.length === 0 && (

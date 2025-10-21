@@ -221,8 +221,23 @@ router.get('/stats', async (req, res) => {
   }
 })
 
+// Global variable to track refresh progress
+let refreshProgress = null
+
+// GET /api/onjn-operators/refresh-status - Get refresh progress
+router.get('/refresh-status', async (req, res) => {
+  res.json(refreshProgress)
+})
+
 // POST /api/onjn-operators/refresh - Scrape all pages from ONJN
 router.post('/refresh', async (req, res) => {
+  // Check if already refreshing
+  if (refreshProgress && refreshProgress.status === 'running') {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Sincronizare deja în curs. Vă rugăm să așteptați finalizarea.' 
+    })
+  }
   try {
     const pool = req.app.get('pool')
     
@@ -240,7 +255,22 @@ router.post('/refresh', async (req, res) => {
     console.log(`📋 Company filter: ${companyId || 'ALL OPERATORS'}`)
     console.log(`📄 Max pages: ${maxPages || 'AUTO-DETECT'}`)
     
+    // Initialize progress tracking
+    refreshProgress = {
+      status: 'running',
+      currentPage: 0,
+      totalPages: 0,
+      currentStep: 'Initializing...',
+      slotsFound: 0,
+      inserted: 0,
+      updated: 0,
+      errors: 0,
+      startTime: new Date()
+    }
+    
     // First, scrape page 1 to detect total pages
+    refreshProgress.currentStep = 'Scraping page 1...'
+    refreshProgress.currentPage = 1
     const firstPage = await scrapePage(1, companyId)
     
     // Try to detect total results from page (we'll use a reasonable default)
@@ -259,6 +289,10 @@ router.post('/refresh', async (req, res) => {
     
     console.log(`📊 Total pages to scrape: ${totalPages}`)
     
+    // Update progress with total pages
+    refreshProgress.totalPages = totalPages
+    refreshProgress.slotsFound = firstPage.length
+    
     let allSlots = [...firstPage]
     let successPages = 1
     let errorPages = 0
@@ -266,6 +300,9 @@ router.post('/refresh', async (req, res) => {
     // Scrape remaining pages
     for (let page = 2; page <= totalPages; page++) {
       try {
+        refreshProgress.currentStep = `Scraping page ${page}/${totalPages}...`
+        refreshProgress.currentPage = page
+        
         const slots = await scrapePage(page, companyId)
         
         // If page returns no results, we've reached the end
@@ -276,6 +313,7 @@ router.post('/refresh', async (req, res) => {
         
         allSlots = allSlots.concat(slots)
         successPages++
+        refreshProgress.slotsFound = allSlots.length
         
         // Delay between requests to avoid rate limiting
         if (page < totalPages) {
@@ -284,6 +322,7 @@ router.post('/refresh', async (req, res) => {
       } catch (error) {
         console.error(`Failed to scrape page ${page}:`, error.message)
         errorPages++
+        refreshProgress.errors++
         
         // Continue with next page even if one fails
         if (page < totalPages) {
@@ -294,12 +333,23 @@ router.post('/refresh', async (req, res) => {
     
     console.log(`📊 Scraping complete: ${allSlots.length} slots from ${successPages} pages (${errorPages} errors)`)
     
+    // Update progress for database operations
+    refreshProgress.currentStep = 'Saving to database...'
+    refreshProgress.inserted = 0
+    refreshProgress.updated = 0
+    
     // Insert/Update slots in database
     let inserted = 0
     let updated = 0
     let errors = 0
     
-    for (const slot of allSlots) {
+    for (let i = 0; i < allSlots.length; i++) {
+      const slot = allSlots[i]
+      
+      // Update progress every 100 slots
+      if (i % 100 === 0) {
+        refreshProgress.currentStep = `Saving to database... (${i}/${allSlots.length})`
+      }
       try {
         // Check if slot exists
         const existing = await pool.query(
@@ -347,6 +397,7 @@ router.post('/refresh', async (req, res) => {
             slot.serial_number
           ])
           updated++
+          refreshProgress.updated = updated
         } else {
           // Insert new
           await pool.query(`
@@ -375,14 +426,22 @@ router.post('/refresh', async (req, res) => {
             slot.last_scraped_at
           ])
           inserted++
+          refreshProgress.inserted = inserted
         }
       } catch (error) {
         console.error(`Error saving slot ${slot.serial_number}:`, error.message)
         errors++
+        refreshProgress.errors++
       }
     }
     
     console.log(`✅ Database update complete: ${inserted} inserted, ${updated} updated, ${errors} errors`)
+    
+    // Mark as completed
+    refreshProgress.status = 'completed'
+    refreshProgress.currentStep = 'Completed successfully!'
+    refreshProgress.endTime = new Date()
+    refreshProgress.duration = refreshProgress.endTime - refreshProgress.startTime
     
     res.json({
       success: true,
@@ -399,7 +458,20 @@ router.post('/refresh', async (req, res) => {
     
   } catch (error) {
     console.error('Error refreshing ONJN operators:', error)
+    // Mark as failed
+    if (refreshProgress) {
+      refreshProgress.status = 'failed'
+      refreshProgress.currentStep = `Error: ${error.message}`
+      refreshProgress.endTime = new Date()
+    }
     res.status(500).json({ success: false, error: error.message })
+  } finally {
+    // Clear progress after 30 seconds if completed or failed
+    setTimeout(() => {
+      if (refreshProgress && (refreshProgress.status === 'completed' || refreshProgress.status === 'failed')) {
+        refreshProgress = null
+      }
+    }, 30000)
   }
 })
 
