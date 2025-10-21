@@ -35,6 +35,7 @@ import jackpotsRoutes from './routes/jackpots.js'
 import legalDocumentsRoutes from './routes/legalDocuments.js'
 import onjnReportsRoutes from './routes/onjnReports.js'
 import onjnOperatorsRoutes from './routes/onjnOperators.js'
+import brandsRoutes from './routes/brands.js'
 import metrologyRoutes from './routes/metrology.js'
 import warehouseRoutes from './routes/warehouse.js'
 import promotionsRoutes from './routes/promotions.js'
@@ -614,6 +615,23 @@ const initializeDatabase = async () => {
           onjn_details_url TEXT,
           last_scraped_at TIMESTAMP,
           created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS brands (
+          id SERIAL PRIMARY KEY,
+          brand_name VARCHAR(200) UNIQUE NOT NULL,
+          company_name VARCHAR(200),
+          brand_logo TEXT,
+          logo_source VARCHAR(50) DEFAULT 'manual',
+          description TEXT,
+          website_url TEXT,
+          total_slots INTEGER DEFAULT 0,
+          active_slots INTEGER DEFAULT 0,
+          created_by INTEGER REFERENCES users(id),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -3129,6 +3147,7 @@ app.use('/api/jackpots', jackpotsRoutes)
 app.use('/api/legal-documents', legalDocumentsRoutes)
 app.use('/api/onjn-reports', onjnReportsRoutes)
 app.use('/api/onjn-operators', onjnOperatorsRoutes)
+app.use('/api/brands', brandsRoutes)
 app.use('/api/metrology', metrologyRoutes)
 app.use('/api/warehouse', warehouseRoutes)
 

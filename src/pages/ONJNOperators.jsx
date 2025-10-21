@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import axios from 'axios'
 import { Building2, RefreshCw, Search, ExternalLink, Calendar, MapPin, FileCheck, TrendingUp, AlertCircle } from 'lucide-react'
@@ -10,6 +11,7 @@ import ONJNBrandsWidget from '../components/ONJNBrandsWidget'
 import ONJNMapWidget from '../components/ONJNMapWidget'
 
 const ONJNOperators = () => {
+  const navigate = useNavigate()
   const [operators, setOperators] = useState([])
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -164,11 +166,21 @@ const ONJNOperators = () => {
       key: 'brand_name',
       label: 'BRAND',
       sortable: true,
-      render: (item) => (
-        <div className="text-indigo-600 dark:text-indigo-400 font-semibold">
-          {item.brand_name || '-'}
-        </div>
-      )
+      render: (item) => {
+        if (!item.brand_name) return <span className="text-slate-400">-</span>
+        
+        return (
+          <button
+            onClick={() => navigate(`/onjn-operators/brand/${encodeURIComponent(item.brand_name)}`)}
+            className="text-indigo-600 dark:text-indigo-400 font-semibold hover:text-indigo-800 dark:hover:text-indigo-300 
+                     hover:underline transition-colors flex items-center space-x-1"
+            title={`Vezi toate sloturile ${item.brand_name}`}
+          >
+            <Building2 className="w-4 h-4" />
+            <span>{item.brand_name}</span>
+          </button>
+        )
+      }
     },
     {
       key: 'slot_address',
