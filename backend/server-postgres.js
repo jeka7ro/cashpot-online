@@ -3282,25 +3282,27 @@ app.post('/api/onjn-operators/import-json', async (req, res) => {
       
       // Update progress
       const progress = Math.round(((i + batch.length) / data.length) * 100)
-      refreshProgressManager.set(prev => ({
-        ...prev,
+      const currentProgress = refreshProgressManager.get()
+      refreshProgressManager.set({
+        ...currentProgress,
         currentPage: Math.floor(i / batchSize) + 1,
         currentStep: `Import în curs... ${progress}%`,
         inserted,
         updated,
         errors
-      }))
+      })
     }
     
     // Mark as completed
-    refreshProgressManager.set(prev => ({
-      ...prev,
+    const finalProgress = refreshProgressManager.get()
+    refreshProgressManager.set({
+      ...finalProgress,
       status: 'completed',
       currentStep: 'Import completat!',
       inserted,
       updated,
       errors
-    }))
+    })
     
     res.json({
       success: true,
@@ -3315,11 +3317,12 @@ app.post('/api/onjn-operators/import-json', async (req, res) => {
     console.error('JSON import error:', error)
     
     // Mark as failed
-    refreshProgressManager.set(prev => ({
-      ...prev,
+    const failedProgress = refreshProgressManager.get()
+    refreshProgressManager.set({
+      ...failedProgress,
       status: 'failed',
       currentStep: `Eroare: ${error.message}`
-    }))
+    })
     
     res.status(500).json({ 
       success: false, 
