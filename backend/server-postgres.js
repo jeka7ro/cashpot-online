@@ -633,6 +633,7 @@ const initializeDatabase = async () => {
       await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completion_notes TEXT`)
       await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completion_date TIMESTAMP`)
       await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS approval_date TIMESTAMP`)
+      await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS checked_by INTEGER[] DEFAULT '{}'`)
       await pool.query(`ALTER TABLE tasks ADD FOREIGN KEY (completed_by) REFERENCES users(id)`)
       await pool.query(`ALTER TABLE tasks ADD FOREIGN KEY (approved_by) REFERENCES users(id)`)
       console.log('✅ Tasks table updated with approval workflow columns')

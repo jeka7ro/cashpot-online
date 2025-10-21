@@ -59,7 +59,13 @@ router.get('/', async (req, res) => {
                FROM unnest(t.assigned_to) as assignee_id,
                     users au
                WHERE au.id = assignee_id
-             ) as assigned_users
+             ) as assigned_users,
+             ARRAY(
+               SELECT json_build_object('id', chu.id, 'username', chu.username, 'full_name', chu.full_name)
+               FROM unnest(t.checked_by) as checker_id,
+                    users chu
+               WHERE chu.id = checker_id
+             ) as checked_users
       FROM tasks t
       LEFT JOIN users u ON t.created_by = u.id
       LEFT JOIN users cb ON t.completed_by = cb.id
@@ -121,7 +127,13 @@ router.get('/my', async (req, res) => {
                FROM unnest(t.assigned_to) as assignee_id,
                     users au
                WHERE au.id = assignee_id
-             ) as assigned_users
+             ) as assigned_users,
+             ARRAY(
+               SELECT json_build_object('id', chu.id, 'username', chu.username, 'full_name', chu.full_name)
+               FROM unnest(t.checked_by) as checker_id,
+                    users chu
+               WHERE chu.id = checker_id
+             ) as checked_users
       FROM tasks t
       LEFT JOIN users u ON t.created_by = u.id
       LEFT JOIN users cb ON t.completed_by = cb.id
@@ -160,7 +172,13 @@ router.get('/:id', async (req, res) => {
                FROM unnest(t.assigned_to) as assignee_id,
                     users au
                WHERE au.id = assignee_id
-             ) as assigned_users
+             ) as assigned_users,
+             ARRAY(
+               SELECT json_build_object('id', chu.id, 'username', chu.username, 'full_name', chu.full_name)
+               FROM unnest(t.checked_by) as checker_id,
+                    users chu
+               WHERE chu.id = checker_id
+             ) as checked_users
       FROM tasks t
       LEFT JOIN users u ON t.created_by = u.id
       LEFT JOIN users cb ON t.completed_by = cb.id
@@ -213,7 +231,13 @@ router.post('/', async (req, res) => {
                FROM unnest(t.assigned_to) as assignee_id,
                     users au
                WHERE au.id = assignee_id
-             ) as assigned_users
+             ) as assigned_users,
+             ARRAY(
+               SELECT json_build_object('id', chu.id, 'username', chu.username, 'full_name', chu.full_name)
+               FROM unnest(t.checked_by) as checker_id,
+                    users chu
+               WHERE chu.id = checker_id
+             ) as checked_users
       FROM tasks t
       LEFT JOIN users u ON t.created_by = u.id
       WHERE t.id = $1
@@ -275,7 +299,13 @@ router.put('/:id', async (req, res) => {
                FROM unnest(t.assigned_to) as assignee_id,
                     users au
                WHERE au.id = assignee_id
-             ) as assigned_users
+             ) as assigned_users,
+             ARRAY(
+               SELECT json_build_object('id', chu.id, 'username', chu.username, 'full_name', chu.full_name)
+               FROM unnest(t.checked_by) as checker_id,
+                    users chu
+               WHERE chu.id = checker_id
+             ) as checked_users
       FROM tasks t
       LEFT JOIN users u ON t.created_by = u.id
       WHERE t.id = $1
@@ -475,6 +505,109 @@ router.put('/:id/approve', async (req, res) => {
     res.json({ success: true, task: result.rows[0], message: 'Task completion approved successfully' })
   } catch (error) {
     console.error('Task approve error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Toggle user check (mark task as checked by user)
+router.put('/:id/toggle-check', async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    const { id } = req.params
+    const userId = req.user?.userId
+    
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    // Check if task exists and user is assigned to it
+    const taskResult = await pool.query('SELECT * FROM tasks WHERE id = $1', [id])
+    if (taskResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Task not found' })
+    }
+
+    const task = taskResult.rows[0]
+    const assignedUsers = Array.isArray(task.assigned_to) ? task.assigned_to : []
+    
+    if (!assignedUsers.includes(userId)) {
+      return res.status(403).json({ success: false, error: 'You are not assigned to this task' })
+    }
+
+    // Get current checked_by array
+    const checkedBy = Array.isArray(task.checked_by) ? task.checked_by : []
+    
+    // Toggle: if user already checked, remove; otherwise add
+    let updatedCheckedBy
+    if (checkedBy.includes(userId)) {
+      updatedCheckedBy = checkedBy.filter(id => id !== userId)
+    } else {
+      updatedCheckedBy = [...checkedBy, userId]
+    }
+    
+    // Check if ALL assigned users have checked
+    const allChecked = assignedUsers.length > 0 && 
+                       assignedUsers.every(assignedId => updatedCheckedBy.includes(assignedId))
+    
+    // If all users checked, mark as completed
+    let newStatus = task.status
+    let completedAt = task.completed_at
+    
+    if (allChecked && task.status !== 'completed') {
+      newStatus = 'completed'
+      completedAt = new Date()
+    } else if (!allChecked && task.status === 'completed') {
+      // If unchecking and not all checked anymore, revert to in_progress
+      newStatus = 'in_progress'
+      completedAt = null
+    }
+    
+    // Update task
+    const result = await pool.query(`
+      UPDATE tasks 
+      SET checked_by = $1,
+          status = $2,
+          completed_at = $3,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $4
+      RETURNING *
+    `, [updatedCheckedBy, newStatus, completedAt, id])
+    
+    // Get updated task with user details
+    const updatedTask = await pool.query(`
+      SELECT t.*, 
+             u.username as created_by_name,
+             u.full_name as created_by_full_name,
+             cb.username as completed_by_name,
+             cb.full_name as completed_by_full_name,
+             ab.username as approved_by_name,
+             ab.full_name as approved_by_full_name,
+             ARRAY(
+               SELECT json_build_object('id', au.id, 'username', au.username, 'full_name', au.full_name)
+               FROM unnest(t.assigned_to) as assignee_id,
+                    users au
+               WHERE au.id = assignee_id
+             ) as assigned_users,
+             ARRAY(
+               SELECT json_build_object('id', chu.id, 'username', chu.username, 'full_name', chu.full_name)
+               FROM unnest(t.checked_by) as checker_id,
+                    users chu
+               WHERE chu.id = checker_id
+             ) as checked_users
+      FROM tasks t
+      LEFT JOIN users u ON t.created_by = u.id
+      LEFT JOIN users cb ON t.completed_by = cb.id
+      LEFT JOIN users ab ON t.approved_by = ab.id
+      WHERE t.id = $1
+    `, [id])
+
+    res.json({ 
+      success: true, 
+      task: updatedTask.rows[0], 
+      message: checkedBy.includes(userId) ? 'Check removed successfully' : 'Task checked successfully',
+      allChecked: allChecked
+    })
+  } catch (error) {
+    console.error('Toggle check error:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })

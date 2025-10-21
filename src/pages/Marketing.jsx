@@ -1,10 +1,13 @@
 import React, { useState } from 'react'
 import Layout from '../components/Layout'
 import { useData } from '../contexts/DataContext'
-import { TrendingUp, Plus, Search } from 'lucide-react'
+import { TrendingUp, Plus, Search, Paperclip, ExternalLink } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import MarketingModal from '../components/modals/MarketingModal'
 import MarketingDetailModal from '../components/modals/MarketingDetailModal'
+import PromotionsWidget from '../components/PromotionsWidget'
+import PromotionsCalendarWidget from '../components/PromotionsCalendarWidget'
+import PromotionsAIWidget from '../components/PromotionsAIWidget'
 
 const Marketing = () => {
   const { promotions, loading, createItem, updateItem, deleteItem, createTestWeeklyTombola } = useData()
@@ -133,8 +136,8 @@ const Marketing = () => {
       )
     },
     { 
-      key: 'end_date', 
-      label: 'DATA SFÂRȘIT', 
+      key: 'dates', 
+      label: 'DATA SFÂRȘIT / CREARE', 
       sortable: true,
       render: (item) => {
         const endDate = item.end_date ? new Date(item.end_date) : null
@@ -142,21 +145,16 @@ const Marketing = () => {
         const isExpired = endDate && endDate < today
         
         return (
-          <div className={`font-medium text-base ${isExpired ? 'text-red-600' : 'text-slate-800'}`}>
-            {item.end_date ? new Date(item.end_date).toLocaleDateString('ro-RO') : 'N/A'}
+          <div className="space-y-1">
+            <div className={`font-medium text-base ${isExpired ? 'text-red-600' : 'text-slate-800'}`}>
+              {item.end_date ? new Date(item.end_date).toLocaleDateString('ro-RO') : 'N/A'}
+            </div>
+            <div className="text-slate-500 text-xs">
+              {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+            </div>
           </div>
         )
       }
-    },
-    { 
-      key: 'discount_percent', 
-      label: 'REDUCERE', 
-      sortable: true,
-      render: (item) => (
-        <div className="text-green-600 font-bold text-lg">
-          {item.discount_percent ? `${item.discount_percent}%` : 'N/A'}
-        </div>
-      )
     },
     { 
       key: 'status', 
@@ -192,22 +190,40 @@ const Marketing = () => {
       }
     },
     { 
+      key: 'rules_document', 
+      label: 'REGULAMENT', 
+      sortable: false,
+      render: (item) => {
+        if (!item.rules_document) {
+          return (
+            <div className="text-slate-400 text-sm flex items-center">
+              <Paperclip className="w-4 h-4 mr-1 opacity-30" />
+              <span>-</span>
+            </div>
+          )
+        }
+        
+        return (
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => window.open(item.rules_document, '_blank')}
+              className="flex items-center space-x-1 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg transition-colors group"
+              title="Vizualizează regulamentul"
+            >
+              <Paperclip className="w-4 h-4" />
+              <ExternalLink className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+          </div>
+        )
+      }
+    },
+    { 
       key: 'created_by', 
       label: 'CREAT DE', 
       sortable: true, 
       render: (item) => (
         <div className="text-slate-800 font-medium text-base">
           {item.created_by || 'N/A'}
-        </div>
-      )
-    },
-    { 
-      key: 'created_at', 
-      label: 'DATA CREARE', 
-      sortable: true,
-      render: (item) => (
-        <div className="text-slate-600 text-sm">
-          {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
         </div>
       )
     }
@@ -289,6 +305,13 @@ const Marketing = () => {
               moduleColor="blue"
             />
           )}
+        </div>
+
+        {/* Marketing Tools - from Dashboard */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          <PromotionsWidget />
+          <PromotionsCalendarWidget />
+          <PromotionsAIWidget />
         </div>
 
         {/* Modals */}

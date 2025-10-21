@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { CheckSquare, Square, AlertTriangle, Clock, Users, Plus, Filter } from 'lucide-react'
+import TaskModal from '../components/modals/TaskModal'
 
 const Tasks = () => {
   const { tasks, users, loading, refreshData } = useData()
@@ -71,6 +72,22 @@ const Tasks = () => {
     }
   }
 
+  // Toggle user check
+  const handleToggleCheck = async (task) => {
+    try {
+      const response = await axios.put(`/api/tasks/${task.id}/toggle-check`)
+      if (response.data.allChecked) {
+        toast.success('Toți utilizatorii au bifat! Sarcină completată!')
+      } else {
+        toast.success(response.data.message)
+      }
+      refreshData()
+    } catch (error) {
+      console.error('Error toggling check:', error)
+      toast.error(error.response?.data?.error || 'Eroare la bifarea sarcinii!')
+    }
+  }
+
   // Toggle task status
   const handleStatusToggle = async (task) => {
     try {
@@ -120,21 +137,38 @@ const Tasks = () => {
   // Columns definition
   const columns = [
     {
-      key: 'status',
-      label: '',
+      key: 'check',
+      label: 'BIFARE',
       sortable: false,
-      render: (task) => (
-        <button
-          onClick={() => handleStatusToggle(task)}
-          className="p-1 hover:bg-gray-100 rounded transition-colors"
-        >
-          {task.status === 'completed' ? (
-            <CheckSquare className="w-5 h-5 text-green-600" />
-          ) : (
-            <Square className="w-5 h-5 text-gray-400" />
-          )}
-        </button>
-      )
+      render: (task) => {
+        const assignedUsers = task.assigned_users || []
+        const checkedUsers = task.checked_users || []
+        const isAssigned = assignedUsers.some(u => u.id === user?.userId)
+        const isChecked = checkedUsers.some(u => u.id === user?.userId)
+        
+        if (!isAssigned) {
+          return <span className="text-gray-400 text-xs">-</span>
+        }
+        
+        return (
+          <div className="flex flex-col items-center space-y-1">
+            <button
+              onClick={() => handleToggleCheck(task)}
+              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              title={isChecked ? 'Debifează' : 'Bifează ca îndeplinit'}
+            >
+              {isChecked ? (
+                <CheckSquare className="w-5 h-5 text-green-600" />
+              ) : (
+                <Square className="w-5 h-5 text-gray-400" />
+              )}
+            </button>
+            <span className="text-xs text-gray-500">
+              {checkedUsers.length}/{assignedUsers.length}
+            </span>
+          </div>
+        )
+      }
     },
     {
       key: 'title',
@@ -480,140 +514,6 @@ const Tasks = () => {
         />
       )}
     </Layout>
-  )
-}
-
-// Task Modal Component
-const TaskModal = ({ task, users, onSubmit, onClose }) => {
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    priority: 'medium',
-    assigned_to: [],
-    due_date: ''
-  })
-
-  useEffect(() => {
-    if (task) {
-      setFormData({
-        title: task.title || '',
-        description: task.description || '',
-        priority: task.priority || 'medium',
-        assigned_to: task.assigned_users ? task.assigned_users.map(u => u.id) : [],
-        due_date: task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : ''
-      })
-    }
-  }, [task])
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    onSubmit(formData)
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <h2 className="text-xl font-bold mb-4">
-            {task ? 'Editează sarcina' : 'Sarcină nouă'}
-          </h2>
-          
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Titlu *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Descriere
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Prioritate
-              </label>
-              <select
-                value={formData.priority}
-                onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="low">Mică</option>
-                <option value="medium">Medie</option>
-                <option value="high">Mare</option>
-                <option value="urgent">Urgent</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Responsabili
-              </label>
-              <select
-                multiple
-                value={formData.assigned_to}
-                onChange={(e) => {
-                  const values = Array.from(e.target.selectedOptions, option => parseInt(option.value))
-                  setFormData({ ...formData, assigned_to: values })
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                size={4}
-              >
-                {users.map(user => (
-                  <option key={user.id} value={user.id}>
-                    {user.full_name || user.username}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-gray-500 mt-1">Ține apăsat Ctrl pentru a selecta mai mulți utilizatori</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Termen limită
-              </label>
-              <input
-                type="date"
-                value={formData.due_date}
-                onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <button
-                type="submit"
-                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                {task ? 'Actualizează' : 'Creează'}
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition-colors"
-              >
-                Anulează
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
   )
 }
 
