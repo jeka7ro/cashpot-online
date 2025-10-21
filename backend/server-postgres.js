@@ -3236,10 +3236,10 @@ app.post('/api/onjn-operators/import-json', async (req, res) => {
                 brand_name = $2,
                 county = $3,
                 city = $4,
-                address = $5,
+                slot_address = $5,
                 status = $6,
                 license_number = $7,
-                license_expiry = $8,
+                expiry_date = $8,
                 updated_at = NOW()
               WHERE serial_number = $9
             `, [
@@ -3259,7 +3259,7 @@ app.post('/api/onjn-operators/import-json', async (req, res) => {
             await pool.query(`
               INSERT INTO onjn_operators (
                 serial_number, company_name, brand_name, county, city, 
-                address, status, license_number, license_expiry, created_at, updated_at
+                slot_address, status, license_number, expiry_date, created_at, updated_at
               ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
             `, [
               slot.serial_number,
