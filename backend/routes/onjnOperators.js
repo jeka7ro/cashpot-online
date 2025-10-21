@@ -1,8 +1,15 @@
 import express from 'express'
 import axios from 'axios'
 import { load } from 'cheerio'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
 
 const router = express.Router()
+
+// ES modules __dirname equivalent
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 // Helper function to parse operator field (Company + Brand)
 const parseOperator = (operatorText) => {
@@ -499,6 +506,173 @@ router.post('/refresh', async (req, res) => {
       _refreshProgress.currentStep = `Error: ${error.message}`
       _refreshProgress.endTime = new Date()
     }
+    res.status(500).json({ success: false, error: error.message })
+  } finally {
+    // Clear progress after 30 seconds if completed or failed
+    setTimeout(() => {
+      if (_refreshProgress && (_refreshProgress.status === 'completed' || _refreshProgress.status === 'failed')) {
+        _refreshProgress = null
+      }
+    }, 30000)
+  }
+})
+
+// POST /api/onjn-operators/import-json - Import data from JSON file
+router.post('/import-json', async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+    
+    // Check if already importing
+    if (_refreshProgress && _refreshProgress.status === 'running') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Import deja în curs. Vă rugăm să așteptați finalizarea.' 
+      })
+    }
+    
+    // Try multiple possible locations for the JSON file
+    const possiblePaths = [
+      path.join(__dirname, '..', 'onjn-scraped-data.json'),
+      path.join(__dirname, '..', '..', 'backend', 'onjn-scraped-data.json'),
+      path.join(__dirname, '..', 'backend', 'onjn-scraped-data.json')
+    ]
+    
+    let jsonFilePath = null
+    for (const possiblePath of possiblePaths) {
+      if (fs.existsSync(possiblePath)) {
+        jsonFilePath = possiblePath
+        break
+      }
+    }
+    
+    if (!jsonFilePath) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Fișierul JSON nu a fost găsit. Rulați mai întâi scriptul de scraping.' 
+      })
+    }
+    
+    console.log('📁 Loading JSON data from:', jsonFilePath)
+    const jsonData = JSON.parse(fs.readFileSync(jsonFilePath, 'utf8'))
+    
+    if (!Array.isArray(jsonData) || jsonData.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Fișierul JSON nu conține date valide.' 
+      })
+    }
+    
+    // Initialize progress
+    _refreshProgress = {
+      status: 'running',
+      currentPage: 0,
+      totalPages: Math.ceil(jsonData.length / 100), // Process in batches of 100
+      currentStep: 'Importing from JSON...',
+      slotsFound: jsonData.length,
+      inserted: 0,
+      updated: 0,
+      errors: 0,
+      startTime: new Date()
+    }
+    
+    console.log(`🚀 Starting JSON import: ${jsonData.length} slots`)
+    
+    let inserted = 0
+    let updated = 0
+    let errors = 0
+    
+    // Process in batches
+    const batchSize = 100
+    for (let i = 0; i < jsonData.length; i += batchSize) {
+      const batch = jsonData.slice(i, i + batchSize)
+      
+      _refreshProgress.currentStep = `Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(jsonData.length / batchSize)}...`
+      _refreshProgress.currentPage = Math.floor(i / batchSize) + 1
+      
+      for (const slot of batch) {
+        try {
+          // Check if slot exists
+          const existing = await pool.query(
+            'SELECT id, serial_number FROM onjn_operators WHERE serial_number = $1',
+            [slot.serial_number]
+          )
+          
+          if (existing.rows.length > 0) {
+            // Update existing
+            await pool.query(`
+              UPDATE onjn_operators SET
+                details_uuid = $1, equipment_type = $2, company_name = $3, brand_name = $4,
+                license_number = $5, slot_address = $6, city = $7, county = $8,
+                authorization_date = $9, expiry_date = $10, status = $11, is_expired = $12,
+                onjn_list_url = $13, onjn_details_url = $14, last_scraped_at = $15,
+                updated_at = CURRENT_TIMESTAMP
+              WHERE serial_number = $16
+            `, [
+              slot.details_uuid, slot.equipment_type, slot.company_name, slot.brand_name,
+              slot.license_number, slot.slot_address, slot.city, slot.county,
+              slot.authorization_date, slot.expiry_date, slot.status, slot.is_expired,
+              slot.onjn_list_url, slot.onjn_details_url, slot.last_scraped_at,
+              slot.serial_number
+            ])
+            updated++
+          } else {
+            // Insert new
+            await pool.query(`
+              INSERT INTO onjn_operators (
+                serial_number, details_uuid, equipment_type, company_name, brand_name,
+                license_number, slot_address, city, county, authorization_date,
+                expiry_date, status, is_expired, onjn_list_url, onjn_details_url,
+                last_scraped_at
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+            `, [
+              slot.serial_number, slot.details_uuid, slot.equipment_type, slot.company_name, slot.brand_name,
+              slot.license_number, slot.slot_address, slot.city, slot.county, slot.authorization_date,
+              slot.expiry_date, slot.status, slot.is_expired, slot.onjn_list_url, slot.onjn_details_url,
+              slot.last_scraped_at
+            ])
+            inserted++
+          }
+        } catch (error) {
+          console.error(`Error processing slot ${slot.serial_number}:`, error.message)
+          errors++
+        }
+      }
+      
+      _refreshProgress.inserted = inserted
+      _refreshProgress.updated = updated
+      _refreshProgress.errors = errors
+    }
+    
+    // Mark as completed
+    _refreshProgress.status = 'completed'
+    _refreshProgress.currentStep = 'Import completed successfully!'
+    _refreshProgress.endTime = new Date()
+    _refreshProgress.duration = _refreshProgress.endTime - _refreshProgress.startTime
+    
+    console.log(`✅ JSON import complete: ${inserted} inserted, ${updated} updated, ${errors} errors`)
+    
+    res.json({
+      success: true,
+      message: 'Import from JSON completed successfully',
+      inserted,
+      updated,
+      errors,
+      total: jsonData.length
+    })
+    
+  } catch (error) {
+    console.error('Error importing from JSON:', error)
+    
+    if (_refreshProgress) {
+      _refreshProgress.status = 'failed'
+      _refreshProgress.currentStep = `Error: ${error.message}`
+      _refreshProgress.endTime = new Date()
+    }
+    
     res.status(500).json({ success: false, error: error.message })
   } finally {
     // Clear progress after 30 seconds if completed or failed

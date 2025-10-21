@@ -159,12 +159,14 @@ export const DataProvider = ({ children }) => {
       }
       
       // Fetch remaining entities in background
-      const regularRequests = regularEntities.map(entity => 
-        axios.get(`/api/${entity}`, { timeout: 10000 }).catch((error) => {
+      const regularRequests = regularEntities.map(entity => {
+        // Use longer timeout for problematic entities
+        const timeout = ['users', 'tasks'].includes(entity) ? 30000 : 10000
+        return axios.get(`/api/${entity}`, { timeout }).catch((error) => {
           console.error(`❌ Error fetching ${entity}:`, error)
           return { data: [] }
         })
-      )
+      })
       
       console.log(`📡 Loading ${regularRequests.length} remaining entities in background...`)
       const regularResponses = await Promise.all(regularRequests)

@@ -1,23 +1,34 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
-import { TrendingUp, MapPin, Building2, Calendar, AlertCircle, CheckCircle } from 'lucide-react'
+import { TrendingUp, MapPin, Building2, Calendar, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react'
 
-const ONJNStatsWidget = () => {
-  const [stats, setStats] = useState(null)
-  const [loading, setLoading] = useState(true)
+const ONJNStatsWidget = ({ stats: propsStats, loading: propsLoading, onRefresh }) => {
+  // Use props if available, otherwise fallback to local state
+  const [localStats, setLocalStats] = useState(null)
+  const [localLoading, setLocalLoading] = useState(true)
+
+  const stats = propsStats || localStats
+  const loading = propsLoading !== undefined ? propsLoading : localLoading
 
   useEffect(() => {
-    loadStats()
+    // Only load locally if props are not provided
+    if (propsStats === undefined && propsLoading === undefined) {
+      loadStats()
+    }
   }, [])
 
   const loadStats = async () => {
     try {
       const response = await axios.get('/api/onjn-operators/stats')
-      setStats(response.data)
+      setLocalStats(response.data)
+      // Also call the parent's refresh function if provided
+      if (onRefresh) {
+        onRefresh()
+      }
     } catch (error) {
       console.error('Error loading stats:', error)
     } finally {
-      setLoading(false)
+      setLocalLoading(false)
     }
   }
 
@@ -48,6 +59,14 @@ const ONJNStatsWidget = () => {
           </div>
           <h3 className="text-lg font-bold text-slate-800 dark:text-white">Statistici Generale</h3>
         </div>
+        <button
+          onClick={loadStats}
+          disabled={loading}
+          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors disabled:opacity-50"
+          title="Actualizează statisticile"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
       </div>
 
       {/* Stats Grid */}

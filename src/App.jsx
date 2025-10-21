@@ -32,7 +32,7 @@ import ONJNReports from './pages/ONJNReports'
 import ONJNOperators from './pages/ONJNOperators'
 import ONJNBrandDetails from './pages/ONJNBrandDetails'
 import LegalDocuments from './pages/LegalDocuments'
-import Users from './pages/Users'
+import UsersPage from './pages/Users'
 import Settings from './pages/Settings'
 import Tasks from './pages/Tasks'
 import Messages from './pages/Messages'
@@ -74,7 +74,7 @@ function App() {
             <Route path="/marketing/:id" element={<RoleProtectedRoute module={MODULES.MARKETING}><PromotionDetail /></RoleProtectedRoute>} />
             <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
             <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
-            <Route path="/users" element={<RoleProtectedRoute requiredRole="admin"><Users /></RoleProtectedRoute>} />
+            <Route path="/users" element={<RoleProtectedRoute requiredRole="admin"><UsersPage /></RoleProtectedRoute>} />
             <Route path="/settings" element={<RoleProtectedRoute module={MODULES.SETTINGS}><Settings /></RoleProtectedRoute>} />
             
             <Route path="*" element={<Navigate to="/login" replace />} />

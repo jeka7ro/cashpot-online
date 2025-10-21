@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { MapPin, TrendingUp, Building2, ChevronDown, ChevronRight } from 'lucide-react'
 
-const ONJNCitiesWidget = ({ operators = [] }) => {
+const ONJNCitiesWidget = ({ operators = [], onFilterChange }) => {
   const [cities, setCities] = useState([])
   const [loading, setLoading] = useState(true)
   const [expandedCity, setExpandedCity] = useState(null)
@@ -134,8 +134,17 @@ const ONJNCitiesWidget = ({ operators = [] }) => {
             return (
               <div key={city.city} className="relative">
                 <div 
-                  className={`flex items-center justify-between mb-1 ${hasSectors ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg p-2 -m-2' : ''}`}
-                  onClick={() => hasSectors && setExpandedCity(isExpanded ? null : city.city)}
+                  className={`flex items-center justify-between mb-1 ${hasSectors ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg p-2 -m-2' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg p-2 -m-2'}`}
+                  onClick={() => {
+                    if (hasSectors) {
+                      setExpandedCity(isExpanded ? null : city.city)
+                    } else {
+                      // Apply city filter
+                      if (onFilterChange) {
+                        onFilterChange('city', city.city)
+                      }
+                    }
+                  }}
                 >
                   <div className="flex items-center space-x-2">
                     <span className="text-lg font-bold text-slate-400 dark:text-slate-500 w-6">

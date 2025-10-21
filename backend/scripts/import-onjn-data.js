@@ -35,25 +35,27 @@ const parseOperatorName = (operatorText) => {
   }
 }
 
-// Helper function to parse dates
-const parseDate = (dateStr) => {
-  if (!dateStr || dateStr === '-') return null
+// Helper function to parse date from Romanian format
+const parseRomanianDate = (dateStr) => {
+  if (!dateStr) return null
+  
   try {
-    // Format: DD/MM/YYYY
-    const parts = dateStr.split('/')
-    if (parts.length === 3) {
-      return new Date(parts[2], parts[1] - 1, parts[0])
-    }
+    // Format: "01/09/2025" -> "2025-09-01"
+    const parts = dateStr.trim().split('/')
+    if (parts.length !== 3) return null
+    
+    const [day, month, year] = parts
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
   } catch (error) {
-    console.error(`Error parsing date: ${dateStr}`, error)
+    console.error('Date parse error:', error)
+    return null
   }
-  return null
 }
 
 // Scrape single page from ONJN
 const scrapePage = async (pageNumber, companyId = null) => {
   const companyFilter = companyId ? `&company_id=${companyId}` : ''
-  const url = `https://registru.onjn.gov.ro/mijloace-de-joc/1?in_use=1${companyFilter}&page=${pageNumber}`
+  const url = `https://registru.onjn.gov.ro/mijloace-de-joc/1?equipment_type_id=&in_use=1${companyFilter}&page=${pageNumber}`
   
   try {
     const response = await axios.get(url, {
@@ -68,40 +70,48 @@ const scrapePage = async (pageNumber, companyId = null) => {
     const $ = load(response.data)
     const slots = []
     
-    $('table.table-hover tbody tr').each((index, row) => {
+    // Find all table rows (skip header)
+    $('table tbody tr').each((index, row) => {
       try {
         const cells = $(row).find('td')
-        if (cells.length < 7) return
         
-        const serialNumber = $(cells[0]).text().trim()
+        if (cells.length < 7) return // Skip invalid rows
+        
+        // Extract data from cells
+        const serialNumberCell = $(cells[0])
+        const serialNumber = serialNumberCell.find('a').text().trim()
+        const detailsLink = serialNumberCell.find('a').attr('href')
+        
         const equipmentType = $(cells[1]).text().trim()
-        const address = $(cells[2]).text().trim()
+        
+        const slotAddress = $(cells[2]).text().trim()
+        // Parse city and county from address (last line usually)
+        const addressLines = slotAddress.split('\n').map(l => l.trim()).filter(Boolean)
+        const lastLine = addressLines[addressLines.length - 1] || ''
+        const cityCountyMatch = lastLine.match(/^(.*?),\s*(.*)$/)
+        const city = cityCountyMatch ? cityCountyMatch[1] : ''
+        const county = cityCountyMatch ? cityCountyMatch[2] : ''
+        
+        // Parse operator (Company + Brand)
         const operatorText = $(cells[3]).text().trim()
+        const { company_name, brand_name } = parseOperatorName(operatorText)
+        
         const licenseNumber = $(cells[4]).text().trim()
+        
         const authorizationDateStr = $(cells[5]).text().trim()
         const expiryDateStr = $(cells[6]).text().trim()
-        const status = $(cells[7]).text().trim()
-        const detailsLink = $(cells[0]).find('a').attr('href')
+        
+        const statusText = $(cells[7]).text().trim()
+        const status = statusText.includes('exploatare') ? 'În exploatare' : 'Scos din funcțiune'
         
         const detailsUuid = detailsLink ? detailsLink.split('/').pop() : null
         const onjnDetailsUrl = detailsUuid ? `https://registru.onjn.gov.ro/e/${detailsUuid}` : null
         
-        const { company_name, brand_name } = parseOperatorName(operatorText)
+        const authorizationDate = parseRomanianDate(authorizationDateStr)
+        const expiryDate = parseRomanianDate(expiryDateStr)
         
-        // Parse city and county from address
-        let city = null
-        let county = null
-        const addressParts = address.split(',').map(s => s.trim()).filter(Boolean)
-        if (addressParts.length >= 2) {
-          county = addressParts[addressParts.length - 1]
-          city = addressParts[addressParts.length - 2]
-        } else if (addressParts.length === 1) {
-          city = addressParts[0]
-        }
-        
-        const authorizationDate = parseDate(authorizationDateStr)
-        const expiryDate = parseDate(expiryDateStr)
-        const isExpired = expiryDate ? expiryDate < new Date() : false
+        // Check if expired
+        const isExpired = expiryDate ? new Date(expiryDate) < new Date() : false
         
         slots.push({
           serial_number: serialNumber,
@@ -110,7 +120,7 @@ const scrapePage = async (pageNumber, companyId = null) => {
           company_name,
           brand_name,
           license_number: licenseNumber,
-          slot_address: address,
+          slot_address: slotAddress,
           city,
           county,
           authorization_date: authorizationDate,

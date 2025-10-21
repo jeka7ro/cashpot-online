@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Award, TrendingUp, Target } from 'lucide-react'
 
-const ONJNBrandsWidget = ({ operators = [] }) => {
+const ONJNBrandsWidget = ({ operators = [], onFilterChange }) => {
   const [brands, setBrands] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -118,7 +118,15 @@ const ONJNBrandsWidget = ({ operators = [] }) => {
             
             return (
               <div key={brand.brand} className="group">
-                <div className="flex items-center justify-between mb-2">
+                <div 
+                  className="flex items-center justify-between mb-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg p-2 -m-2 transition-colors"
+                  onClick={() => {
+                    // Apply brand filter
+                    if (onFilterChange) {
+                      onFilterChange('brand', brand.brand)
+                    }
+                  }}
+                >
                   <div className="flex items-center space-x-3 flex-1">
                     <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${gradientClass} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform`}>
                       <span className="text-white font-bold text-sm">
