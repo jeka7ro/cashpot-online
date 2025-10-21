@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import axios from 'axios'
-import { Building2, RefreshCw, Search, ExternalLink, Calendar, MapPin, FileCheck, TrendingUp, AlertCircle } from 'lucide-react'
+import { Building2, RefreshCw, Search, ExternalLink, Calendar, MapPin, FileCheck, TrendingUp, AlertCircle, Hash, BarChart3 } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import { toast } from 'react-hot-toast'
 import ONJNStatsWidget from '../components/ONJNStatsWidget'
@@ -25,6 +25,7 @@ const ONJNOperators = () => {
     company: '',
     brand: '',
     county: '',
+    city: '',
     status: '',
     license: ''
   })
@@ -202,6 +203,73 @@ const ONJNOperators = () => {
     }
   }
 
+  const handleImportJson = async () => {
+    // Check if already refreshing
+    if (refreshProgress && refreshProgress.status === 'running') {
+      toast.error('Import deja în curs. Vă rugăm să așteptați finalizarea.', { id: 'import-warning' })
+      return
+    }
+
+    try {
+      setRefreshing(true)
+      
+      // Initialize progress immediately to show progress bar
+      setRefreshProgress({
+        status: 'running',
+        currentPage: 0,
+        totalPages: 0,
+        currentStep: 'Pornire import din JSON...',
+        slotsFound: 0,
+        inserted: 0,
+        updated: 0,
+        errors: 0,
+        startTime: new Date()
+      })
+      
+      toast.loading('Import din JSON în curs...', { id: 'import' })
+      
+      // Start the JSON import
+      const response = await axios.post('/api/onjn-operators/import-json')
+      
+      if (response.data.success) {
+        // Update progress with response data
+        setRefreshProgress(prev => ({
+          ...prev,
+          currentStep: 'Import în curs...',
+          slotsFound: response.data.total || 0
+        }))
+        
+        // Start polling for progress
+        const interval = setInterval(fetchProgress, 2000) // Poll every 2 seconds
+        setProgressInterval(interval)
+        
+        // Initial progress fetch
+        setTimeout(fetchProgress, 500)
+        
+        toast.success(
+          `✅ Import completat!\n${response.data.inserted} adăugate, ${response.data.updated} actualizate`,
+          { id: 'import', duration: 8000 }
+        )
+        
+        // Reload data
+        await loadData()
+        await loadStats()
+        setRefreshing(false)
+      }
+    } catch (error) {
+      console.error('Error importing from JSON:', error)
+      if (error.response?.status === 400) {
+        toast.error('Import deja în curs. Vă rugăm să așteptați finalizarea.', { id: 'import' })
+      } else if (error.response?.status === 404) {
+        toast.error('Fișierul JSON nu a fost găsit. Rulați mai întâi scriptul de scraping.', { id: 'import' })
+      } else {
+        toast.error('Eroare la importul din JSON!', { id: 'import' })
+      }
+      setRefreshing(false)
+      setRefreshProgress(null)
+    }
+  }
+
   // Cleanup interval on unmount and add timeout for refresh
   useEffect(() => {
     return () => {
@@ -234,11 +302,51 @@ const ONJNOperators = () => {
     }
   }, [refreshing, refreshProgress, progressInterval])
 
+  // Handler for filter changes from widgets
+  const handleWidgetFilterChange = (filterType, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterType]: value
+    }))
+    
+    // Show toast notification
+    toast.success(`Filtru aplicat: ${filterType} = ${value}`, {
+      duration: 2000
+    })
+  }
+
   // Get unique values for filters
   const companies = [...new Set(operators.map(op => op.company_name).filter(Boolean))].sort()
   const brands = [...new Set(operators.map(op => op.brand_name).filter(Boolean))].sort()
   const counties = [...new Set(operators.map(op => op.county).filter(Boolean))].sort()
+  const cities = [...new Set(operators.map(op => op.city).filter(Boolean))].sort()
   const licenses = [...new Set(operators.map(op => op.license_number).filter(Boolean))].sort()
+
+  // Calculate operator statistics (per company)
+  const operatorStats = companies.map(company => {
+    const companyOperators = operators.filter(op => op.company_name === company)
+    const brandsPerCompany = [...new Set(companyOperators.map(op => op.brand_name).filter(Boolean))]
+    const locationsPerCompany = [...new Set(companyOperators.map(op => op.city).filter(Boolean))]
+    
+    // Calculate slots per location
+    const slotsPerLocation = locationsPerCompany.map(location => {
+      const locationSlots = companyOperators.filter(op => op.city === location)
+      return {
+        location,
+        slots: locationSlots.length
+      }
+    })
+    
+    return {
+      company,
+      totalSlots: companyOperators.length,
+      brandsCount: brandsPerCompany.length,
+      locationsCount: locationsPerCompany.length,
+      brands: brandsPerCompany,
+      locations: locationsPerCompany,
+      slotsPerLocation: slotsPerLocation.sort((a, b) => b.slots - a.slots) // Sort by slot count
+    }
+  }).sort((a, b) => b.totalSlots - a.totalSlots) // Sort by total slots
 
   // Filter data
   const filteredOperators = operators.filter(op => {
@@ -250,10 +358,11 @@ const ONJNOperators = () => {
     const matchesCompany = !filters.company || op.company_name === filters.company
     const matchesBrand = !filters.brand || op.brand_name === filters.brand
     const matchesCounty = !filters.county || op.county === filters.county
+    const matchesCity = !filters.city || op.city === filters.city
     const matchesStatus = !filters.status || op.status === filters.status
     const matchesLicense = !filters.license || op.license_number === filters.license
     
-    return matchesSearch && matchesCompany && matchesBrand && matchesCounty && matchesStatus && matchesLicense
+    return matchesSearch && matchesCompany && matchesBrand && matchesCounty && matchesCity && matchesStatus && matchesLicense
   })
 
   // Define columns
@@ -442,16 +551,26 @@ const ONJNOperators = () => {
                 )}
               </div>
             </div>
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing || (refreshProgress && refreshProgress.status === 'running')}
-              className="btn-primary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              <span>
-                {refreshing ? 'Sincronizare...' : 'Refresh ONJN'}
-              </span>
-            </button>
+            <div className="flex space-x-3">
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing || (refreshProgress && refreshProgress.status === 'running')}
+                className="btn-primary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                <span>
+                  {refreshing ? 'Sincronizare...' : 'Refresh ONJN'}
+                </span>
+              </button>
+              <button
+                onClick={handleImportJson}
+                disabled={refreshing || (refreshProgress && refreshProgress.status === 'running')}
+                className="btn-secondary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FileCheck className="w-4 h-4" />
+                <span>📁 Import JSON</span>
+              </button>
+            </div>
           </div>
 
           {/* Progress Status Bar */}
@@ -615,13 +734,18 @@ const ONJNOperators = () => {
         {/* Smart Widgets */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
           <ONJNStatsWidget stats={stats} loading={loading} onRefresh={loadStats} />
-          <ONJNCitiesWidget operators={operators} />
-          <ONJNCountiesWidget operators={operators} />
-          <ONJNBrandsWidget operators={operators} />
+          <ONJNCitiesWidget operators={operators} onFilterChange={handleWidgetFilterChange} />
+          <ONJNCountiesWidget operators={operators} onFilterChange={handleWidgetFilterChange} />
+          <ONJNBrandsWidget operators={operators} onFilterChange={handleWidgetFilterChange} />
         </div>
 
         {/* Map Widget - Full Width */}
-        <ONJNMapWidget operators={operators} />
+        <ONJNMapWidget 
+          operators={operators} 
+          filteredOperators={filteredOperators}
+          filters={filters}
+          onFilterChange={handleWidgetFilterChange}
+        />
 
         {/* Filters */}
         <div className="card p-6">
@@ -711,6 +835,127 @@ const ONJNOperators = () => {
             )}
           </div>
         </div>
+
+        {/* Operator Statistics */}
+        {operatorStats.length > 0 && (
+          <div className="card p-6">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="p-2 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-xl shadow-lg shadow-purple-500/25">
+                <BarChart3 className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white">Statistici per Operator</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Câte branduri, locații și sloturi pe locație pentru fiecare operator
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto">
+              {operatorStats.slice(0, 12).map((operator, index) => (
+                <div
+                  key={operator.company}
+                  className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 
+                           rounded-xl border border-slate-200 dark:border-slate-600 p-4 hover:shadow-lg transition-all"
+                >
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+                        {index + 1}
+                      </div>
+                      <h4 className="font-bold text-slate-800 dark:text-white text-sm truncate max-w-[200px]" title={operator.company}>
+                        {operator.company}
+                      </h4>
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      {operator.totalSlots} sloturi
+                    </div>
+                  </div>
+
+                  {/* Main Stats */}
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-3 text-center">
+                      <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
+                        {operator.brandsCount}
+                      </div>
+                      <div className="text-xs text-slate-600 dark:text-slate-400">Branduri</div>
+                    </div>
+                    <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
+                      <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                        {operator.locationsCount}
+                      </div>
+                      <div className="text-xs text-slate-600 dark:text-slate-400">Locații</div>
+                    </div>
+                  </div>
+
+                  {/* Top Locations */}
+                  {operator.slotsPerLocation.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold text-slate-600 dark:text-slate-400 flex items-center">
+                        <MapPin className="w-3 h-3 mr-1" />
+                        Top locații:
+                      </div>
+                      <div className="space-y-1">
+                        {operator.slotsPerLocation.slice(0, 3).map((location, locIndex) => (
+                          <div key={location.location} className="flex justify-between items-center text-xs">
+                            <span className="text-slate-700 dark:text-slate-300 truncate max-w-[120px]" title={location.location}>
+                              {location.location}
+                            </span>
+                            <span className="font-bold text-indigo-600 dark:text-indigo-400 flex items-center">
+                              <Hash className="w-3 h-3 mr-1" />
+                              {location.slots}
+                            </span>
+                          </div>
+                        ))}
+                        {operator.slotsPerLocation.length > 3 && (
+                          <div className="text-xs text-slate-500 dark:text-slate-400 text-center">
+                            +{operator.slotsPerLocation.length - 3} mai multe
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Brands */}
+                  {operator.brands.length > 0 && (
+                    <div className="mt-3 pt-2 border-t border-slate-200 dark:border-slate-600">
+                      <div className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 flex items-center">
+                        <Building2 className="w-3 h-3 mr-1" />
+                        Branduri:
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {operator.brands.slice(0, 2).map((brand, brandIndex) => (
+                          <span
+                            key={brand}
+                            className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 
+                                     text-xs rounded-full truncate max-w-[100px]"
+                            title={brand}
+                          >
+                            {brand}
+                          </span>
+                        ))}
+                        {operator.brands.length > 2 && (
+                          <span className="px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 text-xs rounded-full">
+                            +{operator.brands.length - 2}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {operatorStats.length > 12 && (
+              <div className="mt-4 text-center">
+                <span className="text-sm text-slate-500 dark:text-slate-400">
+                  Afișare primele 12 din {operatorStats.length} operatori
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Table */}
         <div className="card p-6">
