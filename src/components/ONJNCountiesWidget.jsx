@@ -16,7 +16,8 @@ const ONJNCountiesWidget = ({ operators = [], onFilterChange }) => {
 
   const loadCountiesFromAPI = async () => {
     try {
-      const response = await axios.get('/api/onjn-operators')
+      // Load only limited data for better performance
+      const response = await axios.get('/api/onjn-operators?limit=1000')
       processCountiesData(response.data)
     } catch (error) {
       console.error('Error loading counties:', error)

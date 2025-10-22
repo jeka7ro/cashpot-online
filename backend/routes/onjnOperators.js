@@ -146,19 +146,26 @@ const scrapePage = async (pageNumber, companyId = null) => {
   }
 }
 
-// GET /api/onjn-operators - Get all operators
+// GET /api/onjn-operators - Get all operators with optional limit
 router.get('/', async (req, res) => {
   try {
     const pool = req.app.get('pool')
+    const { limit } = req.query
     
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
     
-    const result = await pool.query(`
+    let query = `
       SELECT * FROM onjn_operators
       ORDER BY serial_number ASC
-    `)
+    `
+    
+    if (limit && !isNaN(parseInt(limit))) {
+      query += ` LIMIT ${parseInt(limit)}`
+    }
+    
+    const result = await pool.query(query)
     
     res.json(result.rows)
   } catch (error) {

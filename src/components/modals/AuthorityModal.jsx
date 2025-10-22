@@ -185,3 +185,4 @@ const AuthorityModal = ({ item, onClose, onSave }) => {
 
 export default AuthorityModal
 
+

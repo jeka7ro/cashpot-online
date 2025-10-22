@@ -70,10 +70,11 @@ const ONJNOperators = () => {
     loadStats()
   }, [])
 
-  const loadData = async () => {
+  const loadData = async (limit = 1000) => {
     try {
       setLoading(true)
-      const response = await axios.get('/api/onjn-operators')
+      // Load only first 1000 records initially for better performance
+      const response = await axios.get(`/api/onjn-operators?limit=${limit}`)
       setOperators(response.data)
       
       // Detect last update from most recent last_scraped_at
@@ -731,21 +732,29 @@ const ONJNOperators = () => {
           </div>
         )}
 
-        {/* Smart Widgets */}
+        {/* Smart Widgets - Lazy Load */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
           <ONJNStatsWidget stats={stats} loading={loading} onRefresh={loadStats} />
-          <ONJNCitiesWidget operators={operators} onFilterChange={handleWidgetFilterChange} />
-          <ONJNCountiesWidget operators={operators} onFilterChange={handleWidgetFilterChange} />
-          <ONJNBrandsWidget operators={operators} onFilterChange={handleWidgetFilterChange} />
+          <React.Suspense fallback={<div className="card p-6 animate-pulse bg-slate-100 dark:bg-slate-700 rounded-xl"><div className="h-32"></div></div>}>
+            <ONJNCitiesWidget operators={operators.slice(0, 500)} onFilterChange={handleWidgetFilterChange} />
+          </React.Suspense>
+          <React.Suspense fallback={<div className="card p-6 animate-pulse bg-slate-100 dark:bg-slate-700 rounded-xl"><div className="h-32"></div></div>}>
+            <ONJNCountiesWidget operators={operators.slice(0, 500)} onFilterChange={handleWidgetFilterChange} />
+          </React.Suspense>
+          <React.Suspense fallback={<div className="card p-6 animate-pulse bg-slate-100 dark:bg-slate-700 rounded-xl"><div className="h-32"></div></div>}>
+            <ONJNBrandsWidget operators={operators.slice(0, 500)} onFilterChange={handleWidgetFilterChange} />
+          </React.Suspense>
         </div>
 
-        {/* Map Widget - Full Width */}
-        <ONJNMapWidget 
-          operators={operators} 
-          filteredOperators={filteredOperators}
-          filters={filters}
-          onFilterChange={handleWidgetFilterChange}
-        />
+        {/* Map Widget - Lazy Load with Reduced Data */}
+        <React.Suspense fallback={<div className="card p-6 animate-pulse bg-slate-100 dark:bg-slate-700 rounded-xl"><div className="h-96"></div></div>}>
+          <ONJNMapWidget 
+            operators={operators.slice(0, 1000)} 
+            filteredOperators={filteredOperators.slice(0, 1000)}
+            filters={filters}
+            onFilterChange={handleWidgetFilterChange}
+          />
+        </React.Suspense>
 
         {/* Filters */}
         <div className="card p-6">
@@ -985,6 +994,7 @@ const ONJNOperators = () => {
                 columns={columns}
                 searchTerm={searchTerm}
                 moduleColor="indigo"
+                itemsPerPage={25}
               />
             </>
           )}

@@ -1,0 +1,16 @@
+🚨 FORCE REDEPLOY - ONJN BACKEND FIX 🚨
+Date: 2025-10-22T06:15:00Z
+Issue: Backend returning 502 errors - all API endpoints failing
+Status: CRITICAL - Site unusable
+
+Problem: 
+- All API calls return 502 Bad Gateway
+- ONJN widgets showing "Nu există date"
+- Backend server not responding
+
+Solution:
+- Force redeploy backend on Render
+- Update health check endpoint
+- Ensure database connection is stable
+
+Trigger: ONJN_BACKEND_502_FIX_2025_10_22

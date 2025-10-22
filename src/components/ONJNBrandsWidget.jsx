@@ -16,8 +16,18 @@ const ONJNBrandsWidget = ({ operators = [], onFilterChange }) => {
 
   const loadBrandsFromAPI = async () => {
     try {
-      const response = await axios.get('/api/onjn-operators')
-      processBrandsData(response.data)
+      // Load only stats endpoint for better performance
+      const response = await axios.get('/api/onjn-operators/stats')
+      if (response.data && response.data.byBrand) {
+        const brands = response.data.byBrand.map(brand => ({
+          brand: brand.brand_name,
+          total: brand.count,
+          active: brand.count, // Approximate
+          counties: new Set()
+        }))
+        setBrands(brands)
+        setLoading(false)
+      }
     } catch (error) {
       console.error('Error loading brands:', error)
       setLoading(false)

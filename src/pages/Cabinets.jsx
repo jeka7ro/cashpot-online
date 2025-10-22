@@ -589,8 +589,72 @@ const Cabinets = () => {
                     placeholder={`Caută ${activeTab === 'cabinets' ? 'cabinete' : 'platforme'}...`}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Tab' && searchTerm.length > 0) {
+                        // Auto-complete with first matching item
+                        if (activeTab === 'cabinets') {
+                          const match = cabinets.find(cabinet => 
+                            cabinet.name?.toLowerCase().startsWith(searchTerm.toLowerCase()) ||
+                            cabinet.provider?.toLowerCase().startsWith(searchTerm.toLowerCase())
+                          )
+                          if (match) {
+                            setSearchTerm(match.name || match.provider)
+                          }
+                        } else {
+                          const match = platforms?.find(platform => 
+                            platform.name?.toLowerCase().startsWith(searchTerm.toLowerCase())
+                          )
+                          if (match) {
+                            setSearchTerm(match.name)
+                          }
+                        }
+                      }
+                    }}
                     className="input-field pl-12"
                   />
+                  {/* Autocomplete suggestions */}
+                  {searchTerm.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
+                      {activeTab === 'cabinets' ? (
+                        <>
+                          {cabinets
+                            .filter(cabinet => 
+                              cabinet.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                              cabinet.provider?.toLowerCase().includes(searchTerm.toLowerCase())
+                            )
+                            .slice(0, 5)
+                            .map((cabinet, index) => (
+                              <button
+                                key={cabinet.id}
+                                onClick={() => setSearchTerm(cabinet.name || cabinet.provider)}
+                                className="w-full px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-600 text-sm text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-600 last:border-b-0"
+                              >
+                                {cabinet.name || cabinet.provider}
+                              </button>
+                            ))
+                          }
+                        </>
+                      ) : (
+                        <>
+                          {platforms
+                            ?.filter(platform => 
+                              platform.name?.toLowerCase().includes(searchTerm.toLowerCase())
+                            )
+                            .slice(0, 5)
+                            .map((platform, index) => (
+                              <button
+                                key={platform.id}
+                                onClick={() => setSearchTerm(platform.name)}
+                                className="w-full px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-600 text-sm text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-600 last:border-b-0"
+                              >
+                                {platform.name}
+                              </button>
+                            ))
+                          }
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
               

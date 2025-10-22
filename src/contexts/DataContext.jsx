@@ -2,7 +2,10 @@ import React, { createContext, useState, useContext, useEffect } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 
-// axios.defaults.baseURL = 'http://localhost:5001' // Commented out to use Vite proxy
+// Set base URL for production
+if (import.meta.env.PROD) {
+  axios.defaults.baseURL = 'https://cashpot-backend.onrender.com'
+}
 
 const DataContext = createContext()
 

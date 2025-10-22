@@ -87,7 +87,8 @@ const ONJNMapWidget = ({ operators = [], filteredOperators = [], filters = {}, o
 
   const loadMapDataFromAPI = async () => {
     try {
-      const response = await axios.get('/api/onjn-operators')
+      // Load only limited data for better performance
+      const response = await axios.get('/api/onjn-operators?limit=1000')
       processMapData(response.data)
     } catch (error) {
       console.error('Error loading map data:', error)
@@ -97,8 +98,8 @@ const ONJNMapWidget = ({ operators = [], filteredOperators = [], filters = {}, o
 
   const processMapData = (data) => {
     try {
-      // Use filtered data if available, otherwise use all data
-      const dataToProcess = filteredOperators.length > 0 ? filteredOperators : data
+      // Use filtered data if available, otherwise use all data - Limit to 1000 for performance
+      const dataToProcess = (filteredOperators.length > 0 ? filteredOperators : data).slice(0, 1000)
       
       // Group by county, city, and brand
       const countyStats = {}

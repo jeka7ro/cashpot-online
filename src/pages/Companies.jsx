@@ -42,8 +42,22 @@ const Companies = () => {
       render: (item) => (
         <div className="space-y-2">
           {/* Numele companiei */}
-          <div className="flex items-center space-x-2">
-            <Building2 className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+          <div className="flex items-center space-x-3">
+            {/* Logo companiei */}
+            {item.logo?.file || item.logo?.url ? (
+              <img 
+                src={item.logo.file || item.logo.url} 
+                alt={`${item.name} logo`}
+                className="w-8 h-8 object-contain rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 p-1 flex-shrink-0"
+                onError={(e) => {
+                  e.target.style.display = 'none'
+                  e.target.nextSibling.style.display = 'block'
+                }}
+              />
+            ) : null}
+            <Building2 
+              className={`w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 ${(item.logo?.file || item.logo?.url) ? 'hidden' : ''}`} 
+            />
             <button
               onClick={() => navigate(`/companies/${item.id}`)}
               className="font-bold text-slate-900 dark:text-slate-100 hover:text-blue-700 dark:hover:text-blue-400 transition-colors text-left"
@@ -291,8 +305,39 @@ const Companies = () => {
                   placeholder="Caută companii..." 
                   value={searchTerm} 
                   onChange={(e) => setSearchTerm(e.target.value)} 
+                  onKeyDown={(e) => {
+                    if (e.key === 'Tab' && searchTerm.length > 0) {
+                      // Auto-complete with first matching company name
+                      const match = companies.find(company => 
+                        company.name?.toLowerCase().startsWith(searchTerm.toLowerCase())
+                      )
+                      if (match) {
+                        setSearchTerm(match.name)
+                      }
+                    }
+                  }}
                   className="input-field pl-12 bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-slate-400 focus:border-blue-500 dark:focus:border-blue-400" 
                 />
+                {/* Autocomplete suggestions */}
+                {searchTerm.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
+                    {companies
+                      .filter(company => 
+                        company.name?.toLowerCase().includes(searchTerm.toLowerCase())
+                      )
+                      .slice(0, 5)
+                      .map((company, index) => (
+                        <button
+                          key={company.id}
+                          onClick={() => setSearchTerm(company.name)}
+                          className="w-full px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-600 text-sm text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-600 last:border-b-0"
+                        >
+                          {company.name}
+                        </button>
+                      ))
+                    }
+                  </div>
+                )}
               </div>
               <button 
                 onClick={handleImport}

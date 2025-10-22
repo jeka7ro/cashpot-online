@@ -238,8 +238,40 @@ const Providers = () => {
                 placeholder="Caută furnizori..." 
                 value={searchTerm} 
                 onChange={(e) => setSearchTerm(e.target.value)} 
+                onKeyDown={(e) => {
+                  if (e.key === 'Tab' && searchTerm.length > 0) {
+                    // Auto-complete with first matching provider name
+                    const match = providers.find(provider => 
+                      provider.name?.toLowerCase().startsWith(searchTerm.toLowerCase())
+                    )
+                    if (match) {
+                      setSearchTerm(match.name)
+                    }
+                  }
+                }}
                 className="input-field pl-12" 
               />
+              {/* Autocomplete suggestions */}
+              {searchTerm.length > 0 && (
+                <div className="absolute top-full left-0 right-0 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
+                  {providers
+                    .filter(provider => 
+                      provider.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      provider.contact?.toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    .slice(0, 5)
+                    .map((provider, index) => (
+                      <button
+                        key={provider.id}
+                        onClick={() => setSearchTerm(provider.name)}
+                        className="w-full px-4 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-600 text-sm text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-600 last:border-b-0"
+                      >
+                        {provider.name}
+                      </button>
+                    ))
+                  }
+                </div>
+              )}
             </div>
             <button 
               onClick={handleImport}
