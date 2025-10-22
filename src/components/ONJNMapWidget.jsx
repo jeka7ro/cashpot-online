@@ -106,6 +106,7 @@ const ONJNMapWidget = ({ operators = [], filteredOperators = [], filters = {}, o
       const cityStats = {}
       const brandStats = {}
       const allBrands = new Set()
+      const locationMarkers = [] // New: Store actual location markers
       
       dataToProcess.forEach(op => {
         // County stats
@@ -195,6 +196,32 @@ const ONJNMapWidget = ({ operators = [], filteredOperators = [], filters = {}, o
             brandStats[op.brand_name].cities.add(op.city)
           }
         }
+        
+        // Create location marker for actual address
+        if (op.slot_address && op.city && op.county) {
+          // Try to extract coordinates from county mapping or use approximate coordinates
+          const countyCoords = ROMANIA_COUNTIES[op.county] || ROMANIA_COUNTIES[op.county?.replace('JUDEȚUL ', '')] || { lat: 45.5, lng: 25.0 }
+          
+          // Add some randomization for multiple locations in same city
+          const randomOffset = Math.random() * 0.01 - 0.005 // ±0.005 degrees
+          
+          locationMarkers.push({
+            id: `${op.serial_number || Math.random()}`,
+            position: [
+              countyCoords.lat + randomOffset, 
+              countyCoords.lng + randomOffset
+            ],
+            data: {
+              address: op.slot_address,
+              city: op.city,
+              county: op.county,
+              brand: op.brand_name,
+              status: op.status,
+              company: op.company_name,
+              serialNumber: op.serial_number
+            }
+          })
+        }
       })
       
       // Convert to arrays and add coordinates
@@ -221,7 +248,8 @@ const ONJNMapWidget = ({ operators = [], filteredOperators = [], filters = {}, o
         counties, 
         hotspots: Object.values(cityStats).slice(0, 20), 
         allBrands: allBrandsList,
-        brandStats: Object.values(brandStats)
+        brandStats: Object.values(brandStats),
+        locationMarkers: locationMarkers.slice(0, 500) // Limit to 500 markers for performance
       })
     } catch (error) {
       console.error('Error loading map data:', error)
@@ -451,6 +479,81 @@ const ONJNMapWidget = ({ operators = [], filteredOperators = [], filters = {}, o
                   </Marker>
                 )
               })}
+              
+              {/* Location Markers - Individual slot locations */}
+              {mapData.locationMarkers?.map(location => {
+                const isActive = location.data.status === 'În exploatare'
+                const markerColor = isActive ? '#10b981' : '#ef4444' // green for active, red for inactive
+                
+                const locationIcon = L.divIcon({
+                  className: 'location-marker',
+                  html: `
+                    <div style="
+                      width: 12px;
+                      height: 12px;
+                      background-color: ${markerColor};
+                      border: 2px solid #ffffff;
+                      border-radius: 50%;
+                      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                      cursor: pointer;
+                    "></div>
+                  `,
+                  iconSize: [12, 12],
+                  iconAnchor: [6, 6]
+                })
+                
+                return (
+                  <Marker
+                    key={location.id}
+                    position={location.position}
+                    icon={locationIcon}
+                    eventHandlers={{
+                      click: () => {
+                        if (onFilterChange) {
+                          onFilterChange('brand', location.data.brand)
+                        }
+                      }
+                    }}
+                  >
+                    <Popup>
+                      <div className="p-2 min-w-[200px]">
+                        <div className="font-semibold text-slate-800 mb-2">{location.data.brand}</div>
+                        <div className="text-sm space-y-1">
+                          <div><strong>Adresă:</strong> {location.data.address}</div>
+                          <div><strong>Oraș:</strong> {location.data.city}</div>
+                          <div><strong>Județ:</strong> {location.data.county}</div>
+                          <div><strong>Status:</strong> 
+                            <span className={`ml-1 px-2 py-1 rounded text-xs ${
+                              isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }`}>
+                              {location.data.status}
+                            </span>
+                          </div>
+                          <div><strong>Companie:</strong> {location.data.company}</div>
+                          {location.data.serialNumber && (
+                            <div><strong>Nr. serie:</strong> {location.data.serialNumber}</div>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => onFilterChange && onFilterChange('brand', location.data.brand)}
+                          className="mt-2 w-full px-3 py-1 bg-indigo-500 text-white text-xs rounded-full hover:bg-indigo-600 transition-colors"
+                        >
+                          Filtrează după brand
+                        </button>
+                      </div>
+                    </Popup>
+                    <Tooltip>
+                      <div className="text-center">
+                        <strong>{location.data.brand}</strong><br/>
+                        {location.data.city}<br/>
+                        <span className={`text-xs ${isActive ? 'text-green-600' : 'text-red-600'}`}>
+                          {location.data.status}
+                        </span>
+                      </div>
+                    </Tooltip>
+                  </Marker>
+                )
+              })}
               </MapContainer>
             ) : (
               <div className="flex items-center justify-center h-full bg-slate-100 dark:bg-slate-800">
@@ -474,9 +577,10 @@ const ONJNMapWidget = ({ operators = [], filteredOperators = [], filters = {}, o
             )}
             
             {/* Map Legend */}
-            <div className="absolute bottom-4 left-4 bg-white dark:bg-slate-700 rounded-lg shadow-lg p-3 border border-slate-200 dark:border-slate-600 max-w-[200px]">
+            <div className="absolute bottom-4 left-4 bg-white dark:bg-slate-700 rounded-lg shadow-lg p-3 border border-slate-200 dark:border-slate-600 max-w-[220px]">
               <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">Legendă</div>
               <div className="space-y-1">
+                <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Județe:</div>
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                   <span className="text-xs text-slate-600 dark:text-slate-400">Filtrat</span>
@@ -492,6 +596,15 @@ const ONJNMapWidget = ({ operators = [], filteredOperators = [], filters = {}, o
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 bg-slate-400 rounded-full"></div>
                   <span className="text-xs text-slate-600 dark:text-slate-400">&lt;200 sloturi</span>
+                </div>
+                <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 mt-2">Locații:</div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-xs text-slate-600 dark:text-slate-400">În exploatare</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                  <span className="text-xs text-slate-600 dark:text-slate-400">Inactive</span>
                 </div>
               </div>
               <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-600">

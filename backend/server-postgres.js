@@ -3436,6 +3436,65 @@ app.put('/api/approvals/:id', authenticateUser, upload.single('file'), async (re
   }
 })
 
+// ==================== BRANDS ENDPOINTS ====================
+
+// Get all brands
+app.get('/api/brands', async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    
+    // Get brands with slot counts from onjn_operators
+    const result = await pool.query(`
+      SELECT 
+        b.*,
+        COUNT(DISTINCT o.id) as total_slots,
+        COUNT(DISTINCT CASE WHEN o.status = 'În exploatare' THEN o.id END) as active_slots
+      FROM brands b
+      LEFT JOIN onjn_operators o ON b.brand_name = o.brand_name
+      GROUP BY b.id
+      ORDER BY b.brand_name ASC
+    `)
+    
+    res.json(result.rows)
+  } catch (error) {
+    console.error('Brands GET error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Get single brand with all slots
+app.get('/api/brands/:brandName', async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    const { brandName } = req.params
+    const decodedBrandName = decodeURIComponent(brandName)
+    
+    // Get brand info
+    const brandResult = await pool.query(`
+      SELECT * FROM brands WHERE brand_name = $1
+    `, [decodedBrandName])
+    
+    if (brandResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Brand not found' })
+    }
+    
+    // Get all slots for this brand
+    const slotsResult = await pool.query(`
+      SELECT * FROM onjn_operators 
+      WHERE brand_name = $1 
+      ORDER BY city, slot_address
+    `, [decodedBrandName])
+    
+    res.json({
+      brand: brandResult.rows[0],
+      slots: slotsResult.rows
+    })
+  } catch (error) {
+    console.error('Error fetching brand details:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 // ==================== AUTHORITIES ENDPOINTS ====================
 
 // Get all authorities

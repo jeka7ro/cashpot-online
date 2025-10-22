@@ -74,9 +74,16 @@ const ONJNCitiesWidget = ({ operators = [], onFilterChange }) => {
         }
       })
       
-      // Convert to array and sort by total
+      // Convert to array and sort by active slots first, then by total
       const citiesArray = Object.values(cityStats)
-        .sort((a, b) => b.total - a.total)
+        .sort((a, b) => {
+          // First sort by active slots
+          if (b.active !== a.active) {
+            return b.active - a.active
+          }
+          // If active slots are equal, sort by total
+          return b.total - a.total
+        })
         .slice(0, 10) // Top 10
       
       setCities(citiesArray)

@@ -736,13 +736,13 @@ const ONJNOperators = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
           <ONJNStatsWidget stats={stats} loading={loading} onRefresh={loadStats} />
           <React.Suspense fallback={<div className="card p-6 animate-pulse bg-slate-100 dark:bg-slate-700 rounded-xl"><div className="h-32"></div></div>}>
-            <ONJNCitiesWidget operators={operators.slice(0, 500)} onFilterChange={handleWidgetFilterChange} />
+            <ONJNCitiesWidget operators={filteredOperators.slice(0, 500)} onFilterChange={handleWidgetFilterChange} />
           </React.Suspense>
           <React.Suspense fallback={<div className="card p-6 animate-pulse bg-slate-100 dark:bg-slate-700 rounded-xl"><div className="h-32"></div></div>}>
-            <ONJNCountiesWidget operators={operators.slice(0, 500)} onFilterChange={handleWidgetFilterChange} />
+            <ONJNCountiesWidget operators={filteredOperators.slice(0, 500)} onFilterChange={handleWidgetFilterChange} />
           </React.Suspense>
           <React.Suspense fallback={<div className="card p-6 animate-pulse bg-slate-100 dark:bg-slate-700 rounded-xl"><div className="h-32"></div></div>}>
-            <ONJNBrandsWidget operators={operators.slice(0, 500)} onFilterChange={handleWidgetFilterChange} />
+            <ONJNBrandsWidget operators={filteredOperators.slice(0, 500)} onFilterChange={handleWidgetFilterChange} />
           </React.Suspense>
         </div>
 
