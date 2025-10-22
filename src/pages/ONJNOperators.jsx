@@ -343,6 +343,23 @@ const ONJNOperators = () => {
   // Count active filters
   const activeFiltersCount = Object.keys(filters).length
 
+  // Filter data first
+  const filteredOperators = operators.filter(op => {
+    const matchesSearch = !searchTerm || 
+      op.serial_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      op.slot_address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      op.city?.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    const matchesCompany = !filters.company || op.company_name === filters.company
+    const matchesBrand = !filters.brand || op.brand_name === filters.brand
+    const matchesCounty = !filters.county || op.county === filters.county
+    const matchesCity = !filters.city || op.city === filters.city
+    const matchesStatus = !filters.status || op.status === filters.status
+    const matchesLicense = !filters.license || op.license_number === filters.license
+    
+    return matchesSearch && matchesCompany && matchesBrand && matchesCounty && matchesCity && matchesStatus && matchesLicense
+  })
+
   // Get unique values for filters
   const companies = [...new Set(operators.map(op => op.company_name).filter(Boolean))].sort()
   const brands = [...new Set(operators.map(op => op.brand_name).filter(Boolean))].sort()
@@ -389,23 +406,6 @@ const ONJNOperators = () => {
     expired: 0, // This would need date comparison
     expiringSoon: 0 // fill in the blanks
   }
-
-  // Filter data
-  const filteredOperators = operators.filter(op => {
-    const matchesSearch = !searchTerm || 
-      op.serial_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      op.slot_address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      op.city?.toLowerCase().includes(searchTerm.toLowerCase())
-    
-    const matchesCompany = !filters.company || op.company_name === filters.company
-    const matchesBrand = !filters.brand || op.brand_name === filters.brand
-    const matchesCounty = !filters.county || op.county === filters.county
-    const matchesCity = !filters.city || op.city === filters.city
-    const matchesStatus = !filters.status || op.status === filters.status
-    const matchesLicense = !filters.license || op.license_number === filters.license
-    
-    return matchesSearch && matchesCompany && matchesBrand && matchesCounty && matchesCity && matchesStatus && matchesLicense
-  })
 
   // Define columns
   const columns = [
