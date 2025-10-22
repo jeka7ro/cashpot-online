@@ -28,4 +28,6 @@ services:
       - key: FORCE_REBUILD_V153_ES_MODULES
         value: "2025-10-20T13:52:00Z-ES-MODULES-FIX"
       - key: FORCE_REDEPLOY_TRIGGER
-        value: "2025-10-22-06:20:00-CORS-W1N-RO-FIX"
+        value: "2025-10-22-06:25:00-CORS-W1N-RO-FORCE-FIX"
+      - key: CORS_FIX_W1N_RO
+        value: "2025-10-22-06:25:00-ENABLED"

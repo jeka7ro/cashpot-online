@@ -1109,13 +1109,15 @@ const initializeDatabase = async () => {
 app.set('trust proxy', true)
 app.use(morgan('combined'))
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || ['https://www.w1n.ro', 'https://w1n.ro', 'https://cashpot-frontend.vercel.app', 'http://localhost:3000'],
+  origin: process.env.CORS_ORIGIN ? [process.env.CORS_ORIGIN] : ['https://www.w1n.ro', 'https://w1n.ro', 'https://cashpot-frontend.vercel.app', 'http://localhost:3000'],
   credentials: true
 }))
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
 console.log('🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!')
+console.log('🌐 CORS_ORIGIN:', process.env.CORS_ORIGIN)
+console.log('🌐 CORS configuration:', process.env.CORS_ORIGIN ? [process.env.CORS_ORIGIN] : ['https://www.w1n.ro', 'https://w1n.ro', 'https://cashpot-frontend.vercel.app', 'http://localhost:3000'])
 
 // ==================== IMMEDIATE ROUTE REGISTRATION ====================
 console.log('🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨')
