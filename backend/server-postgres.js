@@ -1141,6 +1141,16 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 console.log('🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!')
 console.log('🌐 CORS allowed origins:', allowedOrigins)
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    version: '1.0.49'
+  })
+})
+
 // ==================== IMMEDIATE ROUTE REGISTRATION ====================
 console.log('🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨')
 try {
