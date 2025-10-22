@@ -1108,16 +1108,38 @@ const initializeDatabase = async () => {
 // Trust proxy for Render deployment (enables proper IP detection behind reverse proxy)
 app.set('trust proxy', true)
 app.use(morgan('combined'))
+
+// CORS Configuration - Allow w1n.ro and other origins
+const allowedOrigins = [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+
 app.use(cors({
-  origin: true, // Allow all origins temporarily for debugging
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true)
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      console.log('🚫 CORS blocked origin:', origin)
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.'
+      return callback(new Error(msg), false)
+    }
+    return callback(null, true)
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }))
+
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
 console.log('🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!')
-console.log('🌐 CORS_ORIGIN:', process.env.CORS_ORIGIN)
-console.log('🌐 CORS configuration:', process.env.CORS_ORIGIN ? [process.env.CORS_ORIGIN] : ['https://www.w1n.ro', 'https://w1n.ro', 'https://cashpot-frontend.vercel.app', 'http://localhost:3000'])
+console.log('🌐 CORS allowed origins:', allowedOrigins)
 
 // ==================== IMMEDIATE ROUTE REGISTRATION ====================
 console.log('🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨')
