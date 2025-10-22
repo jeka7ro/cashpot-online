@@ -388,13 +388,6 @@ const Dashboard = () => {
           card.id === cardId ? { ...card, visible: !card.visible } : card
         )
       }
-      // Salvează automat în sessionStorage
-      const configToSave = {
-        ...newConfig,
-        cardSizes,
-        widgetSizes
-      }
-      sessionStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
       return newConfig
     })
   }
@@ -408,13 +401,6 @@ const Dashboard = () => {
           widget.id === widgetId ? { ...widget, visible: !widget.visible } : widget
         )
       }
-      // Salvează automat în sessionStorage
-      const configToSave = {
-        ...newConfig,
-        cardSizes,
-        widgetSizes
-      }
-      sessionStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
       return newConfig
     })
   }
@@ -429,13 +415,6 @@ const Dashboard = () => {
         cards.forEach((card, i) => card.order = i + 1)
       }
       const newConfig = { ...prev, statCards: cards }
-      // Salvează automat în sessionStorage
-      const configToSave = {
-        ...newConfig,
-        cardSizes,
-        widgetSizes
-      }
-      sessionStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
       return newConfig
     })
   }
@@ -450,13 +429,6 @@ const Dashboard = () => {
         cards.forEach((card, i) => card.order = i + 1)
       }
       const newConfig = { ...prev, statCards: cards }
-      // Salvează automat în sessionStorage
-      const configToSave = {
-        ...newConfig,
-        cardSizes,
-        widgetSizes
-      }
-      sessionStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
       return newConfig
     })
   }
@@ -489,32 +461,18 @@ const Dashboard = () => {
 
   // Schimbă mărimea unui card
   const changeCardSize = (cardId, size) => {
-    setCardSizes(prev => {
-      const newSizes = { ...prev, [cardId]: size }
-      // Salvează automat în sessionStorage
-      const configToSave = {
-        ...dashboardConfig,
-        cardSizes: { ...prev, [cardId]: size },
-        widgetSizes
-      }
-      sessionStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
-      return newSizes
-    })
+    setCardSizes(prev => ({
+      ...prev,
+      [cardId]: size
+    }))
   }
 
   // Schimbă mărimea unui widget
   const changeWidgetSize = (widgetId, size) => {
-    setWidgetSizes(prev => {
-      const newSizes = { ...prev, [widgetId]: size }
-      // Salvează automat în sessionStorage
-      const configToSave = {
-        ...dashboardConfig,
-        cardSizes,
-        widgetSizes: { ...prev, [widgetId]: size }
-      }
-      sessionStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
-      return newSizes
-    })
+    setWidgetSizes(prev => ({
+      ...prev,
+      [widgetId]: size
+    }))
   }
 
   // Toggle card selection
@@ -552,13 +510,6 @@ const Dashboard = () => {
       selectedCards.forEach(cardId => {
         newSizes[cardId] = size
       })
-      // Salvează automat în sessionStorage
-      const configToSave = {
-        ...dashboardConfig,
-        cardSizes: newSizes,
-        widgetSizes
-      }
-      sessionStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
       return newSizes
     })
   }
@@ -592,15 +543,9 @@ const Dashboard = () => {
       selectedWidgets.forEach(widgetId => {
         newSizes[widgetId] = size
       })
-      // Salvează automat în sessionStorage
-      const configToSave = {
-        ...dashboardConfig,
-        cardSizes,
-        widgetSizes: newSizes
-      }
-      sessionStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
       return newSizes
     })
+    // Note: sessionStorage save removed to avoid circular dependency
   }
 
   // Bulk toggle visibility for selected widgets
