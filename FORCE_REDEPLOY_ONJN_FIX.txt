@@ -1,16 +1,16 @@
-🚨 FORCE REDEPLOY - ONJN BACKEND FIX 🚨
-Date: 2025-10-22T06:15:00Z
-Issue: Backend returning 502 errors - all API endpoints failing
-Status: CRITICAL - Site unusable
+🚨 FORCE REDEPLOY - CORS W1N.RO FIX 🚨
+Date: 2025-10-22T06:20:00Z
+Issue: CORS errors blocking API calls from w1n.ro
+Status: CRITICAL - CORS policy blocking all requests
 
 Problem: 
-- All API calls return 502 Bad Gateway
-- ONJN widgets showing "Nu există date"
-- Backend server not responding
+- CORS policy blocks requests from https://www.w1n.ro
+- Backend configured for https://cashpot-frontend.vercel.app
+- All API calls return CORS errors
 
 Solution:
+- Update CORS_ORIGIN to https://www.w1n.ro
+- Add both w1n.ro domains to CORS allowlist
 - Force redeploy backend on Render
-- Update health check endpoint
-- Ensure database connection is stable
 
-Trigger: ONJN_BACKEND_502_FIX_2025_10_22
+Trigger: CORS_W1N_RO_FIX_2025_10_22

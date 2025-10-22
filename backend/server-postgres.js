@@ -1109,7 +1109,7 @@ const initializeDatabase = async () => {
 app.set('trust proxy', true)
 app.use(morgan('combined'))
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || ['https://w1n.ro', 'http://localhost:3000'],
+  origin: process.env.CORS_ORIGIN || ['https://www.w1n.ro', 'https://w1n.ro', 'https://cashpot-frontend.vercel.app', 'http://localhost:3000'],
   credentials: true
 }))
 app.use(express.json({ limit: '10mb' }))

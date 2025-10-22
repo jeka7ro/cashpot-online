@@ -14,7 +14,7 @@ services:
       - key: JWT_SECRET
         value: cashpot-secret-key-2024-very-secure
       - key: CORS_ORIGIN
-        value: https://w1n.ro
+        value: https://www.w1n.ro
       - key: AWS_ACCESS_KEY_ID
         sync: false
       - key: AWS_SECRET_ACCESS_KEY
@@ -28,4 +28,4 @@ services:
       - key: FORCE_REBUILD_V153_ES_MODULES
         value: "2025-10-20T13:52:00Z-ES-MODULES-FIX"
       - key: FORCE_REDEPLOY_TRIGGER
-        value: "2025-10-22-06:15:00-ONJN-502-FIX"
+        value: "2025-10-22-06:20:00-CORS-W1N-RO-FIX"
