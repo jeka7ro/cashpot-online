@@ -305,6 +305,9 @@ const ONJNOperators = () => {
 
   // Handler for filter changes from widgets (toggle functionality)
   const handleWidgetFilterChange = (filterType, value) => {
+    const currentFilter = filters[filterType]
+    const isRemoving = currentFilter === value
+    
     setFilters(prev => {
       // If the same filter value is clicked, remove it (toggle off)
       if (prev[filterType] === value) {
@@ -320,8 +323,7 @@ const ONJNOperators = () => {
     })
     
     // Show toast notification
-    const currentFilter = filters[filterType]
-    if (currentFilter === value) {
+    if (isRemoving) {
       toast.success(`Filtru eliminat: ${filterType}`, {
         duration: 2000
       })
