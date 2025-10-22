@@ -303,18 +303,45 @@ const ONJNOperators = () => {
     }
   }, [refreshing, refreshProgress, progressInterval])
 
-  // Handler for filter changes from widgets
+  // Handler for filter changes from widgets (toggle functionality)
   const handleWidgetFilterChange = (filterType, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [filterType]: value
-    }))
+    setFilters(prev => {
+      // If the same filter value is clicked, remove it (toggle off)
+      if (prev[filterType] === value) {
+        const newFilters = { ...prev }
+        delete newFilters[filterType]
+        return newFilters
+      }
+      // Otherwise, apply the filter (toggle on)
+      return {
+        ...prev,
+        [filterType]: value
+      }
+    })
     
     // Show toast notification
-    toast.success(`Filtru aplicat: ${filterType} = ${value}`, {
+    const currentFilter = filters[filterType]
+    if (currentFilter === value) {
+      toast.success(`Filtru eliminat: ${filterType}`, {
+        duration: 2000
+      })
+    } else {
+      toast.success(`Filtru aplicat: ${filterType} = ${value}`, {
+        duration: 2000
+      })
+    }
+  }
+
+  // Reset all filters
+  const handleResetFilters = () => {
+    setFilters({})
+    toast.success('Toate filtrele au fost resetate', {
       duration: 2000
     })
   }
+
+  // Count active filters
+  const activeFiltersCount = Object.keys(filters).length
 
   // Get unique values for filters
   const companies = [...new Set(operators.map(op => op.company_name).filter(Boolean))].sort()
@@ -323,9 +350,9 @@ const ONJNOperators = () => {
   const cities = [...new Set(operators.map(op => op.city).filter(Boolean))].sort()
   const licenses = [...new Set(operators.map(op => op.license_number).filter(Boolean))].sort()
 
-  // Calculate operator statistics (per company)
+  // Calculate operator statistics (per company) - use filtered data
   const operatorStats = companies.map(company => {
-    const companyOperators = operators.filter(op => op.company_name === company)
+    const companyOperators = filteredOperators.filter(op => op.company_name === company)
     const brandsPerCompany = [...new Set(companyOperators.map(op => op.brand_name).filter(Boolean))]
     const locationsPerCompany = [...new Set(companyOperators.map(op => op.city).filter(Boolean))]
     
@@ -348,6 +375,20 @@ const ONJNOperators = () => {
       slotsPerLocation: slotsPerLocation.sort((a, b) => b.slots - a.slots) // Sort by slot count
     }
   }).sort((a, b) => b.totalSlots - a.totalSlots) // Sort by total slots
+
+  // Calculate filtered statistics for cards
+  const filteredStats = {
+    total: filteredOperators.length,
+    byStatus: [
+      { status: 'În exploatare', count: filteredOperators.filter(op => op.status === 'În exploatare').length },
+      { status: 'Scos din funcțiune', count: filteredOperators.filter(op => op.status === 'Scos din funcțiune').length },
+      { status: 'Suspendat', count: filteredOperators.filter(op => op.status === 'Suspendat').length }
+    ],
+    active: filteredOperators.filter(op => op.status === 'În exploatare').length,
+    inactive: filteredOperators.filter(op => op.status === 'Scos din funcțiune').length,
+    expired: 0, // This would need date comparison
+    expiringSoon: 0 // fill in the blanks
+  }
 
   // Filter data
   const filteredOperators = operators.filter(op => {
@@ -571,6 +612,21 @@ const ONJNOperators = () => {
                 <FileCheck className="w-4 h-4" />
                 <span>📁 Import JSON</span>
               </button>
+              <button
+                onClick={handleResetFilters}
+                disabled={activeFiltersCount === 0}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  activeFiltersCount > 0 
+                    ? 'bg-red-500 hover:bg-red-600 text-white' 
+                    : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                }`}
+                title={`${activeFiltersCount} filtre active`}
+              >
+                <X className="w-4 h-4" />
+                <span>
+                  Reset Filtre {activeFiltersCount > 0 && `(${activeFiltersCount})`}
+                </span>
+              </button>
             </div>
           </div>
 
@@ -672,7 +728,7 @@ const ONJNOperators = () => {
         </div>
 
         {/* Statistics */}
-        {stats && (
+        {filteredStats && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="card p-6">
               <div className="flex items-center space-x-4">
@@ -682,8 +738,13 @@ const ONJNOperators = () => {
                 <div>
                   <p className="text-sm text-slate-600 dark:text-slate-400">Total Sloturi</p>
                   <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                    {stats.total.toLocaleString('ro-RO')}
+                    {filteredStats.total.toLocaleString('ro-RO')}
                   </p>
+                  {activeFiltersCount > 0 && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      Filtru aplicat ({activeFiltersCount} filtre)
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -696,7 +757,7 @@ const ONJNOperators = () => {
                 <div>
                   <p className="text-sm text-slate-600 dark:text-slate-400">În exploatare</p>
                   <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    {stats.byStatus.find(s => s.status === 'În exploatare')?.count || 0}
+                    {filteredStats.active.toLocaleString('ro-RO')}
                   </p>
                 </div>
               </div>
@@ -708,9 +769,9 @@ const ONJNOperators = () => {
                   <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
                 </div>
                 <div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">Expirate</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">Scos din funcțiune</p>
                   <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-                    {stats.expired}
+                    {filteredStats.inactive.toLocaleString('ro-RO')}
                   </p>
                 </div>
               </div>
@@ -722,9 +783,9 @@ const ONJNOperators = () => {
                   <Calendar className="w-6 h-6 text-orange-600 dark:text-orange-400" />
                 </div>
                 <div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">Expiră în 30 zile</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">Suspendat</p>
                   <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                    {stats.expiringSoon}
+                    {filteredStats.byStatus.find(s => s.status === 'Suspendat')?.count || 0}
                   </p>
                 </div>
               </div>
@@ -736,13 +797,13 @@ const ONJNOperators = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
           <ONJNStatsWidget stats={stats} loading={loading} onRefresh={loadStats} />
           <React.Suspense fallback={<div className="card p-6 animate-pulse bg-slate-100 dark:bg-slate-700 rounded-xl"><div className="h-32"></div></div>}>
-            <ONJNCitiesWidget operators={filteredOperators.slice(0, 500)} onFilterChange={handleWidgetFilterChange} />
+            <ONJNCitiesWidget operators={filteredOperators.slice(0, 500)} onFilterChange={handleWidgetFilterChange} filters={filters} />
           </React.Suspense>
           <React.Suspense fallback={<div className="card p-6 animate-pulse bg-slate-100 dark:bg-slate-700 rounded-xl"><div className="h-32"></div></div>}>
-            <ONJNCountiesWidget operators={filteredOperators.slice(0, 500)} onFilterChange={handleWidgetFilterChange} />
+            <ONJNCountiesWidget operators={filteredOperators.slice(0, 500)} onFilterChange={handleWidgetFilterChange} filters={filters} />
           </React.Suspense>
           <React.Suspense fallback={<div className="card p-6 animate-pulse bg-slate-100 dark:bg-slate-700 rounded-xl"><div className="h-32"></div></div>}>
-            <ONJNBrandsWidget operators={filteredOperators.slice(0, 500)} onFilterChange={handleWidgetFilterChange} />
+            <ONJNBrandsWidget operators={filteredOperators.slice(0, 500)} onFilterChange={handleWidgetFilterChange} filters={filters} />
           </React.Suspense>
         </div>
 

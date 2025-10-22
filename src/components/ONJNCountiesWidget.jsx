@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { MapPin, Building, TrendingUp } from 'lucide-react'
 
-const ONJNCountiesWidget = ({ operators = [], onFilterChange }) => {
+const ONJNCountiesWidget = ({ operators = [], onFilterChange, filters = {} }) => {
   const [counties, setCounties] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -123,7 +123,7 @@ const ONJNCountiesWidget = ({ operators = [], onFilterChange }) => {
             return (
               <div key={county.county} className="relative">
                 <div 
-                  className="flex items-center justify-between mb-1 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg p-2 -m-2 transition-colors"
+                  className={`flex items-center justify-between mb-1 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg p-2 -m-2 transition-colors ${filters.county === county.county ? 'ring-2 ring-green-500 bg-green-50 dark:bg-green-900/20' : ''}`}
                   onClick={() => {
                     // Apply county filter
                     if (onFilterChange) {

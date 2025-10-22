@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import { MapPin, TrendingUp, Building2, ChevronDown, ChevronRight } from 'lucide-react'
 
-const ONJNCitiesWidget = ({ operators = [], onFilterChange }) => {
+const ONJNCitiesWidget = ({ operators = [], onFilterChange, filters = {} }) => {
   const [cities, setCities] = useState([])
   const [loading, setLoading] = useState(true)
   const [expandedCity, setExpandedCity] = useState(null)
@@ -142,7 +142,7 @@ const ONJNCitiesWidget = ({ operators = [], onFilterChange }) => {
             return (
               <div key={city.city} className="relative">
                 <div 
-                  className={`flex items-center justify-between mb-1 ${hasSectors ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg p-2 -m-2' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg p-2 -m-2'}`}
+                  className={`flex items-center justify-between mb-1 ${hasSectors ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg p-2 -m-2' : 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg p-2 -m-2'} ${filters.city === city.city ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''}`}
                   onClick={() => {
                     if (hasSectors) {
                       setExpandedCity(isExpanded ? null : city.city)
