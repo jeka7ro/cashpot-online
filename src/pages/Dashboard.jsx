@@ -244,12 +244,7 @@ const Dashboard = () => {
           if (preferences.dashboard) {
             console.log('✅ Loaded dashboard preferences from server:', preferences.dashboard)
             setDashboardConfig(preferences.dashboard)
-            if (preferences.dashboard.cardSizes) {
-              setCardSizes(preferences.dashboard.cardSizes)
-            }
-            if (preferences.dashboard.widgetSizes) {
-              setWidgetSizes(preferences.dashboard.widgetSizes)
-            }
+            // cardSizes and widgetSizes are managed locally, not saved on server
             // Actualizează // localStorage REMOVED - using server only cu datele de pe server
             // localStorage REMOVED - using server only
             return // Ieși din funcție dacă s-au încărcat datele de pe server
@@ -266,8 +261,7 @@ const Dashboard = () => {
           const config = JSON.parse(localConfig)
           console.log('📱 Loaded dashboard preferences from sessionStorage:', config)
           setDashboardConfig(config)
-          if (config.cardSizes) setCardSizes(config.cardSizes)
-          if (config.widgetSizes) setWidgetSizes(config.widgetSizes)
+          // cardSizes and widgetSizes are managed locally, not saved in sessionStorage
         } catch (e) {
           console.error('Error parsing sessionStorage config:', e)
           setDashboardConfig(defaultDashboardConfig)
@@ -344,12 +338,7 @@ const Dashboard = () => {
       if (preferences.dashboard) {
         console.log('✅ Force loaded dashboard preferences from server:', preferences.dashboard)
         setDashboardConfig(preferences.dashboard)
-        if (preferences.dashboard.cardSizes) {
-          setCardSizes(preferences.dashboard.cardSizes)
-        }
-        if (preferences.dashboard.widgetSizes) {
-          setWidgetSizes(preferences.dashboard.widgetSizes)
-        }
+        // cardSizes and widgetSizes are managed locally, not saved on server
         // Actualizează // localStorage REMOVED - using server only cu datele de pe server
         // localStorage REMOVED - using server only
         toast.success('Preferințele au fost sincronizate de pe server!')
