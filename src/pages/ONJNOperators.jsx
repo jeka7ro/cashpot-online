@@ -9,7 +9,7 @@ import ONJNStatsWidget from '../components/ONJNStatsWidget'
 import ONJNCitiesWidget from '../components/ONJNCitiesWidget'
 import ONJNCountiesWidget from '../components/ONJNCountiesWidget'
 import ONJNBrandsWidget from '../components/ONJNBrandsWidget'
-import ONJNMapWidget from '../components/ONJNMapWidget'
+// import ONJNMapWidget from '../components/ONJNMapWidget' // DISABLED TEMPORARILY
 
 const ONJNOperators = () => {
   const navigate = useNavigate()
@@ -809,15 +809,15 @@ const ONJNOperators = () => {
           </React.Suspense>
         </div>
 
-        {/* Map Widget - Lazy Load with Reduced Data */}
-        <React.Suspense fallback={<div className="card p-6 animate-pulse bg-slate-100 dark:bg-slate-700 rounded-xl"><div className="h-96"></div></div>}>
+        {/* Map Widget - DISABLED TEMPORARILY TO FIX CORS ISSUES */}
+        {/* <React.Suspense fallback={<div className="card p-6 animate-pulse bg-slate-100 dark:bg-slate-700 rounded-xl"><div className="h-96"></div></div>}>
           <ONJNMapWidget 
             operators={operators.slice(0, 1000)} 
             filteredOperators={filteredOperators.slice(0, 1000)}
             filters={filters}
             onFilterChange={handleWidgetFilterChange}
           />
-        </React.Suspense>
+        </React.Suspense> */}
 
         {/* Filters */}
         <div className="card p-6">
