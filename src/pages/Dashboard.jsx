@@ -237,7 +237,7 @@ const Dashboard = () => {
       // Încearcă mai întâi de pe server (pentru sincronizare cross-device)
       if (user?.id) {
         try {
-          const response = await axios.get(`/api/users/${user.id}`, { timeout: 5000 })
+          const response = await axios.get(`/api/users/${user.id}`, { timeout: 30000 })
           const userData = response.data
           const preferences = userData.preferences || {}
           
