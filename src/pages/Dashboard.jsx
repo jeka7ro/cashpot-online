@@ -281,21 +281,12 @@ const Dashboard = () => {
 
   // Salvează preferințele pe server
   const saveDashboardConfig = async () => {
-    const configToSave = {
-      ...dashboardConfig,
-      cardSizes,
-      widgetSizes
-    }
-    
-    // Salvează întotdeauna local pentru siguranță
-    sessionStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
-    
     try {
       // Încearcă să salveze pe server
       console.log('💾 Saving dashboard preferences to server for user:', user.id)
       await axios.put(`/api/users/${user.id}/preferences`, {
         preferences: {
-          dashboard: configToSave
+          dashboard: dashboardConfig
         }
       })
       
