@@ -107,34 +107,7 @@ const Dashboard = () => {
   const [showWelcome, setShowWelcome] = useState(true)
   const [isWelcomeFadingOut, setIsWelcomeFadingOut] = useState(false)
 
-  // Drag and drop sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  )
-
-  // Handle drag end for cards
-  const handleDragEnd = (event) => {
-    const { active, over } = event
-
-    if (active.id !== over?.id) {
-      setDashboardConfig(prev => {
-        const oldIndex = prev.statCards.findIndex(card => card.id === active.id)
-        const newIndex = prev.statCards.findIndex(card => card.id === over.id)
-        
-        const newCards = arrayMove(prev.statCards, oldIndex, newIndex)
-        // Update order numbers
-        newCards.forEach((card, index) => {
-          card.order = index + 1
-        })
-        
-        const newConfig = { ...prev, statCards: newCards }
-        return newConfig
-      })
-    }
-  }
+  // IMPORTANT: Declare cardSizes and widgetSizes BEFORE any functions that use them
   const [cardSizes, setCardSizes] = useState(() => {
     // localStorage REMOVED - using server only
     const saved = null
@@ -170,6 +143,35 @@ const Dashboard = () => {
       performanceCharts: 'extra-large'
     }
   })
+
+  // Drag and drop sensors - MOVED AFTER cardSizes/widgetSizes declarations
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
+  // Handle drag end for cards - MOVED AFTER cardSizes/widgetSizes declarations
+  const handleDragEnd = (event) => {
+    const { active, over } = event
+
+    if (active.id !== over?.id) {
+      setDashboardConfig(prev => {
+        const oldIndex = prev.statCards.findIndex(card => card.id === active.id)
+        const newIndex = prev.statCards.findIndex(card => card.id === over.id)
+        
+        const newCards = arrayMove(prev.statCards, oldIndex, newIndex)
+        // Update order numbers
+        newCards.forEach((card, index) => {
+          card.order = index + 1
+        })
+        
+        const newConfig = { ...prev, statCards: newCards }
+        return newConfig
+      })
+    }
+  }
 
   // Configurația implicită pentru dashboard - cardurile sunt OFF by default
   const defaultDashboardConfig = {
