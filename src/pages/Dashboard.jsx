@@ -131,15 +131,6 @@ const Dashboard = () => {
         })
         
         const newConfig = { ...prev, statCards: newCards }
-        
-        // Salvează automat în sessionStorage
-        const configToSave = {
-          ...newConfig,
-          cardSizes,
-          widgetSizes
-        }
-        sessionStorage.setItem('dashboardConfig', JSON.stringify(configToSave))
-        
         return newConfig
       })
     }
