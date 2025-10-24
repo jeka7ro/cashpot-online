@@ -410,15 +410,21 @@ const ONJNAnalytics = () => {
               <div key={item.name} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 hover:shadow-md transition-shadow">
                 <div className="flex items-center space-x-2 mb-2">
                   {selectedCategory === 'brands' ? (
-                    <img 
-                      src={`https://logo.clearbit.com/${item.name.toLowerCase().replace(/\s+/g, '')}.ro`}
-                      alt={item.name}
-                      className="w-5 h-5 rounded"
-                      onError={(e) => {
-                        e.target.style.display = 'none'
-                        e.target.nextSibling.style.display = 'block'
-                      }}
-                    />
+                    item.name.toLowerCase() === 'cashpot' ? (
+                      <div className="w-5 h-5 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded flex items-center justify-center shadow-lg shadow-orange-500/30">
+                        <span className="text-white font-bold text-xs">C</span>
+                      </div>
+                    ) : (
+                      <img 
+                        src={`https://logo.clearbit.com/${item.name.toLowerCase().replace(/\s+/g, '')}.ro`}
+                        alt={item.name}
+                        className="w-5 h-5 rounded"
+                        onError={(e) => {
+                          e.target.style.display = 'none'
+                          e.target.nextSibling.style.display = 'block'
+                        }}
+                      />
+                    )
                   ) : null}
                   <div className="p-1 bg-indigo-100 dark:bg-indigo-900/20 rounded" style={{display: selectedCategory === 'brands' ? 'none' : 'block'}}>
                     {getCategoryIcon(selectedCategory)}
