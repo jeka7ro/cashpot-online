@@ -197,26 +197,7 @@ export const DataProvider = ({ children }) => {
     fetchAllData()
   }, [])
 
-  // Calculate statistics - MOVED AFTER fetchAllData to avoid circular dependency
-  const statistics = {
-    totalCompanies: companies.length,
-    totalLocations: locations.length,
-    totalProviders: providers.length,
-    totalCabinets: cabinets.length,
-    totalGameMixes: gameMixes.length,
-    totalSlots: slots.length,
-    totalWarehouse: warehouse.length,
-    totalMetrology: metrology.length,
-    totalJackpots: jackpots.length,
-    totalInvoices: invoices.length,
-    totalOnjnReports: onjnReports.length,
-    totalLegalDocuments: legalDocuments.length,
-    totalUsers: users.length,
-    totalGames: games.length,
-    totalTasks: tasks.length,
-    totalMessages: messages.length,
-    totalNotifications: notifications.length
-  }
+  // Calculate statistics - MOVED TO END OF COMPONENT to avoid circular dependency
 
   // Create test weekly tombola with 5 prizes
   const createTestWeeklyTombola = async () => {
@@ -700,6 +681,27 @@ export const DataProvider = ({ children }) => {
     exportToExcel,
     exportToPDF,
     refreshData: fetchAllData
+  }
+
+  // Calculate statistics - MOVED TO END to avoid circular dependency
+  const statistics = {
+    totalCompanies: companies.length,
+    totalLocations: locations.length,
+    totalProviders: providers.length,
+    totalCabinets: cabinets.length,
+    totalGameMixes: gameMixes.length,
+    totalSlots: slots.length,
+    totalWarehouse: warehouse.length,
+    totalMetrology: metrology.length,
+    totalJackpots: jackpots.length,
+    totalInvoices: invoices.length,
+    totalOnjnReports: onjnReports.length,
+    totalLegalDocuments: legalDocuments.length,
+    totalUsers: users.length,
+    totalGames: games.length,
+    totalTasks: tasks.length,
+    totalMessages: messages.length,
+    totalNotifications: notifications.length
   }
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
