@@ -497,45 +497,25 @@ const ONJNReports = () => {
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-slate-800 dark:text-white">Tabel Operatori ONJN</h3>
-            <div className="flex items-center space-x-4">
-              {/* Records per page selector */}
-              <div className="flex items-center space-x-2">
-                <label className="text-sm text-slate-600 dark:text-slate-400">Afișare:</label>
-                <select
-                  value={operatorsPerPage}
-                  onChange={(e) => setOperatorsPerPage(Number(e.target.value))}
-                  className="px-3 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
-                >
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                  <option value={200}>200</option>
-                  <option value={500}>500</option>
-                  <option value={1000}>1000</option>
-                  <option value={filteredOperators.length}>Toate ({filteredOperators.length})</option>
-                </select>
-                <span className="text-sm text-slate-600 dark:text-slate-400">operatori</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => exportOperatorsToExcel()}
-                  disabled={exporting}
-                  className="btn-secondary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Export Excel - Toți operatorii"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>{exporting ? 'Se exportă...' : 'Excel'}</span>
-                </button>
-                <button
-                  onClick={() => exportOperatorsToCSV()}
-                  disabled={exporting}
-                  className="btn-secondary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Export CSV - Toți operatorii"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>{exporting ? 'Se exportă...' : 'CSV'}</span>
-                </button>
-              </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => exportOperatorsToExcel()}
+                disabled={exporting}
+                className="btn-secondary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Export Excel - Toți operatorii"
+              >
+                <Download className="w-4 h-4" />
+                <span>{exporting ? 'Se exportă...' : 'Excel'}</span>
+              </button>
+              <button
+                onClick={() => exportOperatorsToCSV()}
+                disabled={exporting}
+                className="btn-secondary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Export CSV - Toți operatorii"
+              >
+                <Download className="w-4 h-4" />
+                <span>{exporting ? 'Se exportă...' : 'CSV'}</span>
+              </button>
             </div>
           </div>
           {operatorsLoading ? (
@@ -611,27 +591,45 @@ const ONJNReports = () => {
               </div>
               {/* Pagination */}
               {totalOperatorsPages > 1 && operatorsPerPage < filteredOperators.length && (
-                <div className="mt-6 flex items-center justify-between">
-                  <div className="text-sm text-slate-600 dark:text-slate-400">
-                    Pagina {operatorsPage} din {totalOperatorsPages}
+                <div className="bg-gradient-to-r from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-700 dark:via-slate-800 dark:to-slate-700 px-6 md:px-8 py-4 md:py-6 border-t border-slate-200/50 dark:border-slate-600/50 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+                  <div className="flex flex-wrap items-center gap-4 md:gap-6">
+                    <span className="text-sm md:text-base font-semibold text-slate-700 dark:text-slate-200">Înregistrări:</span>
+                    <select 
+                      value={operatorsPerPage} 
+                      onChange={(e) => setOperatorsPerPage(Number(e.target.value))} 
+                      className="border-2 border-slate-200 dark:border-slate-600 rounded-2xl px-4 py-2 text-sm font-medium bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all duration-200 shadow-lg text-slate-900 dark:text-slate-100"
+                    >
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                      <option value={200}>200</option>
+                      <option value={500}>500</option>
+                      <option value={1000}>1000</option>
+                      <option value={filteredOperators.length}>Toate ({filteredOperators.length})</option>
+                    </select>
+                    <span className="text-sm md:text-base text-slate-600 dark:text-slate-300 font-medium">
+                      {(operatorsPage - 1) * operatorsPerPage + 1}-{Math.min(operatorsPage * operatorsPerPage, filteredOperators.length)} din {filteredOperators.length}
+                    </span>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <button
+                  <div className="flex items-center justify-between sm:justify-start gap-3">
+                    <button 
                       onClick={() => setOperatorsPage(Math.max(1, operatorsPage - 1))}
                       disabled={operatorsPage === 1}
-                      className="px-3 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-800"
+                      className="px-4 md:px-6 py-2 md:py-3 border-2 border-slate-200 dark:border-slate-600 rounded-2xl text-sm md:text-base font-bold hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl group text-slate-700 dark:text-slate-200"
                     >
-                      Anterior
+                      <span className="group-hover:-translate-x-1 transition-transform inline-block">Înapoi</span>
                     </button>
-                    <span className="px-3 py-1 text-sm bg-indigo-100 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 rounded-lg">
-                      {operatorsPage}
-                    </span>
-                    <button
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm md:text-base text-slate-600 dark:text-slate-200 font-bold bg-white/80 dark:bg-slate-800/80 px-4 py-2 rounded-2xl shadow-lg">
+                        Pag {operatorsPage}/{totalOperatorsPages}
+                      </span>
+                    </div>
+                    <button 
                       onClick={() => setOperatorsPage(Math.min(totalOperatorsPages, operatorsPage + 1))}
                       disabled={operatorsPage === totalOperatorsPages}
-                      className="px-3 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-800"
+                      className="px-4 md:px-6 py-2 md:py-3 border-2 border-slate-200 dark:border-slate-600 rounded-2xl text-sm md:text-base font-bold hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl group text-slate-700 dark:text-slate-200"
                     >
-                      Următor
+                      <span className="group-hover:translate-x-1 transition-transform inline-block">Înainte</span>
                     </button>
                   </div>
                 </div>
