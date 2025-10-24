@@ -1114,6 +1114,7 @@ const allowedOrigins = [
   'https://www.w1n.ro',
   'https://w1n.ro',
   'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
   'http://localhost:3000',
   'http://localhost:5173'
 ]
@@ -1122,6 +1123,11 @@ app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true)
+    
+    // Allow Vercel preview URLs
+    if (origin && origin.includes('vercel.app')) {
+      return callback(null, true)
+    }
     
     if (allowedOrigins.indexOf(origin) === -1) {
       console.log('🚫 CORS blocked origin:', origin)
