@@ -282,6 +282,38 @@ const Dashboard = () => {
     loadPreferences()
   }, [user?.id])
 
+  // Salvează dimensiunile cardurilor pe server
+  const saveCardSizesToServer = async (newCardSizes) => {
+    try {
+      await axios.put(`/api/users/${user.id}/preferences`, {
+        preferences: {
+          cardSizes: newCardSizes,
+          widgetSizes: widgetSizes,
+          dashboard: dashboardConfig
+        }
+      })
+      console.log('✅ Card sizes saved automatically to server')
+    } catch (error) {
+      console.error('❌ Error saving card sizes automatically:', error)
+    }
+  }
+
+  // Salvează dimensiunile widget-urilor pe server
+  const saveWidgetSizesToServer = async (newWidgetSizes) => {
+    try {
+      await axios.put(`/api/users/${user.id}/preferences`, {
+        preferences: {
+          cardSizes: cardSizes,
+          widgetSizes: newWidgetSizes,
+          dashboard: dashboardConfig
+        }
+      })
+      console.log('✅ Widget sizes saved automatically to server')
+    } catch (error) {
+      console.error('❌ Error saving widget sizes automatically:', error)
+    }
+  }
+
   // Salvează preferințele pe server
   const saveDashboardConfig = async () => {
     try {
@@ -450,18 +482,36 @@ const Dashboard = () => {
 
   // Schimbă mărimea unui card
   const changeCardSize = (cardId, size) => {
-    setCardSizes(prev => ({
-      ...prev,
-      [cardId]: size
-    }))
+    setCardSizes(prev => {
+      const newCardSizes = {
+        ...prev,
+        [cardId]: size
+      }
+      
+      // Salvează automat pe server dacă utilizatorul este autentificat
+      if (user?.id) {
+        saveCardSizesToServer(newCardSizes)
+      }
+      
+      return newCardSizes
+    })
   }
 
   // Schimbă mărimea unui widget
   const changeWidgetSize = (widgetId, size) => {
-    setWidgetSizes(prev => ({
-      ...prev,
-      [widgetId]: size
-    }))
+    setWidgetSizes(prev => {
+      const newWidgetSizes = {
+        ...prev,
+        [widgetId]: size
+      }
+      
+      // Salvează automat pe server dacă utilizatorul este autentificat
+      if (user?.id) {
+        saveWidgetSizesToServer(newWidgetSizes)
+      }
+      
+      return newWidgetSizes
+    })
   }
 
   // Toggle card selection
