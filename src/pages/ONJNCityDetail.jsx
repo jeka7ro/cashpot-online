@@ -247,7 +247,7 @@ const ONJNCityDetail = () => {
                 <MapPin className="w-6 h-6 text-purple-600 dark:text-purple-400" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Săli Unice</p>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Săli</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
                   {stats.uniqueLocations.toLocaleString('ro-RO')}
                 </p>

@@ -176,9 +176,9 @@ const ONJNAnalytics = () => {
         'Scoși din Funcțiune': item.expired,
         'Branduri Unice': item.brands || 0,
         'Companii Unice': item.companies || 0,
-        'Orașe Unice': item.cities || 0,
+        'Orașe/Sectoare': item.cities || 0,
         'Județe Unice': item.counties || 0,
-        'Săli Unice': item.locations || 0,
+        'Săli': item.locations || 0,
         'Județ': item.county || ''
       }))
 
@@ -326,7 +326,7 @@ const ONJNAnalytics = () => {
                 <MapPin className="w-6 h-6 text-purple-600 dark:text-purple-400" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Săli Unice</p>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Săli</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
                   {new Set(operators.map(op => op.slot_address).filter(Boolean)).size.toLocaleString('ro-RO')}
                 </p>
@@ -465,7 +465,7 @@ const ONJNAnalytics = () => {
                       <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                         {item.cities}
                       </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">orașe</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">orașe/sectoare</p>
                     </div>
                   )}
                   {item.locations && (
