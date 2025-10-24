@@ -480,12 +480,12 @@ const ONJNReports = () => {
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Quick Access Card */}
         <div className="card p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-bold text-slate-800 dark:text-white">Acțiuni Rapide</h3>
-              <p className="text-slate-600 dark:text-slate-400">Accesează rapid secțiunile importante</p>
+              <h3 className="text-lg font-bold text-slate-800 dark:text-white">Acces Rapid</h3>
+              <p className="text-slate-600 dark:text-slate-400">Navighează rapid la secțiunile importante</p>
             </div>
             <div className="flex items-center space-x-3">
               <button
@@ -494,20 +494,6 @@ const ONJNReports = () => {
               >
                 <Building2 className="w-4 h-4" />
                 <span>Operatori ONJN</span>
-              </button>
-              <button
-                onClick={() => navigate('/onjn-analytics')}
-                className="btn-secondary flex items-center space-x-2"
-              >
-                <BarChart3 className="w-4 h-4" />
-                <span>Analytics Dashboard</span>
-              </button>
-              <button
-                onClick={handleCreate}
-                className="btn-primary flex items-center space-x-2"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Adaugă Raport</span>
               </button>
             </div>
           </div>
