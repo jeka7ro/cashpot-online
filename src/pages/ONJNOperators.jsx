@@ -78,9 +78,11 @@ const ONJNOperators = () => {
 
   const loadData = async (limit = 1000) => {
     try {
+      console.log('🚀 Loading ONJN data with limit:', limit)
       setLoading(true)
       // Load only first 1000 records initially for better performance
       const response = await axios.get(`/api/onjn-operators?limit=${limit}`)
+      console.log('✅ ONJN data loaded:', response.data.length, 'records')
       setOperators(response.data)
       
       // Detect last update from most recent last_scraped_at
@@ -366,6 +368,14 @@ const ONJNOperators = () => {
     const matchesLicense = !filters.license || op.license_number === filters.license
     
     return matchesSearch && matchesCompany && matchesBrand && matchesCounty && matchesCity && matchesStatus && matchesLicense
+  })
+
+  console.log('📊 ONJN Operators state:', {
+    operators: operators.length,
+    filteredOperators: filteredOperators.length,
+    loading,
+    searchTerm,
+    filters
   })
 
   // Get unique values for filters
