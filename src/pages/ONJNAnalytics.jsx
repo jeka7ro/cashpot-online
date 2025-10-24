@@ -421,10 +421,14 @@ const ONJNAnalytics = () => {
                       {item.total.toLocaleString('ro-RO')}
                     </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">aparate</p>
-                    <p className="text-lg font-semibold text-purple-600 dark:text-purple-400 mt-1">
-                      {item.locations.toLocaleString('ro-RO')}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">săli</p>
+                    {item.locations !== undefined && (
+                      <>
+                        <p className="text-lg font-semibold text-purple-600 dark:text-purple-400 mt-1">
+                          {item.locations.toLocaleString('ro-RO')}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">săli</p>
+                      </>
+                    )}
                   </div>
                 </div>
 
