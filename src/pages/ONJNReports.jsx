@@ -98,6 +98,13 @@ const ONJNReports = () => {
     setShowBulkActions(selectedItems.length > 0)
   }, [selectedItems])
 
+  // Filter reports first
+  const filteredReports = onjnReports.filter(item =>
+    item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.status?.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
   // Bulk operations
   const handleSelectAll = (checked) => {
     if (checked) {
@@ -137,12 +144,6 @@ const ONJNReports = () => {
   }
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
-
-  const filteredReports = onjnReports.filter(item =>
-    item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.status?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
 
   // Filter operators
   const filteredOperators = operators.filter(op => {
