@@ -36,6 +36,7 @@ import ONJNCityDetail from './pages/ONJNCityDetail'
 import ONJNCountyDetail from './pages/ONJNCountyDetail'
 import ONJNAnalytics from './pages/ONJNAnalytics'
 import ONJNMap from './pages/ONJNMap'
+import ONJNCompanyDetail from './pages/ONJNCompanyDetail'
 import LegalDocuments from './pages/LegalDocuments'
 import UsersPage from './pages/Users'
 import Settings from './pages/Settings'
@@ -76,6 +77,7 @@ function App() {
             <Route path="/onjn-reports/county/:countyName" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNCountyDetail /></RoleProtectedRoute>} />
             <Route path="/onjn-analytics" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNAnalytics /></RoleProtectedRoute>} />
             <Route path="/onjn-map" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNMap /></RoleProtectedRoute>} />
+            <Route path="/onjn-reports/company/:companyName" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNCompanyDetail /></RoleProtectedRoute>} />
             <Route path="/onjn-operators" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNOperators /></RoleProtectedRoute>} />
             <Route path="/onjn-operators/brand/:brandName" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNBrandDetails /></RoleProtectedRoute>} />
             <Route path="/legal-documents" element={<RoleProtectedRoute module={MODULES.LEGAL}><LegalDocuments /></RoleProtectedRoute>} />

@@ -651,7 +651,14 @@ const ONJNReports = () => {
                           {operator.serial_number || '-'}
                         </td>
                         <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
-                          {operator.company_name || '-'}
+                          {operator.company_name ? (
+                            <button
+                              onClick={() => navigate(`/onjn-reports/company/${encodeURIComponent(operator.company_name)}`)}
+                              className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                            >
+                              {operator.company_name}
+                            </button>
+                          ) : '-'}
                         </td>
                         <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
                           {operator.brand_name ? (
