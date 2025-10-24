@@ -510,7 +510,14 @@ const ONJNOperators = () => {
     {
       key: 'county',
       label: 'JUDEȚ',
-      sortable: true
+      sortable: true,
+      render: (item) => (
+        <div className="text-sm">
+          <div className="text-slate-700 dark:text-slate-300">
+            {item.county ? item.county.replace(/^JUD[EȚ]UL\s+/i, '') : '-'}
+          </div>
+        </div>
+      )
     },
     {
       key: 'license_number',

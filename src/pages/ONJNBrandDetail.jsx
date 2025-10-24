@@ -59,21 +59,47 @@ const ONJNBrandDetail = () => {
     expired: filteredOperators.filter(op => op.status === 'Scos din funcțiune').length,
     uniqueLocations: new Set(filteredOperators.map(op => op.slot_address).filter(Boolean)).size,
     byCounty: {},
-    byCity: {}
+    byCountyLocations: {},
+    byCity: {},
+    byCityLocations: {}
   }
 
-  // Calculate by county
+  // Calculate by county (slots and unique locations)
+  const countySlots = {}
+  const countyLocations = {}
   filteredOperators.forEach(op => {
     if (op.county) {
-      stats.byCounty[op.county] = (stats.byCounty[op.county] || 0) + 1
+      countySlots[op.county] = (countySlots[op.county] || 0) + 1
+      if (op.slot_address) {
+        countyLocations[op.county] = countyLocations[op.county] || new Set()
+        countyLocations[op.county].add(op.slot_address)
+      }
     }
   })
+  
+  // Convert to stats format
+  Object.keys(countySlots).forEach(county => {
+    stats.byCounty[county] = countySlots[county]
+    stats.byCountyLocations[county] = countyLocations[county]?.size || 0
+  })
 
-  // Calculate by city
+  // Calculate by city (slots and unique locations)
+  const citySlots = {}
+  const cityLocations = {}
   filteredOperators.forEach(op => {
     if (op.city) {
-      stats.byCity[op.city] = (stats.byCity[op.city] || 0) + 1
+      citySlots[op.city] = (citySlots[op.city] || 0) + 1
+      if (op.slot_address) {
+        cityLocations[op.city] = cityLocations[op.city] || new Set()
+        cityLocations[op.city].add(op.slot_address)
+      }
     }
+  })
+  
+  // Convert to stats format
+  Object.keys(citySlots).forEach(city => {
+    stats.byCity[city] = citySlots[city]
+    stats.byCityLocations[city] = cityLocations[city]?.size || 0
   })
 
   // Get unique values for filters
@@ -284,10 +310,10 @@ const ONJNBrandDetail = () => {
                 <div key={county} className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-slate-900 dark:text-white">{county}</p>
+                      <p className="font-medium text-slate-900 dark:text-white">{county.replace(/^JUD[EȚ]UL\s+/i, '')}</p>
                       <p className="text-sm text-slate-500 dark:text-slate-400">{count.toLocaleString('ro-RO')} aparate</p>
                       <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">
-                        {count.toLocaleString('ro-RO')} săli
+                        {(stats.byCountyLocations[county] || 0).toLocaleString('ro-RO')} săli
                       </p>
                     </div>
                     <MapPin className="w-5 h-5 text-slate-400" />
@@ -311,7 +337,7 @@ const ONJNBrandDetail = () => {
                       <p className="font-medium text-slate-900 dark:text-white">{city}</p>
                       <p className="text-sm text-slate-500 dark:text-slate-400">{count.toLocaleString('ro-RO')} aparate</p>
                       <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">
-                        {count.toLocaleString('ro-RO')} săli
+                        {(stats.byCityLocations[city] || 0).toLocaleString('ro-RO')} săli
                       </p>
                     </div>
                     <Building2 className="w-5 h-5 text-slate-400" />
