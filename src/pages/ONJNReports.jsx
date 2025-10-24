@@ -480,42 +480,35 @@ const ONJNReports = () => {
           </div>
         </div>
 
-        {/* Quick Access Card - ONJN Operators */}
-        <div className="card p-6 hover:shadow-xl transition-shadow cursor-pointer" onClick={() => navigate('/onjn-operators')}>
+        {/* Action Buttons */}
+        <div className="card p-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl shadow-lg shadow-indigo-500/25">
-                <Building2 className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-slate-800 dark:text-white">Operatori ONJN</h3>
-                <p className="text-slate-600 dark:text-slate-400">TOȚI operatorii din Registrul Public ONJN (până la 25,000 sloturi)</p>
-              </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-800 dark:text-white">Acțiuni Rapide</h3>
+              <p className="text-slate-600 dark:text-slate-400">Accesează rapid secțiunile importante</p>
             </div>
-            <ExternalLink className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-          </div>
-          <div className="mt-4 grid grid-cols-4 gap-4">
-            <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-3">
-              <div className="text-xs text-slate-600 dark:text-slate-400">Total Sloturi</div>
-              <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
-                {stats?.total ? stats.total.toLocaleString('ro-RO') : '0'}
-              </div>
-            </div>
-            <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
-              <div className="text-xs text-slate-600 dark:text-slate-400">În Exploatare</div>
-              <div className="text-xl font-bold text-green-600 dark:text-green-400">
-                {stats?.active ? stats.active.toLocaleString('ro-RO') : '0'}
-              </div>
-            </div>
-            <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
-              <div className="text-xs text-slate-600 dark:text-slate-400">Scoși din Funcțiune</div>
-              <div className="text-xl font-bold text-red-600 dark:text-red-400">
-                {stats?.expired ? stats.expired.toLocaleString('ro-RO') : '0'}
-              </div>
-            </div>
-            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3">
-              <div className="text-xs text-slate-600 dark:text-slate-400">Auto Refresh</div>
-              <div className="text-xl font-bold text-purple-600 dark:text-purple-400">✓</div>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => navigate('/onjn-operators')}
+                className="btn-secondary flex items-center space-x-2"
+              >
+                <Building2 className="w-4 h-4" />
+                <span>Operatori ONJN</span>
+              </button>
+              <button
+                onClick={() => navigate('/onjn-analytics')}
+                className="btn-secondary flex items-center space-x-2"
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span>Analytics Dashboard</span>
+              </button>
+              <button
+                onClick={handleCreate}
+                className="btn-primary flex items-center space-x-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Adaugă Raport</span>
+              </button>
             </div>
           </div>
         </div>
