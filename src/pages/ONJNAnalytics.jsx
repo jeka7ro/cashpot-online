@@ -397,104 +397,106 @@ const ONJNAnalytics = () => {
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {currentData.slice(0, 12).map((item, index) => (
-              <div key={item.name} className="bg-slate-50 dark:bg-slate-800 rounded-lg p-6 hover:shadow-lg transition-shadow">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-indigo-100 dark:bg-indigo-900/20 rounded-lg">
+              <div key={item.name} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center space-x-2">
+                    {selectedCategory === 'brands' ? (
+                      <img 
+                        src={`https://logo.clearbit.com/${item.name.toLowerCase().replace(/\s+/g, '')}.ro`}
+                        alt={item.name}
+                        className="w-6 h-6 rounded"
+                        onError={(e) => {
+                          e.target.style.display = 'none'
+                          e.target.nextSibling.style.display = 'block'
+                        }}
+                      />
+                    ) : null}
+                    <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/20 rounded" style={{display: selectedCategory === 'brands' ? 'none' : 'block'}}>
                       {getCategoryIcon(selectedCategory)}
                     </div>
-                    <div>
-                      <h4 className="font-bold text-slate-900 dark:text-white text-lg">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-semibold text-slate-900 dark:text-white text-sm truncate">
                         {item.name}
                       </h4>
                       {item.county && (
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
-                          Județ: {item.county}
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                          {item.county}
                         </p>
                       )}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                </div>
+
+                <div className="space-y-2 mb-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-slate-500 dark:text-slate-400">Total:</span>
+                    <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
                       {item.total.toLocaleString('ro-RO')}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">aparate</p>
-                    {item.locations !== undefined && (
-                      <>
-                        <p className="text-lg font-semibold text-purple-600 dark:text-purple-400 mt-1">
-                          {item.locations.toLocaleString('ro-RO')}
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">săli</p>
-                      </>
-                    )}
+                    </span>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="text-center">
-                    <p className="text-lg font-semibold text-green-600 dark:text-green-400">
-                      {item.active.toLocaleString('ro-RO')}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">În exploatare</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-lg font-semibold text-red-600 dark:text-red-400">
-                      {item.expired.toLocaleString('ro-RO')}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Scoși din funcțiune</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-4 gap-2 mb-4 text-center">
-                  {item.brands && (
-                    <div>
-                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                        {item.brands}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">branduri</p>
+                  {item.locations !== undefined && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Săli:</span>
+                      <span className="text-sm font-semibold text-purple-600 dark:text-purple-400">
+                        {item.locations.toLocaleString('ro-RO')}
+                      </span>
                     </div>
                   )}
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-slate-500 dark:text-slate-400">Active:</span>
+                    <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+                      {item.active.toLocaleString('ro-RO')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-slate-500 dark:text-slate-400">Inactive:</span>
+                    <span className="text-sm font-semibold text-red-600 dark:text-red-400">
+                      {item.expired.toLocaleString('ro-RO')}
+                    </span>
+                  </div>
                   {item.companies && (
-                    <div>
-                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Companii:</span>
+                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                         {item.companies}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">companii</p>
+                      </span>
                     </div>
                   )}
                   {item.cities && (
-                    <div>
-                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Orașe:</span>
+                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                         {item.cities}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">orașe/sectoare</p>
+                      </span>
                     </div>
                   )}
-                  {item.locations && (
-                    <div>
-                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                        {item.locations}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">săli</p>
+                  {item.brands && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Branduri:</span>
+                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                        {item.brands}
+                      </span>
                     </div>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-slate-500 dark:text-slate-400">
-                    Rata activitate: {item.total > 0 ? ((item.active / item.total) * 100).toFixed(1) : 0}%
+                <div className="border-t border-slate-200 dark:border-slate-700 pt-2">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      {item.total > 0 ? ((item.active / item.total) * 100).toFixed(1) : 0}%
+                    </div>
+                    {(selectedCategory === 'brands' || selectedCategory === 'cities' || selectedCategory === 'counties') && (
+                      <button
+                        onClick={() => navigate(getNavigationPath(selectedCategory, item.name))}
+                        className="flex items-center space-x-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 text-xs font-medium"
+                      >
+                        <span>Detalii</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    )}
                   </div>
-                  {(selectedCategory === 'brands' || selectedCategory === 'cities' || selectedCategory === 'counties') && (
-                    <button
-                      onClick={() => navigate(getNavigationPath(selectedCategory, item.name))}
-                      className="flex items-center space-x-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 text-sm font-medium"
-                    >
-                      <span>Vezi detalii</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  )}
                 </div>
               </div>
             ))}
