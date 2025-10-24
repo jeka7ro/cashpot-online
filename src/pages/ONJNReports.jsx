@@ -29,9 +29,29 @@ const ONJNReports = () => {
   const [operatorsPerPage, setOperatorsPerPage] = useState(25)
   const [exporting, setExporting] = useState(false)
 
-  // Load ONJN stats and operators
+  // Load ONJN operators on mount
   useEffect(() => {
-    const loadStats = async () => {
+    const loadOperators = async () => {
+      try {
+        setOperatorsLoading(true)
+        const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators')
+        const data = await response.json()
+        setOperators(data)
+      } catch (error) {
+        console.error('Error loading ONJN operators:', error)
+      } finally {
+        setOperatorsLoading(false)
+      }
+    }
+    
+    loadOperators()
+  }, [])
+
+  // Update stats when operators or filters change
+  useEffect(() => {
+    if (operators.length === 0) return
+
+    const loadStats = () => {
       try {
         // Calculate filtered stats based on current filters
         const filteredData = operators.filter(op => {
@@ -70,21 +90,7 @@ const ONJNReports = () => {
       }
     }
     
-       const loadOperators = async () => {
-         try {
-           setOperatorsLoading(true)
-           const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators')
-           const data = await response.json()
-           setOperators(data)
-         } catch (error) {
-           console.error('Error loading ONJN operators:', error)
-         } finally {
-           setOperatorsLoading(false)
-         }
-       }
-    
     loadStats()
-    loadOperators()
   }, [operators, operatorsSearchTerm, operatorsFilters])
 
   // Update showBulkActions based on selectedItems
@@ -591,7 +597,14 @@ const ONJNReports = () => {
                           {operator.company_name || '-'}
                         </td>
                         <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
-                          {operator.brand_name || '-'}
+                          {operator.brand_name ? (
+                            <button
+                              onClick={() => navigate(`/onjn-reports/brand/${encodeURIComponent(operator.brand_name)}`)}
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline font-medium"
+                            >
+                              {operator.brand_name}
+                            </button>
+                          ) : '-'}
                         </td>
                         <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
                           {operator.city || '-'}
@@ -602,7 +615,7 @@ const ONJNReports = () => {
                         <td className="py-3 px-4 text-slate-900 dark:text-slate-100 text-sm">
                           {operator.slot_address ? (
                             <div className="max-w-xs truncate" title={operator.slot_address}>
-                              {operator.slot_address}
+                              {operator.slot_address.replace(/,?\s*JUD[EȚ]UL?\s+\w+/gi, '').trim()}
                             </div>
                           ) : '-'}
                         </td>

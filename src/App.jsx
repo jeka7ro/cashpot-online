@@ -31,6 +31,7 @@ import CompanyDetail from './pages/CompanyDetail'
 import ONJNReports from './pages/ONJNReports'
 import ONJNOperators from './pages/ONJNOperators'
 import ONJNBrandDetails from './pages/ONJNBrandDetails'
+import ONJNBrandDetail from './pages/ONJNBrandDetail'
 import LegalDocuments from './pages/LegalDocuments'
 import UsersPage from './pages/Users'
 import Settings from './pages/Settings'
@@ -66,6 +67,7 @@ function App() {
             <Route path="/invoices" element={<RoleProtectedRoute module={MODULES.INVOICES}><Invoices /></RoleProtectedRoute>} />
             <Route path="/invoices/:id" element={<RoleProtectedRoute module={MODULES.INVOICES}><InvoiceDetail /></RoleProtectedRoute>} />
             <Route path="/onjn-reports" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNReports /></RoleProtectedRoute>} />
+            <Route path="/onjn-reports/brand/:brandName" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNBrandDetail /></RoleProtectedRoute>} />
             <Route path="/onjn-operators" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNOperators /></RoleProtectedRoute>} />
             <Route path="/onjn-operators/brand/:brandName" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNBrandDetails /></RoleProtectedRoute>} />
             <Route path="/legal-documents" element={<RoleProtectedRoute module={MODULES.LEGAL}><LegalDocuments /></RoleProtectedRoute>} />
