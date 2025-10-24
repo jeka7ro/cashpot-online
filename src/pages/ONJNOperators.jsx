@@ -30,6 +30,12 @@ const ONJNOperators = () => {
     license: ''
   })
 
+  // Load data on mount
+  useEffect(() => {
+    loadData()
+    loadStats()
+  }, [])
+
   // Check existing refresh on mount
   useEffect(() => {
     const checkExistingRefresh = async () => {

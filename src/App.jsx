@@ -44,10 +44,9 @@ function App() {
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/" element={<Navigate to="/onjn-operators" replace />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             
-            {/* Dashboard disabled temporarily - redirecting to ONJN Operators */}
-            <Route path="/dashboard" element={<Navigate to="/onjn-operators" replace />} />
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/companies" element={<RoleProtectedRoute module={MODULES.COMPANIES}><Companies /></RoleProtectedRoute>} />
             <Route path="/companies/:id" element={<RoleProtectedRoute module={MODULES.COMPANIES}><CompanyDetail /></RoleProtectedRoute>} />
             <Route path="/locations" element={<RoleProtectedRoute module={MODULES.LOCATIONS}><Locations /></RoleProtectedRoute>} />
