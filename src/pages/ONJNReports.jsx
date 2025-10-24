@@ -23,7 +23,7 @@ const ONJNReports = () => {
     brand: '',
     county: '',
     city: '',
-    status: ''
+    status: 'În exploatare' // Default filter
   })
   const [operatorsPage, setOperatorsPage] = useState(1)
   const [operatorsPerPage, setOperatorsPerPage] = useState(25)
@@ -607,10 +607,24 @@ const ONJNReports = () => {
                           ) : '-'}
                         </td>
                         <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
-                          {operator.city || '-'}
+                          {operator.city ? (
+                            <button
+                              onClick={() => navigate(`/onjn-reports/city/${encodeURIComponent(operator.city)}`)}
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline font-medium"
+                            >
+                              {operator.city}
+                            </button>
+                          ) : '-'}
                         </td>
                         <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
-                          {operator.county || '-'}
+                          {operator.county ? (
+                            <button
+                              onClick={() => navigate(`/onjn-reports/county/${encodeURIComponent(operator.county)}`)}
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline font-medium"
+                            >
+                              {operator.county}
+                            </button>
+                          ) : '-'}
                         </td>
                         <td className="py-3 px-4 text-slate-900 dark:text-slate-100 text-sm">
                           {operator.slot_address ? (

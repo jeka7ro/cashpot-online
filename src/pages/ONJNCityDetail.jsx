@@ -4,50 +4,49 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Building2, MapPin, Activity, Users, Calendar, Download, Search } from 'lucide-react'
 import * as XLSX from 'xlsx'
 
-const ONJNBrandDetail = () => {
-  const { brandName } = useParams()
+const ONJNCityDetail = () => {
+  const { cityName } = useParams()
   const navigate = useNavigate()
   const [operators, setOperators] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedCounty, setSelectedCounty] = useState('')
-  const [selectedCity, setSelectedCity] = useState('')
+  const [selectedBrand, setSelectedBrand] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('În exploatare') // Default filter
   const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
-    const loadBrandData = async () => {
+    const loadCityData = async () => {
       try {
         setLoading(true)
         const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators')
         const allOperators = await response.json()
         
-        // Filter operators by brand
-        const brandOperators = allOperators.filter(op => op.brand_name === decodeURIComponent(brandName))
-        setOperators(brandOperators)
+        // Filter operators by city
+        const cityOperators = allOperators.filter(op => op.city === decodeURIComponent(cityName))
+        setOperators(cityOperators)
       } catch (error) {
-        console.error('Error loading brand data:', error)
+        console.error('Error loading city data:', error)
       } finally {
         setLoading(false)
       }
     }
 
-    loadBrandData()
-  }, [brandName])
+    loadCityData()
+  }, [cityName])
 
   // Filter operators based on search and filters
   const filteredOperators = operators.filter(op => {
     const matchesSearch = !searchTerm || 
       op.serial_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       op.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      op.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      op.brand_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       op.county?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       op.slot_address?.toLowerCase().includes(searchTerm.toLowerCase())
     
-    const matchesCounty = !selectedCounty || op.county === selectedCounty
-    const matchesCity = !selectedCity || op.city === selectedCity
+    const matchesBrand = !selectedBrand || op.brand_name === selectedBrand
+    const matchesStatus = !selectedStatus || op.status === selectedStatus
     
-    return matchesSearch && matchesCounty && matchesCity
+    return matchesSearch && matchesBrand && matchesStatus
   })
 
   // Calculate statistics
@@ -55,27 +54,27 @@ const ONJNBrandDetail = () => {
     total: filteredOperators.length,
     active: filteredOperators.filter(op => op.status === 'În exploatare').length,
     expired: filteredOperators.filter(op => op.status === 'Scos din funcțiune').length,
-    byCounty: {},
-    byCity: {}
+    byBrand: {},
+    byCompany: {}
   }
 
-  // Calculate by county
+  // Calculate by brand
   filteredOperators.forEach(op => {
-    if (op.county) {
-      stats.byCounty[op.county] = (stats.byCounty[op.county] || 0) + 1
+    if (op.brand_name) {
+      stats.byBrand[op.brand_name] = (stats.byBrand[op.brand_name] || 0) + 1
     }
   })
 
-  // Calculate by city
+  // Calculate by company
   filteredOperators.forEach(op => {
-    if (op.city) {
-      stats.byCity[op.city] = (stats.byCity[op.city] || 0) + 1
+    if (op.company_name) {
+      stats.byCompany[op.company_name] = (stats.byCompany[op.company_name] || 0) + 1
     }
   })
 
   // Get unique values for filters
-  const counties = [...new Set(operators.map(op => op.county).filter(Boolean))].sort()
-  const cities = [...new Set(operators.map(op => op.city).filter(Boolean))].sort()
+  const brands = [...new Set(operators.map(op => op.brand_name).filter(Boolean))].sort()
+  const statuses = [...new Set(operators.map(op => op.status).filter(Boolean))].sort()
 
   // Export functions
   const exportToExcel = async () => {
@@ -96,8 +95,8 @@ const ONJNBrandDetail = () => {
 
       const ws = XLSX.utils.json_to_sheet(data)
       const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, `Brand ${decodeURIComponent(brandName)}`)
-      XLSX.writeFile(wb, `brand-${decodeURIComponent(brandName)}-${new Date().toISOString().split('T')[0]}.xlsx`)
+      XLSX.utils.book_append_sheet(wb, ws, `Oraș ${decodeURIComponent(cityName)}`)
+      XLSX.writeFile(wb, `oras-${decodeURIComponent(cityName)}-${new Date().toISOString().split('T')[0]}.xlsx`)
     } catch (error) {
       console.error('Error exporting to Excel:', error)
     } finally {
@@ -129,7 +128,7 @@ const ONJNBrandDetail = () => {
       const link = document.createElement('a')
       const url = URL.createObjectURL(blob)
       link.setAttribute('href', url)
-      link.setAttribute('download', `brand-${decodeURIComponent(brandName)}-${new Date().toISOString().split('T')[0]}.csv`)
+      link.setAttribute('download', `oras-${decodeURIComponent(cityName)}-${new Date().toISOString().split('T')[0]}.csv`)
       link.style.visibility = 'hidden'
       document.body.appendChild(link)
       link.click()
@@ -167,10 +166,10 @@ const ONJNBrandDetail = () => {
               </button>
               <div>
                 <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
-                  Brand: {decodeURIComponent(brandName)}
+                  Oraș: {decodeURIComponent(cityName)}
                 </h1>
                 <p className="text-slate-600 dark:text-slate-400">
-                  Detalii complete pentru brandul {decodeURIComponent(brandName)}
+                  Detalii complete pentru orașul {decodeURIComponent(cityName)}
                 </p>
               </div>
             </div>
@@ -242,39 +241,39 @@ const ONJNBrandDetail = () => {
           </div>
         </div>
 
-        {/* Statistics by County */}
+        {/* Statistics by Brand */}
         <div className="card p-6">
-          <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Statistici pe Județe</h3>
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Statistici pe Branduri</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.entries(stats.byCounty)
+            {Object.entries(stats.byBrand)
               .sort(([,a], [,b]) => b - a)
               .slice(0, 12)
-              .map(([county, count]) => (
-                <div key={county} className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
+              .map(([brand, count]) => (
+                <div key={brand} className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-slate-900 dark:text-white">{county}</p>
+                      <p className="font-medium text-slate-900 dark:text-white">{brand}</p>
                       <p className="text-sm text-slate-500 dark:text-slate-400">{count.toLocaleString('ro-RO')} aparate</p>
                     </div>
-                    <MapPin className="w-5 h-5 text-slate-400" />
+                    <Activity className="w-5 h-5 text-slate-400" />
                   </div>
                 </div>
               ))}
           </div>
         </div>
 
-        {/* Statistics by City */}
+        {/* Statistics by Company */}
         <div className="card p-6">
-          <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Statistici pe Orașe</h3>
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Statistici pe Companii</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.entries(stats.byCity)
+            {Object.entries(stats.byCompany)
               .sort(([,a], [,b]) => b - a)
               .slice(0, 12)
-              .map(([city, count]) => (
-                <div key={city} className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
+              .map(([company, count]) => (
+                <div key={company} className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-slate-900 dark:text-white">{city}</p>
+                      <p className="font-medium text-slate-900 dark:text-white">{company}</p>
                       <p className="text-sm text-slate-500 dark:text-slate-400">{count.toLocaleString('ro-RO')} aparate</p>
                     </div>
                     <Building2 className="w-5 h-5 text-slate-400" />
@@ -292,33 +291,33 @@ const ONJNBrandDetail = () => {
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-400 transition-colors" size={18} />
               <input
                 type="text"
-                placeholder="Caută după serie, companie, oraș, județ sau adresă..."
+                placeholder="Caută după serie, companie, brand, județ sau adresă..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 border-2 border-slate-200 dark:border-slate-600 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm text-slate-900 dark:text-white shadow-lg hover:shadow-xl"
+                className="w-full pl-12 pr-4 py-3 border-2 border-slate- места dark:border-slate-600 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm text-slate-900 dark:text-white shadow-lg hover:shadow-xl"
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <select
-                value={selectedCounty}
-                onChange={(e) => setSelectedCounty(e.target.value)}
+                value={selectedBrand}
+                onChange={(e) => setSelectedBrand(e.target.value)}
                 className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
               >
-                <option value="">Toate județele</option>
-                {counties.map(county => (
-                  <option key={county} value={county}>{county}</option>
+                <option value="">Toate brandurile</option>
+                {brands.map(brand => (
+                  <option key={brand} value={brand}>{brand}</option>
                 ))}
               </select>
 
               <select
-                value={selectedCity}
-                onChange={(e) => setSelectedCity(e.target.value)}
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
                 className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
               >
-                <option value="">Toate orașele</option>
-                {cities.map(city => (
-                  <option key={city} value={city}>{city}</option>
+                <option value="">Toate statusurile</option>
+                {statuses.map(status => (
+                  <option key={status} value={status}>{status}</option>
                 ))}
               </select>
             </div>
@@ -347,7 +346,7 @@ const ONJNBrandDetail = () => {
                   <tr className="border-b border-slate-200 dark:border-slate-700">
                     <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Serie</th>
                     <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Companie</th>
-                    <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Oraș</th>
+                    <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Brand</th>
                     <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Județ</th>
                     <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Adresă</th>
                     <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Status</th>
@@ -363,10 +362,24 @@ const ONJNBrandDetail = () => {
                         {operator.company_name || '-'}
                       </td>
                       <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
-                        {operator.city || '-'}
+                        {operator.brand_name ? (
+                          <button
+                            onClick={() => navigate(`/onjn-reports/brand/${encodeURIComponent(operator.brand_name)}`)}
+                            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline font-medium"
+                          >
+                            {operator.brand_name}
+                          </button>
+                        ) : '-'}
                       </td>
                       <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
-                        {operator.county || '-'}
+                        {operator.county ? (
+                          <button
+                            onClick={() => navigate(`/onjn-reports/county/${encodeURIComponent(operator.county)}`)}
+                            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline font-medium"
+                          >
+                            {operator.county}
+                          </button>
+                        ) : '-'}
                       </td>
                       <td className="py-3 px-4 text-slate-900 dark:text-slate-100 text-sm">
                         {operator.slot_address ? (
@@ -398,4 +411,4 @@ const ONJNBrandDetail = () => {
   )
 }
 
-export default ONJNBrandDetail
+export default ONJNCityDetail
