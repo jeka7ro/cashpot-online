@@ -13,6 +13,8 @@ const ONJNCityDetail = () => {
   const [selectedBrand, setSelectedBrand] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('În exploatare') // Default filter
   const [exporting, setExporting] = useState(false)
+  const [page, setPage] = useState(1)
+  const [perPage, setPerPage] = useState(25)
 
   useEffect(() => {
     const loadCityData = async () => {
@@ -48,6 +50,18 @@ const ONJNCityDetail = () => {
     
     return matchesSearch && matchesBrand && matchesStatus
   })
+
+  // Pagination
+  const totalPages = Math.ceil(filteredOperators.length / perPage)
+  const paginatedOperators = filteredOperators.slice(
+    (page - 1) * perPage,
+    page * perPage
+  )
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1)
+  }, [searchTerm, selectedBrand, selectedStatus, perPage])
 
   // Calculate statistics
   const stats = {
@@ -269,6 +283,9 @@ const ONJNCityDetail = () => {
                     <div>
                       <p className="font-medium text-slate-900 dark:text-white">{brand}</p>
                       <p className="text-sm text-slate-500 dark:text-slate-400">{count.toLocaleString('ro-RO')} aparate</p>
+                      <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                        {new Set(filteredOperators.filter(op => op.brand_name === brand).map(op => op.slot_address).filter(Boolean)).size} săli
+                      </p>
                     </div>
                     <Activity className="w-5 h-5 text-slate-400" />
                   </div>
@@ -290,6 +307,9 @@ const ONJNCityDetail = () => {
                     <div>
                       <p className="font-medium text-slate-900 dark:text-white">{company}</p>
                       <p className="text-sm text-slate-500 dark:text-slate-400">{count.toLocaleString('ro-RO')} aparate</p>
+                      <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                        {new Set(filteredOperators.filter(op => op.company_name === company).map(op => op.slot_address).filter(Boolean)).size} săli
+                      </p>
                     </div>
                     <Building2 className="w-5 h-5 text-slate-400" />
                   </div>
@@ -348,6 +368,47 @@ const ONJNCityDetail = () => {
             </div>
           </div>
           
+          {/* Pagination Controls */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-slate-600 dark:text-slate-400">
+                Afișare {paginatedOperators.length} din {filteredOperators.length} aparate
+              </span>
+              <select
+                value={perPage}
+                onChange={(e) => setPerPage(Number(e.target.value))}
+                className="px-3 py-1 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+                <option value={500}>500</option>
+                <option value={1000}>1000</option>
+                <option value={filteredOperators.length}>Toate</option>
+              </select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setPage(page - 1)}
+                disabled={page === 1}
+                className="px-3 py-1 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-600"
+              >
+                Anterior
+              </button>
+              <span className="px-3 py-1 text-sm text-slate-600 dark:text-slate-400">
+                {page} din {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(page + 1)}
+                disabled={page === totalPages}
+                className="px-3 py-1 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-600"
+              >
+                Următor
+              </button>
+            </div>
+          </div>
+          
           {filteredOperators.length === 0 ? (
             <div className="text-center py-12">
               <Building2 className="w-16 h-16 text-slate-300 mx-auto mb-4" />
@@ -368,7 +429,7 @@ const ONJNCityDetail = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredOperators.map((operator, index) => (
+                  {paginatedOperators.map((operator, index) => (
                     <tr key={operator.id || index} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50">
                       <td className="py-3 px-4 text-slate-900 dark:text-slate-100 font-mono text-sm">
                         {operator.serial_number || '-'}

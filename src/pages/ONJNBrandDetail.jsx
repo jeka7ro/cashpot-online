@@ -14,6 +14,8 @@ const ONJNBrandDetail = () => {
   const [selectedCity, setSelectedCity] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('În exploatare') // Default filter
   const [exporting, setExporting] = useState(false)
+  const [page, setPage] = useState(1)
+  const [perPage, setPerPage] = useState(25)
 
   useEffect(() => {
     const loadBrandData = async () => {
