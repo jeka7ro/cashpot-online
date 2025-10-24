@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import ExportButtons from '../components/ExportButtons'
 import { useData } from '../contexts/DataContext'
-import { Shield, Plus, Search, Upload, Download, Building2, ExternalLink } from 'lucide-react'
+import { Shield, Plus, Search, Upload, Download, Building2, ExternalLink, BarChart3 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DataTable from '../components/DataTable'
 import ONJNReportModal from '../components/modals/ONJNReportModal'
@@ -390,6 +390,13 @@ const ONJNReports = () => {
                 </>
               )}
               <button
+                onClick={() => navigate('/onjn-analytics')}
+                className="btn-secondary flex items-center space-x-2 mr-2"
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span>Analytics Dashboard</span>
+              </button>
+              <button
                 onClick={handleCreate}
                 className="btn-primary flex items-center space-x-2"
               >
@@ -585,6 +592,7 @@ const ONJNReports = () => {
                       <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Oraș</th>
                       <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Județ</th>
                       <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Adresă</th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Săli</th>
                       <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Status</th>
                     </tr>
                   </thead>
@@ -633,6 +641,11 @@ const ONJNReports = () => {
                               {operator.slot_address.replace(/,?\s*JUD[EȚ]UL?\s+\w+/gi, '').trim()}
                             </div>
                           ) : '-'}
+                        </td>
+                        <td className="py-3 px-4 text-slate-900 dark:text-slate-100 text-center">
+                          <span className="px-2 py-1 bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400 rounded-full text-xs font-medium">
+                            1
+                          </span>
                         </td>
                         <td className="py-3 px-4">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
