@@ -13,6 +13,21 @@ const ONJNReports = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
+  const [stats, setStats] = useState(null)
+
+  // Load ONJN stats
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators/stats')
+        const data = await response.json()
+        setStats(data)
+      } catch (error) {
+        console.error('Error loading ONJN stats:', error)
+      }
+    }
+    loadStats()
+  }, [])
 
   // Update showBulkActions based on selectedItems
   useEffect(() => {
@@ -187,11 +202,15 @@ const ONJNReports = () => {
           <div className="mt-4 grid grid-cols-4 gap-4">
             <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-3">
               <div className="text-xs text-slate-600 dark:text-slate-400">Total Sloturi</div>
-              <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">25K+</div>
+              <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
+                {stats?.total ? stats.total.toLocaleString('ro-RO') : 'Loading...'}
+              </div>
             </div>
             <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
               <div className="text-xs text-slate-600 dark:text-slate-400">În Exploatare</div>
-              <div className="text-xl font-bold text-green-600 dark:text-green-400">Live</div>
+              <div className="text-xl font-bold text-green-600 dark:text-green-400">
+                {stats?.byStatus?.find(s => s.status === 'În exploatare')?.count || 'Loading...'}
+              </div>
             </div>
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
               <div className="text-xs text-slate-600 dark:text-slate-400">Filtre Avansate</div>
