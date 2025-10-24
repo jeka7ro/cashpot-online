@@ -33,9 +33,38 @@ const ONJNReports = () => {
   useEffect(() => {
     const loadStats = async () => {
       try {
-        const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators/stats')
-        const data = await response.json()
-        setStats(data)
+        // Calculate filtered stats based on current filters
+        const filteredData = operators.filter(op => {
+          const matchesSearch = !operatorsSearchTerm || 
+            op.serial_number?.toLowerCase().includes(operatorsSearchTerm.toLowerCase()) ||
+            op.company_name?.toLowerCase().includes(operatorsSearchTerm.toLowerCase()) ||
+            op.brand_name?.toLowerCase().includes(operatorsSearchTerm.toLowerCase()) ||
+            op.city?.toLowerCase().includes(operatorsSearchTerm.toLowerCase()) ||
+            op.county?.toLowerCase().includes(operatorsSearchTerm.toLowerCase()) ||
+            op.slot_address?.toLowerCase().includes(operatorsSearchTerm.toLowerCase())
+          
+          const matchesCompany = !operatorsFilters.company || op.company_name === operatorsFilters.company
+          const matchesBrand = !operatorsFilters.brand || op.brand_name === operatorsFilters.brand
+          const matchesCounty = !operatorsFilters.county || op.county === operatorsFilters.county
+          const matchesCity = !operatorsFilters.city || op.city === operatorsFilters.city
+          const matchesStatus = !operatorsFilters.status || op.status === operatorsFilters.status
+          
+          return matchesSearch && matchesCompany && matchesBrand && matchesCounty && matchesCity && matchesStatus
+        })
+
+        // Calculate stats from filtered data
+        const totalSlots = filteredData.length
+        const activeSlots = filteredData.filter(op => op.status === 'În exploatare').length
+        const expiredSlots = filteredData.filter(op => op.status === 'Scos din funcțiune').length
+        
+        setStats({
+          total: totalSlots,
+          active: activeSlots,
+          expired: expiredSlots,
+          byBrand: {},
+          byCounty: {},
+          byCity: {}
+        })
       } catch (error) {
         console.error('Error loading ONJN stats:', error)
       }
@@ -56,7 +85,7 @@ const ONJNReports = () => {
     
     loadStats()
     loadOperators()
-  }, [])
+  }, [operators, operatorsSearchTerm, operatorsFilters])
 
   // Update showBulkActions based on selectedItems
   useEffect(() => {
@@ -382,18 +411,20 @@ const ONJNReports = () => {
             <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-3">
               <div className="text-xs text-slate-600 dark:text-slate-400">Total Sloturi</div>
               <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
-                {stats?.total ? stats.total.toLocaleString('ro-RO') : 'Loading...'}
+                {stats?.total ? stats.total.toLocaleString('ro-RO') : '0'}
               </div>
             </div>
             <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
               <div className="text-xs text-slate-600 dark:text-slate-400">În Exploatare</div>
               <div className="text-xl font-bold text-green-600 dark:text-green-400">
-                {stats?.byStatus?.find(s => s.status === 'În exploatare')?.count || 'Loading...'}
+                {stats?.active ? stats.active.toLocaleString('ro-RO') : '0'}
               </div>
             </div>
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
-              <div className="text-xs text-slate-600 dark:text-slate-400">Filtre Avansate</div>
-              <div className="text-xl font-bold text-blue-600 dark:text-blue-400">✓</div>
+            <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
+              <div className="text-xs text-slate-600 dark:text-slate-400">Scoși din Funcțiune</div>
+              <div className="text-xl font-bold text-red-600 dark:text-red-400">
+                {stats?.expired ? stats.expired.toLocaleString('ro-RO') : '0'}
+              </div>
             </div>
             <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3">
               <div className="text-xs text-slate-600 dark:text-slate-400">Auto Refresh</div>
@@ -701,3 +732,4 @@ const ONJNReports = () => {
 }
 
 export default ONJNReports
+
