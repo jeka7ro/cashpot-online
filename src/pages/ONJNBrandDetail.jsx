@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Building2, MapPin, Activity, Users, Calendar, Download } from 'lucide-react'
+import { ArrowLeft, Building2, MapPin, Activity, Users, Calendar, Download, Search } from 'lucide-react'
 import * as XLSX from 'xlsx'
 
 const ONJNBrandDetail = () => {
