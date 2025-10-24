@@ -2,6 +2,17 @@ import React, { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, MapPin, Building2, Users, Filter, Search } from 'lucide-react'
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
+
+// Fix pentru iconițele Leaflet
+delete L.Icon.Default.prototype._getIconUrl
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+})
 
 const ONJNMap = () => {
   const navigate = useNavigate()
@@ -64,11 +75,18 @@ const ONJNMap = () => {
     return acc
   }, {})
 
-  // Coordonate aproximative pentru orașe (pentru demo)
+  // Coordonate pentru orașe din România
   const getCoordinates = (city, county) => {
     const cityCoordinates = {
       'BUCUREȘTI': [44.4268, 26.1025],
+      'SECTOR 1': [44.4378, 26.0969],
+      'SECTOR 2': [44.4528, 26.1339],
+      'SECTOR 3': [44.4268, 26.1025],
+      'SECTOR 4': [44.3750, 26.1206],
+      'SECTOR 5': [44.3888, 26.0719],
+      'SECTOR 6': [44.4355, 26.0165],
       'CLUJ-NAPOCA': [46.7712, 23.6236],
+      'CLUJ': [46.7712, 23.6236],
       'TIMIȘOARA': [45.7472, 21.2087],
       'IAȘI': [47.1585, 27.6014],
       'CONSTANȚA': [44.1733, 28.6383],
@@ -76,7 +94,25 @@ const ONJNMap = () => {
       'GALAȚI': [45.4353, 28.0080],
       'PLOIEȘTI': [44.9419, 26.0225],
       'BRAȘOV': [45.6427, 25.5887],
-      'BRĂILA': [45.2667, 27.9833]
+      'BRĂILA': [45.2667, 27.9833],
+      'SIBIU': [45.8000, 24.1500],
+      'TULCEA': [45.1667, 28.8000],
+      'MUREȘ': [46.5500, 24.5667],
+      'BISTRIȚA-NĂSĂUD': [47.1333, 24.4833],
+      'BISTRIȚA': [47.1333, 24.4833],
+      'HUNEDOARA': [45.7500, 22.9000],
+      'OLT': [44.1667, 24.3500],
+      'SLATINA': [44.4333, 24.3667],
+      'MEDIAȘ': [46.1667, 24.3500],
+      'SIGHIȘOARA': [46.2167, 24.7833],
+      'BORȘA': [47.6500, 24.6667],
+      'BLAJ': [46.1833, 23.9167],
+      'ALBA': [46.0667, 23.5667],
+      'DOLJ': [44.1667, 23.7167],
+      'ARGEȘ': [44.9167, 24.9167],
+      'ILFOV': [44.4333, 26.0833],
+      'SĂLAJ': [47.2000, 23.0500],
+      'VÂLCEA': [45.1000, 24.3667]
     }
     
     return cityCoordinates[city?.toUpperCase()] || [45.9432, 24.9668] // Centrul României
@@ -238,44 +274,55 @@ const ONJNMap = () => {
             </div>
           </div>
           
-          <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-8 text-center">
-            <MapPin className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-            <h4 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">
-              Harta interactivă
-            </h4>
-            <p className="text-slate-600 dark:text-slate-400 mb-4">
-              Această funcționalitate va fi implementată cu Leaflet Maps
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
-              {Object.values(uniqueLocations).map((location, index) => (
-                <div
-                  key={index}
-                  className="p-4 bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => setSelectedLocation(location)}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <MapPin className="w-4 h-4 text-blue-500 mt-1" />
-                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                      {location.totalSlots} aparate
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">
-                    {location.address.replace(/,?\s*JUD[EȚ]UL?\s+[A-ZĂÂÎȘȚ]+/gi, '').trim()}
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-500">
-                    {location.city}, {location.county}
-                  </p>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-xs text-green-600 dark:text-green-400">
-                      {location.activeSlots} active
-                    </span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">
-                      {location.brands.size} branduri
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="h-96 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600">
+            <MapContainer
+              center={[45.9432, 24.9668]} // Centrul României
+              zoom={6}
+              style={{ height: '100%', width: '100%' }}
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              
+              {Object.values(uniqueLocations).map((location, index) => {
+                const coords = getCoordinates(location.city, location.county)
+                return (
+                  <Marker
+                    key={index}
+                    position={coords}
+                    eventHandlers={{
+                      click: () => setSelectedLocation(location)
+                    }}
+                  >
+                    <Popup>
+                      <div className="p-2">
+                        <h4 className="font-semibold text-slate-800 mb-2">
+                          {location.address.replace(/,?\s*JUD[EȚ]UL?\s+[A-ZĂÂÎȘȚ-]+/gi, '').trim()}
+                        </h4>
+                        <p className="text-sm text-slate-600 mb-2">
+                          {location.city}, {location.county?.replace(/^JUD[EȚ]UL\s+/i, '')}
+                        </p>
+                        <div className="space-y-1 text-xs">
+                          <div className="flex justify-between">
+                            <span>Total aparate:</span>
+                            <span className="font-semibold">{location.totalSlots}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Active:</span>
+                            <span className="font-semibold text-green-600">{location.activeSlots}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Branduri:</span>
+                            <span className="font-semibold">{location.brands.size}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </Popup>
+                  </Marker>
+                )
+              })}
+            </MapContainer>
           </div>
         </div>
 
