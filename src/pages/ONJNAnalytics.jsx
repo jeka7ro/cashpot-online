@@ -263,7 +263,7 @@ const ONJNAnalytics = () => {
         </div>
 
         {/* Overall Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
           <div className="card p-6">
             <div className="flex items-center">
               <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
@@ -315,6 +315,20 @@ const ONJNAnalytics = () => {
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Rata Activitate</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
                   {stats.total > 0 ? ((stats.active / stats.total) * 100).toFixed(1) : 0}%
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
+                <MapPin className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Săli Unice</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {new Set(operators.map(op => op.slot_address).filter(Boolean)).size.toLocaleString('ro-RO')}
                 </p>
               </div>
             </div>
@@ -407,6 +421,10 @@ const ONJNAnalytics = () => {
                       {item.total.toLocaleString('ro-RO')}
                     </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">aparate</p>
+                    <p className="text-lg font-semibold text-purple-600 dark:text-purple-400 mt-1">
+                      {item.locations.toLocaleString('ro-RO')}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">săli</p>
                   </div>
                 </div>
 
