@@ -14,8 +14,10 @@ const ONJNReports = () => {
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
   const [stats, setStats] = useState(null)
+  const [operators, setOperators] = useState([])
+  const [operatorsLoading, setOperatorsLoading] = useState(true)
 
-  // Load ONJN stats
+  // Load ONJN stats and operators
   useEffect(() => {
     const loadStats = async () => {
       try {
@@ -26,7 +28,22 @@ const ONJNReports = () => {
         console.error('Error loading ONJN stats:', error)
       }
     }
+    
+    const loadOperators = async () => {
+      try {
+        setOperatorsLoading(true)
+        const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators?limit=1000')
+        const data = await response.json()
+        setOperators(data)
+      } catch (error) {
+        console.error('Error loading ONJN operators:', error)
+      } finally {
+        setOperatorsLoading(false)
+      }
+    }
+    
     loadStats()
+    loadOperators()
   }, [])
 
   // Update showBulkActions based on selectedItems
@@ -221,6 +238,80 @@ const ONJNReports = () => {
               <div className="text-xl font-bold text-purple-600 dark:text-purple-400">✓</div>
             </div>
           </div>
+        </div>
+
+        {/* ONJN Operators Table */}
+        <div className="card p-6">
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Tabel Operatori ONJN</h3>
+          {operatorsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+              <span className="ml-2 text-slate-600">Se încarcă operatorii...</span>
+            </div>
+          ) : operators.length === 0 ? (
+            <div className="text-center py-12">
+              <Building2 className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-slate-600 mb-2">Nu există operatori ONJN</h3>
+              <p className="text-slate-500">Datele nu s-au încărcat</p>
+            </div>
+          ) : (
+            <>
+              <div className="mb-4 text-sm text-slate-600 dark:text-slate-400">
+                Afișare {operators.length} operatori ONJN
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-slate-700">
+                      <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Serie</th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Companie</th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Brand</th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Oraș</th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Județ</th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {operators.slice(0, 50).map((operator, index) => (
+                      <tr key={operator.id || index} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                        <td className="py-3 px-4 text-slate-900 dark:text-slate-100 font-mono text-sm">
+                          {operator.serial_number || '-'}
+                        </td>
+                        <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
+                          {operator.company_name || '-'}
+                        </td>
+                        <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
+                          {operator.brand_name || '-'}
+                        </td>
+                        <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
+                          {operator.city || '-'}
+                        </td>
+                        <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
+                          {operator.county || '-'}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            operator.status === 'În exploatare' 
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                              : operator.status === 'Scos din funcțiune'
+                              ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                              : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
+                          }`}>
+                            {operator.status || '-'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {operators.length > 50 && (
+                <div className="mt-4 text-center text-sm text-slate-500">
+                  Afișare primele 50 din {operators.length} operatori
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {/* Search and Filters */}
