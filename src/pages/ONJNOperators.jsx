@@ -795,6 +795,41 @@ const ONJNOperators = () => {
           </div>
         )}
 
+        {/* Data Table - MOVED TO TOP */}
+        <div className="card p-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw className="w-8 h-8 animate-spin text-indigo-500" />
+              <span className="ml-2 text-slate-600">Se încarcă datele...</span>
+            </div>
+          ) : filteredOperators.length === 0 ? (
+            <div className="text-center py-12">
+              <Building2 className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-slate-600 mb-2">
+                {operators.length === 0 ? 'Nu există date ONJN' : 'Nu există rezultate'}
+              </h3>
+              <p className="text-slate-500 mb-4">
+                {operators.length === 0 
+                  ? 'Apasă pe "Refresh ONJN" pentru a sincroniza datele' 
+                  : 'Încearcă să modifici filtrele'}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="mb-4 text-sm text-slate-600 dark:text-slate-400">
+                Afișare {filteredOperators.length} din {operators.length} înregistrări
+              </div>
+              <DataTable
+                data={filteredOperators}
+                columns={columns}
+                searchTerm={searchTerm}
+                moduleColor="indigo"
+                itemsPerPage={25}
+              />
+            </>
+          )}
+        </div>
+
         {/* Smart Widgets - Lazy Load */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
           <ONJNStatsWidget stats={stats} loading={loading} onRefresh={loadStats} />
@@ -1029,39 +1064,6 @@ const ONJNOperators = () => {
           </div>
         )}
 
-        {/* Table */}
-        <div className="card p-6">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
-            </div>
-          ) : filteredOperators.length === 0 ? (
-            <div className="text-center py-12">
-              <Building2 className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-600 mb-2">
-                {operators.length === 0 ? 'Nu există date ONJN' : 'Nu există rezultate'}
-              </h3>
-              <p className="text-slate-500 mb-4">
-                {operators.length === 0 
-                  ? 'Apasă pe "Refresh ONJN" pentru a sincroniza datele' 
-                  : 'Încearcă să modifici filtrele'}
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="mb-4 text-sm text-slate-600 dark:text-slate-400">
-                Afișare {filteredOperators.length} din {operators.length} înregistrări
-              </div>
-              <DataTable
-                data={filteredOperators}
-                columns={columns}
-                searchTerm={searchTerm}
-                moduleColor="indigo"
-                itemsPerPage={25}
-              />
-            </>
-          )}
-        </div>
       </div>
     </Layout>
   )
