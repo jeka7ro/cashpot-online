@@ -29,8 +29,10 @@ const ONJNMap = () => {
     const loadData = async () => {
       try {
         setLoading(true)
+        console.log('Loading ONJN data...')
         const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators')
         const data = await response.json()
+        console.log('Loaded operators:', data.length)
         setOperators(data)
       } catch (error) {
         console.error('Error loading ONJN data:', error)
@@ -49,6 +51,8 @@ const ONJNMap = () => {
     const matchesCity = !filters.city || op.city === filters.city
     return matchesCounty && matchesBrand && matchesCity
   })
+
+  console.log('Filtered operators:', filteredOperators.length)
 
   // Grupează operatorii pe adrese unice
   const uniqueLocations = filteredOperators.reduce((acc, op) => {
