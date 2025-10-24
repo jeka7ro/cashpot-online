@@ -367,7 +367,7 @@ const ONJNReports = () => {
                 <Shield className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-slate-800">Rapoarte ONJN</h2>
+                <h2 className="text-2xl font-bold text-slate-800">ONJN</h2>
                 <p className="text-slate-600">Generează și gestionează rapoartele ONJN</p>
               </div>
             </div>
