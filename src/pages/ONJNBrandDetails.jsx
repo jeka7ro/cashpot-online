@@ -86,7 +86,7 @@ const ONJNBrandDetails = () => {
           <div className="text-sm">
             <div className="text-slate-700 dark:text-slate-300">{item.slot_address}</div>
             <div className="text-slate-500 dark:text-slate-400 text-xs">
-              {item.city}, {item.county}
+              {item.city}, {item.county ? item.county.replace(/^JUD[EȚ]UL\s+/i, '') : ''}
             </div>
           </div>
         </div>

@@ -453,7 +453,7 @@ const ONJNCityDetail = () => {
                             onClick={() => navigate(`/onjn-reports/county/${encodeURIComponent(operator.county)}`)}
                             className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline font-medium"
                           >
-                            {operator.county}
+                            {operator.county.replace(/^JUD[EȚ]UL\s+/i, '')}
                           </button>
                         ) : '-'}
                       </td>

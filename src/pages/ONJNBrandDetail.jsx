@@ -429,7 +429,7 @@ const ONJNBrandDetail = () => {
                         {operator.city || '-'}
                       </td>
                       <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
-                        {operator.county || '-'}
+                        {operator.county ? operator.county.replace(/^JUD[EȚ]UL\s+/i, '') : '-'}
                       </td>
                       <td className="py-3 px-4 text-slate-900 dark:text-slate-100 text-sm">
                         {operator.slot_address ? (

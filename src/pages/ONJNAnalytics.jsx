@@ -187,7 +187,7 @@ const ONJNAnalytics = () => {
         'Orașe/Sectoare': item.cities || 0,
         'Județe Unice': item.counties || 0,
         'Săli': item.locations || 0,
-        'Județ': item.county || ''
+        'Județ': item.county ? item.county.replace(/^JUD[EȚ]UL\s+/i, '') : ''
       }))
 
       const ws = XLSX.utils.json_to_sheet(data)
@@ -429,7 +429,7 @@ const ONJNAnalytics = () => {
                     </h4>
                     {item.county && (
                       <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                        {item.county}
+                        {item.county.replace(/^JUD[EȚ]UL\s+/i, '')}
                       </p>
                     )}
                   </div>
