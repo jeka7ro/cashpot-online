@@ -168,13 +168,27 @@ const ONJNBrandDetail = () => {
               >
                 <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-slate-400" />
               </button>
-              <div>
-                <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
-                  Brand: {decodeURIComponent(brandName)}
-                </h1>
-                <p className="text-slate-600 dark:text-slate-400">
-                  Detalii complete pentru brandul {decodeURIComponent(brandName)}
-                </p>
+              <div className="flex items-center space-x-3">
+                <img 
+                  src={`https://logo.clearbit.com/${decodeURIComponent(brandName).toLowerCase().replace(/\s+/g, '')}.ro`}
+                  alt={decodeURIComponent(brandName)}
+                  className="w-12 h-12 rounded-lg"
+                  onError={(e) => {
+                    e.target.style.display = 'none'
+                    e.target.nextSibling.style.display = 'flex'
+                  }}
+                />
+                <div className="p-3 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-2xl shadow-lg shadow-purple-500/25" style={{display: 'none'}}>
+                  <Building2 className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
+                    Brand: {decodeURIComponent(brandName)}
+                  </h1>
+                  <p className="text-slate-600 dark:text-slate-400">
+                    Detalii complete pentru brandul {decodeURIComponent(brandName)}
+                  </p>
+                </div>
               </div>
             </div>
             <div className="flex items-center space-x-2">
