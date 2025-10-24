@@ -390,6 +390,13 @@ const ONJNReports = () => {
                 </>
               )}
               <button
+                onClick={() => navigate('/onjn-operators')}
+                className="btn-secondary flex items-center space-x-2 mr-2"
+              >
+                <Building2 className="w-4 h-4" />
+                <span>Operatori ONJN</span>
+              </button>
+              <button
                 onClick={() => navigate('/onjn-analytics')}
                 className="btn-secondary flex items-center space-x-2 mr-2"
               >
@@ -480,24 +487,6 @@ const ONJNReports = () => {
           </div>
         </div>
 
-        {/* Quick Access Card */}
-        <div className="card p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-slate-800 dark:text-white">Acces Rapid</h3>
-              <p className="text-slate-600 dark:text-slate-400">Navighează rapid la secțiunile importante</p>
-            </div>
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => navigate('/onjn-operators')}
-                className="btn-secondary flex items-center space-x-2"
-              >
-                <Building2 className="w-4 h-4" />
-                <span>Operatori ONJN</span>
-              </button>
-            </div>
-          </div>
-        </div>
 
         {/* ONJN Operators Search and Filters */}
         <div className="card p-6">
