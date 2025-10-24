@@ -5,10 +5,10 @@ import axios from 'axios'
 import { Building2, RefreshCw, Search, ExternalLink, Calendar, MapPin, FileCheck, TrendingUp, AlertCircle, Hash, BarChart3 } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import { toast } from 'react-hot-toast'
-import ONJNStatsWidget from '../components/ONJNStatsWidget'
-import ONJNCitiesWidget from '../components/ONJNCitiesWidget'
-import ONJNCountiesWidget from '../components/ONJNCountiesWidget'
-import ONJNBrandsWidget from '../components/ONJNBrandsWidget'
+// import ONJNStatsWidget from '../components/ONJNStatsWidget' // DISABLED TO FIX ReferenceError
+// import ONJNCitiesWidget from '../components/ONJNCitiesWidget' // DISABLED TO FIX ReferenceError
+// import ONJNCountiesWidget from '../components/ONJNCountiesWidget' // DISABLED TO FIX ReferenceError
+// import ONJNBrandsWidget from '../components/ONJNBrandsWidget' // DISABLED TO FIX ReferenceError
 // import ONJNMapWidget from '../components/ONJNMapWidget' // DISABLED TEMPORARILY
 
 const ONJNOperators = () => {
@@ -830,8 +830,8 @@ const ONJNOperators = () => {
           )}
         </div>
 
-        {/* Smart Widgets - Lazy Load */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
+        {/* Smart Widgets - DISABLED TO FIX ReferenceError */}
+        {/* <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
           <ONJNStatsWidget stats={stats} loading={loading} onRefresh={loadStats} />
           <React.Suspense fallback={<div className="card p-6 animate-pulse bg-slate-100 dark:bg-slate-700 rounded-xl"><div className="h-32"></div></div>}>
             <ONJNCitiesWidget operators={filteredOperators.slice(0, 500)} onFilterChange={handleWidgetFilterChange} filters={filters} />
@@ -842,7 +842,7 @@ const ONJNOperators = () => {
           <React.Suspense fallback={<div className="card p-6 animate-pulse bg-slate-100 dark:bg-slate-700 rounded-xl"><div className="h-32"></div></div>}>
             <ONJNBrandsWidget operators={filteredOperators.slice(0, 500)} onFilterChange={handleWidgetFilterChange} filters={filters} />
           </React.Suspense>
-        </div>
+        </div> */}
 
         {/* Map Widget - DISABLED TEMPORARILY TO FIX CORS ISSUES */}
         {/* <React.Suspense fallback={<div className="card p-6 animate-pulse bg-slate-100 dark:bg-slate-700 rounded-xl"><div className="h-96"></div></div>}>
