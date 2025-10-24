@@ -26,7 +26,8 @@ const ONJNReports = () => {
     status: ''
   })
   const [operatorsPage, setOperatorsPage] = useState(1)
-  const [operatorsPerPage] = useState(25)
+  const [operatorsPerPage, setOperatorsPerPage] = useState(25)
+  const [exporting, setExporting] = useState(false)
 
   // Load ONJN stats and operators
   useEffect(() => {
@@ -141,6 +142,11 @@ const ONJNReports = () => {
   const cities = [...new Set(operators.map(op => op.city).filter(Boolean))].sort()
   const statuses = [...new Set(operators.map(op => op.status).filter(Boolean))].sort()
 
+  // Reset page when per page changes
+  useEffect(() => {
+    setOperatorsPage(1)
+  }, [operatorsPerPage])
+
   const columns = [
     { key: 'id', label: '#', sortable: true },
     { key: 'name', label: 'NUME RAPORT', sortable: true },
@@ -187,9 +193,33 @@ const ONJNReports = () => {
   }
 
   // Export functions for ONJN operators
-  const exportOperatorsToExcel = () => {
+  const exportOperatorsToExcel = async () => {
     try {
-      const data = filteredOperators.map(op => ({
+      setExporting(true)
+      // Load all operators for export (not just the first 1000)
+      const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators')
+      const allOperators = await response.json()
+      
+      // Apply the same filters to all operators
+      const filteredAllOperators = allOperators.filter(op => {
+        const matchesSearch = !operatorsSearchTerm || 
+          op.serial_number?.toLowerCase().includes(operatorsSearchTerm.toLowerCase()) ||
+          op.company_name?.toLowerCase().includes(operatorsSearchTerm.toLowerCase()) ||
+          op.brand_name?.toLowerCase().includes(operatorsSearchTerm.toLowerCase()) ||
+          op.city?.toLowerCase().includes(operatorsSearchTerm.toLowerCase()) ||
+          op.county?.toLowerCase().includes(operatorsSearchTerm.toLowerCase()) ||
+          op.slot_address?.toLowerCase().includes(operatorsSearchTerm.toLowerCase())
+        
+        const matchesCompany = !operatorsFilters.company || op.company_name === operatorsFilters.company
+        const matchesBrand = !operatorsFilters.brand || op.brand_name === operatorsFilters.brand
+        const matchesCounty = !operatorsFilters.county || op.county === operatorsFilters.county
+        const matchesCity = !operatorsFilters.city || op.city === operatorsFilters.city
+        const matchesStatus = !operatorsFilters.status || op.status === operatorsFilters.status
+        
+        return matchesSearch && matchesCompany && matchesBrand && matchesCounty && matchesCity && matchesStatus
+      })
+      
+      const data = filteredAllOperators.map(op => ({
         'Serie': op.serial_number || '',
         'Companie': op.company_name || '',
         'Brand': op.brand_name || '',
@@ -208,15 +238,41 @@ const ONJNReports = () => {
       XLSX.writeFile(wb, `operatori-onjn-${new Date().toISOString().split('T')[0]}.xlsx`)
     } catch (error) {
       console.error('Error exporting operators to Excel:', error)
+    } finally {
+      setExporting(false)
     }
   }
 
-  const exportOperatorsToCSV = () => {
+  const exportOperatorsToCSV = async () => {
     try {
+      setExporting(true)
+      // Load all operators for export (not just the first 1000)
+      const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators')
+      const allOperators = await response.json()
+      
+      // Apply the same filters to all operators
+      const filteredAllOperators = allOperators.filter(op => {
+        const matchesSearch = !operatorsSearchTerm || 
+          op.serial_number?.toLowerCase().includes(operatorsSearchTerm.toLowerCase()) ||
+          op.company_name?.toLowerCase().includes(operatorsSearchTerm.toLowerCase()) ||
+          op.brand_name?.toLowerCase().includes(operatorsSearchTerm.toLowerCase()) ||
+          op.city?.toLowerCase().includes(operatorsSearchTerm.toLowerCase()) ||
+          op.county?.toLowerCase().includes(operatorsSearchTerm.toLowerCase()) ||
+          op.slot_address?.toLowerCase().includes(operatorsSearchTerm.toLowerCase())
+        
+        const matchesCompany = !operatorsFilters.company || op.company_name === operatorsFilters.company
+        const matchesBrand = !operatorsFilters.brand || op.brand_name === operatorsFilters.brand
+        const matchesCounty = !operatorsFilters.county || op.county === operatorsFilters.county
+        const matchesCity = !operatorsFilters.city || op.city === operatorsFilters.city
+        const matchesStatus = !operatorsFilters.status || op.status === operatorsFilters.status
+        
+        return matchesSearch && matchesCompany && matchesBrand && matchesCounty && matchesCity && matchesStatus
+      })
+      
       const headers = ['Serie', 'Companie', 'Brand', 'Oraș', 'Județ', 'Status', 'Licență', 'Adresă', 'Data Autorizare', 'Data Expirare']
       const csvContent = [
         headers.join(','),
-        ...filteredOperators.map(op => [
+        ...filteredAllOperators.map(op => [
           `"${op.serial_number || ''}"`,
           `"${op.company_name || ''}"`,
           `"${op.brand_name || ''}"`,
@@ -241,6 +297,8 @@ const ONJNReports = () => {
       document.body.removeChild(link)
     } catch (error) {
       console.error('Error exporting operators to CSV:', error)
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -439,23 +497,45 @@ const ONJNReports = () => {
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-slate-800 dark:text-white">Tabel Operatori ONJN</h3>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => exportOperatorsToExcel()}
-                className="btn-secondary flex items-center space-x-2"
-                title="Export Excel"
-              >
-                <Download className="w-4 h-4" />
-                <span>Excel</span>
-              </button>
-              <button
-                onClick={() => exportOperatorsToCSV()}
-                className="btn-secondary flex items-center space-x-2"
-                title="Export CSV"
-              >
-                <Download className="w-4 h-4" />
-                <span>CSV</span>
-              </button>
+            <div className="flex items-center space-x-4">
+              {/* Records per page selector */}
+              <div className="flex items-center space-x-2">
+                <label className="text-sm text-slate-600 dark:text-slate-400">Afișare:</label>
+                <select
+                  value={operatorsPerPage}
+                  onChange={(e) => setOperatorsPerPage(Number(e.target.value))}
+                  className="px-3 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                >
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={200}>200</option>
+                  <option value={500}>500</option>
+                  <option value={1000}>1000</option>
+                  <option value={filteredOperators.length}>Toate ({filteredOperators.length})</option>
+                </select>
+                <span className="text-sm text-slate-600 dark:text-slate-400">operatori</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => exportOperatorsToExcel()}
+                  disabled={exporting}
+                  className="btn-secondary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Export Excel - Toți operatorii"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>{exporting ? 'Se exportă...' : 'Excel'}</span>
+                </button>
+                <button
+                  onClick={() => exportOperatorsToCSV()}
+                  disabled={exporting}
+                  className="btn-secondary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Export CSV - Toți operatorii"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>{exporting ? 'Se exportă...' : 'CSV'}</span>
+                </button>
+              </div>
             </div>
           </div>
           {operatorsLoading ? (
@@ -473,6 +553,7 @@ const ONJNReports = () => {
             <>
               <div className="mb-4 text-sm text-slate-600 dark:text-slate-400">
                 Afișare {paginatedOperators.length} din {filteredOperators.length} operatori ONJN
+                {operatorsPerPage === filteredOperators.length && ' (toate)'}
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -529,7 +610,7 @@ const ONJNReports = () => {
                 </table>
               </div>
               {/* Pagination */}
-              {totalOperatorsPages > 1 && (
+              {totalOperatorsPages > 1 && operatorsPerPage < filteredOperators.length && (
                 <div className="mt-6 flex items-center justify-between">
                   <div className="text-sm text-slate-600 dark:text-slate-400">
                     Pagina {operatorsPage} din {totalOperatorsPages}
@@ -601,7 +682,7 @@ const ONJNReports = () => {
               selectedItems={selectedItems}
               onSelectAll={handleSelectAll}
               onSelectItem={handleSelectItem}
-          moduleColor="blue"
+              moduleColor="blue"
             />
           )}
         </div>
