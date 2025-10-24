@@ -100,7 +100,7 @@ const ONJNCountyDetail = () => {
         'Județ': op.county || '',
         'Status': op.status || '',
         'Licență': op.license_number || '',
-        'Adresă': op.slot_address ? op.slot_address.replace(/,?\s*JUD[EȚ]UL?\s+\w+/gi, '').trim() : '',
+        'Adresă': op.slot_address ? op.slot_address.replace(/,?\s*JUD[EȚ]UL?\s+[A-ZĂÂÎȘȚ]+/gi, '').trim() : '',
         'Data Autorizare': op.authorization_date ? new Date(op.authorization_date).toLocaleDateString('ro-RO') : '',
         'Data Expirare': op.expiry_date ? new Date(op.expiry_date).toLocaleDateString('ro-RO') : ''
       }))
@@ -130,7 +130,7 @@ const ONJNCountyDetail = () => {
           `"${op.county || ''}"`,
           `"${op.status || ''}"`,
           `"${op.license_number || ''}"`,
-          `"${op.slot_address ? op.slot_address.replace(/,?\s*JUD[EȚ]UL?\s+\w+/gi, '').trim() : ''}"`,
+          `"${op.slot_address ? op.slot_address.replace(/,?\s*JUD[EȚ]UL?\s+[A-ZĂÂÎȘȚ]+/gi, '').trim() : ''}"`,
           `"${op.authorization_date ? new Date(op.authorization_date).toLocaleDateString('ro-RO') : ''}"`,
           `"${op.expiry_date ? new Date(op.expiry_date).toLocaleDateString('ro-RO') : ''}"`
         ].join(','))
@@ -421,7 +421,7 @@ const ONJNCountyDetail = () => {
                       <td className="py-3 px-4 text-slate-900 dark:text-slate-100 text-sm">
                         {operator.slot_address ? (
                           <div className="max-w-xs truncate" title={operator.slot_address}>
-                            {operator.slot_address.replace(/,?\s*JUD[EȚ]UL?\s+\w+/gi, '').trim()}
+                            {operator.slot_address.replace(/,?\s*JUD[EȚ]UL?\s+[A-ZĂÂÎȘȚ]+/gi, '').trim()}
                           </div>
                         ) : '-'}
                       </td>

@@ -497,7 +497,7 @@ const ONJNOperators = () => {
       sortable: true,
       render: (item) => (
         <div className="text-sm">
-          <div className="text-slate-700 dark:text-slate-300">{item.slot_address ? item.slot_address.replace(/,?\s*JUD[EȚ]UL?\s+\w+/gi, '').trim() : '-'}</div>
+          <div className="text-slate-700 dark:text-slate-300">{item.slot_address ? item.slot_address.replace(/,?\s*JUD[EȚ]UL?\s+[A-ZĂÂÎȘȚ]+/gi, '').trim() : '-'}</div>
           {item.city && (
             <div className="text-slate-500 dark:text-slate-400 text-xs mt-1 flex items-center">
               <MapPin className="w-3 h-3 mr-1" />
