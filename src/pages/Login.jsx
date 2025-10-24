@@ -107,7 +107,7 @@ const Login = () => {
     return <Navigate to="/dashboard" replace />
   }
 
-  const logoUrl = settings.logo.file || settings.logo.url || '/favicon.svg'
+  const logoUrl = settings.logo.file || settings.logo.url
   const loginImageUrl = settings.loginImage.file || settings.loginImage.url || 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1200&q=80'
   
   const buttonStyle = settings.loginButtonColor.useGradient 
@@ -132,14 +132,13 @@ const Login = () => {
           <div className="rounded-2xl shadow-2xl p-16" style={cardStyle}>
             {/* Logo și Titlu în Card */}
             <div className="flex flex-col items-center mb-12">
-              <img 
-                src={logoUrl} 
-                alt="Logo" 
-                className="h-20 md:h-24 object-contain mb-4"
-                onError={(e) => {
-                  e.target.src = '/favicon.svg'
-                }}
-              />
+              {logoUrl && (
+                <img 
+                  src={logoUrl} 
+                  alt="Logo" 
+                  className="h-20 md:h-24 object-contain mb-4"
+                />
+              )}
               <h1 className="text-2xl md:text-3xl font-bold text-white text-center">
                 {settings.loginTexts?.title || 'Welcome Back'}
               </h1>

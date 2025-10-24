@@ -341,10 +341,11 @@ const Layout = ({ children }) => {
                     e.target.nextSibling.style.display = 'flex'
                   }}
                 />
-              ) : null}
-              <div className="w-8 h-8 md:w-12 md:h-12 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-xl shadow-orange-500/30 ring-2 ring-orange-200/50" style={{display: settings.logo.file || settings.logo.url ? 'none' : 'flex'}}>
-                <span className="text-white font-bold text-base md:text-xl">C</span>
-              </div>
+              ) : (
+                <div className="w-8 h-8 md:w-12 md:h-12 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-xl shadow-orange-500/30 ring-2 ring-orange-200/50">
+                  <span className="text-white font-bold text-base md:text-xl">C</span>
+                </div>
+              )}
             </div>
           </div>
           <div className="flex items-center space-x-2 md:space-x-4">
