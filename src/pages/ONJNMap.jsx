@@ -397,7 +397,7 @@ const ONJNMap = () => {
               <div>
                 <h4 className="font-semibold text-slate-700 dark:text-slate-300 mb-2">Adresă</h4>
                 <p className="text-slate-600 dark:text-slate-400 mb-4">
-                  {selectedLocation.address.replace(/,?\s*JUD[EȚ]UL?\s+[A-ZĂÂÎȘȚ]+/gi, '').trim()}
+                  {selectedLocation.address.replace(/,?\s*JUD[EȚ]UL?\s+[A-ZĂÂÎȘȚ-]+/gi, '').trim()}
                 </p>
                 <p className="text-slate-600 dark:text-slate-400">
                   {selectedLocation.city}, {selectedLocation.county}
