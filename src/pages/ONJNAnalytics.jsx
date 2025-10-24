@@ -153,14 +153,22 @@ const ONJNAnalytics = () => {
     const data = stats[selectedCategory]
     if (!data) return []
 
-    return Object.entries(data)
-      .filter(([key]) => key !== 'total' && key !== 'active' && key !== 'expired')
-      .map(([name, data]) => ({ name, ...data }))
-      .filter(item => 
-        !searchTerm || 
-        item.name.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-      .sort((a, b) => b.total - a.total)
+      return Object.entries(data)
+        .filter(([key]) => key !== 'total' && key !== 'active' && key !== 'expired')
+        .map(([name, data]) => ({ 
+          name, 
+          ...data,
+          companies: data.companies ? data.companies.size : 0,
+          cities: data.cities ? data.cities.size : 0,
+          counties: data.counties ? data.counties.size : 0,
+          brands: data.brands ? data.brands.size : 0,
+          locations: data.locations ? data.locations.size : 0
+        }))
+        .filter(item => 
+          !searchTerm || 
+          item.name.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+        .sort((a, b) => b.total - a.total)
   }
 
   const currentData = getCurrentData()
@@ -397,69 +405,67 @@ const ONJNAnalytics = () => {
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             {currentData.slice(0, 12).map((item, index) => (
-              <div key={item.name} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center space-x-2">
-                    {selectedCategory === 'brands' ? (
-                      <img 
-                        src={`https://logo.clearbit.com/${item.name.toLowerCase().replace(/\s+/g, '')}.ro`}
-                        alt={item.name}
-                        className="w-6 h-6 rounded"
-                        onError={(e) => {
-                          e.target.style.display = 'none'
-                          e.target.nextSibling.style.display = 'block'
-                        }}
-                      />
-                    ) : null}
-                    <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/20 rounded" style={{display: selectedCategory === 'brands' ? 'none' : 'block'}}>
-                      {getCategoryIcon(selectedCategory)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-semibold text-slate-900 dark:text-white text-sm truncate">
-                        {item.name}
-                      </h4>
-                      {item.county && (
-                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                          {item.county}
-                        </p>
-                      )}
-                    </div>
+              <div key={item.name} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 hover:shadow-md transition-shadow">
+                <div className="flex items-center space-x-2 mb-2">
+                  {selectedCategory === 'brands' ? (
+                    <img 
+                      src={`https://logo.clearbit.com/${item.name.toLowerCase().replace(/\s+/g, '')}.ro`}
+                      alt={item.name}
+                      className="w-5 h-5 rounded"
+                      onError={(e) => {
+                        e.target.style.display = 'none'
+                        e.target.nextSibling.style.display = 'block'
+                      }}
+                    />
+                  ) : null}
+                  <div className="p-1 bg-indigo-100 dark:bg-indigo-900/20 rounded" style={{display: selectedCategory === 'brands' ? 'none' : 'block'}}>
+                    {getCategoryIcon(selectedCategory)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-semibold text-slate-900 dark:text-white text-xs truncate">
+                      {item.name}
+                    </h4>
+                    {item.county && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                        {item.county}
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                <div className="space-y-2 mb-3">
+                <div className="space-y-1 mb-2">
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-slate-500 dark:text-slate-400">Total:</span>
-                    <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
                       {item.total.toLocaleString('ro-RO')}
                     </span>
                   </div>
                   {item.locations !== undefined && (
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-slate-500 dark:text-slate-400">Săli:</span>
-                      <span className="text-sm font-semibold text-purple-600 dark:text-purple-400">
+                      <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">
                         {item.locations.toLocaleString('ro-RO')}
                       </span>
                     </div>
                   )}
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-slate-500 dark:text-slate-400">Active:</span>
-                    <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+                    <span className="text-xs font-semibold text-green-600 dark:text-green-400">
                       {item.active.toLocaleString('ro-RO')}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-slate-500 dark:text-slate-400">Inactive:</span>
-                    <span className="text-sm font-semibold text-red-600 dark:text-red-400">
+                    <span className="text-xs font-semibold text-red-600 dark:text-red-400">
                       {item.expired.toLocaleString('ro-RO')}
                     </span>
                   </div>
                   {item.companies && (
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-slate-500 dark:text-slate-400">Companii:</span>
-                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                         {item.companies}
                       </span>
                     </div>
@@ -467,22 +473,30 @@ const ONJNAnalytics = () => {
                   {item.cities && (
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-slate-500 dark:text-slate-400">Orașe:</span>
-                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                         {item.cities}
+                      </span>
+                    </div>
+                  )}
+                  {item.counties && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Județe:</span>
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        {item.counties}
                       </span>
                     </div>
                   )}
                   {item.brands && (
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-slate-500 dark:text-slate-400">Branduri:</span>
-                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                         {item.brands}
                       </span>
                     </div>
                   )}
                 </div>
 
-                <div className="border-t border-slate-200 dark:border-slate-700 pt-2">
+                <div className="border-t border-slate-200 dark:border-slate-700 pt-1">
                   <div className="flex items-center justify-between">
                     <div className="text-xs text-slate-500 dark:text-slate-400">
                       {item.total > 0 ? ((item.active / item.total) * 100).toFixed(1) : 0}%
