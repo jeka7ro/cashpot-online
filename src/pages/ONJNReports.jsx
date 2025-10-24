@@ -686,7 +686,7 @@ const ONJNReports = () => {
                         <td className="py-3 px-4 text-slate-900 dark:text-slate-100 text-sm">
                           {operator.slot_address ? (
                             <div className="max-w-xs truncate" title={operator.slot_address}>
-                              {operator.slot_address.replace(/,?\s*JUD[EȚ]UL?\s+[A-ZĂÂÎȘȚ]+/gi, '').trim()}
+                              {operator.slot_address.replace(/,?\s*JUD[EȚ]UL?\s+[A-ZĂÂÎȘȚ-]+/gi, '').trim()}
                             </div>
                           ) : '-'}
                         </td>
