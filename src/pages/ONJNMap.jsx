@@ -116,15 +116,29 @@ const ONJNMap = () => {
       'ARGEȘ': [44.9167, 24.9167],
       'ILFOV': [44.4333, 26.0833],
       'SĂLAJ': [47.2000, 23.0500],
-      'VÂLCEA': [45.1000, 24.3667]
+      'VÂLCEA': [45.1000, 24.3667],
+      'PITEȘTI': [44.8606, 24.8678],
+      'RÂMNICU VÂLCEA': [45.1000, 24.3667]
     }
     
     return cityCoordinates[city?.toUpperCase()] || [45.9432, 24.9668] // Centrul României
   }
 
-  // Obține opțiunile pentru filtre
+  // Obține opțiunile pentru filtre cu filtrare în cascadă
   const getFilterOptions = (field) => {
-    const values = [...new Set(operators.map(op => op[field]).filter(Boolean))]
+    let filteredOperators = operators
+    
+    // Dacă este selectat un brand, filtrează doar operatorii acelui brand
+    if (filters.brand) {
+      filteredOperators = operators.filter(op => op.brand_name === filters.brand)
+    }
+    
+    // Dacă este selectat un județ, filtrează doar operatorii din acel județ
+    if (filters.county) {
+      filteredOperators = filteredOperators.filter(op => op.county === filters.county)
+    }
+    
+    const values = [...new Set(filteredOperators.map(op => op[field]).filter(Boolean))]
     return values.sort()
   }
 
@@ -166,7 +180,14 @@ const ONJNMap = () => {
               </label>
               <select
                 value={filters.county}
-                onChange={(e) => setFilters(prev => ({ ...prev, county: e.target.value }))}
+                onChange={(e) => {
+                  const newCounty = e.target.value
+                  setFilters(prev => ({ 
+                    ...prev, 
+                    county: newCounty,
+                    city: '' // Resetează orașul când se schimbă județul
+                  }))
+                }}
                 className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">Toate județele</option>
@@ -182,7 +203,15 @@ const ONJNMap = () => {
               </label>
               <select
                 value={filters.brand}
-                onChange={(e) => setFilters(prev => ({ ...prev, brand: e.target.value }))}
+                onChange={(e) => {
+                  const newBrand = e.target.value
+                  setFilters(prev => ({ 
+                    ...prev, 
+                    brand: newBrand,
+                    city: '', // Resetează orașul când se schimbă brandul
+                    county: '' // Resetează județul când se schimbă brandul
+                  }))
+                }}
                 className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">Toate brandurile</option>
