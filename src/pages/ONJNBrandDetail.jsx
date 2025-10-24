@@ -286,6 +286,9 @@ const ONJNBrandDetail = () => {
                     <div>
                       <p className="font-medium text-slate-900 dark:text-white">{county}</p>
                       <p className="text-sm text-slate-500 dark:text-slate-400">{count.toLocaleString('ro-RO')} aparate</p>
+                      <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                        {count.toLocaleString('ro-RO')} săli
+                      </p>
                     </div>
                     <MapPin className="w-5 h-5 text-slate-400" />
                   </div>
@@ -307,6 +310,9 @@ const ONJNBrandDetail = () => {
                     <div>
                       <p className="font-medium text-slate-900 dark:text-white">{city}</p>
                       <p className="text-sm text-slate-500 dark:text-slate-400">{count.toLocaleString('ro-RO')} aparate</p>
+                      <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                        {count.toLocaleString('ro-RO')} săli
+                      </p>
                     </div>
                     <Building2 className="w-5 h-5 text-slate-400" />
                   </div>
