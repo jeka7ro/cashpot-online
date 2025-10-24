@@ -62,7 +62,7 @@ const ONJNAnalytics = () => {
       // Brands
       if (op.brand_name) {
         if (!stats.brands[op.brand_name]) {
-          stats.brands[op.brand_name] = { total: 0, active: 0, expired: 0, companies: new Set(), cities: new Set(), counties: new Set() }
+          stats.brands[op.brand_name] = { total: 0, active: 0, expired: 0, companies: new Set(), cities: new Set(), counties: new Set(), locations: new Set() }
         }
         stats.brands[op.brand_name].total++
         if (op.status === 'În exploatare') stats.brands[op.brand_name].active++
@@ -70,12 +70,13 @@ const ONJNAnalytics = () => {
         if (op.company_name) stats.brands[op.brand_name].companies.add(op.company_name)
         if (op.city) stats.brands[op.brand_name].cities.add(op.city)
         if (op.county) stats.brands[op.brand_name].counties.add(op.county)
+        if (op.slot_address) stats.brands[op.brand_name].locations.add(op.slot_address)
       }
 
       // Companies
       if (op.company_name) {
         if (!stats.companies[op.company_name]) {
-          stats.companies[op.company_name] = { total: 0, active: 0, expired: 0, brands: new Set(), cities: new Set(), counties: new Set() }
+          stats.companies[op.company_name] = { total: 0, active: 0, expired: 0, brands: new Set(), cities: new Set(), counties: new Set(), locations: new Set() }
         }
         stats.companies[op.company_name].total++
         if (op.status === 'În exploatare') stats.companies[op.company_name].active++
@@ -83,24 +84,26 @@ const ONJNAnalytics = () => {
         if (op.brand_name) stats.companies[op.company_name].brands.add(op.brand_name)
         if (op.city) stats.companies[op.company_name].cities.add(op.city)
         if (op.county) stats.companies[op.company_name].counties.add(op.county)
+        if (op.slot_address) stats.companies[op.company_name].locations.add(op.slot_address)
       }
 
       // Cities
       if (op.city) {
         if (!stats.cities[op.city]) {
-          stats.cities[op.city] = { total: 0, active: 0, expired: 0, brands: new Set(), companies: new Set(), county: op.county }
+          stats.cities[op.city] = { total: 0, active: 0, expired: 0, brands: new Set(), companies: new Set(), county: op.county, locations: new Set() }
         }
         stats.cities[op.city].total++
         if (op.status === 'În exploatare') stats.cities[op.city].active++
         if (op.status === 'Scos din funcțiune') stats.cities[op.city].expired++
         if (op.brand_name) stats.cities[op.city].brands.add(op.brand_name)
         if (op.company_name) stats.cities[op.city].companies.add(op.company_name)
+        if (op.slot_address) stats.cities[op.city].locations.add(op.slot_address)
       }
 
       // Counties
       if (op.county) {
         if (!stats.counties[op.county]) {
-          stats.counties[op.county] = { total: 0, active: 0, expired: 0, brands: new Set(), companies: new Set(), cities: new Set() }
+          stats.counties[op.county] = { total: 0, active: 0, expired: 0, brands: new Set(), companies: new Set(), cities: new Set(), locations: new Set() }
         }
         stats.counties[op.county].total++
         if (op.status === 'În exploatare') stats.counties[op.county].active++
@@ -108,6 +111,7 @@ const ONJNAnalytics = () => {
         if (op.brand_name) stats.counties[op.county].brands.add(op.brand_name)
         if (op.company_name) stats.counties[op.county].companies.add(op.company_name)
         if (op.city) stats.counties[op.county].cities.add(op.city)
+        if (op.slot_address) stats.counties[op.county].locations.add(op.slot_address)
       }
     })
 
@@ -116,23 +120,27 @@ const ONJNAnalytics = () => {
       stats.brands[brand].companies = stats.brands[brand].companies.size
       stats.brands[brand].cities = stats.brands[brand].cities.size
       stats.brands[brand].counties = stats.brands[brand].counties.size
+      stats.brands[brand].locations = stats.brands[brand].locations.size
     })
 
     Object.keys(stats.companies).forEach(company => {
       stats.companies[company].brands = stats.companies[company].brands.size
       stats.companies[company].cities = stats.companies[company].cities.size
       stats.companies[company].counties = stats.companies[company].counties.size
+      stats.companies[company].locations = stats.companies[company].locations.size
     })
 
     Object.keys(stats.cities).forEach(city => {
       stats.cities[city].brands = stats.cities[city].brands.size
       stats.cities[city].companies = stats.cities[city].companies.size
+      stats.cities[city].locations = stats.cities[city].locations.size
     })
 
     Object.keys(stats.counties).forEach(county => {
       stats.counties[county].brands = stats.counties[county].brands.size
       stats.counties[county].companies = stats.counties[county].companies.size
       stats.counties[county].cities = stats.counties[county].cities.size
+      stats.counties[county].locations = stats.counties[county].locations.size
     })
 
     return stats
@@ -170,6 +178,7 @@ const ONJNAnalytics = () => {
         'Companii Unice': item.companies || 0,
         'Orașe Unice': item.cities || 0,
         'Județe Unice': item.counties || 0,
+        'Săli Unice': item.locations || 0,
         'Județ': item.county || ''
       }))
 
@@ -416,7 +425,7 @@ const ONJNAnalytics = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 mb-4 text-center">
+                <div className="grid grid-cols-4 gap-2 mb-4 text-center">
                   {item.brands && (
                     <div>
                       <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -441,12 +450,12 @@ const ONJNAnalytics = () => {
                       <p className="text-xs text-slate-500 dark:text-slate-400">orașe</p>
                     </div>
                   )}
-                  {item.counties && (
+                  {item.locations && (
                     <div>
                       <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                        {item.counties}
+                        {item.locations}
                       </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">județe</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">săli</p>
                     </div>
                   )}
                 </div>

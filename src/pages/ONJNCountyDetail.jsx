@@ -56,6 +56,7 @@ const ONJNCountyDetail = () => {
     total: filteredOperators.length,
     active: filteredOperators.filter(op => op.status === 'În exploatare').length,
     expired: filteredOperators.filter(op => op.status === 'Scos din funcțiune').length,
+    uniqueLocations: new Set(filteredOperators.map(op => op.slot_address).filter(Boolean)).size,
     byBrand: {},
     byCity: {},
     byCompany: {}
@@ -208,7 +209,7 @@ const ONJNCountyDetail = () => {
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="card p-6">
             <div className="flex items-center">
               <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
@@ -246,6 +247,20 @@ const ONJNCountyDetail = () => {
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Scoși din Funcțiune</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
                   {stats.expired.toLocaleString('ro-RO')}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
+                <MapPin className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Săli Unice</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {stats.uniqueLocations.toLocaleString('ro-RO')}
                 </p>
               </div>
             </div>
