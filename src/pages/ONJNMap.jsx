@@ -54,7 +54,7 @@ const ONJNMap = () => {
 
   console.log('Filtered operators:', filteredOperators.length)
 
-  // Grupează operatorii pe adrese unice
+  // Grupează operatorii pe adrese unice - DOAR LOCAȚIILE ACTIVE
   const uniqueLocations = filteredOperators.reduce((acc, op) => {
     if (op.slot_address) {
       const key = `${op.slot_address}-${op.city}-${op.county}`
@@ -78,6 +78,11 @@ const ONJNMap = () => {
     }
     return acc
   }, {})
+
+  // Filtrează doar locațiile care au cel puțin un aparat activ
+  const activeLocations = Object.fromEntries(
+    Object.entries(uniqueLocations).filter(([key, location]) => location.activeSlots > 0)
+  )
 
   // Coordonate pentru orașe din România
   const getCoordinates = (city, county) => {
@@ -249,7 +254,7 @@ const ONJNMap = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Săli Unice</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {Object.keys(uniqueLocations).length.toLocaleString('ro-RO')}
+                  {Object.keys(activeLocations).length.toLocaleString('ro-RO')}
                 </p>
               </div>
             </div>
@@ -317,7 +322,7 @@ const ONJNMap = () => {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Harta României</h3>
             <div className="text-sm text-slate-600 dark:text-slate-400">
-              {Object.keys(uniqueLocations).length} locații afișate
+              {Object.keys(activeLocations).length} locații active afișate
             </div>
           </div>
           
@@ -332,7 +337,7 @@ const ONJNMap = () => {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
               
-              {Object.values(uniqueLocations).map((location, index) => {
+              {Object.values(activeLocations).map((location, index) => {
                 const coords = getCoordinates(location.city, location.county)
                 return (
                   <Marker
