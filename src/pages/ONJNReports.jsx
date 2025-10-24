@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import ExportButtons from '../components/ExportButtons'
 import { useData } from '../contexts/DataContext'
-import { Shield, Plus, Search, Upload, Download, Building2, ExternalLink, BarChart3 } from 'lucide-react'
+import { Shield, Plus, Search, Upload, Download, Building2, ExternalLink, BarChart3, MapPin } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DataTable from '../components/DataTable'
 import ONJNReportModal from '../components/modals/ONJNReportModal'
@@ -395,6 +395,13 @@ const ONJNReports = () => {
               >
                 <Building2 className="w-4 h-4" />
                 <span>Operatori ONJN</span>
+              </button>
+              <button
+                onClick={() => navigate('/onjn-map')}
+                className="btn-secondary flex items-center space-x-2 mr-2"
+              >
+                <MapPin className="w-4 h-4" />
+                <span>Harta ONJN</span>
               </button>
               <button
                 onClick={() => navigate('/onjn-analytics')}
