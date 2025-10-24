@@ -640,7 +640,6 @@ const ONJNReports = () => {
                       <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Oraș</th>
                       <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Județ</th>
                       <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Adresă</th>
-                      <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Săli</th>
                       <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Status</th>
                     </tr>
                   </thead>
@@ -696,11 +695,6 @@ const ONJNReports = () => {
                               {operator.slot_address.replace(/,?\s*JUD[EȚ]UL?\s+[A-ZĂÂÎȘȚ-]+/gi, '').trim()}
                             </div>
                           ) : '-'}
-                        </td>
-                        <td className="py-3 px-4 text-slate-900 dark:text-slate-100 text-center">
-                          <span className="px-2 py-1 bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400 rounded-full text-xs font-medium">
-                            1
-                          </span>
                         </td>
                         <td className="py-3 px-4">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${

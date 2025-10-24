@@ -202,7 +202,7 @@ const Layout = ({ children }) => {
     },
     { 
       id: 'onjn-reports', 
-      label: 'Rapoarte ONJN', 
+      label: 'ONJN', 
       icon: Shield, 
       path: '/onjn-reports',
       count: onjnReports.length,
