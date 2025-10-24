@@ -6,6 +6,7 @@ import { Shield, Plus, Search, Upload, Download, Building2, ExternalLink } from 
 import { useNavigate } from 'react-router-dom'
 import DataTable from '../components/DataTable'
 import ONJNReportModal from '../components/modals/ONJNReportModal'
+import * as XLSX from 'xlsx'
 
 const ONJNReports = () => {
   const { onjnReports, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
@@ -142,6 +143,64 @@ const ONJNReports = () => {
     setEditingItem(null)
   }
 
+  // Export functions for ONJN operators
+  const exportOperatorsToExcel = () => {
+    try {
+      const data = operators.map(op => ({
+        'Serie': op.serial_number || '',
+        'Companie': op.company_name || '',
+        'Brand': op.brand_name || '',
+        'Oraș': op.city || '',
+        'Județ': op.county || '',
+        'Status': op.status || '',
+        'Licență': op.license_number || '',
+        'Adresă': op.slot_address || '',
+        'Data Autorizare': op.authorization_date ? new Date(op.authorization_date).toLocaleDateString('ro-RO') : '',
+        'Data Expirare': op.expiry_date ? new Date(op.expiry_date).toLocaleDateString('ro-RO') : ''
+      }))
+      
+      const ws = XLSX.utils.json_to_sheet(data)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Operatori ONJN')
+      XLSX.writeFile(wb, `operatori-onjn-${new Date().toISOString().split('T')[0]}.xlsx`)
+    } catch (error) {
+      console.error('Error exporting operators to Excel:', error)
+    }
+  }
+
+  const exportOperatorsToCSV = () => {
+    try {
+      const headers = ['Serie', 'Companie', 'Brand', 'Oraș', 'Județ', 'Status', 'Licență', 'Adresă', 'Data Autorizare', 'Data Expirare']
+      const csvContent = [
+        headers.join(','),
+        ...operators.map(op => [
+          `"${op.serial_number || ''}"`,
+          `"${op.company_name || ''}"`,
+          `"${op.brand_name || ''}"`,
+          `"${op.city || ''}"`,
+          `"${op.county || ''}"`,
+          `"${op.status || ''}"`,
+          `"${op.license_number || ''}"`,
+          `"${op.slot_address || ''}"`,
+          `"${op.authorization_date ? new Date(op.authorization_date).toLocaleDateString('ro-RO') : ''}"`,
+          `"${op.expiry_date ? new Date(op.expiry_date).toLocaleDateString('ro-RO') : ''}"`
+        ].join(','))
+      ].join('\n')
+      
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `operatori-onjn-${new Date().toISOString().split('T')[0]}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch (error) {
+      console.error('Error exporting operators to CSV:', error)
+    }
+  }
+
   const handleExportExcel = () => {
     try {
       exportToExcel('onjnreports')
@@ -242,7 +301,27 @@ const ONJNReports = () => {
 
         {/* ONJN Operators Table */}
         <div className="card p-6">
-          <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Tabel Operatori ONJN</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white">Tabel Operatori ONJN</h3>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => exportOperatorsToExcel()}
+                className="btn-secondary flex items-center space-x-2"
+                title="Export Excel"
+              >
+                <Download className="w-4 h-4" />
+                <span>Excel</span>
+              </button>
+              <button
+                onClick={() => exportOperatorsToCSV()}
+                className="btn-secondary flex items-center space-x-2"
+                title="Export CSV"
+              >
+                <Download className="w-4 h-4" />
+                <span>CSV</span>
+              </button>
+            </div>
+          </div>
           {operatorsLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
