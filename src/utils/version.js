@@ -15,13 +15,13 @@ export const getBuild = () => {
 }
 
 export const getBuildDate = () => {
-  // Folosim data și ora curentă în loc de cea din version.json
-  const date = new Date()
-  const day = String(date.getDate()).padStart(2, '0')
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const year = date.getFullYear()
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
+  // Folosim data din version.json (ora reală a build-ului)
+  const buildDate = new Date(versionData.buildDate)
+  const day = String(buildDate.getDate()).padStart(2, '0')
+  const month = String(buildDate.getMonth() + 1).padStart(2, '0')
+  const year = buildDate.getFullYear()
+  const hours = String(buildDate.getHours()).padStart(2, '0')
+  const minutes = String(buildDate.getMinutes()).padStart(2, '0')
   
   return `${day}.${month}.${year} - ${hours}:${minutes}`
 }
