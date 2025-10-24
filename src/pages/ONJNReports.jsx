@@ -41,18 +41,18 @@ const ONJNReports = () => {
       }
     }
     
-    const loadOperators = async () => {
-      try {
-        setOperatorsLoading(true)
-        const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators?limit=1000')
-        const data = await response.json()
-        setOperators(data)
-      } catch (error) {
-        console.error('Error loading ONJN operators:', error)
-      } finally {
-        setOperatorsLoading(false)
-      }
-    }
+       const loadOperators = async () => {
+         try {
+           setOperatorsLoading(true)
+           const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators')
+           const data = await response.json()
+           setOperators(data)
+         } catch (error) {
+           console.error('Error loading ONJN operators:', error)
+         } finally {
+           setOperatorsLoading(false)
+         }
+       }
     
     loadStats()
     loadOperators()
@@ -130,10 +130,12 @@ const ONJNReports = () => {
 
   // Pagination for operators
   const totalOperatorsPages = Math.ceil(filteredOperators.length / operatorsPerPage)
-  const paginatedOperators = filteredOperators.slice(
-    (operatorsPage - 1) * operatorsPerPage,
-    operatorsPage * operatorsPerPage
-  )
+  const paginatedOperators = operatorsPerPage === filteredOperators.length 
+    ? filteredOperators  // Show all if "Toate" is selected
+    : filteredOperators.slice(
+        (operatorsPage - 1) * operatorsPerPage,
+        operatorsPage * operatorsPerPage
+      )
 
   // Get unique values for filters
   const companies = [...new Set(operators.map(op => op.company_name).filter(Boolean))].sort()
