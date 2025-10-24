@@ -240,7 +240,7 @@ const ONJNMap = () => {
         </div>
 
         {/* Statistici */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
           <div className="card p-6">
             <div className="flex items-center">
               <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
@@ -264,6 +264,20 @@ const ONJNMap = () => {
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Aparate</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
                   {filteredOperators.length.toLocaleString('ro-RO')}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-emerald-100 dark:bg-emerald-900/20 rounded-lg">
+                <Building2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Aparate Active</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {filteredOperators.filter(op => op.status === 'În exploatare').length.toLocaleString('ro-RO')}
                 </p>
               </div>
             </div>
