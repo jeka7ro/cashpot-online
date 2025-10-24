@@ -407,6 +407,79 @@ const ONJNReports = () => {
           </div>
         </div>
 
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
+          <div className="card p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                <BarChart3 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Aparate</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {stats ? stats.total.toLocaleString('ro-RO') : '0'}
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="card p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                <Building2 className="w-6 h-6 text-green-600 dark:text-green-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">În Exploatare</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {stats ? stats.active.toLocaleString('ro-RO') : '0'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-red-100 dark:bg-red-900/20 rounded-lg">
+                <Building2 className="w-6 h-6 text-red-600 dark:text-red-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Scoși din Funcțiune</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {stats ? stats.expired.toLocaleString('ro-RO') : '0'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-indigo-100 dark:bg-indigo-900/20 rounded-lg">
+                <BarChart3 className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Rata Activitate</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {stats && stats.total > 0 ? ((stats.active / stats.total) * 100).toFixed(1) : 0}%
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
+                <Building2 className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Săli</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {stats ? new Set(operators.map(op => op.slot_address).filter(Boolean)).size.toLocaleString('ro-RO') : '0'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Quick Access Card - ONJN Operators */}
         <div className="card p-6 hover:shadow-xl transition-shadow cursor-pointer" onClick={() => navigate('/onjn-operators')}>
           <div className="flex items-center justify-between">
