@@ -357,7 +357,7 @@ const CyberImport = () => {
   const fetchCyberData = async () => {
     setLoading(true)
     try {
-      const response = await axios.get('/api/cyber/slots', { timeout: 30000 })
+      const response = await axios.get('/api/cyber/slots', { timeout: 10000 })
       const data = Array.isArray(response.data) ? response.data : []
       setCyberData(data)
       setFilteredData(data)
@@ -425,7 +425,7 @@ const CyberImport = () => {
   const fetchCyberLocations = async () => {
     setLoading(true)
     try {
-      const response = await axios.get('/api/cyber/locations', { timeout: 30000 })
+      const response = await axios.get('/api/cyber/locations', { timeout: 10000 })
       // Ensure data is always an array
       const data = Array.isArray(response.data) ? response.data : []
       setCyberLocations(data)
@@ -498,7 +498,7 @@ const CyberImport = () => {
   const fetchCyberCabinets = async () => {
     setLoading(true)
     try {
-      const response = await axios.get('/api/cyber/cabinets', { timeout: 30000 })
+      const response = await axios.get('/api/cyber/cabinets', { timeout: 10000 })
       const data = Array.isArray(response.data) ? response.data : []
       setCyberCabinets(data)
       setFilteredCabinets(data)
@@ -517,7 +517,7 @@ const CyberImport = () => {
   const fetchCyberGameMixes = async () => {
     setLoading(true)
     try {
-      const response = await axios.get('/api/cyber/game-mixes', { timeout: 30000 })
+      const response = await axios.get('/api/cyber/game-mixes', { timeout: 10000 })
       const data = Array.isArray(response.data) ? response.data : []
       setCyberGameMixes(data)
       setFilteredGameMixes(data)
@@ -536,7 +536,7 @@ const CyberImport = () => {
   const fetchCyberProviders = async () => {
     setLoading(true)
     try {
-      const response = await axios.get('/api/cyber/providers', { timeout: 30000 })
+      const response = await axios.get('/api/cyber/providers', { timeout: 10000 })
       const data = Array.isArray(response.data) ? response.data : []
       setCyberProviders(data)
       setFilteredProviders(data)

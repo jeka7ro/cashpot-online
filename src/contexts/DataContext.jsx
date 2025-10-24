@@ -82,7 +82,7 @@ export const DataProvider = ({ children }) => {
       
       // Fetch priority entities first (for dashboard)
       const priorityRequests = priorityEntities.map(entity => 
-        axios.get(`/api/${entity}`, { timeout: 30000 }).catch((error) => {
+        axios.get(`/api/${entity}`, { timeout: 10000 }).catch((error) => {
           console.error(`❌ Error fetching ${entity}:`, error)
           return { data: [] }
         })
@@ -102,7 +102,7 @@ export const DataProvider = ({ children }) => {
       
       // Load slots with jackpots separately
       try {
-        const slotsResponse = await axios.get('/api/cyber/slots-with-jackpots', { timeout: 30000 })
+        const slotsResponse = await axios.get('/api/cyber/slots-with-jackpots', { timeout: 10000 })
         const slotsData = Array.isArray(slotsResponse.data) ? slotsResponse.data : []
         console.log(`✅ slots with jackpots: ${slotsData.length} items`)
         setSlots(slotsData)
@@ -111,7 +111,7 @@ export const DataProvider = ({ children }) => {
         
         // Fallback to regular slots
         try {
-          const slotsResponse = await axios.get('/api/slots', { timeout: 30000 })
+          const slotsResponse = await axios.get('/api/slots', { timeout: 10000 })
           const slotsData = Array.isArray(slotsResponse.data) ? slotsResponse.data : []
           console.log(`✅ slots (fallback): ${slotsData.length} items`)
           setSlots(slotsData)
@@ -143,7 +143,7 @@ export const DataProvider = ({ children }) => {
       // Fetch remaining entities in background
       const regularRequests = regularEntities.map(entity => {
         // Use longer timeout for problematic entities
-        const timeout = 30000
+        const timeout = 10000
         return axios.get(`/api/${entity}`, { timeout }).catch((error) => {
           console.error(`❌ Error fetching ${entity}:`, error)
           return { data: [] }
