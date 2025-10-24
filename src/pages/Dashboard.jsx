@@ -244,9 +244,16 @@ const Dashboard = () => {
           if (preferences.dashboard) {
             console.log('✅ Loaded dashboard preferences from server:', preferences.dashboard)
             setDashboardConfig(preferences.dashboard)
-            // cardSizes and widgetSizes are managed locally, not saved on server
-            // Actualizează // localStorage REMOVED - using server only cu datele de pe server
-            // localStorage REMOVED - using server only
+            
+            // Load cardSizes and widgetSizes from server
+            if (preferences.cardSizes) {
+              console.log('✅ Loaded card sizes from server:', preferences.cardSizes)
+              setCardSizes(preferences.cardSizes)
+            }
+            if (preferences.widgetSizes) {
+              console.log('✅ Loaded widget sizes from server:', preferences.widgetSizes)
+              setWidgetSizes(preferences.widgetSizes)
+            }
             return // Ieși din funcție dacă s-au încărcat datele de pe server
           }
         } catch (error) {
@@ -282,7 +289,9 @@ const Dashboard = () => {
       console.log('💾 Saving dashboard preferences to server for user:', user.id)
       await axios.put(`/api/users/${user.id}/preferences`, {
         preferences: {
-          dashboard: dashboardConfig
+          dashboard: dashboardConfig,
+          cardSizes: cardSizes,
+          widgetSizes: widgetSizes
         }
       })
       
@@ -338,9 +347,16 @@ const Dashboard = () => {
       if (preferences.dashboard) {
         console.log('✅ Force loaded dashboard preferences from server:', preferences.dashboard)
         setDashboardConfig(preferences.dashboard)
-        // cardSizes and widgetSizes are managed locally, not saved on server
-        // Actualizează // localStorage REMOVED - using server only cu datele de pe server
-        // localStorage REMOVED - using server only
+        
+        // Load cardSizes and widgetSizes from server
+        if (preferences.cardSizes) {
+          console.log('✅ Force loaded card sizes from server:', preferences.cardSizes)
+          setCardSizes(preferences.cardSizes)
+        }
+        if (preferences.widgetSizes) {
+          console.log('✅ Force loaded widget sizes from server:', preferences.widgetSizes)
+          setWidgetSizes(preferences.widgetSizes)
+        }
         toast.success('Preferințele au fost sincronizate de pe server!')
       } else {
         console.log('ℹ️ No dashboard preferences found on server')
