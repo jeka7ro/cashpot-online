@@ -234,12 +234,16 @@ const Dashboard = () => {
   // Încarcă preferințele de pe server sau folosește // localStorage REMOVED - using server only
   useEffect(() => {
     const loadPreferences = async () => {
+      console.log('🔄 Loading dashboard preferences...', { userId: user?.id, user })
+      
       // Încearcă mai întâi de pe server (pentru sincronizare cross-device)
       if (user?.id) {
         try {
           const response = await axios.get(`/api/users/${user.id}`, { timeout: 10000 })
           const userData = response.data
           const preferences = userData.preferences || {}
+          
+          console.log('📊 Server preferences:', preferences)
           
           if (preferences.dashboard) {
             console.log('✅ Loaded dashboard preferences from server:', preferences.dashboard)
@@ -257,7 +261,7 @@ const Dashboard = () => {
             return // Ieși din funcție dacă s-au încărcat datele de pe server
           }
         } catch (error) {
-          console.error('Error loading preferences from server:', error)
+          console.error('❌ Error loading preferences from server:', error)
         }
       }
       
