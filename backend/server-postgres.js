@@ -2427,7 +2427,19 @@ app.get('/api/users/:id', async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'User not found' })
     }
-    res.json(result.rows[0])
+    
+    // Parse preferences if it's a string
+    const user = result.rows[0]
+    if (typeof user.preferences === 'string') {
+      try {
+        user.preferences = JSON.parse(user.preferences)
+      } catch (e) {
+        console.error('Error parsing preferences:', e)
+        user.preferences = {}
+      }
+    }
+    
+    res.json(user)
   } catch (error) {
     console.error('Error fetching user:', error)
     res.status(500).json({ success: false, message: 'Error fetching user' })

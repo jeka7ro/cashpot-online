@@ -30,4 +30,4 @@ services:
       - key: FORCE_REDEPLOY_TRIGGER
         value: "2025-10-22-07:00:00-BACKEND-WAKE-UP"
       - key: CORS_FIX_W1N_RO
-        value: "2025-01-24T22:50:00-CORS-EMERGENCY-FIX"
+        value: "2025-01-24T23:00:00-DASHBOARD-PREFERENCES-FIX"
