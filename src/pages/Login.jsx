@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Eye, EyeOff } from 'lucide-react'
+import axios from 'axios'
 
 const Login = () => {
   const navigate = useNavigate()
@@ -37,21 +38,29 @@ const Login = () => {
   })
 
   useEffect(() => {
-    // Load settings from // localStorage REMOVED - using server only
-    // localStorage REMOVED - using server only
-    const savedSettings = null
-    if (savedSettings) {
-      const parsed = JSON.parse(savedSettings)
-      setSettings({
-        logo: parsed.logo || settings.logo,
-        loginImage: parsed.loginImage || settings.loginImage,
-        loginButtonColor: parsed.loginButtonColor || settings.loginButtonColor,
-        loginPageColor: parsed.loginPageColor || settings.loginPageColor,
-        loginCardColor: parsed.loginCardColor || settings.loginCardColor,
-        loginTextColor: parsed.loginTextColor || settings.loginTextColor,
-        loginTexts: parsed.loginTexts || settings.loginTexts
-      })
+    // Load global login settings from server
+    const loadGlobalSettings = async () => {
+      try {
+        const response = await axios.get('/api/global-settings')
+        if (response.data.login_settings) {
+          const globalSettings = response.data.login_settings
+          setSettings({
+            logo: globalSettings.logo || settings.logo,
+            loginImage: globalSettings.loginImage || settings.loginImage,
+            loginButtonColor: globalSettings.loginButtonColor || settings.loginButtonColor,
+            loginPageColor: globalSettings.loginPageColor || settings.loginPageColor,
+            loginCardColor: globalSettings.loginCardColor || settings.loginCardColor,
+            loginTextColor: globalSettings.loginTextColor || settings.loginTextColor,
+            loginTexts: globalSettings.loginTexts || settings.loginTexts
+          })
+          console.log('✅ Loaded global login settings from server')
+        }
+      } catch (error) {
+        console.log('⚠️ Could not load global login settings from server')
+      }
     }
+
+    loadGlobalSettings()
 
     // Load saved credentials
     // localStorage REMOVED - using server only

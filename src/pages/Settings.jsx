@@ -73,29 +73,54 @@ const Settings = () => {
   }, [])
 
   const loadSettingsFromServer = async () => {
+    let globalLoginSettings = {}
+    let personalSettings = {}
+
     try {
+      // Încarcă setările globale de login
+      const globalResponse = await axios.get('/api/global-settings')
+      if (globalResponse.data.login_settings) {
+        globalLoginSettings = globalResponse.data.login_settings
+        console.log('✅ Loaded global login settings from server')
+      }
+    } catch (error) {
+      console.log('⚠️ Could not load global login settings from server')
+    }
+
+    try {
+      // Încarcă setările personale (tema, dashboard)
       const response = await axios.get('/api/auth/verify')
       if (response.data.success && response.data.user) {
         const preferences = response.data.user.preferences || {}
         if (preferences.appSettings) {
-          setSettings(preferences.appSettings)
-          console.log('✅ Loaded app settings from server')
-          return
+          personalSettings = preferences.appSettings
+          console.log('✅ Loaded personal settings from server')
         }
       }
     } catch (error) {
-      console.log('⚠️ Could not load settings from server')
+      console.log('⚠️ Could not load personal settings from server')
     }
     
-    // Fallback la sessionStorage
-    const savedSettings = sessionStorage.getItem('appSettings')
-    if (savedSettings) {
-      try {
-        const parsedSettings = JSON.parse(savedSettings)
-        setSettings(parsedSettings)
-        console.log('📱 Loaded app settings from sessionStorage')
-      } catch (e) {
-        console.error('Error parsing sessionStorage settings:', e)
+    // Combină setările: globale pentru login, personale pentru restul
+    const combinedSettings = {
+      ...settings, // default values
+      ...personalSettings, // personal theme/dashboard settings
+      ...globalLoginSettings // global login settings (override personal)
+    }
+    
+    setSettings(combinedSettings)
+    
+    // Fallback la sessionStorage dacă nu s-au încărcat setări
+    if (Object.keys(globalLoginSettings).length === 0 && Object.keys(personalSettings).length === 0) {
+      const savedSettings = sessionStorage.getItem('appSettings')
+      if (savedSettings) {
+        try {
+          const parsedSettings = JSON.parse(savedSettings)
+          setSettings(parsedSettings)
+          console.log('📱 Loaded app settings from sessionStorage')
+        } catch (e) {
+          console.error('Error parsing sessionStorage settings:', e)
+        }
       }
     }
   }
@@ -254,7 +279,28 @@ const Settings = () => {
     sessionStorage.setItem('appSettings', JSON.stringify(settings))
     
     try {
-      // Încearcă să salveze pe server
+      // Salvează setările de login ca globale (logo, favicon, culori login)
+      const loginSettings = {
+        logo: settings.logo,
+        favicon: settings.favicon,
+        loginImage: settings.loginImage,
+        loginButtonColor: settings.loginButtonColor,
+        loginPageColor: settings.loginPageColor,
+        loginCardColor: settings.loginCardColor,
+        loginTextColor: settings.loginTextColor,
+        loginTexts: settings.loginTexts,
+        appTitle: settings.appTitle,
+        appSubtitle: settings.appSubtitle
+      }
+
+      await axios.put('/api/global-settings', {
+        settings: {
+          'login_settings': loginSettings
+        }
+      })
+      console.log('✅ Global login settings saved to server')
+
+      // Salvează setările de tema și dashboard ca personale
       const response = await axios.get('/api/auth/verify')
       if (response.data.success && response.data.user) {
         await axios.put(`/api/users/${response.data.user.id}/preferences`, {
@@ -262,11 +308,10 @@ const Settings = () => {
             appSettings: settings
           }
         })
-        console.log('✅ App settings saved to server')
+        console.log('✅ Personal theme and dashboard settings saved')
       }
     } catch (error) {
-      console.error('❌ Error saving to server:', error)
-      // Dacă serverul nu funcționează, folosește doar sessionStorage
+      console.error('❌ Error saving settings to server:', error)
     }
     
     // Update favicon in HTML if it exists

@@ -60,33 +60,55 @@ const Layout = ({ children }) => {
   }, [])
 
   const loadSettingsFromServer = async () => {
+    let globalLoginSettings = {}
+    let personalSettings = {}
+
     try {
+      // Încarcă setările globale de login
+      const globalResponse = await axios.get('/api/global-settings')
+      if (globalResponse.data.login_settings) {
+        globalLoginSettings = globalResponse.data.login_settings
+        console.log('✅ Loaded global login settings in Layout from server')
+      }
+    } catch (error) {
+      console.log('⚠️ Could not load global login settings in Layout')
+    }
+
+    try {
+      // Încarcă setările personale (tema, dashboard)
       const response = await axios.get('/api/auth/verify')
       if (response.data.success && response.data.user) {
         const preferences = response.data.user.preferences || {}
         if (preferences.appSettings) {
-          setSettings(preferences.appSettings)
-          
-          // Update favicon if it exists
-          if (preferences.appSettings.favicon && preferences.appSettings.favicon.file) {
-            const link = document.querySelector("link[rel~='icon']")
-            if (link) {
-              link.href = preferences.appSettings.favicon.file
-            } else {
-              const faviconLink = document.createElement('link')
-              faviconLink.rel = 'icon'
-              faviconLink.type = 'image/x-icon'
-              faviconLink.href = preferences.appSettings.favicon.file
-              document.head.appendChild(faviconLink)
-            }
-          }
-          
-          console.log('✅ Loaded app settings in Layout from server')
-          return
+          personalSettings = preferences.appSettings
+          console.log('✅ Loaded personal settings in Layout from server')
         }
       }
     } catch (error) {
-      console.log('⚠️ Could not load settings from server in Layout')
+      console.log('⚠️ Could not load personal settings in Layout')
+    }
+    
+    // Combină setările: globale pentru login, personale pentru restul
+    const combinedSettings = {
+      ...settings, // default values
+      ...personalSettings, // personal theme/dashboard settings
+      ...globalLoginSettings // global login settings (override personal)
+    }
+    
+    setSettings(combinedSettings)
+    
+    // Update favicon if it exists
+    if (combinedSettings.favicon && combinedSettings.favicon.file) {
+      const link = document.querySelector("link[rel~='icon']")
+      if (link) {
+        link.href = combinedSettings.favicon.file
+      } else {
+        const faviconLink = document.createElement('link')
+        faviconLink.rel = 'icon'
+        faviconLink.type = 'image/x-icon'
+        faviconLink.href = combinedSettings.favicon.file
+        document.head.appendChild(faviconLink)
+      }
     }
   }
 

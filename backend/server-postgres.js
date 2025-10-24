@@ -1059,6 +1059,24 @@ const initializeDatabase = async () => {
       console.log('⚠️ Notifications table may already exist:', error.message)
     }
 
+    // Create global settings table
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS global_settings (
+          id SERIAL PRIMARY KEY,
+          setting_key VARCHAR(255) UNIQUE NOT NULL,
+          setting_value JSONB NOT NULL,
+          description TEXT,
+          updated_by INTEGER REFERENCES users(id),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+      console.log('✅ Global settings table created')
+    } catch (error) {
+      console.log('⚠️ Global settings table may already exist:', error.message)
+    }
+
     // Migrate existing promotions to new prizes format
     try {
       // Check if old columns exist
@@ -1155,6 +1173,45 @@ app.get('/health', (req, res) => {
     uptime: process.uptime(),
     version: '1.0.49'
   })
+})
+
+// Global settings endpoints
+app.get('/api/global-settings', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM global_settings ORDER BY setting_key')
+    const settings = {}
+    result.rows.forEach(row => {
+      settings[row.setting_key] = row.setting_value
+    })
+    res.json(settings)
+  } catch (error) {
+    console.error('Error fetching global settings:', error)
+    res.status(500).json({ error: 'Failed to fetch global settings' })
+  }
+})
+
+app.put('/api/global-settings', authenticateUser, async (req, res) => {
+  try {
+    const { settings } = req.body
+    const userId = req.user?.userId || 1
+
+    for (const [key, value] of Object.entries(settings)) {
+      await pool.query(`
+        INSERT INTO global_settings (setting_key, setting_value, updated_by)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (setting_key) 
+        DO UPDATE SET 
+          setting_value = $2,
+          updated_by = $3,
+          updated_at = CURRENT_TIMESTAMP
+      `, [key, JSON.stringify(value), userId])
+    }
+
+    res.json({ success: true, message: 'Global settings updated successfully' })
+  } catch (error) {
+    console.error('Error updating global settings:', error)
+    res.status(500).json({ error: 'Failed to update global settings' })
+  }
 })
 
 // ==================== IMMEDIATE ROUTE REGISTRATION ====================
