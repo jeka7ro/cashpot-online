@@ -2,10 +2,20 @@
 <html lang="ro">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="/favicon.svg" as="image" type="image/svg+xml" />
+    <link rel="preload" href="https://cashpot-backend.onrender.com/api/health" as="fetch" crossorigin />
+    
+    <!-- Favicon with multiple formats for better compatibility -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    
     <title>CASHPOT V7 - Gaming Management System</title>
     <meta name="description" content="Sistem complet de management pentru industria gaming - CASHPOT V7" />
+    
     <script>
       // Prevent flash of white screen on dark mode
       (function() {
@@ -13,6 +23,18 @@
         if (theme === 'dark') {
           document.documentElement.classList.add('dark')
           document.body.classList.add('dark')
+        }
+      })()
+      
+      // Preload logo from global settings
+      (function() {
+        const logoUrl = localStorage.getItem('logoUrl')
+        if (logoUrl) {
+          const link = document.createElement('link')
+          link.rel = 'preload'
+          link.as = 'image'
+          link.href = logoUrl
+          document.head.appendChild(link)
         }
       })()
     </script>
