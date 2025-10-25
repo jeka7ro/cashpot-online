@@ -20,7 +20,7 @@ const ONJNMap = () => {
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({
     county: '',
-    brand: '',
+    brand: 'CASHPOT', // Default to CASHPOT for faster loading
     city: ''
   })
   const [selectedLocation, setSelectedLocation] = useState(null)
@@ -29,10 +29,11 @@ const ONJNMap = () => {
     const loadData = async () => {
       try {
         setLoading(true)
-        console.log('Loading ONJN data...')
-        const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators')
+        console.log('Loading ONJN data (CASHPOT only for faster loading)...')
+        // Load only CASHPOT initially for faster page load
+        const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators?brand=CASHPOT')
         const data = await response.json()
-        console.log('Loaded operators:', data.length)
+        console.log('Loaded CASHPOT operators:', data.length)
         setOperators(data)
       } catch (error) {
         console.error('Error loading ONJN data:', error)
