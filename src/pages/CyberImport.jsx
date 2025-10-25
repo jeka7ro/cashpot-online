@@ -721,20 +721,35 @@ const CyberImport = () => {
         return
       }
       
-      const itemsToImport = filteredData.filter(item => selectedItems.has(item.id))
+      const itemsToImport = filteredData
+        .filter(item => selectedItems.has(item.id))
+        .map(item => ({
+          slot_id: item.serial_number, // Use serial_number as slot_id
+          serial_number: item.serial_number,
+          provider: item.provider || 'Unknown',
+          cabinet: item.cabinet || 'Unknown',
+          game_mix: item.game_mix || 'Unknown',
+          status: item.status || 'Active',
+          location: item.location || 'Unknown'
+        }))
+      
+      console.log('Importing slots:', itemsToImport)
       
       const response = await axios.post('/api/slots/import-marina', {
         items: itemsToImport
       })
 
       toast.success(`${response.data.imported} sloturi importate cu succes!`)
+      if (response.data.errors > 0) {
+        toast.error(`Erori la ${response.data.errors} sloturi`)
+      }
       setSelectedItems(new Set())
       
       // Refresh Cyber data
       fetchCyberData()
     } catch (error) {
       console.error('Error importing slots:', error)
-      toast.error('Eroare la importarea sloturilor')
+      toast.error('Eroare la importarea sloturilor: ' + (error.response?.data?.error || error.message))
     }
   }
 
@@ -778,18 +793,33 @@ const CyberImport = () => {
     }
 
     try {
+      const itemsToImport = filteredData.map(item => ({
+        slot_id: item.serial_number, // Use serial_number as slot_id
+        serial_number: item.serial_number,
+        provider: item.provider || 'Unknown',
+        cabinet: item.cabinet || 'Unknown',
+        game_mix: item.game_mix || 'Unknown',
+        status: item.status || 'Active',
+        location: item.location || 'Unknown'
+      }))
+      
+      console.log('Importing all visible slots:', itemsToImport.length)
+      
       const response = await axios.post('/api/slots/import-marina', {
-        items: filteredData
+        items: itemsToImport
       })
 
       toast.success(`${response.data.imported} sloturi importate cu succes!`)
+      if (response.data.errors > 0) {
+        toast.error(`Erori la ${response.data.errors} sloturi`)
+      }
       setSelectedItems(new Set())
       
       // Refresh Cyber data
       fetchCyberData()
     } catch (error) {
       console.error('Error importing all slots:', error)
-      toast.error('Eroare la importarea sloturilor')
+      toast.error('Eroare la importarea sloturilor: ' + (error.response?.data?.error || error.message))
     }
   }
 
