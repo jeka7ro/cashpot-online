@@ -1411,6 +1411,31 @@ app.get('/health', async (req, res) => {
   }
 })
 
+// Health check endpoint with /api prefix
+app.get('/api/health', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW()')
+    res.json({ 
+      status: 'OK', 
+      timestamp: new Date().toISOString(),
+      version: '7.0.9',
+      build: BUILD_NUMBER,
+      buildDate: BUILD_DATE,
+      uptime: process.uptime(),
+      database: 'Connected',
+      dbTime: result.rows[0].now
+    })
+  } catch (error) {
+    res.json({ 
+      status: 'OK', 
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      database: 'Disconnected',
+      error: error.message
+    })
+  }
+})
+
 // PDF viewer endpoint
 app.get('/api/pdf/:companyId', async (req, res) => {
   try {
