@@ -1414,15 +1414,17 @@ app.post('/api/slots/import-marina', async (req, res) => {
           // Update existing slot
           const updateQuery = `
             UPDATE slots SET 
-              provider = $1,
-              cabinet = $2,
-              game_mix = $3,
-              status = $4,
-              location = $5,
+              slot_id = $1,
+              provider = $2,
+              cabinet = $3,
+              game_mix = $4,
+              status = $5,
+              location = $6,
               updated_at = CURRENT_TIMESTAMP
-            WHERE serial_number = $6
+            WHERE serial_number = $7
           `
           await pool.query(updateQuery, [
+            item.slot_id || item.serial_number,
             item.provider || 'Unknown',
             item.cabinet || 'Unknown',
             item.game_mix || 'Unknown',
@@ -1431,14 +1433,15 @@ app.post('/api/slots/import-marina', async (req, res) => {
             item.serial_number
           ])
         } else {
-          // Insert new slot
+          // Insert new slot - use serial_number as slot_id if not provided
           const insertQuery = `
             INSERT INTO slots (
-              serial_number, provider, cabinet, game_mix, 
+              slot_id, serial_number, provider, cabinet, game_mix, 
               status, location, created_at, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
           `
           await pool.query(insertQuery, [
+            item.slot_id || item.serial_number, // Use slot_id if provided, otherwise use serial_number
             item.serial_number,
             item.provider || 'Unknown',
             item.cabinet || 'Unknown',
