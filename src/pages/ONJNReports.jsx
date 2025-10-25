@@ -49,7 +49,7 @@ const ONJNReports = () => {
         const data = await response.json()
         console.log('📡 Loaded CASHPOT operators:', data.length, data.slice(0, 3))
         setOperators(data)
-        setLoadedOperators(data.slice(0, 25)) // Show only first 25 initially
+        setLoadedOperators(data) // Show all CASHPOT operators
         setIsTableVisible(true)
         
         // Set default filter to CASHPOT
@@ -81,7 +81,7 @@ const ONJNReports = () => {
       console.log('📊 Brands in data:', [...new Set(allData.map(op => op.brand_name))].slice(0, 10))
       
       setOperators(allData)
-      setLoadedOperators(allData.slice(0, 25))
+      setLoadedOperators(allData) // Show all operators
       
       // Reset brand filter to show all
       setOperatorsFilters(prev => ({
