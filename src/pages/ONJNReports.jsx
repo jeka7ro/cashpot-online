@@ -638,26 +638,47 @@ const ONJNReports = () => {
               </select>
             </div>
 
-            {/* Reset Filters and Load All Brands */}
+            {/* Reset Filters */}
             <div className="flex items-center justify-between">
+              <button
+                onClick={() => {
+                  setOperatorsSearchTerm('')
+                  setOperatorsFilters({ company: '', brand: '', county: '', city: '', status: '' })
+                  setOperatorsPage(1)
+                }}
+                className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"
+              >
+                Resetare filtre
+              </button>
+              
+              <div className="text-sm text-slate-600 dark:text-slate-400">
+                {filteredOperators.length} operatori găsiți
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        {/* ONJN Operators Table */}
+        {isTableVisible && (
+          <div className="card p-6">
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => {
-                    setOperatorsSearchTerm('')
-                    setOperatorsFilters({ company: '', brand: '', county: '', city: '', status: '' })
-                    setOperatorsPage(1)
-                  }}
-                  className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"
-                >
-                  Resetare filtre
-                </button>
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white">
+                  Tabel Operatori ONJN
+                  {operatorsFilters.brand === 'CASHPOT' && (
+                    <span className="ml-2 text-sm font-normal text-amber-600 dark:text-amber-400">
+                      (doar CASHPOT)
+                    </span>
+                  )}
+                </h3>
                 
                 {/* Load All Brands Button - moved here */}
                 {operatorsFilters.brand === 'CASHPOT' && (
                   <button
                     onClick={loadAllOperators}
                     disabled={loadingMore}
-                    className="px-4 py-2 text-sm bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                    className="px-3 py-1.5 text-xs bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
                   >
                     {loadingMore ? (
                       <>
@@ -674,27 +695,7 @@ const ONJNReports = () => {
                 )}
               </div>
               
-              <div className="text-sm text-slate-600 dark:text-slate-400">
-                {filteredOperators.length} operatori găsiți
-              </div>
-            </div>
-          </div>
-        </div>
-
-
-        {/* ONJN Operators Table */}
-        {isTableVisible && (
-          <div className="card p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-slate-800 dark:text-white">
-                Tabel Operatori ONJN
-                {operatorsFilters.brand === 'CASHPOT' && (
-                  <span className="ml-2 text-sm font-normal text-amber-600 dark:text-amber-400">
-                    (doar CASHPOT)
-                  </span>
-                )}
-              </h3>
-            <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2">
               <button
                 onClick={() => exportOperatorsToExcel()}
                 disabled={exporting}
