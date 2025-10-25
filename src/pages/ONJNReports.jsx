@@ -77,6 +77,9 @@ const ONJNReports = () => {
       const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators')
       const allData = await response.json()
       
+      console.log('📡 Loaded all operators:', allData.length, 'First 5:', allData.slice(0, 5))
+      console.log('📊 Brands in data:', [...new Set(allData.map(op => op.brand_name))].slice(0, 10))
+      
       setOperators(allData)
       setLoadedOperators(allData.slice(0, 25))
       
@@ -101,14 +104,15 @@ const ONJNReports = () => {
         const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators/stats')
         const data = await response.json()
         
-        setStats({
+        setStats(prev => ({
+          ...prev,
           total: data.total || 0,
           active: data.active || 0,
           expired: data.expired || 0,
           byBrand: data.byBrand || {},
           byCounty: data.byCounty || {},
           byCity: data.byCity || {}
-        })
+        }))
       } catch (error) {
         console.error('Error loading total ONJN stats:', error)
       }
