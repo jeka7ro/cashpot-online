@@ -500,19 +500,6 @@ const Metrology = () => {
       )
     },
     { 
-      key: 'members', 
-      label: 'MEMBRI', 
-      sortable: false, 
-      render: (item) => {
-        const membersList = item.members ? (typeof item.members === 'string' ? item.members.split(',') : item.members) : []
-        return (
-          <div className="text-sm">
-            {membersList.length > 0 ? membersList.join(', ') : 'N/A'}
-          </div>
-        )
-      }
-    },
-    { 
       key: 'date_formed', 
       label: 'DATA FORMARE', 
       sortable: true,
