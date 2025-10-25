@@ -20,6 +20,7 @@ const Slots = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [providerFilter, setProviderFilter] = useState('all')
+  const [locationFilter, setLocationFilter] = useState('all')
   const [propertyTypeFilter, setPropertyTypeFilter] = useState('all')
   const [commissionFilters, setCommissionFilters] = useState([])
   const [showModal, setShowModal] = useState(false)
@@ -150,17 +151,19 @@ const Slots = () => {
                          slot.serial_number?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === 'all' || slot.status === statusFilter
     const matchesProvider = providerFilter === 'all' || slot.provider === providerFilter
+    const matchesLocation = locationFilter === 'all' || slot.location === locationFilter
     const matchesPropertyType = propertyTypeFilter === 'all' || slot.property_type === propertyTypeFilter
     const matchesCommission = commissionFilters.length === 0 || 
       commissionFilters.some(commDate => {
         const slotCommDate = slot.commission_date ? new Date(slot.commission_date).toISOString().split('T')[0] : null
         return slotCommDate === commDate
       })
-    return matchesSearch && matchesStatus && matchesProvider && matchesPropertyType && matchesCommission
+    return matchesSearch && matchesStatus && matchesProvider && matchesLocation && matchesPropertyType && matchesCommission
   })
 
   // Get unique providers for filter
   const uniqueProviders = [...new Set(slots.map(slot => slot.provider).filter(Boolean))]
+  const uniqueLocations = [...new Set(slots.map(slot => slot.location).filter(Boolean))].sort()
 
   // Advanced Statistics (8 indicators)
   const totalSlots = slots.length
@@ -861,6 +864,17 @@ const Slots = () => {
                 <option value="all">Toți Furnizorii</option>
                 {uniqueProviders.map(provider => (
                   <option key={provider} value={provider}>{provider}</option>
+                ))}
+              </select>
+              
+              <select
+                value={locationFilter}
+                onChange={(e) => setLocationFilter(e.target.value)}
+                className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
+              >
+                <option value="all">Toate Locațiile</option>
+                {uniqueLocations.map(location => (
+                  <option key={location} value={location}>{location}</option>
                 ))}
               </select>
               
