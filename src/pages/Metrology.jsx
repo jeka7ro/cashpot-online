@@ -506,16 +506,8 @@ const Metrology = () => {
       render: (item) => {
         const membersList = item.members ? (typeof item.members === 'string' ? item.members.split(',') : item.members) : []
         return (
-          <div className="text-sm space-y-1">
-            {membersList.length > 0 ? membersList.map((member, index) => (
-              <button
-                key={index}
-                onClick={() => navigate(`/users?search=${encodeURIComponent(member.trim())}`)}
-                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline block"
-              >
-                {member.trim()}
-              </button>
-            )) : <span className="text-slate-400 dark:text-slate-500">N/A</span>}
+          <div className="text-sm">
+            {membersList.length > 0 ? membersList.join(', ') : 'N/A'}
           </div>
         )
       }
