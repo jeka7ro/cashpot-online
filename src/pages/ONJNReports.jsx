@@ -352,7 +352,7 @@ const ONJNReports = () => {
         'Companie': op.company_name || '',
         'Brand': op.brand_name || '',
         'Oraș': op.city || '',
-        'Județ': op.county || '',
+        'Județ': op.county ? op.county.replace(/^JUD[EȚ]UL\s+/i, '') : '',
         'Status': op.status || '',
         'Licență': op.license_number || '',
         'Adresă': op.slot_address || '',
