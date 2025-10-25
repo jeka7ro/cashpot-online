@@ -53,8 +53,17 @@ const Layout = ({ children }) => {
     appTitle: 'CASHPOT V7',
     appSubtitle: 'Gaming Management System'
   })
+  
+  // Cache pentru logo-ul persistent - nu se refresh-ează la schimbarea paginii
+  const [cachedLogo, setCachedLogo] = React.useState(null)
 
   React.useEffect(() => {
+    // Load cached logo first for instant display
+    const cachedLogoUrl = localStorage.getItem('cachedLogo')
+    if (cachedLogoUrl) {
+      setCachedLogo(cachedLogoUrl)
+    }
+    
     // Load settings from server first, then localStorage as fallback
     loadSettingsFromServer()
   }, [])
@@ -94,8 +103,18 @@ const Layout = ({ children }) => {
       ...personalSettings, // personal theme/dashboard settings
       ...globalLoginSettings // global login settings (override personal)
     }
-    
+
     setSettings(combinedSettings)
+    
+    // Cache logo-ul pentru a nu se refresh-ui la schimbarea paginii
+    if (combinedSettings.logo?.file || combinedSettings.logo?.url) {
+      const logoUrl = combinedSettings.logo.file || combinedSettings.logo.url
+      if (logoUrl !== cachedLogo) {
+        setCachedLogo(logoUrl)
+        // Salvează în localStorage pentru persistență
+        localStorage.setItem('cachedLogo', logoUrl)
+      }
+    }
     
     // Update favicon if it exists
     if (combinedSettings.favicon && combinedSettings.favicon.file) {
@@ -331,9 +350,9 @@ const Layout = ({ children }) => {
               </button>
             )}
             <div className="flex items-center">
-              {settings.logo.file || settings.logo.url ? (
+              {cachedLogo || settings.logo.file || settings.logo.url ? (
                 <img 
-                  src={settings.logo.file || settings.logo.url} 
+                  src={cachedLogo || settings.logo.file || settings.logo.url} 
                   alt="Logo" 
                   className="h-8 md:h-12 object-contain"
                   onError={(e) => {
