@@ -1425,11 +1425,11 @@ app.post('/api/slots/import-marina', async (req, res) => {
           `
           await pool.query(updateQuery, [
             item.slot_id || item.serial_number,
-            item.provider || 'Unknown',
-            item.cabinet || 'Unknown',
-            item.game_mix || 'Unknown',
+            item.provider || null,
+            item.cabinet || null,
+            item.game_mix || null,
             item.status || 'Active',
-            item.location || 'Unknown',
+            item.location || null,
             item.serial_number
           ])
         } else {
@@ -1443,11 +1443,11 @@ app.post('/api/slots/import-marina', async (req, res) => {
           await pool.query(insertQuery, [
             item.slot_id || item.serial_number, // Use slot_id if provided, otherwise use serial_number
             item.serial_number,
-            item.provider || 'Unknown',
-            item.cabinet || 'Unknown',
-            item.game_mix || 'Unknown',
+            item.provider || null,
+            item.cabinet || null,
+            item.game_mix || null,
             item.status || 'Active',
-            item.location || 'Unknown'
+            item.location || null
           ])
         }
         

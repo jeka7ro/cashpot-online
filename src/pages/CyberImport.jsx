@@ -726,11 +726,11 @@ const CyberImport = () => {
         .map(item => ({
           slot_id: item.serial_number, // Use serial_number as slot_id
           serial_number: item.serial_number,
-          provider: item.provider || 'Unknown',
-          cabinet: item.cabinet || 'Unknown',
-          game_mix: item.game_mix || 'Unknown',
+          provider: item.provider || null,
+          cabinet: item.cabinet || null,
+          game_mix: item.game_mix || null, // Keep null if no game_mix
           status: item.status || 'Active',
-          location: item.location || 'Unknown'
+          location: item.location || null
         }))
       
       console.log('Importing slots:', itemsToImport)
@@ -796,11 +796,11 @@ const CyberImport = () => {
       const itemsToImport = filteredData.map(item => ({
         slot_id: item.serial_number, // Use serial_number as slot_id
         serial_number: item.serial_number,
-        provider: item.provider || 'Unknown',
-        cabinet: item.cabinet || 'Unknown',
-        game_mix: item.game_mix || 'Unknown',
+        provider: item.provider || null,
+        cabinet: item.cabinet || null,
+        game_mix: item.game_mix || null, // Keep null if no game_mix
         status: item.status || 'Active',
-        location: item.location || 'Unknown'
+        location: item.location || null
       }))
       
       console.log('Importing all visible slots:', itemsToImport.length)
