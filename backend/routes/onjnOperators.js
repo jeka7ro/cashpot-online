@@ -150,7 +150,7 @@ const scrapePage = async (pageNumber, companyId = null) => {
 router.get('/', async (req, res) => {
   try {
     const pool = req.app.get('pool')
-    const { limit } = req.query
+    const { limit, brand, offset } = req.query
     
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
@@ -158,14 +158,31 @@ router.get('/', async (req, res) => {
     
     let query = `
       SELECT * FROM onjn_operators
-      ORDER BY serial_number ASC
     `
+    const queryParams = []
+    let paramCount = 0
     
-    if (limit && !isNaN(parseInt(limit))) {
-      query += ` LIMIT ${parseInt(limit)}`
+    // Add brand filter if specified
+    if (brand) {
+      query += ` WHERE brand_name = $${++paramCount}`
+      queryParams.push(brand)
     }
     
-    const result = await pool.query(query)
+    query += ` ORDER BY serial_number ASC`
+    
+    // Add offset if specified
+    if (offset && !isNaN(parseInt(offset))) {
+      query += ` OFFSET $${++paramCount}`
+      queryParams.push(parseInt(offset))
+    }
+    
+    // Add limit if specified
+    if (limit && !isNaN(parseInt(limit))) {
+      query += ` LIMIT $${++paramCount}`
+      queryParams.push(parseInt(limit))
+    }
+    
+    const result = await pool.query(query, queryParams)
     
     res.json(result.rows)
   } catch (error) {

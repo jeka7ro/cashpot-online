@@ -86,11 +86,34 @@ const ONJNReports = () => {
     }
   }
 
-  // Update stats when operators or filters change
+  // Load total stats from backend
+  useEffect(() => {
+    const loadTotalStats = async () => {
+      try {
+        const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators/stats')
+        const data = await response.json()
+        
+        setStats({
+          total: data.total || 0,
+          active: data.active || 0,
+          expired: data.expired || 0,
+          byBrand: data.byBrand || {},
+          byCounty: data.byCounty || {},
+          byCity: data.byCity || {}
+        })
+      } catch (error) {
+        console.error('Error loading total ONJN stats:', error)
+      }
+    }
+    
+    loadTotalStats()
+  }, [])
+
+  // Update filtered stats when operators or filters change
   useEffect(() => {
     if (operators.length === 0) return
 
-    const loadStats = () => {
+    const loadFilteredStats = () => {
       try {
         // Calculate filtered stats based on current filters
         const filteredData = operators.filter(op => {
@@ -111,25 +134,19 @@ const ONJNReports = () => {
           return matchesSearch && matchesCompany && matchesBrand && matchesCounty && matchesCity && matchesStatus
         })
 
-        // Calculate stats from filtered data
-        const totalSlots = filteredData.length
-        const activeSlots = filteredData.filter(op => op.status === 'În exploatare').length
-        const expiredSlots = filteredData.filter(op => op.status === 'Scos din funcțiune').length
-        
-        setStats({
-          total: totalSlots,
-          active: activeSlots,
-          expired: expiredSlots,
-          byBrand: {},
-          byCounty: {},
-          byCity: {}
-        })
+        // Update only the filtered counts, keep total from backend
+        setStats(prev => ({
+          ...prev,
+          filteredTotal: filteredData.length,
+          filteredActive: filteredData.filter(op => op.status === 'În exploatare').length,
+          filteredExpired: filteredData.filter(op => op.status === 'Scos din funcțiune').length
+        }))
       } catch (error) {
-        console.error('Error loading ONJN stats:', error)
+        console.error('Error loading filtered ONJN stats:', error)
       }
     }
     
-    loadStats()
+    loadFilteredStats()
   }, [operators, operatorsSearchTerm, operatorsFilters])
 
   // Update showBulkActions based on selectedItems
@@ -470,7 +487,7 @@ const ONJNReports = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Aparate</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {stats ? stats.total.toLocaleString('ro-RO') : '0'}
+                  {stats ? (stats.total >= 1000 ? `${(stats.total / 1000).toFixed(1)}k+` : stats.total.toLocaleString('ro-RO')) : '0'}
                 </p>
               </div>
             </div>
@@ -484,7 +501,7 @@ const ONJNReports = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">În Exploatare</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {stats ? stats.active.toLocaleString('ro-RO') : '0'}
+                  {stats ? (stats.active >= 1000 ? `${(stats.active / 1000).toFixed(1)}k+` : stats.active.toLocaleString('ro-RO')) : '0'}
                 </p>
               </div>
             </div>
@@ -498,7 +515,7 @@ const ONJNReports = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Scoși din Funcțiune</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {stats ? stats.expired.toLocaleString('ro-RO') : '0'}
+                  {stats ? (stats.expired >= 1000 ? `${(stats.expired / 1000).toFixed(1)}k+` : stats.expired.toLocaleString('ro-RO')) : '0'}
                 </p>
               </div>
             </div>
