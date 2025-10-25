@@ -45,7 +45,7 @@ const ONJNReports = () => {
       try {
         setOperatorsLoading(true)
         // Load only CASHPOT brand initially for instant display
-        const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators?brand=CASHPOT&limit=100')
+        const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators?brand=CASHPOT')
         const data = await response.json()
         setOperators(data)
         setLoadedOperators(data.slice(0, 25)) // Show only first 25 initially
@@ -72,8 +72,8 @@ const ONJNReports = () => {
     
     setLoadingMore(true)
     try {
-      // Load all operators (remove brand filter)
-      const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators?limit=1000')
+      // Load all operators (no limit to get everything)
+      const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators')
       const allData = await response.json()
       
       setOperators(allData)
