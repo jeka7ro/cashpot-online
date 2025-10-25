@@ -274,7 +274,13 @@ const ONJNMap = () => {
       filteredOperators = filteredOperators.filter(op => op.county === filters.county)
     }
     
-    const values = [...new Set(filteredOperators.map(op => op[field]).filter(Boolean))]
+    let values = [...new Set(filteredOperators.map(op => op[field]).filter(Boolean))]
+    
+    // Remove "JUDEȚUL" prefix for county field in filter options
+    if (field === 'county') {
+      values = values.map(county => county.replace(/^JUD[EȚ]UL\s+/i, ''))
+    }
+    
     return values.sort()
   }
 
