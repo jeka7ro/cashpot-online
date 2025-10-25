@@ -1386,10 +1386,89 @@ const limiter = rateLimit({
 })
 app.use('/api/', limiter)
 
-// Import Marina endpoints (stub to prevent 404 errors)
+// Import Marina slots endpoint
 app.post('/api/slots/import-marina', async (req, res) => {
-  console.log('⚠️ /api/slots/import-marina called - not implemented')
-  res.json({ success: false, error: 'Endpoint not implemented yet', imported: 0 })
+  console.log('📥 Importing slots from Marina...')
+  try {
+    const { items } = req.body
+    
+    if (!items || !Array.isArray(items)) {
+      return res.status(400).json({ success: false, error: 'Items array is required', imported: 0 })
+    }
+
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available', imported: 0 })
+    }
+
+    let imported = 0
+    let errors = []
+
+    for (const item of items) {
+      try {
+        // Check if slot already exists by serial number
+        const existingQuery = 'SELECT id FROM slots WHERE serial_number = $1'
+        const existingResult = await pool.query(existingQuery, [item.serial_number])
+        
+        if (existingResult.rows.length > 0) {
+          // Update existing slot
+          const updateQuery = `
+            UPDATE slots SET 
+              provider = $1,
+              cabinet = $2,
+              game_mix = $3,
+              status = $4,
+              location = $5,
+              updated_at = CURRENT_TIMESTAMP
+            WHERE serial_number = $6
+          `
+          await pool.query(updateQuery, [
+            item.provider || 'Unknown',
+            item.cabinet || 'Unknown',
+            item.game_mix || 'Unknown',
+            item.status || 'Active',
+            item.location || 'Unknown',
+            item.serial_number
+          ])
+        } else {
+          // Insert new slot
+          const insertQuery = `
+            INSERT INTO slots (
+              serial_number, provider, cabinet, game_mix, 
+              status, location, created_at, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          `
+          await pool.query(insertQuery, [
+            item.serial_number,
+            item.provider || 'Unknown',
+            item.cabinet || 'Unknown',
+            item.game_mix || 'Unknown',
+            item.status || 'Active',
+            item.location || 'Unknown'
+          ])
+        }
+        
+        imported++
+      } catch (itemError) {
+        console.error(`Error importing slot ${item.serial_number}:`, itemError)
+        errors.push({
+          serial_number: item.serial_number,
+          error: itemError.message
+        })
+      }
+    }
+    
+    console.log(`✅ Imported ${imported} slots from Marina`)
+    res.json({
+      success: true,
+      imported,
+      errors: errors.length,
+      errorDetails: errors
+    })
+  } catch (error) {
+    console.error('Error importing slots from Marina:', error)
+    res.status(500).json({ success: false, error: 'Failed to import slots from Marina', imported: 0 })
+  }
 })
 
 app.post('/api/locations/import-marina', async (req, res) => {
