@@ -97,12 +97,14 @@ const ONJNReports = () => {
     }
   }
 
-  // Load total stats from backend
+  // Load total stats from backend - only once on mount
   useEffect(() => {
     const loadTotalStats = async () => {
       try {
         const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators/stats')
         const data = await response.json()
+        
+        console.log('📊 Loaded total stats from backend:', data)
         
         setStats(prev => ({
           ...prev,
@@ -119,7 +121,7 @@ const ONJNReports = () => {
     }
     
     loadTotalStats()
-  }, [])
+  }, []) // Only run once on mount
 
   // Update filtered stats when operators or filters change
   useEffect(() => {
@@ -163,12 +165,16 @@ const ONJNReports = () => {
         })
 
         // Update only the filtered counts, keep total from backend
-        setStats(prev => ({
-          ...prev,
-          filteredTotal: filteredData.length,
-          filteredActive: filteredData.filter(op => op.status === 'În exploatare').length,
-          filteredExpired: filteredData.filter(op => op.status === 'Scos din funcțiune').length
-        }))
+        setStats(prev => {
+          const newStats = {
+            ...prev,
+            filteredTotal: filteredData.length,
+            filteredActive: filteredData.filter(op => op.status === 'În exploatare').length,
+            filteredExpired: filteredData.filter(op => op.status === 'Scos din funcțiune').length
+          }
+          console.log('📊 Updated stats:', newStats)
+          return newStats
+        })
       } catch (error) {
         console.error('Error loading filtered ONJN stats:', error)
       }
