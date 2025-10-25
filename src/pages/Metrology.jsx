@@ -486,15 +486,40 @@ const Metrology = () => {
 
   // Commissions columns
   const commissionsColumns = [
-    { key: 'commission_number', label: 'NUMĂR COMISIE', sortable: true },
-    { key: 'members', label: 'MEMBRI', sortable: false, render: (item) => {
-      const membersList = item.members ? (typeof item.members === 'string' ? item.members.split(',') : item.members) : []
-      return (
-        <div className="text-sm">
-          {membersList.length > 0 ? membersList.join(', ') : 'N/A'}
-        </div>
+    { 
+      key: 'commission_number', 
+      label: 'NUMĂR COMISIE', 
+      sortable: true,
+      render: (item) => (
+        <button
+          onClick={() => navigate(`/metrology/commission/${item.id}`)}
+          className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline font-medium text-base"
+        >
+          {item.commission_number || item.name || `Comisie ${item.id}`}
+        </button>
       )
-    }},
+    },
+    { 
+      key: 'members', 
+      label: 'MEMBRI', 
+      sortable: false, 
+      render: (item) => {
+        const membersList = item.members ? (typeof item.members === 'string' ? item.members.split(',') : item.members) : []
+        return (
+          <div className="text-sm space-y-1">
+            {membersList.length > 0 ? membersList.map((member, index) => (
+              <button
+                key={index}
+                onClick={() => navigate(`/users?search=${encodeURIComponent(member.trim())}`)}
+                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline block"
+              >
+                {member.trim()}
+              </button>
+            )) : <span className="text-slate-400 dark:text-slate-500">N/A</span>}
+          </div>
+        )
+      }
+    },
     { 
       key: 'date_formed', 
       label: 'DATA FORMARE', 
@@ -621,40 +646,33 @@ const Metrology = () => {
             <div className="flex space-x-2 overflow-x-auto">
               <button
                 onClick={() => setActiveTab(null)}
-                className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-xl font-medium whitespace-nowrap shadow-lg shadow-cyan-500/25 hover:from-cyan-600 hover:to-blue-600 transition-all flex items-center space-x-2"
+                className="px-6 py-3 bg-slate-800 dark:bg-purple-900 text-slate-300 dark:text-purple-300 rounded-lg font-medium whitespace-nowrap hover:bg-slate-700 dark:hover:bg-purple-800 transition-all"
               >
-                <Activity className="w-4 h-4" />
-                <span>CVT-uri</span>
-                <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">{metrology.length}</span>
+                CVT-uri
               </button>
               <button
                 onClick={() => setActiveTab('approvals')}
-                className="px-6 py-3 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-medium whitespace-nowrap hover:bg-slate-300 dark:hover:bg-slate-600 transition-all flex items-center space-x-2"
+                className="px-6 py-3 bg-slate-800 dark:bg-slate-700 text-slate-300 dark:text-slate-300 rounded-lg font-medium whitespace-nowrap hover:bg-slate-700 dark:hover:bg-slate-600 transition-all"
               >
-                <FileCheck className="w-4 h-4" />
-                <span>Aprobări</span>
-                <span className="bg-slate-400 dark:bg-slate-500 px-2 py-0.5 rounded-full text-xs text-white">{approvals.length}</span>
+                Aprobări
               </button>
               <button
                 onClick={() => setActiveTab('commissions')}
-                className="px-6 py-3 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-medium whitespace-nowrap hover:bg-slate-300 dark:hover:bg-slate-600 transition-all flex items-center space-x-2"
+                className="px-6 py-3 bg-purple-900 dark:bg-purple-800 text-purple-200 dark:text-purple-300 rounded-lg font-medium whitespace-nowrap hover:bg-purple-800 dark:hover:bg-purple-700 transition-all"
               >
-                <Users className="w-4 h-4" />
-                <span>Comisii</span>
+                Comisii
               </button>
               <button
                 onClick={() => setActiveTab('software')}
-                className="px-6 py-3 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-medium whitespace-nowrap hover:bg-slate-300 dark:hover:bg-slate-600 transition-all flex items-center space-x-2"
+                className="px-6 py-3 bg-slate-800 dark:bg-slate-700 text-slate-300 dark:text-slate-300 rounded-lg font-medium whitespace-nowrap hover:bg-slate-700 dark:hover:bg-slate-600 transition-all"
               >
-                <Settings className="w-4 h-4" />
-                <span>Software</span>
+                Software
               </button>
               <button
                 onClick={() => setActiveTab('authorities')}
-                className="px-6 py-3 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-medium whitespace-nowrap hover:bg-slate-300 dark:hover:bg-slate-600 transition-all flex items-center space-x-2"
+                className="px-6 py-3 bg-slate-800 dark:bg-slate-700 text-slate-300 dark:text-slate-300 rounded-lg font-medium whitespace-nowrap hover:bg-slate-700 dark:hover:bg-slate-600 transition-all"
               >
-                <Wrench className="w-4 h-4" />
-                <span>Autorități</span>
+                Autorități
               </button>
             </div>
           </div>
