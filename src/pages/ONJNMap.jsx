@@ -24,6 +24,43 @@ const ONJNMap = () => {
     city: ''
   })
   const [selectedLocation, setSelectedLocation] = useState(null)
+  const [allOperatorsLoaded, setAllOperatorsLoaded] = useState(false)
+  const [totalStats, setTotalStats] = useState({ total: 0, active: 0, expired: 0 })
+
+  // Load all operators when button is clicked
+  const loadAllOperators = async () => {
+    if (allOperatorsLoaded) return
+    
+    try {
+      console.log('Loading all operators...')
+      const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators')
+      const data = await response.json()
+      console.log('Loaded all operators:', data.length)
+      setOperators(data)
+      setAllOperatorsLoaded(true)
+      setFilters(prev => ({ ...prev, brand: '' })) // Reset brand filter
+    } catch (error) {
+      console.error('Error loading all operators:', error)
+    }
+  }
+
+  // Load total stats from backend
+  useEffect(() => {
+    const loadTotalStats = async () => {
+      try {
+        const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators/stats')
+        const data = await response.json()
+        setTotalStats({
+          total: data.total || 0,
+          active: data.active || 0,
+          expired: data.expired || 0
+        })
+      } catch (error) {
+        console.error('Error loading total stats:', error)
+      }
+    }
+    loadTotalStats()
+  }, [])
 
   useEffect(() => {
     const loadData = async () => {
@@ -257,9 +294,100 @@ const ONJNMap = () => {
               <div className="p-3 bg-gradient-to-r from-green-500 to-blue-500 rounded-2xl shadow-lg shadow-green-500/25">
                 <MapPin className="w-6 h-6 text-white" />
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Harta ONJN</h1>
-                <p className="text-slate-600 dark:text-slate-400">Locațiile sălilor din România</p>
+              <div className="flex items-center justify-between w-full">
+                <div>
+                  <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Harta ONJN</h1>
+                  <p className="text-slate-600 dark:text-slate-400">Locațiile sălilor din România</p>
+                </div>
+                
+                {/* Load All Brands Button */}
+                {filters.brand === 'CASHPOT' && !allOperatorsLoaded && (
+                  <button
+                    onClick={loadAllOperators}
+                    className="px-3 py-1.5 text-xs bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                  >
+                    <Building2 className="w-3 h-3" />
+                    <span>Încarcă toate brandurile</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+          <div className="card p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                <Building2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Aparate</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {totalStats.total >= 1000 ? `${(totalStats.total / 1000).toFixed(1)}k+` : totalStats.total.toLocaleString('ro-RO')}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                <Building2 className="w-6 h-6 text-green-600 dark:text-green-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  {filters.brand === 'CASHPOT' ? 'CASHPOT - În Exploatare' : 'În Exploatare'}
+                </p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {filters.brand === 'CASHPOT' 
+                    ? filteredOperators.filter(op => op.status === 'În exploatare').length.toLocaleString('ro-RO')
+                    : totalStats.active >= 1000 ? `${(totalStats.active / 1000).toFixed(1)}k+` : totalStats.active.toLocaleString('ro-RO')
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
+                <MapPin className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Săli Unice</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {Object.keys(activeLocations).length.toLocaleString('ro-RO')}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-indigo-100 dark:bg-indigo-900/20 rounded-lg">
+                <Users className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Branduri</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {[...new Set(filteredOperators.map(op => op.brand_name).filter(Boolean))].length}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
+                <Building2 className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Companii</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {[...new Set(filteredOperators.map(op => op.company_name).filter(Boolean))].length}
+                </p>
               </div>
             </div>
           </div>
@@ -338,80 +466,7 @@ const ONJNMap = () => {
           </div>
         </div>
 
-        {/* Statistici */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-          <div className="card p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                <MapPin className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Săli Unice</p>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {Object.keys(activeLocations).length.toLocaleString('ro-RO')}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="card p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
-                <Building2 className="w-6 h-6 text-green-600 dark:text-green-400" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Aparate</p>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {filteredOperators.length.toLocaleString('ro-RO')}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="card p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-emerald-100 dark:bg-emerald-900/20 rounded-lg">
-                <Building2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Aparate Active</p>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {filteredOperators.filter(op => op.status === 'În exploatare').length.toLocaleString('ro-RO')}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="card p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
-                <Users className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Branduri</p>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {[...new Set(filteredOperators.map(op => op.brand_name).filter(Boolean))].length}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="card p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
-                <Building2 className="w-6 h-6 text-orange-600 dark:text-orange-400" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Companii</p>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {[...new Set(filteredOperators.map(op => op.company_name).filter(Boolean))].length}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Harta */}
+        {/* Map */}
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Harta României</h3>
