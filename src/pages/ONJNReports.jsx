@@ -32,17 +32,23 @@ const ONJNReports = () => {
   const [loadedOperators, setLoadedOperators] = useState([])
   const [loadingMore, setLoadingMore] = useState(false)
 
-  // Load ONJN operators with lazy loading
+  // Load ONJN operators with lazy loading - default CASHPOT only
   useEffect(() => {
     const loadOperators = async () => {
       try {
         setOperatorsLoading(true)
-        // Load only first 100 records initially for instant display
-        const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators?limit=100')
+        // Load only CASHPOT brand initially for instant display
+        const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators?brand=CASHPOT&limit=100')
         const data = await response.json()
         setOperators(data)
         setLoadedOperators(data.slice(0, 25)) // Show only first 25 initially
         setIsTableVisible(true)
+        
+        // Set default filter to CASHPOT
+        setOperatorsFilters(prev => ({
+          ...prev,
+          brand: 'CASHPOT'
+        }))
       } catch (error) {
         console.error('Error loading ONJN operators:', error)
       } finally {
@@ -53,23 +59,28 @@ const ONJNReports = () => {
     loadOperators()
   }, [])
 
-  // Load more operators when needed
-  const loadMoreOperators = async () => {
+  // Load all operators (all brands)
+  const loadAllOperators = async () => {
     if (loadingMore) return
     
     setLoadingMore(true)
     try {
-      // Load next batch of 100 records
-      const currentCount = operators.length
-      const response = await fetch(`https://cashpot-backend.onrender.com/api/onjn-operators?offset=${currentCount}&limit=100`)
-      const newData = await response.json()
+      // Load all operators (remove brand filter)
+      const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators?limit=1000')
+      const allData = await response.json()
       
-      if (newData.length > 0) {
-        setOperators(prev => [...prev, ...newData])
-        setLoadedOperators(prev => [...prev, ...newData.slice(0, 25)])
-      }
+      setOperators(allData)
+      setLoadedOperators(allData.slice(0, 25))
+      
+      // Reset brand filter to show all
+      setOperatorsFilters(prev => ({
+        ...prev,
+        brand: ''
+      }))
+      
+      console.log(`✅ Loaded all ${allData.length} operators`)
     } catch (error) {
-      console.error('Error loading more operators:', error)
+      console.error('Error loading all operators:', error)
     } finally {
       setLoadingMore(false)
     }
@@ -616,39 +627,29 @@ const ONJNReports = () => {
           </div>
         </div>
 
-        {/* Load More Button */}
-        {!isTableVisible && (
-          <div className="card p-6 text-center">
-            <button
-              onClick={() => setIsTableVisible(true)}
-              className="btn-primary flex items-center space-x-2 mx-auto"
-            >
-              <Building2 className="w-5 h-5" />
-              <span>Încarcă tabelul ONJN</span>
-            </button>
-          </div>
-        )}
-
-        {/* Load More Data Button */}
-        {isTableVisible && operators.length < 1000 && (
+        {/* Load All Brands Button */}
+        {isTableVisible && operatorsFilters.brand === 'CASHPOT' && (
           <div className="card p-4 text-center">
             <button
-              onClick={loadMoreOperators}
+              onClick={loadAllOperators}
               disabled={loadingMore}
-              className="btn-secondary flex items-center space-x-2 mx-auto disabled:opacity-50"
+              className="btn-primary flex items-center space-x-2 mx-auto disabled:opacity-50"
             >
               {loadingMore ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-600"></div>
-                  <span>Se încarcă...</span>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Se încarcă toate brandurile...</span>
                 </>
               ) : (
                 <>
-                  <Download className="w-4 h-4" />
-                  <span>Încarcă mai multe date ({operators.length} încărcate)</span>
+                  <Building2 className="w-4 h-4" />
+                  <span>Încarcă toate brandurile (toți operatorii)</span>
                 </>
               )}
             </button>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+              Acum afișezi doar brandul CASHPOT. Click pentru a vedea toate brandurile.
+            </p>
           </div>
         )}
 
@@ -656,7 +657,14 @@ const ONJNReports = () => {
         {isTableVisible && (
           <div className="card p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-slate-800 dark:text-white">Tabel Operatori ONJN</h3>
+              <h3 className="text-lg font-bold text-slate-800 dark:text-white">
+                Tabel Operatori ONJN
+                {operatorsFilters.brand === 'CASHPOT' && (
+                  <span className="ml-2 text-sm font-normal text-amber-600 dark:text-amber-400">
+                    (doar CASHPOT)
+                  </span>
+                )}
+              </h3>
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => exportOperatorsToExcel()}
