@@ -519,14 +519,9 @@ const ONJNReports = () => {
                 <BarChart3 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                  {operatorsFilters.brand === 'CASHPOT' ? 'CASHPOT - Total' : 'Total Aparate'}
-                </p>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Aparate</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {operatorsFilters.brand === 'CASHPOT' 
-                    ? (stats.filteredTotal || 0).toLocaleString('ro-RO')
-                    : (stats.total >= 1000 ? `${(stats.total / 1000).toFixed(1)}k+` : stats.total.toLocaleString('ro-RO'))
-                  }
+                  {stats.total >= 1000 ? `${(stats.total / 1000).toFixed(1)}k+` : stats.total.toLocaleString('ro-RO')}
                 </p>
               </div>
             </div>
@@ -544,7 +539,7 @@ const ONJNReports = () => {
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
                   {operatorsFilters.brand === 'CASHPOT' 
                     ? (stats.filteredActive || 0).toLocaleString('ro-RO')
-                    : (stats.active >= 1000 ? `${(stats.active / 1000).toFixed(1)}k+` : stats.active.toLocaleString('ro-RO'))
+                    : stats.active >= 1000 ? `${(stats.active / 1000).toFixed(1)}k+` : stats.active.toLocaleString('ro-RO')
                   }
                 </p>
               </div>
@@ -557,13 +552,11 @@ const ONJNReports = () => {
                 <Building2 className="w-6 h-6 text-red-600 dark:text-red-400" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                  {operatorsFilters.brand === 'CASHPOT' ? 'CASHPOT - Scoși' : 'Scoși din Funcțiune'}
-                </p>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Scoși din Funcțiune</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
                   {operatorsFilters.brand === 'CASHPOT' 
                     ? (stats.filteredExpired || 0).toLocaleString('ro-RO')
-                    : (stats.expired >= 1000 ? `${(stats.expired / 1000).toFixed(1)}k+` : stats.expired.toLocaleString('ro-RO'))
+                    : stats.expired >= 1000 ? `${(stats.expired / 1000).toFixed(1)}k+` : stats.expired.toLocaleString('ro-RO')
                   }
                 </p>
               </div>
@@ -576,9 +569,7 @@ const ONJNReports = () => {
                 <BarChart3 className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                  {operatorsFilters.brand === 'CASHPOT' ? 'CASHPOT - Rata Activitate' : 'Rata Activitate'}
-                </p>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Rata Activitate</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
                   {operatorsFilters.brand === 'CASHPOT' 
                     ? (stats.filteredTotal > 0 ? ((stats.filteredActive / stats.filteredTotal) * 100).toFixed(1) : 0) + '%'
@@ -595,9 +586,7 @@ const ONJNReports = () => {
                 <Building2 className="w-6 h-6 text-purple-600 dark:text-purple-400" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                  {operatorsFilters.brand === 'CASHPOT' ? 'CASHPOT - Săli' : 'Săli'}
-                </p>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Săli</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
                   {operatorsFilters.brand === 'CASHPOT' 
                     ? (() => {
