@@ -14,7 +14,14 @@ const ONJNReports = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
-  const [stats, setStats] = useState(null)
+  const [stats, setStats] = useState({
+    total: 0,
+    active: 0,
+    expired: 0,
+    byBrand: {},
+    byCounty: {},
+    byCity: {}
+  })
   const [operators, setOperators] = useState([])
   const [operatorsLoading, setOperatorsLoading] = useState(true)
   const [operatorsSearchTerm, setOperatorsSearchTerm] = useState('')
@@ -487,11 +494,9 @@ const ONJNReports = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Aparate</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {stats ? (
-                    operatorsFilters.brand === 'CASHPOT' && operators.length < 1000 
-                      ? (stats.total >= 1000 ? `${(stats.total / 1000).toFixed(1)}k+` : stats.total.toLocaleString('ro-RO'))
-                      : stats.total.toLocaleString('ro-RO')
-                  ) : '0'}
+                  {operatorsFilters.brand === 'CASHPOT' && operators.length < 1000 
+                    ? (stats.total >= 1000 ? `${(stats.total / 1000).toFixed(1)}k+` : stats.total.toLocaleString('ro-RO'))
+                    : stats.total.toLocaleString('ro-RO')}
                 </p>
               </div>
             </div>
@@ -505,11 +510,9 @@ const ONJNReports = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">În Exploatare</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {stats ? (
-                    operatorsFilters.brand === 'CASHPOT' && operators.length < 1000 
-                      ? (stats.active >= 1000 ? `${(stats.active / 1000).toFixed(1)}k+` : stats.active.toLocaleString('ro-RO'))
-                      : stats.active.toLocaleString('ro-RO')
-                  ) : '0'}
+                  {operatorsFilters.brand === 'CASHPOT' && operators.length < 1000 
+                    ? (stats.active >= 1000 ? `${(stats.active / 1000).toFixed(1)}k+` : stats.active.toLocaleString('ro-RO'))
+                    : stats.active.toLocaleString('ro-RO')}
                 </p>
               </div>
             </div>
@@ -523,11 +526,9 @@ const ONJNReports = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Scoși din Funcțiune</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {stats ? (
-                    operatorsFilters.brand === 'CASHPOT' && operators.length < 1000 
-                      ? (stats.expired >= 1000 ? `${(stats.expired / 1000).toFixed(1)}k+` : stats.expired.toLocaleString('ro-RO'))
-                      : stats.expired.toLocaleString('ro-RO')
-                  ) : '0'}
+                  {operatorsFilters.brand === 'CASHPOT' && operators.length < 1000 
+                    ? (stats.expired >= 1000 ? `${(stats.expired / 1000).toFixed(1)}k+` : stats.expired.toLocaleString('ro-RO'))
+                    : stats.expired.toLocaleString('ro-RO')}
                 </p>
               </div>
             </div>
@@ -541,7 +542,7 @@ const ONJNReports = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Rata Activitate</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {stats && stats.total > 0 ? ((stats.active / stats.total) * 100).toFixed(1) : 0}%
+                  {stats.total > 0 ? ((stats.active / stats.total) * 100).toFixed(1) : 0}%
                 </p>
               </div>
             </div>
@@ -555,7 +556,7 @@ const ONJNReports = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Săli</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {stats ? new Set(operators.map(op => op.slot_address).filter(Boolean)).size.toLocaleString('ro-RO') : '0'}
+                  {new Set(operators.map(op => op.slot_address).filter(Boolean)).size.toLocaleString('ro-RO')}
                 </p>
               </div>
             </div>
