@@ -47,6 +47,7 @@ const ONJNReports = () => {
         // Load only CASHPOT brand initially for instant display
         const response = await fetch('https://cashpot-backend.onrender.com/api/onjn-operators?brand=CASHPOT')
         const data = await response.json()
+        console.log('📡 Loaded CASHPOT operators:', data.length, data.slice(0, 3))
         setOperators(data)
         setLoadedOperators(data.slice(0, 25)) // Show only first 25 initially
         setIsTableVisible(true)
@@ -118,7 +119,16 @@ const ONJNReports = () => {
 
   // Update filtered stats when operators or filters change
   useEffect(() => {
-    if (operators.length === 0) return
+    console.log('🔄 Updating filtered stats...', { 
+      operatorsLength: operators.length, 
+      brandFilter: operatorsFilters.brand,
+      operators: operators.slice(0, 3) // First 3 operators for debugging
+    })
+
+    if (operators.length === 0) {
+      console.log('⚠️ No operators loaded, skipping filtered stats calculation')
+      return
+    }
 
     const loadFilteredStats = () => {
       try {
@@ -139,6 +149,13 @@ const ONJNReports = () => {
           const matchesStatus = !operatorsFilters.status || op.status === operatorsFilters.status
           
           return matchesSearch && matchesCompany && matchesBrand && matchesCounty && matchesCity && matchesStatus
+        })
+
+        console.log('📊 Filtered data stats:', {
+          total: filteredData.length,
+          active: filteredData.filter(op => op.status === 'În exploatare').length,
+          expired: filteredData.filter(op => op.status === 'Scos din funcțiune').length,
+          brandFilter: operatorsFilters.brand
         })
 
         // Update only the filtered counts, keep total from backend
