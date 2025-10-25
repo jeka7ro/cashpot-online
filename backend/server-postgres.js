@@ -849,12 +849,20 @@ const initializeDatabase = async () => {
           commission_date DATE NOT NULL,
           expiry_date DATE NOT NULL,
           notes TEXT,
+          attachments JSONB,
           created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
           updated_by VARCHAR(255),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `)
+      
+      // Add attachments column if it doesn't exist
+      await pool.query(`
+        ALTER TABLE commissions ADD COLUMN IF NOT EXISTS attachments JSONB
+      `).catch(err => {
+        if (err.code !== '42701') throw err // Ignore duplicate column error
+      })
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS software (
@@ -4195,6 +4203,21 @@ app.get('/api/commissions', async (req, res) => {
     res.json(result.rows)
   } catch (error) {
     console.error('Commissions GET error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Get a single commission by ID
+app.get('/api/commissions/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const result = await pool.query('SELECT * FROM commissions WHERE id = $1', [id])
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Commission not found' })
+    }
+    res.json(result.rows[0])
+  } catch (error) {
+    console.error('Commission GET by ID error:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })
