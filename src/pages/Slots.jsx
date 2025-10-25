@@ -496,27 +496,27 @@ const Slots = () => {
         })
       }
       
-      // Clear loading toast
-      toast.dismiss(loadingToast)
-      
-      // Afișează rezultatul final
-      if (errorCount === 0) {
-        toast.success(`✅ ${successCount} sloturi șterse cu succes!`, {
-          duration: 5000
-        })
-      } else if (successCount > 0) {
-        toast.success(`⚠️ ${successCount} sloturi șterse, ${errorCount} erori`, {
-          duration: 5000
-        })
-      } else {
-        toast.error(`❌ Eroare la ștergerea tuturor ${totalItems} sloturi`, {
-          duration: 5000
-        })
-      }
-      
       // Cleanup
       setSelectedItems([])
       setShowBulkActions(false)
+      
+      // Clear loading toast
+      toast.dismiss(loadingToast)
+      
+      // Afișează un singur rezultat final
+      if (errorCount === 0) {
+        toast.success(`✅ ${successCount}/${totalItems} sloturi șterse`, {
+          duration: 3000
+        })
+      } else if (successCount > 0) {
+        toast.success(`⚠️ ${successCount}/${totalItems} șterse, ${errorCount} erori`, {
+          duration: 3000
+        })
+      } else {
+        toast.error(`❌ Eroare la ștergerea tuturor sloturilor`, {
+          duration: 3000
+        })
+      }
       
     } catch (error) {
       console.error('Error bulk deleting slots:', error)
@@ -536,37 +536,49 @@ const Slots = () => {
     if (!confirmMove) return
     
     try {
-      toast.loading(`Mutare ${selectedItems.length} sloturi în depozit...`, { id: 'bulk-move' })
+      const loadingToast = toast.loading(`Mutare ${selectedItems.length} sloturi în depozit...`, { id: 'bulk-move' })
       
       // Get selected slots data
       const selectedSlots = slots.filter(slot => selectedItems.includes(slot.id))
+      let successCount = 0
       
       // Move each slot to warehouse
       for (const slot of selectedSlots) {
-        // Create warehouse entry
-        await createItem('warehouse', {
-          serial_number: slot.serial_number,
-          provider: slot.provider,
-          cabinet: slot.cabinet,
-          game_mix: slot.game_mix,
-          status: 'In Depozit',
-          location: 'Depozit',
-          notes: `Mutat din ${slot.location || 'Unknown'} la ${new Date().toLocaleDateString('ro-RO')}`
-        })
-        
-        // Delete from slots
-        await deleteItem('slots', slot.id)
+        try {
+          // Create warehouse entry
+          await createItem('warehouse', {
+            serial_number: slot.serial_number,
+            provider: slot.provider,
+            cabinet: slot.cabinet,
+            game_mix: slot.game_mix,
+            status: 'In Depozit',
+            location: 'Depozit',
+            notes: `Mutat din ${slot.location || 'Unknown'} la ${new Date().toLocaleDateString('ro-RO')}`
+          }, true) // silent = true pentru bulk operations
+          
+          // Delete from slots
+          await deleteItem('slots', slot.id, true) // silent = true pentru bulk operations
+          successCount++
+        } catch (error) {
+          console.error(`Error moving slot ${slot.id}:`, error)
+        }
       }
       
       setSelectedItems([])
       setShowBulkActions(false)
-      toast.success(`${selectedSlots.length} sloturi mutate în Depozit cu succes!`, { id: 'bulk-move' })
+      
+      // Dismiss loading and show single result
+      toast.dismiss(loadingToast)
+      toast.success(`✅ ${successCount}/${selectedSlots.length} sloturi mutate în Depozit`, {
+        duration: 3000
+      })
       
       // Refresh data
       await refreshData()
     } catch (error) {
       console.error('Error moving slots to warehouse:', error)
-      toast.error('Eroare la mutarea sloturilor în depozit!', { id: 'bulk-move' })
+      toast.dismiss('bulk-move')
+      toast.error('Eroare la mutarea sloturilor în depozit!')
     }
   }
 
