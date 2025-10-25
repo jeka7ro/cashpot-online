@@ -637,18 +637,42 @@ const ONJNReports = () => {
               </select>
             </div>
 
-            {/* Reset Filters */}
+            {/* Reset Filters and Load All Brands */}
             <div className="flex items-center justify-between">
-              <button
-                onClick={() => {
-                  setOperatorsSearchTerm('')
-                  setOperatorsFilters({ company: '', brand: '', county: '', city: '', status: '' })
-                  setOperatorsPage(1)
-                }}
-                className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"
-              >
-                Resetare filtre
-              </button>
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => {
+                    setOperatorsSearchTerm('')
+                    setOperatorsFilters({ company: '', brand: '', county: '', city: '', status: '' })
+                    setOperatorsPage(1)
+                  }}
+                  className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"
+                >
+                  Resetare filtre
+                </button>
+                
+                {/* Load All Brands Button - moved here */}
+                {operatorsFilters.brand === 'CASHPOT' && (
+                  <button
+                    onClick={loadAllOperators}
+                    disabled={loadingMore}
+                    className="px-4 py-2 text-sm bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                  >
+                    {loadingMore ? (
+                      <>
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                        <span>Se încarcă...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Building2 className="w-3 h-3" />
+                        <span>Încarcă toate brandurile</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+              
               <div className="text-sm text-slate-600 dark:text-slate-400">
                 {filteredOperators.length} operatori găsiți
               </div>
@@ -656,31 +680,6 @@ const ONJNReports = () => {
           </div>
         </div>
 
-        {/* Load All Brands Button */}
-        {isTableVisible && operatorsFilters.brand === 'CASHPOT' && (
-          <div className="card p-4 text-center">
-            <button
-              onClick={loadAllOperators}
-              disabled={loadingMore}
-              className="btn-primary flex items-center space-x-2 mx-auto disabled:opacity-50"
-            >
-              {loadingMore ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>Se încarcă toate brandurile...</span>
-                </>
-              ) : (
-                <>
-                  <Building2 className="w-4 h-4" />
-                  <span>Încarcă toate brandurile (toți operatorii)</span>
-                </>
-              )}
-            </button>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
-              Acum afișezi doar brandul CASHPOT. Click pentru a vedea toate brandurile.
-            </p>
-          </div>
-        )}
 
         {/* ONJN Operators Table */}
         {isTableVisible && (
