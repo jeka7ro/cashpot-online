@@ -487,15 +487,15 @@ const Metrology = () => {
   // Commissions columns
   const commissionsColumns = [
     { 
-      key: 'commission_number', 
-      label: 'NUMĂR COMISIE', 
+      key: 'name', 
+      label: 'NUME', 
       sortable: true,
       render: (item) => (
         <button
           onClick={() => navigate(`/metrology/commission/${item.id}`)}
           className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline font-medium text-base"
         >
-          {item.commission_number || item.name || `Comisie ${item.id}`}
+          {item.name || item.commission_number || `Comisie ${item.id}`}
         </button>
       )
     },
