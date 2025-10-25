@@ -178,9 +178,9 @@ export const DataProvider = ({ children }) => {
       
       await loadSlots()
       
-      // Fetch remaining entities in background with retry
+      // Fetch remaining entities in background with retry (2 retries for better reliability)
       const regularRequests = regularEntities.map(entity => 
-        fetchWithRetry(entity, 1) // 1 retry pentru entitățile regulate
+        fetchWithRetry(entity, 2) // 2 retries pentru entitățile regulate
       )
       
       console.log(`📡 Loading ${regularRequests.length} remaining entities in background...`)
@@ -192,6 +192,8 @@ export const DataProvider = ({ children }) => {
         console.log(`✅ ${entity}: ${data.length} items`)
         entityConfig[entity].setState(data)
       })
+      
+      console.log('⚡ All background data loaded!')
       
       // SPECIAL FALLBACK FOR PROMOTIONS - if empty, try direct API call
       const promotionsIndex = regularEntities.findIndex(e => e === 'promotions')
