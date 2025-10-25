@@ -1386,6 +1386,22 @@ const limiter = rateLimit({
 })
 app.use('/api/', limiter)
 
+// Import Marina endpoints (stub to prevent 404 errors)
+app.post('/api/slots/import-marina', async (req, res) => {
+  console.log('⚠️ /api/slots/import-marina called - not implemented')
+  res.json({ success: false, error: 'Endpoint not implemented yet', imported: 0 })
+})
+
+app.post('/api/locations/import-marina', async (req, res) => {
+  console.log('⚠️ /api/locations/import-marina called - not implemented')
+  res.json({ success: false, error: 'Endpoint not implemented yet', imported: 0 })
+})
+
+app.get('/api/cyber-direct/fetch-yesterday', async (req, res) => {
+  console.log('⚠️ /api/cyber-direct/fetch-yesterday called - not implemented')
+  res.json({ success: false, error: 'Endpoint not implemented yet', data: [] })
+})
+
 // Health check - Force redeploy
 app.get('/health', async (req, res) => {
   try {
