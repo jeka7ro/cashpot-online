@@ -37,7 +37,7 @@ const ApprovalDetail = () => {
       setLoading(false)
     } else {
       toast.error('Aprobarea nu a fost găsită')
-      navigate('/approvals')
+      navigate('/metrology?tab=approvals')
     }
   }, [id, approvals, navigate])
 
@@ -45,7 +45,7 @@ const ApprovalDetail = () => {
     try {
       await deleteItem('approvals', approval.id)
       toast.success('Aprobarea a fost ștearsă cu succes')
-      navigate('/approvals')
+      navigate('/metrology?tab=approvals')
     } catch (error) {
       toast.error('Eroare la ștergerea aprobării')
     }
@@ -155,7 +155,7 @@ const ApprovalDetail = () => {
             <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-2">Aprobarea nu a fost găsită</h2>
             <p className="text-slate-600 dark:text-slate-400 mb-4">Aprobarea pe care o căutați nu există sau a fost ștearsă.</p>
             <button
-              onClick={() => navigate('/approvals')}
+              onClick={() => navigate('/metrology?tab=approvals')}
               className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg hover:from-green-600 hover:to-emerald-600 transition-colors"
             >
               Înapoi la Metrologie
