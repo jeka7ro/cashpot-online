@@ -438,44 +438,22 @@ const Metrology = () => {
         </button>
       )
     },
-    { key: 'approval_type', label: 'TIP APROBARE', sortable: true },
     { key: 'provider', label: 'FURNIZOR', sortable: true },
     { key: 'cabinet', label: 'CABINET', sortable: true },
     { 
-      key: 'approval_date', 
-      label: 'DATA APROBARE', 
-      sortable: true,
+      key: 'checksum_info', 
+      label: 'CHECKSUMS', 
+      sortable: false,
       render: (item) => (
-        <div className="text-slate-600">
-          {item.approval_date ? new Date(item.approval_date).toLocaleDateString('ro-RO') : 'N/A'}
+        <div className="space-y-1">
+          <div className="text-xs text-slate-600">
+            MD5: {item.checksum_md5 || 'N/A'}
+          </div>
+          <div className="text-xs text-slate-600">
+            SHA256: {item.checksum_sha256 || 'N/A'}
+          </div>
         </div>
       )
-    },
-    { 
-      key: 'expiry_date', 
-      label: 'DATA EXPIRARE', 
-      sortable: true,
-      render: (item) => {
-        if (!item.expiry_date) return <span className="text-slate-400">N/A</span>
-        
-        const expiryDate = new Date(item.expiry_date)
-        const today = new Date()
-        const diffTime = expiryDate - today
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-        
-        let colorClass = 'text-green-600'
-        if (diffDays < 0) {
-          colorClass = 'text-red-600'
-        } else if (diffDays <= 30) {
-          colorClass = 'text-orange-600'
-        }
-        
-        return (
-          <div className={colorClass}>
-            {expiryDate.toLocaleDateString('ro-RO')}
-          </div>
-        )
-      }
     },
     { 
       key: 'created_info', 

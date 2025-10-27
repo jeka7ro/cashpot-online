@@ -14,8 +14,11 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
     provider: '',
     cabinet: '',
     gameMix: '',
+    approval_type: '',
     software: '',
     issuingAuthority: '',
+    approval_date: '',
+    expiry_date: '',
     checksumMD5: '',
     checksumSHA256: '',
     attachments: [],
@@ -43,13 +46,23 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
     loadData()
 
     if (item) {
+      const formatDateForInput = (dateString) => {
+        if (!dateString) return ''
+        const date = new Date(dateString)
+        if (isNaN(date.getTime())) return ''
+        return date.toISOString().split('T')[0]
+      }
+
       setFormData({
         name: item.name || '',
         provider: item.provider || '',
         cabinet: item.cabinet || '',
         gameMix: item.game_mix || item.gameMix || '',
+        approval_type: item.approval_type || '',
         software: item.software || '',
         issuingAuthority: item.issuing_authority || item.issuingAuthority || '',
+        approval_date: formatDateForInput(item.approval_date),
+        expiry_date: formatDateForInput(item.expiry_date),
         checksumMD5: item.checksum_md5 || item.checksumMD5 || '',
         checksumSHA256: item.checksum_sha256 || item.checksumSHA256 || '',
         attachments: item.attachments || [],
@@ -156,8 +169,11 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
       provider: formData.provider,
       cabinet: formData.cabinet,
       game_mix: formData.gameMix,
+      approval_type: formData.approval_type,
       software: formData.software,
       issuing_authority: formData.issuingAuthority,
+      approval_date: formData.approval_date || null,
+      expiry_date: formData.expiry_date || null,
       checksum_md5: formData.checksumMD5,
       checksum_sha256: formData.checksumSHA256,
       attachments: formData.attachments,
@@ -320,6 +336,49 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
                 <option key={auth.id} value={auth.name}>{auth.name}</option>
               ))}
             </select>
+          </div>
+
+          {/* Tip Aprobare */}
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-slate-700">
+              Tip Aprobare
+            </label>
+            <input
+              type="text"
+              name="approval_type"
+              value={formData.approval_type}
+              onChange={handleChange}
+              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              placeholder="ex: Aprobare de tip A"
+            />
+          </div>
+
+          {/* Data Aprobare */}
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-slate-700">
+              Data Aprobare
+            </label>
+            <input
+              type="date"
+              name="approval_date"
+              value={formData.approval_date}
+              onChange={handleChange}
+              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Data Expirare */}
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-slate-700">
+              Data Expirare
+            </label>
+            <input
+              type="date"
+              name="expiry_date"
+              value={formData.expiry_date}
+              onChange={handleChange}
+              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            />
           </div>
           </div>
 
