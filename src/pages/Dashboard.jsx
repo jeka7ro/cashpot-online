@@ -422,9 +422,11 @@ const Dashboard = () => {
       const response = await axios.post(`/api/restore-dashboard/${user.id}`, {}, { timeout: 10000 })
       
       if (response.data.success) {
-        toast.success('Dashboard restaurat cu succes!')
-        // Reload preferences from server
-        await forceSyncPreferences()
+        toast.success('Dashboard restaurat cu succes! Reloading...')
+        // Reload entire page to apply changes
+        setTimeout(() => {
+          window.location.reload()
+        }, 1000)
       } else {
         toast.error('Eroare la restaurarea dashboard-ului')
       }
