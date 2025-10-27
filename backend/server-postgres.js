@@ -4319,6 +4319,27 @@ app.delete('/api/commissions/:id', authenticateUser, async (req, res) => {
 
 // Routes are registered at line 1075 using promotionsRoutes router
 
+// Get dashboard configuration endpoint
+app.get('/api/restore-dashboard/:userId', authenticateUser, async (req, res) => {
+  try {
+    const { userId } = req.params
+    const result = await pool.query('SELECT preferences FROM users WHERE id = $1', [userId])
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' })
+    }
+    
+    const preferences = typeof result.rows[0].preferences === 'string' 
+      ? JSON.parse(result.rows[0].preferences) 
+      : result.rows[0].preferences || {}
+    
+    res.json({ success: true, preferences })
+  } catch (error) {
+    console.error('Error getting dashboard config:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 // Restore dashboard configuration endpoint
 app.post('/api/restore-dashboard/:userId', authenticateUser, async (req, res) => {
   try {
