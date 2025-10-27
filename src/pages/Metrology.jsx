@@ -608,38 +608,73 @@ const Metrology = () => {
             </div>
           </div>
 
-          {/* Sub-navigation */}
-          <div className="card p-4">
-            <div className="flex space-x-2 overflow-x-auto">
+          {/* Sub-navigation - same style as Locations */}
+          <div className="card p-6">
+            <div className="flex space-x-1 bg-slate-100 rounded-xl p-1">
               <button
                 onClick={() => setActiveTab(null)}
-                className="px-6 py-3 bg-slate-800 dark:bg-purple-900 text-slate-300 dark:text-purple-300 rounded-lg font-medium whitespace-nowrap hover:bg-slate-700 dark:hover:bg-purple-800 transition-all"
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
+                  !activeTab
+                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
               >
-                CVT-uri
+                <div className="flex items-center justify-center space-x-2">
+                  <Activity size={20} />
+                  <span>CVT-uri</span>
+                </div>
               </button>
               <button
                 onClick={() => setActiveTab('approvals')}
-                className="px-6 py-3 bg-slate-800 dark:bg-slate-700 text-slate-300 dark:text-slate-300 rounded-lg font-medium whitespace-nowrap hover:bg-slate-700 dark:hover:bg-slate-600 transition-all"
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
+                  activeTab === 'approvals'
+                    ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
               >
-                Aprobări
+                <div className="flex items-center justify-center space-x-2">
+                  <FileCheck size={20} />
+                  <span>Aprobări</span>
+                </div>
               </button>
               <button
                 onClick={() => setActiveTab('commissions')}
-                className="px-6 py-3 bg-purple-900 dark:bg-purple-800 text-purple-200 dark:text-purple-300 rounded-lg font-medium whitespace-nowrap hover:bg-purple-800 dark:hover:bg-purple-700 transition-all"
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
+                  activeTab === 'commissions'
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-500/25'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
               >
-                Comisii
+                <div className="flex items-center justify-center space-x-2">
+                  <Users size={20} />
+                  <span>Comisii</span>
+                </div>
               </button>
               <button
                 onClick={() => setActiveTab('software')}
-                className="px-6 py-3 bg-slate-800 dark:bg-slate-700 text-slate-300 dark:text-slate-300 rounded-lg font-medium whitespace-nowrap hover:bg-slate-700 dark:hover:bg-slate-600 transition-all"
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
+                  activeTab === 'software'
+                    ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg shadow-purple-500/25'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
               >
-                Software
+                <div className="flex items-center justify-center space-x-2">
+                  <FileText size={20} />
+                  <span>Software</span>
+                </div>
               </button>
               <button
                 onClick={() => setActiveTab('authorities')}
-                className="px-6 py-3 bg-slate-800 dark:bg-slate-700 text-slate-300 dark:text-slate-300 rounded-lg font-medium whitespace-nowrap hover:bg-slate-700 dark:hover:bg-slate-600 transition-all"
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
+                  activeTab === 'authorities'
+                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/25'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
               >
-                Autorități
+                <div className="flex items-center justify-center space-x-2">
+                  <Settings size={20} />
+                  <span>Autorități</span>
+                </div>
               </button>
             </div>
           </div>
