@@ -176,7 +176,7 @@ const ApprovalDetail = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <button
-                    onClick={() => navigate('/approvals')}
+                    onClick={() => navigate('/metrology?tab=approvals')}
                     className="p-2 hover:bg-white/20 rounded-lg transition-colors"
                   >
                     <ArrowLeft className="w-5 h-5 text-white" />

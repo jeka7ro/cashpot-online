@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import ExportButtons from '../components/ExportButtons'
 import { useData } from '../contexts/DataContext'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Activity, Plus, Search, Upload, Download, FileCheck, Settings, Wrench, ArrowLeft, Eye, Calendar, Users, FileText } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import MetrologyModal from '../components/modals/MetrologyModal'
@@ -16,10 +16,11 @@ import ONJNCalendarModal from '../components/modals/ONJNCalendarModal'
 const Metrology = () => {
   const { metrology, approvals, providers, cabinets, gameMixes, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
-  const [activeTab, setActiveTab] = useState(null)
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || null)
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
@@ -43,6 +44,15 @@ const Metrology = () => {
   useEffect(() => {
     setShowBulkActions(selectedItems.length > 0)
   }, [selectedItems])
+
+  // Update URL when activeTab changes
+  useEffect(() => {
+    if (activeTab) {
+      setSearchParams({ tab: activeTab })
+    } else {
+      setSearchParams({})
+    }
+  }, [activeTab, setSearchParams])
 
   // Load sub-page data
   useEffect(() => {
