@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from 'react'
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 
@@ -226,11 +226,19 @@ export const DataProvider = ({ children }) => {
     }
   }
 
+  // Don't fetch data automatically - let pages decide when to load
+  // This ensures login is instant without waiting for data
   useEffect(() => {
-    console.log('🚀 DataContext useEffect triggered')
-    // Fetch data immediately - no delay!
-    fetchAllData()
+    console.log('🚀 DataContext initialized - data will be loaded on demand')
+    // Data will be loaded when pages request it
   }, [])
+
+  // Public method to trigger data loading - memoized with useCallback
+  const loadAllData = useCallback(() => {
+    if (!loading) {
+      fetchAllData()
+    }
+  }, [loading])
 
   // Calculate statistics - MOVED TO END OF COMPONENT to avoid circular dependency
 
@@ -736,7 +744,8 @@ export const DataProvider = ({ children }) => {
     exportData,
     exportToExcel,
     exportToPDF,
-    refreshData: fetchAllData
+    refreshData: fetchAllData,
+    loadAllData
   }
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

@@ -96,9 +96,15 @@ const SortableCard = ({ cardConfig, cardData, cardSize, sizeClass, onToggleVisib
 }
 
 const Dashboard = () => {
-  const { statistics, loading } = useData()
+  const { statistics, loading, loadAllData } = useData()
   const { user } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
+  
+  // Load all data when Dashboard mounts (after login)
+  useEffect(() => {
+    loadAllData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [dashboardConfig, setDashboardConfig] = useState(null)
   const [selectedCards, setSelectedCards] = useState([])
   const [selectedWidgets, setSelectedWidgets] = useState([])
