@@ -17,6 +17,14 @@ const Slots = () => {
   const { slots, invoices, warehouse, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
   const { user } = useAuth()
   const navigate = useNavigate()
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('📊 Slots data loaded:', slots.length)
+    if (slots.length > 0) {
+      console.log('📦 First slot:', slots[0])
+    }
+  }, [slots])
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [providerFilter, setProviderFilter] = useState('all')
