@@ -11,6 +11,15 @@ import { toast } from 'react-hot-toast'
 
 const Cabinets = () => {
   const { cabinets, platforms, providers, createItem, updateItem, deleteItem, exportData, loading } = useData()
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('📊 Cabinets data loaded:', cabinets.length)
+    if (cabinets.length > 0) {
+      console.log('📦 First cabinet:', cabinets[0])
+    }
+  }, [cabinets])
+  
   const [showModal, setShowModal] = useState(false)
   const [showPlatformModal, setShowPlatformModal] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
