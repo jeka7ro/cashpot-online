@@ -99,13 +99,13 @@ const Dashboard = () => {
   const { statistics, loading, loadAllData } = useData()
   const { user } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
+  const [dashboardConfig, setDashboardConfig] = useState(null)
   
-  // Load all data when Dashboard mounts (after login)
+  // Load all data when Dashboard mounts (after login) - non-blocking
   useEffect(() => {
     loadAllData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  const [dashboardConfig, setDashboardConfig] = useState(null)
   const [selectedCards, setSelectedCards] = useState([])
   const [selectedWidgets, setSelectedWidgets] = useState([])
   const [showUpdateTime, setShowUpdateTime] = useState(true)
@@ -239,6 +239,10 @@ const Dashboard = () => {
 
   // Încarcă preferințele de pe server sau folosește // localStorage REMOVED - using server only
   useEffect(() => {
+    // Set default config immediately for instant loading
+    setDashboardConfig(defaultDashboardConfig)
+    
+    // Load preferences from server asynchronously (non-blocking)
     const loadPreferences = async () => {
       console.log('🔄 Loading dashboard preferences...', { userId: user?.id, user })
       
@@ -281,15 +285,14 @@ const Dashboard = () => {
           // cardSizes and widgetSizes are managed locally, not saved in sessionStorage
         } catch (e) {
           console.error('Error parsing sessionStorage config:', e)
-          setDashboardConfig(defaultDashboardConfig)
         }
-      } else {
-        console.log('🆕 Using default dashboard configuration')
-        setDashboardConfig(defaultDashboardConfig)
       }
     }
     
-    loadPreferences()
+    // Load preferences in background (non-blocking)
+    setTimeout(() => {
+      loadPreferences()
+    }, 100)
   }, [user?.id])
 
   // Salvează dimensiunile cardurilor pe server
@@ -402,7 +405,7 @@ const Dashboard = () => {
         toast.success('Preferințele au fost sincronizate de pe server!')
       } else {
         console.log('ℹ️ No dashboard preferences found on server')
-        toast.info('Nu există preferințe salvate pe server')
+        toast('Nu există preferințe salvate pe server')
       }
     } catch (error) {
       console.error('❌ Error force syncing preferences:', error)
