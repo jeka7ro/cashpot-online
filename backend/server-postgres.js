@@ -3822,13 +3822,13 @@ app.post('/api/software', authenticateUser, async (req, res) => {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
     
-    const { name, version, provider, description, checksum_md5, checksum_sha256 } = req.body
+    const { name, version, provider, cabinet, game_mix, approval, notes } = req.body
     
     const result = await pool.query(
-      `INSERT INTO software (name, version, provider, description, checksum_md5, checksum_sha256, created_at, updated_at) 
+      `INSERT INTO software (name, version, provider, cabinet, game_mix, notes, created_at, updated_at) 
        VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) 
        RETURNING *`,
-      [name, version, provider, description, checksum_md5, checksum_sha256]
+      [name, version, provider, cabinet, game_mix, notes]
     )
     
     res.json(result.rows[0])
@@ -3847,14 +3847,14 @@ app.put('/api/software/:id', authenticateUser, async (req, res) => {
     }
     
     const { id } = req.params
-    const { name, version, provider, description, checksum_md5, checksum_sha256 } = req.body
+    const { name, version, provider, cabinet, game_mix, approval, notes } = req.body
     
     const result = await pool.query(
       `UPDATE software 
-       SET name = $1, version = $2, provider = $3, description = $4, checksum_md5 = $5, checksum_sha256 = $6, updated_at = CURRENT_TIMESTAMP 
+       SET name = $1, version = $2, provider = $3, cabinet = $4, game_mix = $5, notes = $6, updated_at = CURRENT_TIMESTAMP 
        WHERE id = $7 
        RETURNING *`,
-      [name, version, provider, description, checksum_md5, checksum_sha256, id]
+      [name, version, provider, cabinet, game_mix, notes, id]
     )
     
     res.json(result.rows[0])
