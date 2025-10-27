@@ -239,10 +239,6 @@ const Dashboard = () => {
 
   // Încarcă preferințele de pe server sau folosește // localStorage REMOVED - using server only
   useEffect(() => {
-    // Set default config immediately for instant loading
-    setDashboardConfig(defaultDashboardConfig)
-    
-    // Load preferences from server asynchronously (non-blocking)
     const loadPreferences = async () => {
       console.log('🔄 Loading dashboard preferences...', { userId: user?.id, user })
       
@@ -283,16 +279,18 @@ const Dashboard = () => {
           console.log('📱 Loaded dashboard preferences from sessionStorage:', config)
           setDashboardConfig(config)
           // cardSizes and widgetSizes are managed locally, not saved in sessionStorage
+          return
         } catch (e) {
           console.error('Error parsing sessionStorage config:', e)
         }
       }
+      
+      // Final fallback: use default config only if nothing else is available
+      console.log('🆕 Using default dashboard configuration')
+      setDashboardConfig(defaultDashboardConfig)
     }
     
-    // Load preferences in background (non-blocking)
-    setTimeout(() => {
-      loadPreferences()
-    }, 100)
+    loadPreferences()
   }, [user?.id])
 
   // Salvează dimensiunile cardurilor pe server
