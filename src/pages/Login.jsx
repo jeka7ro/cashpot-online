@@ -62,18 +62,36 @@ const Login = () => {
 
     loadGlobalSettings()
 
-    // Load saved credentials
-    // localStorage REMOVED - using server only
-    const savedCredentials = null
+    // Load saved credentials from localStorage
+    const savedCredentials = localStorage.getItem('cashpot_remember_credentials')
     if (savedCredentials) {
-      const credentials = JSON.parse(savedCredentials)
-      setFormData({
-        username: credentials.username || '',
-        password: credentials.password || ''
-      })
-      setRememberPassword(true)
+      try {
+        const credentials = JSON.parse(savedCredentials)
+        setFormData({
+          username: credentials.username || '',
+          password: credentials.password || ''
+        })
+        setRememberPassword(true)
+        
+        // Auto-login if credentials are saved and user is not already authenticated
+        if (credentials.username && credentials.password && !isAuthenticated && !loading) {
+          console.log('🔄 Auto-logging in with saved credentials...')
+          const autoLogin = async () => {
+            try {
+              await login(credentials.username, credentials.password)
+            } catch (error) {
+              console.error('Auto-login failed:', error)
+              // Clear invalid credentials
+              localStorage.removeItem('cashpot_remember_credentials')
+            }
+          }
+          autoLogin()
+        }
+      } catch (error) {
+        console.error('Error loading saved credentials:', error)
+      }
     }
-  }, [])
+  }, [login, isAuthenticated, loading])
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -95,7 +113,19 @@ const Login = () => {
     const result = await login(formData.username, formData.password)
     
     if (result.success) {
-      // Save credentials - localStorage REMOVED - using server only
+      // Save credentials if "Remember Password" is checked
+      if (rememberPassword) {
+        const credentials = {
+          username: formData.username,
+          password: formData.password
+        }
+        localStorage.setItem('cashpot_remember_credentials', JSON.stringify(credentials))
+        console.log('✅ Credentials saved to localStorage')
+      } else {
+        // Remove saved credentials if user unchecks "Remember Password"
+        localStorage.removeItem('cashpot_remember_credentials')
+        console.log('🗑️ Credentials removed from localStorage')
+      }
       
       navigate('/dashboard', { replace: true })
     }
