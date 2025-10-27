@@ -981,19 +981,35 @@ const Dashboard = () => {
                         Toggle Vizibilitate
                       </button>
                       <button
-                        onClick={deselectAllCards}
-                        className="px-3 py-1 text-xs bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                        onClick={() => {
+                          setDashboardConfig(prev => ({
+                            ...prev,
+                            statCards: prev.statCards.map(card => ({ ...card, visible: false }))
+                          }))
+                        }}
+                        className="px-3 py-1 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                       >
-                        Deselectează Tot
+                        Ascunde Tot
                       </button>
                     </>
                   )}
-                  <button
-                    onClick={selectedCards.length === dashboardConfig.statCards.length ? deselectAllCards : selectAllCards}
-                    className="px-3 py-1 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                  >
-                    {selectedCards.length === dashboardConfig.statCards.length ? 'Deselectează Tot' : 'Selectează Tot'}
-                  </button>
+                                        <button
+                        onClick={() => {
+                          setDashboardConfig(prev => ({
+                            ...prev,
+                            statCards: prev.statCards.map(card => ({ ...card, visible: true }))
+                          }))
+                        }}
+                        className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        Afișează Tot
+                      </button>
+                      <button
+                        onClick={selectedCards.length === dashboardConfig.statCards.length ? deselectAllCards : selectAllCards}
+                        className="px-3 py-1 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                      >
+                        {selectedCards.length === dashboardConfig.statCards.length ? 'Deselectează Tot' : 'Selectează Tot'}
+                      </button>
                 </div>
               </div>
               <div className="space-y-2">
