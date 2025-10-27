@@ -417,12 +417,16 @@ const Dashboard = () => {
   const restoreDashboardConfig = async () => {
     if (!user?.id) return
     
+    if (!confirm('Ești sigur că vrei să resetezi dashboard-ul la configurația default? Toate preferințele tale vor fi șterse!')) {
+      return
+    }
+    
     try {
-      console.log('🔄 Restoring dashboard configuration...')
+      console.log('🔄 Restoring dashboard configuration to default...')
       const response = await axios.post(`/api/restore-dashboard/${user.id}`, {}, { timeout: 10000 })
       
       if (response.data.success) {
-        toast.success('Dashboard restaurat cu succes! Reloading...')
+        toast.success('Dashboard restaurat la configurația default! Reloading...')
         // Reload entire page to apply changes
         setTimeout(() => {
           window.location.reload()
@@ -433,6 +437,41 @@ const Dashboard = () => {
     } catch (error) {
       console.error('❌ Error restoring dashboard config:', error)
       toast.error('Eroare la restaurarea dashboard-ului')
+    }
+  }
+  
+  // Force reload saved configuration from server
+  const reloadSavedConfig = async () => {
+    if (!user?.id) return
+    
+    try {
+      console.log('🔄 Reloading saved configuration from server...')
+      const response = await axios.get(`/api/users/${user.id}`, { timeout: 10000 })
+      const userData = response.data
+      const preferences = userData.preferences || {}
+      
+      if (preferences.dashboard) {
+        console.log('✅ Reloaded dashboard preferences from server:', preferences.dashboard)
+        setDashboardConfig(preferences.dashboard)
+        
+        if (preferences.cardSizes) {
+          setCardSizes(preferences.cardSizes)
+        }
+        if (preferences.widgetSizes) {
+          setWidgetSizes(preferences.widgetSizes)
+        }
+        
+        toast.success('Configurația salvată a fost încărcată!')
+        // Reload page to apply
+        setTimeout(() => {
+          window.location.reload()
+        }, 1000)
+      } else {
+        toast.error('Nu există configurație salvată pe server')
+      }
+    } catch (error) {
+      console.error('❌ Error reloading config:', error)
+      toast.error('Eroare la reîncărcarea configurației')
     }
   }
 
@@ -861,12 +900,20 @@ const Dashboard = () => {
                       <span>Sincronizează</span>
                     </button>
                     <button
+                      onClick={reloadSavedConfig}
+                      className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      title="Reîncarcă configurația ta salvată de pe server"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      <span>Reîncarcă</span>
+                    </button>
+                    <button
                       onClick={restoreDashboardConfig}
-                      className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                      title="Restaurează configurația default a dashboard-ului"
+                      className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                      title="Resetează la configurația default (șterge tot)"
                     >
                       <RotateCcw className="w-4 h-4" />
-                      <span>Restaurează</span>
+                      <span>Resetează</span>
                     </button>
                   </>
                 ) : (
