@@ -413,6 +413,27 @@ const Dashboard = () => {
     }
   }
 
+  // Restore dashboard to default configuration
+  const restoreDashboardConfig = async () => {
+    if (!user?.id) return
+    
+    try {
+      console.log('🔄 Restoring dashboard configuration...')
+      const response = await axios.post(`/api/restore-dashboard/${user.id}`, {}, { timeout: 10000 })
+      
+      if (response.data.success) {
+        toast.success('Dashboard restaurat cu succes!')
+        // Reload preferences from server
+        await forceSyncPreferences()
+      } else {
+        toast.error('Eroare la restaurarea dashboard-ului')
+      }
+    } catch (error) {
+      console.error('❌ Error restoring dashboard config:', error)
+      toast.error('Eroare la restaurarea dashboard-ului')
+    }
+  }
+
   // Toggle vizibilitatea unui card
   const toggleCardVisibility = (cardId) => {
     setDashboardConfig(prev => {
@@ -836,6 +857,14 @@ const Dashboard = () => {
                     >
                       <RefreshCw className="w-4 h-4" />
                       <span>Sincronizează</span>
+                    </button>
+                    <button
+                      onClick={restoreDashboardConfig}
+                      className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                      title="Restaurează configurația default a dashboard-ului"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      <span>Restaurează</span>
                     </button>
                   </>
                 ) : (
