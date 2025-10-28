@@ -110,15 +110,30 @@ const Marketing = () => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     
-    const startDate = item.start_date ? new Date(item.start_date) : null
-    const endDate = item.end_date ? new Date(item.end_date) : null
+    // Parse locations to get actual period per location
+    let locations = []
+    if (item.locations) {
+      try {
+        locations = typeof item.locations === 'string' ? JSON.parse(item.locations) : item.locations
+      } catch (e) {
+        console.error('Error parsing locations in calculateDaysInfo:', e)
+      }
+    }
     
-    if (startDate) startDate.setHours(0, 0, 0, 0)
-    if (endDate) endDate.setHours(0, 0, 0, 0)
+    // If locations exist, use the first one's period, otherwise use global dates
+    const firstLocation = locations && locations.length > 0 ? locations[0] : null
+    const startDate = firstLocation?.start_date || item.start_date
+    const endDate = firstLocation?.end_date || item.end_date
+    
+    const start = startDate ? new Date(startDate) : null
+    const end = endDate ? new Date(endDate) : null
+    
+    if (start) start.setHours(0, 0, 0, 0)
+    if (end) end.setHours(0, 0, 0, 0)
     
     // Check if not started yet
-    if (startDate && startDate > today) {
-      const daysUntilStart = Math.ceil((startDate - today) / (1000 * 60 * 60 * 24))
+    if (start && start > today) {
+      const daysUntilStart = Math.ceil((start - today) / (1000 * 60 * 60 * 24))
       return {
         text: `Începe în ${daysUntilStart} ${daysUntilStart === 1 ? 'zi' : 'zile'}`,
         color: 'text-blue-600',
@@ -127,8 +142,8 @@ const Marketing = () => {
     }
     
     // Check if expired
-    if (endDate && endDate < today) {
-      const daysExpired = Math.ceil((today - endDate) / (1000 * 60 * 60 * 24))
+    if (end && end < today) {
+      const daysExpired = Math.ceil((today - end) / (1000 * 60 * 60 * 24))
       return {
         text: `Expirat de ${daysExpired} ${daysExpired === 1 ? 'zi' : 'zile'}`,
         color: 'text-red-600',
@@ -137,8 +152,8 @@ const Marketing = () => {
     }
     
     // Active - show days until end
-    if (endDate && endDate >= today) {
-      const daysRemaining = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24))
+    if (end && end >= today) {
+      const daysRemaining = Math.ceil((end - today) / (1000 * 60 * 60 * 24))
       return {
         text: `${daysRemaining} ${daysRemaining === 1 ? 'zi' : 'zile'} rămase`,
         color: 'text-green-600',
@@ -185,18 +200,35 @@ const Marketing = () => {
       key: 'dates_period', 
       label: 'PERIOADA', 
       sortable: true,
-      render: (item) => (
-        <div className="space-y-1">
-          <div className="flex items-center text-sm text-slate-700 dark:text-slate-300">
-            <Calendar className="w-3.5 h-3.5 mr-1 text-green-600" />
-            {item.start_date ? new Date(item.start_date).toLocaleDateString('ro-RO') : 'N/A'}
+      render: (item) => {
+        // Parse locations to get actual period per location
+        let locations = []
+        if (item.locations) {
+          try {
+            locations = typeof item.locations === 'string' ? JSON.parse(item.locations) : item.locations
+          } catch (e) {
+            console.error('Error parsing locations:', e)
+          }
+        }
+        
+        // If locations exist, show the first one's period, otherwise use global dates
+        const firstLocation = locations && locations.length > 0 ? locations[0] : null
+        const startDate = firstLocation?.start_date || item.start_date
+        const endDate = firstLocation?.end_date || item.end_date
+        
+        return (
+          <div className="space-y-1">
+            <div className="flex items-center text-sm text-slate-700 dark:text-slate-300">
+              <Calendar className="w-3.5 h-3.5 mr-1 text-green-600" />
+              {startDate ? new Date(startDate).toLocaleDateString('ro-RO') : 'N/A'}
+            </div>
+            <div className="flex items-center text-sm text-slate-700 dark:text-slate-300">
+              <Calendar className="w-3.5 h-3.5 mr-1 text-red-600" />
+              {endDate ? new Date(endDate).toLocaleDateString('ro-RO') : 'N/A'}
+            </div>
           </div>
-          <div className="flex items-center text-sm text-slate-700 dark:text-slate-300">
-            <Calendar className="w-3.5 h-3.5 mr-1 text-red-600" />
-            {item.end_date ? new Date(item.end_date).toLocaleDateString('ro-RO') : 'N/A'}
-          </div>
-        </div>
-      )
+        )
+      }
     },
     {
       key: 'days_info',
