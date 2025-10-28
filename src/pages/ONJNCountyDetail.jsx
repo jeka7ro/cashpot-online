@@ -223,9 +223,7 @@ const ONJNCountyDetail = () => {
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
                   {stats.total.toLocaleString('ro-RO')}
                 </p>
-                {population && (
-                  <p className="text-xs text-slate-500">Populație: {population.toLocaleString('ro-RO')}</p>
-                )}
+                <p className="text-xs text-slate-500">Populație: {population ? population.toLocaleString('ro-RO') : '—'}</p>
               </div>
             </div>
           </div>
