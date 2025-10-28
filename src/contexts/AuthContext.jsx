@@ -23,6 +23,15 @@ export const AuthProvider = ({ children }) => {
     return sessionStorage.getItem('authToken')
   })
 
+  // Wake-up helper to avoid long cold starts on Render
+  const wakeUpBackend = async () => {
+    try {
+      await axios.get('/api/health', { timeout: 4000 })
+    } catch (_e) {
+      // ignore
+    }
+  }
+
   // Configure axios defaults
   useEffect(() => {
     if (token) {
@@ -85,10 +94,14 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     try {
       setLoading(true)
-      const response = await axios.post('/api/auth/login', {
-        username,
-        password
-      })
+      // Attempt to wake the backend quickly to avoid UI hang
+      await wakeUpBackend()
+
+      const response = await axios.post(
+        '/api/auth/login',
+        { username, password },
+        { timeout: 12000 }
+      )
 
       const { token: newToken } = response.data
       
@@ -121,7 +134,10 @@ export const AuthProvider = ({ children }) => {
         throw new Error('No user data received after login')
       }
     } catch (error) {
-      const message = error.response?.data?.message || 'Eroare la autentificare'
+      const isTimeout = error.code === 'ECONNABORTED'
+      const message = isTimeout
+        ? 'Server-ul răspunde greu. Încearcă din nou (auto-wake aplicat)'
+        : (error.response?.data?.message || 'Eroare la autentificare')
       toast.error(message)
       return { success: false, error: message }
     } finally {
