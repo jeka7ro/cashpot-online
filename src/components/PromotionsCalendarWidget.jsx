@@ -1,82 +1,123 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 import axios from 'axios'
 
 const PromotionsCalendarWidget = () => {
   const [promotions, setPromotions] = useState([])
-  const [locationColors, setLocationColors] = useState({})
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchPromotions()
-    const onUpdated = () => fetchPromotions()
-    window.addEventListener('promotionsUpdated', onUpdated)
-    return () => window.removeEventListener('promotionsUpdated', onUpdated)
+    window.addEventListener('promotionsUpdated', fetchPromotions)
+    return () => window.removeEventListener('promotionsUpdated', fetchPromotions)
   }, [])
 
   const fetchPromotions = async () => {
     try {
       const response = await axios.get('/api/promotions')
+      const allPromotions = Array.isArray(response.data) ? response.data : []
+      
       // Filter out test promotions
-      const filtered = response.data.filter(p => 
+      const filteredPromotions = allPromotions.filter(p => 
         !p.name?.toLowerCase().includes('test') && 
         !p.description?.toLowerCase().includes('test')
       )
-      // Parse prizes / locations and prepare color mapping per location
-      const palette = [
-        '#0ea5e9', // sky-500
-        '#22c55e', // green-500
-        '#f59e0b', // amber-500
-        '#ef4444', // red-500
-        '#a855f7', // violet-500
-        '#10b981', // emerald-500
-        '#f97316', // orange-500
-        '#14b8a6', // teal-500
-        '#eab308', // yellow-500
-        '#6366f1'  // indigo-500
-      ]
 
-      const colorMap = {}
-      let colorIdx = 0
-
-      const normalized = filtered.map(p => {
-        // prizes can be array or JSON string
+      // Parse all promotions with their locations and prizes
+      const parsedPromotions = filteredPromotions.map(p => {
         let prizes = []
-        if (Array.isArray(p.prizes)) prizes = p.prizes
-        else if (typeof p.prizes === 'string') {
-          try { prizes = JSON.parse(p.prizes) } catch (_) {}
+        if (Array.isArray(p.prizes)) {
+          prizes = p.prizes
+        } else if (typeof p.prizes === 'string') {
+          try {
+            prizes = JSON.parse(p.prizes)
+          } catch (_) {
+            prizes = []
+          }
         }
 
-        // locations can be array or JSON string
         let locations = []
-        if (Array.isArray(p.locations)) locations = p.locations
-        else if (typeof p.locations === 'string') {
-          try { locations = JSON.parse(p.locations) } catch (_) {}
-        }
-
-        // Assign colors per location deterministically for this session
-        const primaryLocation = p.location || locations[0]?.location || 'Nespecificat'
-        if (!colorMap[primaryLocation]) {
-          colorMap[primaryLocation] = palette[colorIdx % palette.length]
-          colorIdx++
+        if (Array.isArray(p.locations)) {
+          locations = p.locations
+        } else if (typeof p.locations === 'string') {
+          try {
+            locations = JSON.parse(p.locations)
+          } catch (_) {
+            locations = []
+          }
         }
 
         return {
           ...p,
           __prizes: prizes,
-          __locations: locations,
-          __primaryLocation: primaryLocation
+          __locations: locations
         }
       })
 
-      setLocationColors(colorMap)
-      setPromotions(normalized)
+      setPromotions(parsedPromotions)
     } catch (error) {
       console.error('Error fetching promotions:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  // Generate color map for locations
+  const locationColors = useMemo(() => {
+    const colors = ['#0ea5e9', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#10b981', '#f97316', '#14b8a6', '#eab308', '#6366f1']
+    const colorMap = {}
+    let colorIdx = 0
+
+    promotions.forEach(promo => {
+      if (promo.__locations && promo.__locations.length > 0) {
+        promo.__locations.forEach(loc => {
+          if (loc.location && !colorMap[loc.location]) {
+            colorMap[loc.location] = colors[colorIdx % colors.length]
+            colorIdx++
+          }
+        })
+      } else if (promo.location && !colorMap[promo.location]) {
+        colorMap[promo.location] = colors[colorIdx % colors.length]
+        colorIdx++
+      }
+    })
+
+    return colorMap
+  }, [promotions])
+
+  // Get prize items for a specific date
+  const getPrizeItemsForDate = (date) => {
+    const checkDate = new Date(date)
+    checkDate.setHours(0, 0, 0, 0)
+    const items = []
+
+    for (const promo of promotions) {
+      const prizes = promo.__prizes || []
+      
+      for (const prize of prizes) {
+        if (!prize.date) continue
+        
+        const prizeDate = new Date(prize.date)
+        prizeDate.setHours(0, 0, 0, 0)
+        
+        if (prizeDate.getTime() === checkDate.getTime()) {
+          // Find the location for this prize
+          const location = promo.location || 
+                          (promo.__locations && promo.__locations.length > 0 ? promo.__locations[0].location : 'Nespecificat')
+          
+          items.push({
+            id: `${promo.id}-${prize.date}-${location}`,
+            name: promo.name,
+            location: location,
+            amount: parseFloat(prize.amount) || 0,
+            color: locationColors[location] || '#64748b'
+          })
+        }
+      }
+    }
+
+    return items
   }
 
   const getDaysInMonth = (date) => {
@@ -91,32 +132,6 @@ const PromotionsCalendarWidget = () => {
     return new Date(year, month, 1).getDay()
   }
 
-  // Build list of prize items that happen exactly on the given date
-  const getPrizeItemsForDate = (date) => {
-    const checkDate = new Date(date)
-    checkDate.setHours(0, 0, 0, 0)
-    const items = []
-    for (const promo of promotions) {
-      const prizes = promo.__prizes || []
-      for (const prize of prizes) {
-        if (!prize?.date) continue
-        const d = new Date(prize.date)
-        d.setHours(0, 0, 0, 0)
-        if (d.getTime() === checkDate.getTime()) {
-          const loc = promo.__primaryLocation
-          items.push({
-            id: `${promo.id}-${prize.date}-${loc}`,
-            name: promo.name,
-            location: loc,
-            amount: prize.amount,
-            color: locationColors[loc] || '#64748b'
-          })
-        }
-      }
-    }
-    return items
-  }
-
   const previousMonth = () => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))
   }
@@ -129,7 +144,6 @@ const PromotionsCalendarWidget = () => {
     const daysInMonth = getDaysInMonth(currentMonth)
     const firstDay = getFirstDayOfMonth(currentMonth)
     const days = []
-    const monthName = currentMonth.toLocaleDateString('ro-RO', { month: 'long', year: 'numeric' })
 
     // Empty cells for days before month starts
     for (let i = 0; i < firstDay; i++) {
@@ -153,7 +167,7 @@ const PromotionsCalendarWidget = () => {
               ? 'bg-pink-50 dark:bg-pink-900/20 border-pink-300 dark:border-pink-700 hover:bg-pink-100 dark:hover:bg-pink-900/30 cursor-pointer'
               : 'hover:bg-slate-50 dark:hover:bg-slate-750'
           }`}
-          title={hasPromotions ? prizeItems.map(it => `${it.name} @ ${it.location} - ${Number(it.amount||0).toLocaleString('ro-RO')} RON`).join(', ') : ''}
+          title={hasPromotions ? prizeItems.map(it => `${it.name} @ ${it.location} - ${it.amount.toLocaleString('ro-RO')} RON`).join(', ') : ''}
         >
           <div className="text-sm font-semibold text-slate-900 dark:text-white mb-1">{day}</div>
           {hasPromotions && (
@@ -165,7 +179,7 @@ const PromotionsCalendarWidget = () => {
                   title={`${it.name} @ ${it.location}`}
                   style={{ backgroundColor: it.color }}
                 >
-                  {it.location}: {Number(it.amount||0).toLocaleString('ro-RO')} RON
+                  {it.location}: {Number(it.amount).toLocaleString('ro-RO')} RON
                 </div>
               ))}
               {prizeItems.length > 2 && (

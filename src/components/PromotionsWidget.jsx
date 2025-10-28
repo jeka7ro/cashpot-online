@@ -7,75 +7,128 @@ const PromotionsWidget = () => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchActivePromotions()
-    const onUpdated = () => fetchActivePromotions()
-    window.addEventListener('promotionsUpdated', onUpdated)
-    return () => window.removeEventListener('promotionsUpdated', onUpdated)
+    fetchPromotions()
+    window.addEventListener('promotionsUpdated', fetchPromotions)
+    return () => window.removeEventListener('promotionsUpdated', fetchPromotions)
   }, [])
 
-  const fetchActivePromotions = async () => {
+  const fetchPromotions = async () => {
     try {
       const response = await axios.get('/api/promotions')
+      const allPromotions = Array.isArray(response.data) ? response.data : []
+      
+      // Filter out test promotions
+      const filteredPromotions = allPromotions.filter(p => 
+        !p.name?.toLowerCase().includes('test') && 
+        !p.description?.toLowerCase().includes('test')
+      )
 
+      // Calculate active promotions based on actual dates from locations
       const today = new Date()
       today.setHours(0, 0, 0, 0)
 
-      const normalized = (response.data || [])
-        // remove test promos
-        .filter(p => !p.name?.toLowerCase().includes('test') && !p.description?.toLowerCase().includes('test'))
-        // normalize locations/prizes and compute period + pool
-        .map(p => {
-          // Parse locations (array or JSON string)
-          let locations = []
-          if (Array.isArray(p.locations)) locations = p.locations
-          else if (typeof p.locations === 'string') {
-            try { locations = JSON.parse(p.locations) } catch (_) {}
+      const activePromotions = filteredPromotions.filter(p => {
+        // Parse locations
+        let locations = []
+        if (Array.isArray(p.locations)) {
+          locations = p.locations
+        } else if (typeof p.locations === 'string') {
+          try {
+            locations = JSON.parse(p.locations)
+          } catch (_) {
+            locations = []
           }
+        }
 
-          const firstLocation = locations && locations.length > 0 ? locations[0] : null
-          const startDate = firstLocation?.start_date || p.start_date
-          const endDate = firstLocation?.end_date || p.end_date
+        // Check if any location is currently active
+        for (const loc of locations) {
+          const startDate = loc.start_date ? new Date(loc.start_date) : null
+          const endDate = loc.end_date ? new Date(loc.end_date) : null
+          
+          if (startDate) startDate.setHours(0, 0, 0, 0)
+          if (endDate) endDate.setHours(0, 0, 0, 0)
 
-          // Parse prizes (array or JSON string)
-          let prizes = []
-          if (Array.isArray(p.prizes)) prizes = p.prizes
-          else if (typeof p.prizes === 'string') {
-            try { prizes = JSON.parse(p.prizes) } catch (_) {}
+          // If we have both dates, check if today is within range
+          if (startDate && endDate) {
+            if (today >= startDate && today <= endDate) {
+              return true
+            }
           }
-
-          const prizePool = prizes.reduce((sum, it) => sum + (Number(it?.amount) || 0), 0)
-
-          return {
-            ...p,
-            __locations: locations,
-            __primaryLocation: p.location || firstLocation?.location || 'Nespecificat',
-            __startDate: startDate,
-            __endDate: endDate,
-            __prizes: prizes,
-            __prizePool: prizePool
+          // If we only have end date, check if not expired
+          else if (endDate && today <= endDate) {
+            return true
           }
-        })
-        // keep only active by date range
-        .filter(p => {
-          const start = p.__startDate ? new Date(p.__startDate) : null
-          const end = p.__endDate ? new Date(p.__endDate) : null
-          if (start) start.setHours(0, 0, 0, 0)
-          if (end) end.setHours(0, 0, 0, 0)
-          // active if today within [start, end] if both exist; or if end in future; or if any prize date in future
-          if (start && end) return today >= start && today <= end
-          if (end && today <= end) return true
-          // fallback: active if any prize in future
-          const anyFuturePrize = (p.__prizes || []).some(pr => {
-            if (!pr?.date) return false
-            const d = new Date(pr.date); d.setHours(0,0,0,0)
-            return d >= today
-          })
-          return anyFuturePrize
-        })
+        }
 
-      setPromotions(normalized)
+        // Fallback: use global dates if no locations
+        if (locations.length === 0) {
+          const startDate = p.start_date ? new Date(p.start_date) : null
+          const endDate = p.end_date ? new Date(p.end_date) : null
+          
+          if (startDate) startDate.setHours(0, 0, 0, 0)
+          if (endDate) endDate.setHours(0, 0, 0, 0)
+
+          if (startDate && endDate && today >= startDate && today <= endDate) {
+            return true
+          }
+          if (endDate && today <= endDate) {
+            return true
+          }
+        }
+
+        return false
+      })
+
+      // Parse prizes and locations for each promotion
+      const parsedPromotions = activePromotions.map(p => {
+        let prizes = []
+        if (Array.isArray(p.prizes)) {
+          prizes = p.prizes
+        } else if (typeof p.prizes === 'string') {
+          try {
+            prizes = JSON.parse(p.prizes)
+          } catch (_) {
+            prizes = []
+          }
+        }
+
+        let locations = []
+        if (Array.isArray(p.locations)) {
+          locations = p.locations
+        } else if (typeof p.locations === 'string') {
+          try {
+            locations = JSON.parse(p.locations)
+          } catch (_) {
+            locations = []
+          }
+        }
+
+        // Get the primary location and period
+        const firstLocation = locations.length > 0 ? locations[0] : null
+        const startDate = firstLocation?.start_date || p.start_date
+        const endDate = firstLocation?.end_date || p.end_date
+
+        // Calculate total prize pool
+        const prizePool = prizes.reduce((sum, prize) => {
+          const amount = parseFloat(prize.amount) || 0
+          const qty = parseInt(prize.quantity || prize.qty || 1)
+          return sum + (amount * qty)
+        }, 0)
+
+        return {
+          ...p,
+          __prizes: prizes,
+          __locations: locations,
+          __startDate: startDate,
+          __endDate: endDate,
+          __prizePool: prizePool,
+          __location: firstLocation?.location || p.location || 'Nespecificat'
+        }
+      })
+
+      setPromotions(parsedPromotions)
     } catch (error) {
-      console.error('Error fetching active promotions:', error)
+      console.error('Error fetching promotions:', error)
     } finally {
       setLoading(false)
     }
@@ -86,10 +139,11 @@ const PromotionsWidget = () => {
     const today = new Date()
     const end = new Date(endDate)
     const diffTime = end - today
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    return days
   }
 
-  const totalPrizePool = promotions.reduce((sum, p) => sum + (Number(p.__prizePool) || 0), 0)
+  const totalPrizePool = promotions.reduce((sum, p) => sum + (p.__prizePool || 0), 0)
 
   if (loading) {
     return (
@@ -133,7 +187,7 @@ const PromotionsWidget = () => {
         <div className="space-y-3">
           {promotions.slice(0, 5).map((promo) => {
             const daysRemaining = getDaysRemaining(promo.__endDate)
-            const isExpiringSoon = daysRemaining <= 7
+            const isExpiringSoon = daysRemaining !== null && daysRemaining <= 7
 
             return (
               <div 
@@ -156,11 +210,13 @@ const PromotionsWidget = () => {
                     <div className="flex items-center space-x-4 text-sm">
                       <div className="flex items-center space-x-1 text-slate-600 dark:text-slate-400">
                         <MapPin className="w-4 h-4" />
-                        <span>{promo.__primaryLocation}</span>
+                        <span>{promo.__location}</span>
                       </div>
                       <div className="flex items-center space-x-1 text-slate-600 dark:text-slate-400">
                         <Calendar className="w-4 h-4" />
-                        <span>{promo.__endDate ? new Date(promo.__endDate).toLocaleDateString('ro-RO') : '-'}</span>
+                        <span>
+                          {promo.__endDate ? new Date(promo.__endDate).toLocaleDateString('ro-RO') : '-'}
+                        </span>
                       </div>
                     </div>
 
@@ -168,22 +224,24 @@ const PromotionsWidget = () => {
                       <div className="flex items-center space-x-2">
                         <Award className="w-4 h-4 text-green-500" />
                         <span className="font-bold text-green-600 dark:text-green-400">
-                          {Number(promo.__prizePool).toLocaleString('ro-RO')} RON
+                          {promo.__prizePool.toLocaleString('ro-RO')} RON
                         </span>
                       </div>
                     )}
                   </div>
 
-                  <div className="text-right">
-                    <div className={`text-2xl font-bold ${
-                      isExpiringSoon ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-600 dark:text-green-400'
-                    }`}>
-                      {daysRemaining}
+                  {daysRemaining !== null && (
+                    <div className="text-right">
+                      <div className={`text-2xl font-bold ${
+                        isExpiringSoon ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-600 dark:text-green-400'
+                      }`}>
+                        {daysRemaining}
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {daysRemaining === 1 ? 'zi rămasă' : 'zile rămase'}
+                      </p>
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {daysRemaining === 1 ? 'zi rămasă' : 'zile rămase'}
-                    </p>
-                  </div>
+                  )}
                 </div>
               </div>
             )
