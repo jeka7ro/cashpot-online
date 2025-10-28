@@ -216,7 +216,7 @@ const ONJNCityDetail = () => {
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
           <div className="card p-6">
             <div className="flex items-center">
               <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
@@ -227,7 +227,6 @@ const ONJNCityDetail = () => {
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
                   {stats.total.toLocaleString('ro-RO')}
                 </p>
-                <p className="text-xs text-slate-500">Populație: {population ? population.toLocaleString('ro-RO') : '—'}</p>
               </div>
             </div>
           </div>
@@ -269,6 +268,20 @@ const ONJNCityDetail = () => {
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Săli</p>
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
                   {stats.uniqueLocations.toLocaleString('ro-RO')}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-amber-100 dark:bg-amber-900/20 rounded-lg">
+                <Users className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Populație</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {population ? population.toLocaleString('ro-RO') : '—'}
                 </p>
               </div>
             </div>
