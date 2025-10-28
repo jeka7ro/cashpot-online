@@ -26,6 +26,7 @@ const MarketingModal = ({ item, onClose, onSave }) => {
     
     return {
       name: '',
+      promotionType: '',
       description: '',
       start_date: today,
       end_date: defaultEndDate,
@@ -89,6 +90,7 @@ const MarketingModal = ({ item, onClose, onSave }) => {
       
       setFormData({
         name: item.name || item.title || '',
+        promotionType: item.promotion_type || '',
         description: item.description || '',
         start_date: item.start_date ? item.start_date.split('T')[0] : '',
         end_date: item.end_date ? item.end_date.split('T')[0] : '',
@@ -112,6 +114,7 @@ const MarketingModal = ({ item, onClose, onSave }) => {
       
       setFormData({
         name: '',
+        promotionType: '',
         description: '',
         start_date: today,
         end_date: defaultEndDate,
@@ -275,6 +278,7 @@ const MarketingModal = ({ item, onClose, onSave }) => {
     // Prepare data to save
     const dataToSave = {
       ...formData,
+      promotion_type: formData.promotionType,
       prizes: sortedPrizes,
       banner_url: formData.bannerPreview,
       documents_url: formData.documentsPreview
@@ -316,6 +320,27 @@ const MarketingModal = ({ item, onClose, onSave }) => {
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 <TrendingUp className="w-4 h-4 inline mr-2" />
+                Tip Promoție *
+              </label>
+              <select
+                name="promotionType"
+                value={formData.promotionType || ''}
+                onChange={(e) => setFormData({ ...formData, promotionType: e.target.value })}
+                required
+                className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 
+                         bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                         focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+              >
+                <option value="">Selectează tipul</option>
+                <option value="Tombola">Tombola</option>
+                <option value="Turneu">Turneu</option>
+                <option value="Happy Hour">Happy Hour</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <TrendingUp className="w-4 h-4 inline mr-2" />
                 Nume Promoție *
               </label>
               <input
@@ -330,6 +355,9 @@ const MarketingModal = ({ item, onClose, onSave }) => {
                          focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
               />
             </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">

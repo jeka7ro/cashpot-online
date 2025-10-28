@@ -14,7 +14,12 @@ const PromotionsCalendarWidget = () => {
   const fetchPromotions = async () => {
     try {
       const response = await axios.get('/api/promotions')
-      setPromotions(response.data)
+      // Filter out test promotions
+      const filtered = response.data.filter(p => 
+        !p.name?.toLowerCase().includes('test') && 
+        !p.description?.toLowerCase().includes('test')
+      )
+      setPromotions(filtered)
     } catch (error) {
       console.error('Error fetching promotions:', error)
     } finally {
