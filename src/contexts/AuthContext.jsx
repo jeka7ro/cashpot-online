@@ -26,7 +26,7 @@ export const AuthProvider = ({ children }) => {
   // Wake-up helper to avoid long cold starts on Render
   const wakeUpBackend = async () => {
     try {
-      await axios.get('/api/health', { timeout: 4000 })
+      await axios.get('/api/health', { timeout: 15000 }) // Increased timeout
     } catch (_e) {
       // ignore
     }
@@ -78,7 +78,7 @@ export const AuthProvider = ({ children }) => {
       if (token) {
         try {
           // Verify token and get real user data
-          const response = await axios.get('/api/auth/verify', { timeout: 10000 })
+          const response = await axios.get('/api/auth/verify', { timeout: 20000 }) // Increased from 10s to 20s
           const realUser = response.data.user
           
           if (realUser) {
@@ -140,7 +140,7 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.post(
         '/api/auth/login',
         { username, password },
-        { timeout: 12000 }
+        { timeout: 30000 } // Increased to 30s for cold start
       )
 
       const { token: newToken } = response.data
