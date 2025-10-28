@@ -28,7 +28,7 @@ export const countyPopulation = {
   Alba: 330000,
   Vâlcea: 355000,
   Olt: 430000,
-  Satu\u00a0Mare: 340000,
+  'Satu Mare': 340000,
   Caraș-Severin: 265000,
   Mehedinți: 240000,
   Harghita: 310000,
