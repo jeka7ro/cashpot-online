@@ -88,15 +88,34 @@ const MarketingModal = ({ item, onClose, onSave }) => {
           : item.attachments
       }
       
+      // Helper function to safely parse date
+      const parseDate = (dateStr) => {
+        if (!dateStr) return ''
+        try {
+          const date = new Date(dateStr)
+          if (isNaN(date.getTime())) return ''
+          return date.toISOString().split('T')[0]
+        } catch (e) {
+          return ''
+        }
+      }
+
       setFormData({
         name: item.name || item.title || '',
         promotionType: item.promotion_type || '',
         description: item.description || '',
-        start_date: item.start_date ? item.start_date.split('T')[0] : '',
-        end_date: item.end_date ? item.end_date.split('T')[0] : '',
+        start_date: parseDate(item.start_date),
+        end_date: parseDate(item.end_date),
         location: item.location || '',
-        locations: parsedLocations.length > 0 ? parsedLocations : [{ location: '', start_date: '', end_date: '' }],
-        prizes: parsedPrizes.length > 0 ? parsedPrizes : [{ amount: '', currency: 'RON', date: '', winner: '' }],
+        locations: parsedLocations.length > 0 ? parsedLocations.map(loc => ({
+          location: loc.location || '',
+          start_date: parseDate(loc.start_date),
+          end_date: parseDate(loc.end_date)
+        })) : [{ location: '', start_date: '', end_date: '' }],
+        prizes: parsedPrizes.length > 0 ? parsedPrizes.map(prize => ({
+          ...prize,
+          date: parseDate(prize.date)
+        })) : [{ amount: '', currency: 'RON', date: '', winner: '' }],
         status: item.status || 'Active',
         notes: item.notes || '',
         // File attachments
