@@ -10,6 +10,9 @@ const PromotionsCalendarWidget = () => {
 
   useEffect(() => {
     fetchPromotions()
+    const onUpdated = () => fetchPromotions()
+    window.addEventListener('promotionsUpdated', onUpdated)
+    return () => window.removeEventListener('promotionsUpdated', onUpdated)
   }, [])
 
   const fetchPromotions = async () => {

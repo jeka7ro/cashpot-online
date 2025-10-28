@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { useData } from '../contexts/DataContext'
 import { TrendingUp, Plus, Search, Eye, Calendar, Clock, Brain } from 'lucide-react'
@@ -10,7 +10,7 @@ import PromotionsCalendarWidget from '../components/PromotionsCalendarWidget'
 import { useNavigate } from 'react-router-dom'
 
 const Marketing = () => {
-  const { promotions, loading, createItem, updateItem, deleteItem, createTestWeeklyTombola } = useData()
+  const { promotions, loading, createItem, updateItem, deleteItem, createTestWeeklyTombola, loadAllData } = useData()
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
@@ -19,6 +19,12 @@ const Marketing = () => {
   const [editingItem, setEditingItem] = useState(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [viewingItem, setViewingItem] = useState(null)
+
+  // Ensure data is loaded when arriving directly on Marketing (refresh/deep link)
+  useEffect(() => {
+    loadAllData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Update showBulkActions based on selectedItems
   React.useEffect(() => {
@@ -92,6 +98,11 @@ const Marketing = () => {
     }
     setShowModal(false)
     setEditingItem(null)
+
+    // Notify widgets to refresh their own API data immediately
+    try {
+      window.dispatchEvent(new Event('promotionsUpdated'))
+    } catch (e) {}
   }
 
   // Helper function to calculate days remaining/expired

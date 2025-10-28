@@ -8,6 +8,9 @@ const PromotionsWidget = () => {
 
   useEffect(() => {
     fetchActivePromotions()
+    const onUpdated = () => fetchActivePromotions()
+    window.addEventListener('promotionsUpdated', onUpdated)
+    return () => window.removeEventListener('promotionsUpdated', onUpdated)
   }, [])
 
   const fetchActivePromotions = async () => {
