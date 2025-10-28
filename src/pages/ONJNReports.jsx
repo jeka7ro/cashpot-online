@@ -776,6 +776,8 @@ const ONJNReports = () => {
                   <thead>
                     <tr className="border-b border-slate-200 dark:border-slate-700">
                       <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Serie</th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Tip</th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Nr. Licență</th>
                       <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Companie</th>
                       <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Brand</th>
                       <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Oraș</th>
@@ -789,6 +791,12 @@ const ONJNReports = () => {
                       <tr key={operator.id || index} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50">
                         <td className="py-3 px-4 text-slate-900 dark:text-slate-100 font-mono text-sm">
                           {operator.serial_number || '-'}
+                        </td>
+                        <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
+                          {operator.equipment_type || '-'}
+                        </td>
+                        <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
+                          {operator.license_number || '-'}
                         </td>
                         <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
                           {operator.company_name ? (
