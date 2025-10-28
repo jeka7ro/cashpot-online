@@ -12,9 +12,11 @@ const PromotionsWidget = () => {
 
   const fetchActivePromotions = async () => {
     try {
-      const response = await axios.get('/api/promotions/active')
-      // Filter out test promotions
+      // Backend has only /api/promotions. Filter Active on client to avoid 404
+      const response = await axios.get('/api/promotions')
+      // Filter out test promotions and keep only active
       const filtered = response.data.filter(p => 
+        (p.status?.toLowerCase() === 'active') &&
         !p.name?.toLowerCase().includes('test') && 
         !p.description?.toLowerCase().includes('test')
       )
