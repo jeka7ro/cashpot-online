@@ -4,6 +4,7 @@ import axios from 'axios'
 
 const PromotionsCalendarWidget = () => {
   const [promotions, setPromotions] = useState([])
+  const [locationColors, setLocationColors] = useState({})
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [loading, setLoading] = useState(true)
 
@@ -19,7 +20,55 @@ const PromotionsCalendarWidget = () => {
         !p.name?.toLowerCase().includes('test') && 
         !p.description?.toLowerCase().includes('test')
       )
-      setPromotions(filtered)
+      // Parse prizes / locations and prepare color mapping per location
+      const palette = [
+        '#0ea5e9', // sky-500
+        '#22c55e', // green-500
+        '#f59e0b', // amber-500
+        '#ef4444', // red-500
+        '#a855f7', // violet-500
+        '#10b981', // emerald-500
+        '#f97316', // orange-500
+        '#14b8a6', // teal-500
+        '#eab308', // yellow-500
+        '#6366f1'  // indigo-500
+      ]
+
+      const colorMap = {}
+      let colorIdx = 0
+
+      const normalized = filtered.map(p => {
+        // prizes can be array or JSON string
+        let prizes = []
+        if (Array.isArray(p.prizes)) prizes = p.prizes
+        else if (typeof p.prizes === 'string') {
+          try { prizes = JSON.parse(p.prizes) } catch (_) {}
+        }
+
+        // locations can be array or JSON string
+        let locations = []
+        if (Array.isArray(p.locations)) locations = p.locations
+        else if (typeof p.locations === 'string') {
+          try { locations = JSON.parse(p.locations) } catch (_) {}
+        }
+
+        // Assign colors per location deterministically for this session
+        const primaryLocation = p.location || locations[0]?.location || 'Nespecificat'
+        if (!colorMap[primaryLocation]) {
+          colorMap[primaryLocation] = palette[colorIdx % palette.length]
+          colorIdx++
+        }
+
+        return {
+          ...p,
+          __prizes: prizes,
+          __locations: locations,
+          __primaryLocation: primaryLocation
+        }
+      })
+
+      setLocationColors(colorMap)
+      setPromotions(normalized)
     } catch (error) {
       console.error('Error fetching promotions:', error)
     } finally {
@@ -39,19 +88,30 @@ const PromotionsCalendarWidget = () => {
     return new Date(year, month, 1).getDay()
   }
 
-  const getPromotionsForDate = (date) => {
-    return promotions.filter(promo => {
-      const start = new Date(promo.start_date)
-      const end = new Date(promo.end_date)
-      const checkDate = new Date(date)
-      
-      // Set all to midnight for accurate comparison
-      start.setHours(0, 0, 0, 0)
-      end.setHours(0, 0, 0, 0)
-      checkDate.setHours(0, 0, 0, 0)
-      
-      return checkDate >= start && checkDate <= end
-    })
+  // Build list of prize items that happen exactly on the given date
+  const getPrizeItemsForDate = (date) => {
+    const checkDate = new Date(date)
+    checkDate.setHours(0, 0, 0, 0)
+    const items = []
+    for (const promo of promotions) {
+      const prizes = promo.__prizes || []
+      for (const prize of prizes) {
+        if (!prize?.date) continue
+        const d = new Date(prize.date)
+        d.setHours(0, 0, 0, 0)
+        if (d.getTime() === checkDate.getTime()) {
+          const loc = promo.__primaryLocation
+          items.push({
+            id: `${promo.id}-${prize.date}-${loc}`,
+            name: promo.name,
+            location: loc,
+            amount: prize.amount,
+            color: locationColors[loc] || '#64748b'
+          })
+        }
+      }
+    }
+    return items
   }
 
   const previousMonth = () => {
@@ -76,9 +136,9 @@ const PromotionsCalendarWidget = () => {
     // Days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day)
-      const dayPromotions = getPromotionsForDate(date)
+      const prizeItems = getPrizeItemsForDate(date)
       const isToday = date.toDateString() === new Date().toDateString()
-      const hasPromotions = dayPromotions.length > 0
+      const hasPromotions = prizeItems.length > 0
 
       days.push(
         <div
@@ -90,23 +150,24 @@ const PromotionsCalendarWidget = () => {
               ? 'bg-pink-50 dark:bg-pink-900/20 border-pink-300 dark:border-pink-700 hover:bg-pink-100 dark:hover:bg-pink-900/30 cursor-pointer'
               : 'hover:bg-slate-50 dark:hover:bg-slate-750'
           }`}
-          title={dayPromotions.length > 0 ? dayPromotions.map(p => p.name).join(', ') : ''}
+          title={hasPromotions ? prizeItems.map(it => `${it.name} @ ${it.location} - ${Number(it.amount||0).toLocaleString('ro-RO')} RON`).join(', ') : ''}
         >
           <div className="text-sm font-semibold text-slate-900 dark:text-white mb-1">{day}</div>
           {hasPromotions && (
             <div className="space-y-1">
-              {dayPromotions.slice(0, 2).map((promo, idx) => (
-                <div 
-                  key={idx}
-                  className="text-[10px] bg-pink-500 text-white px-1 py-0.5 rounded truncate"
-                  title={promo.name}
+              {prizeItems.slice(0, 2).map((it) => (
+                <div
+                  key={it.id}
+                  className="text-[10px] text-white px-1 py-0.5 rounded truncate"
+                  title={`${it.name} @ ${it.location}`}
+                  style={{ backgroundColor: it.color }}
                 >
-                  {promo.name.substring(0, 15)}
+                  {it.location}: {Number(it.amount||0).toLocaleString('ro-RO')} RON
                 </div>
               ))}
-              {dayPromotions.length > 2 && (
+              {prizeItems.length > 2 && (
                 <div className="text-[9px] text-pink-600 dark:text-pink-400 font-semibold">
-                  +{dayPromotions.length - 2} mai multe
+                  +{prizeItems.length - 2} mai multe
                 </div>
               )}
             </div>
