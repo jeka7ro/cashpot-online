@@ -41,7 +41,7 @@ export const countyPopulation = {
   Călărași: 285000,
   Giurgiu: 250000,
   Teleorman: 330000,
-  Bistrița-Năsăud: 280000
+  'Bistrița-Năsăud': 280000
 }
 
 export const cityPopulation = {
