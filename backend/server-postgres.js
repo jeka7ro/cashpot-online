@@ -454,7 +454,9 @@ const initializeDatabase = async () => {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS metrology (
         id SERIAL PRIMARY KEY,
+        cvt_series VARCHAR(50),
         cvt_number VARCHAR(255) UNIQUE NOT NULL,
+        serial_number VARCHAR(255),
         cvt_type VARCHAR(50) NOT NULL,
         cvt_date DATE NOT NULL,
         expiry_date DATE NOT NULL,
@@ -1152,8 +1154,8 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }))
 
-app.use(express.json({ limit: '10mb' }))
-app.use(express.urlencoded({ extended: true, limit: '10mb' }))
+app.use(express.json({ limit: '50mb' }))
+app.use(express.urlencoded({ extended: true, limit: '50mb' }))
 
 console.log('🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!')
 console.log('🌐 CORS allowed origins:', allowedOrigins)
@@ -1682,7 +1684,7 @@ app.post('/api/auth/login', async (req, res) => {
     const token = jwt.sign(
       { userId: user.id, username: user.username },
       process.env.JWT_SECRET || 'cashpot-secret-key-2024',
-      { expiresIn: '24h' }
+      { expiresIn: '7d' } // Extend to 7 days to avoid frequent re-logins
     )
     
     res.json({
@@ -3023,7 +3025,7 @@ app.delete('/api/metrology', async (req, res) => {
 app.post('/api/metrology', async (req, res) => {
   try {
     const { 
-      cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFile, notes 
+      cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFile, notes 
     } = req.body
     
     // Calculate expiry_date automatically for Periodică and Inițială (1 year - 1 day from cvt_date)
@@ -3037,8 +3039,8 @@ app.post('/api/metrology', async (req, res) => {
     }
     
     const result = await pool.query(
-      'INSERT INTO metrology (cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvt_file, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *, cvt_file as "cvtFile"',
-      [cvt_number, serial_number, cvt_type, cvt_date, calculatedExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFile, notes, 'admin']
+      'INSERT INTO metrology (cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvt_file, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *, cvt_file as "cvtFile"',
+      [cvt_series, cvt_number, serial_number, cvt_type, cvt_date, calculatedExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFile, notes, 'admin']
     )
     
     res.status(201).json(result.rows[0])
@@ -3052,7 +3054,7 @@ app.put('/api/metrology/:id', async (req, res) => {
   try {
     const { id } = req.params
     const { 
-      cvt_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFile, notes 
+      cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFile, notes 
     } = req.body
     
     // Calculate expiry_date automatically for Periodică and Inițială (1 year - 1 day from cvt_date)
@@ -3068,11 +3070,11 @@ app.put('/api/metrology/:id', async (req, res) => {
     // Build update query based on whether cvtFile is provided
     let query, params
     if (cvtFile) {
-      query = 'UPDATE metrology SET cvt_number = $1, cvt_type = $2, cvt_date = $3, expiry_date = $4, issuing_authority = $5, provider = $6, cabinet = $7, game_mix = $8, approval_type = $9, software = $10, cvt_file = $11, notes = $12, updated_at = CURRENT_TIMESTAMP WHERE id = $13 RETURNING *, cvt_file as "cvtFile"'
-      params = [cvt_number, cvt_type, cvt_date, calculatedExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFile, notes, id]
+      query = 'UPDATE metrology SET cvt_series = $1, cvt_number = $2, serial_number = $3, cvt_type = $4, cvt_date = $5, expiry_date = $6, issuing_authority = $7, provider = $8, cabinet = $9, game_mix = $10, approval_type = $11, software = $12, cvt_file = $13, notes = $14, updated_at = CURRENT_TIMESTAMP WHERE id = $15 RETURNING *, cvt_file as "cvtFile"'
+      params = [cvt_series, cvt_number, serial_number, cvt_type, cvt_date, calculatedExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFile, notes, id]
     } else {
-      query = 'UPDATE metrology SET cvt_number = $1, cvt_type = $2, cvt_date = $3, expiry_date = $4, issuing_authority = $5, provider = $6, cabinet = $7, game_mix = $8, approval_type = $9, software = $10, notes = $11, updated_at = CURRENT_TIMESTAMP WHERE id = $12 RETURNING *, cvt_file as "cvtFile"'
-      params = [cvt_number, cvt_type, cvt_date, calculatedExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, notes, id]
+      query = 'UPDATE metrology SET cvt_series = $1, cvt_number = $2, serial_number = $3, cvt_type = $4, cvt_date = $5, expiry_date = $6, issuing_authority = $7, provider = $8, cabinet = $9, game_mix = $10, approval_type = $11, software = $12, notes = $13, updated_at = CURRENT_TIMESTAMP WHERE id = $14 RETURNING *, cvt_file as "cvtFile"'
+      params = [cvt_series, cvt_number, serial_number, cvt_type, cvt_date, calculatedExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, notes, id]
     }
     
     const result = await pool.query(query, params)

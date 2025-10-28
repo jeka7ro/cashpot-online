@@ -85,6 +85,14 @@ export const DataProvider = ({ children }) => {
     console.log('🚀 Starting to fetch all data in parallel...')
     setLoading(true)
     try {
+      // Check if we have a token before trying to fetch data
+      const token = sessionStorage.getItem('authToken')
+      if (!token) {
+        console.warn('⚠️ No token found - skipping data fetch')
+        setLoading(false)
+        return
+      }
+
       // Wake up backend first
       await wakeUpBackend()
       
@@ -105,6 +113,13 @@ export const DataProvider = ({ children }) => {
             return response
           } catch (error) {
             console.error(`❌ Error fetching ${entity} (attempt ${attempt + 1}):`, error.message)
+            
+            // Don't retry if it's an auth error
+            if (error.response?.status === 401 || error.response?.status === 403) {
+              console.error('🔒 Auth error - stopping retry')
+              throw error
+            }
+            
             if (attempt === maxRetries) {
               return { data: [] }
             }

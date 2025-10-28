@@ -21,10 +21,10 @@ const PDFViewer = ({
 
   return (
     <div className="space-y-4">
-      <div className="aspect-[3/4] bg-white dark:bg-slate-800 rounded-lg border-2 border-slate-200 dark:border-slate-600 overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-lg border-2 border-slate-200 dark:border-slate-600 overflow-hidden">
         <iframe
           src={pdfUrl}
-          className="w-full h-full"
+          className="w-full h-[600px]"
           title={title}
         />
       </div>

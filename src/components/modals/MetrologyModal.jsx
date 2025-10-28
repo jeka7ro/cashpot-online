@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { X, Save, Activity, FileCheck, Calendar, CheckCircle } from 'lucide-react'
+import axios from 'axios'
 import PDFViewer from '../PDFViewer'
 
 const MetrologyModal = ({ item, onClose, onSave }) => {
@@ -10,7 +11,7 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
   const [approvals, setApprovals] = useState([])
   const [software, setSoftware] = useState([])
   const [formData, setFormData] = useState({
-    cvt_number: '',
+    cvt_series: '',
     serial_number: '',
     cvt_type: 'Periodică',
     cvt_date: '',
@@ -70,7 +71,7 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
       }
 
       setFormData({
-        cvt_number: item.cvt_number || '',
+        cvt_series: item.cvt_series || item.cvt_number || '',
         serial_number: item.serial_number || '',
         cvt_type: item.cvt_type || 'Periodică',
         cvt_date: formatDateForInput(item.cvt_date),
@@ -81,8 +82,8 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
         game_mix: item.game_mix || '',
         approval_type: item.approval_type || '',
         software: item.software || '',
-        cvtFile: item.cvtFile || null,
-        cvtPreview: item.cvtFile || null,
+        cvtFile: null, // Don't store existing file data
+        cvtPreview: item.cvtFile || null, // Store file path for display
         notes: item.notes || ''
       })
     }
@@ -173,19 +174,16 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
   const handleFileChange = (e) => {
     const file = e.target.files[0]
     if (file) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setFormData(prev => ({
-          ...prev,
-          cvtFile: e.target.result,
-          cvtPreview: e.target.result
-        }))
-      }
-      reader.readAsDataURL(file)
+      // Store the actual File object, not base64
+      setFormData(prev => ({
+        ...prev,
+        cvtFile: file,
+        cvtPreview: file // For preview
+      }))
     }
   }
 
-  const handleDeleteCvt = () => {
+  const handleDeleteCvt = async () => {
     if (window.confirm('Sigur doriți să ștergeți documentul CVT?')) {
       setFormData(prev => ({
         ...prev,
@@ -195,9 +193,43 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
     }
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    onSave(formData)
+    
+    // If there's a new file to upload, upload it first
+    let filePath = formData.cvtPreview
+    
+    // Check if cvtFile is a File object (new upload)
+    if (formData.cvtFile instanceof File) {
+      try {
+        const uploadFormData = new FormData()
+        uploadFormData.append('file', formData.cvtFile)
+        
+        const uploadResponse = await axios.post('/api/upload', uploadFormData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        })
+        
+        if (uploadResponse.data) {
+          filePath = uploadResponse.data.url || uploadResponse.data.file_path || uploadResponse.data.file?.url
+        }
+      } catch (error) {
+        console.error('Error uploading file:', error)
+      }
+    }
+    
+    // Prepare payload - send only URL for file
+    const dataToSave = {
+      ...formData,
+      cvtFile: filePath,
+      cvtPreview: filePath
+    }
+    if (dataToSave.cvtFile instanceof File) {
+      delete dataToSave.cvtFile
+    }
+    
+    onSave(dataToSave)
   }
 
   return (
@@ -238,11 +270,13 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700">Număr CVT *</label>
-                <input type="text" name="cvt_number" value={formData.cvt_number} onChange={handleChange} className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent" placeholder="Numărul CVT" required />
+                <label className="block text-sm font-semibold text-slate-700">Seria CVT</label>
+                <input type="text" name="cvt_series" value={formData.cvt_series} onChange={handleChange} className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent" placeholder="Seria CVT" />
+                <p className="text-xs text-slate-500">Seria de identificare CVT</p>
               </div>
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700">Număr de Serie *</label>
+              {/* Removed CVT number input; series is the primary identifier */}
+              <div className="space-y-2 md:col-span-2">
+                <label className="block text-sm font-semibold text-slate-700">Număr de Serie Slot *</label>
                 <input type="text" name="serial_number" value={formData.serial_number} onChange={handleChange} className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent" placeholder="Serial number slot" required />
                 <p className="text-xs text-slate-500">Numărul de serie care leagă CVT-ul cu slot-ul din aplicație</p>
               </div>
@@ -414,8 +448,8 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
                     <FileCheck className="w-5 h-5 text-cyan-600" />
                     <div>
                       <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                        {typeof formData.cvtPreview === 'string' && formData.cvtPreview.includes('data:') 
-                          ? 'Document CVT încărcat' 
+                        {formData.cvtPreview instanceof File 
+                          ? 'Document CVT nou' 
                           : 'Document CVT existent'}
                       </p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">PDF Document</p>
@@ -432,12 +466,22 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
                 </div>
                 
                 {/* PDF Viewer */}
-                <PDFViewer 
-                  pdfUrl={formData.cvtPreview}
-                  title={`CVT Document ${formData.cvt_number}`}
-                  placeholder="Documentul CVT nu este disponibil"
-                  placeholderSubtext="Atașează documentul CVT pentru vizualizare"
-                />
+                {formData.cvtPreview instanceof File ? (
+                  <iframe
+                    src={URL.createObjectURL(formData.cvtPreview)}
+                    className="w-full h-[600px] rounded-lg border-2 border-slate-300 dark:border-slate-600"
+                    title="PDF Preview"
+                  />
+                ) : formData.cvtPreview ? (
+                  <div className="w-full h-[600px]">
+                    <PDFViewer 
+                      pdfUrl={formData.cvtPreview}
+                      title={`CVT Document ${formData.cvt_series || ''}`}
+                      placeholder="Documentul CVT nu este disponibil"
+                      placeholderSubtext="Atașează documentul CVT pentru vizualizare"
+                    />
+                  </div>
+                ) : null}
               </div>
             )}
             <p className="text-xs text-slate-500">Încărcați documentul CVT în format PDF</p>

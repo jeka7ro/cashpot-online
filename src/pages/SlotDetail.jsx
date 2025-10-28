@@ -631,3 +631,4 @@ const SlotDetail = () => {
 
 export default SlotDetail
 
+

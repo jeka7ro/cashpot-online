@@ -63,7 +63,7 @@ router.post('/login', [
         role: user.role 
       },
       process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '24h' }
+      { expiresIn: '7d' } // Extend to 7 days to avoid frequent re-logins
     )
 
     res.json({

@@ -32,12 +32,43 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  // Configure axios defaults
+  // Configure axios defaults and interceptors
   useEffect(() => {
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
     } else {
       delete axios.defaults.headers.common['Authorization']
+    }
+
+    // Add response interceptor to handle token expiration
+    const responseInterceptor = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        // If token expired or unauthorized
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          console.error('❌ Unauthorized - token expired or invalid')
+          
+          // Clear auth state
+          sessionStorage.removeItem('authToken')
+          setToken(null)
+          setUser(null)
+          delete axios.defaults.headers.common['Authorization']
+          
+          // Only redirect if not already on login page
+          if (window.location.pathname !== '/login') {
+            toast.error('Sesiunea a expirat. Te rugăm să te loghezi din nou.')
+            setTimeout(() => {
+              window.location.replace('/login')
+            }, 1500)
+          }
+        }
+        return Promise.reject(error)
+      }
+    )
+
+    // Cleanup interceptor on unmount
+    return () => {
+      axios.interceptors.response.eject(responseInterceptor)
     }
   }, [token])
 
@@ -64,20 +95,29 @@ export const AuthProvider = ({ children }) => {
             })
           } else {
             console.error('No user data received from verify endpoint')
-            // localStorage REMOVED - using server only
             setToken(null)
             setUser(null)
           }
         } catch (error) {
           console.error('Auth verification failed:', error)
-          // Don't clear token on timeout, just show error
-          if (error.code === 'ECONNABORTED') {
-            toast.error('Timeout la verificare autentificare')
+          
+          // Only clear token if it's an actual auth error (not timeout)
+          if (error.response?.status === 401 || error.response?.status === 403) {
+            console.log('🔄 Token expired - clearing session')
+            sessionStorage.removeItem('authToken')
+            setToken(null)
+            setUser(null)
+            delete axios.defaults.headers.common['Authorization']
+          } else if (error.code === 'ECONNABORTED') {
+            // On timeout, just warn but don't clear token
+            console.warn('⚠️ Timeout on auth verification - keeping session alive')
+            toast.error('Timeout la verificare autentificare. Încercă refresh.')
+          } else {
+            console.error('❌ Auth check failed - clearing session')
+            sessionStorage.removeItem('authToken')
+            setToken(null)
+            setUser(null)
           }
-          // Clear session storage
-          sessionStorage.removeItem('authToken')
-          setToken(null)
-          setUser(null)
         }
       } else {
         // No token, only redirect if not already on login page

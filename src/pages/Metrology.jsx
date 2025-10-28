@@ -318,8 +318,8 @@ const Metrology = () => {
   // Define columns for the main metrology table - Updated
   const columns = [
     { 
-      key: 'cvt_number', 
-      label: 'NUMĂR CVT', 
+      key: 'cvt_series', 
+      label: 'SERIE CVT', 
       sortable: true,
       render: (item) => (
         <button
@@ -329,7 +329,7 @@ const Metrology = () => {
           }}
           className="text-cyan-600 hover:text-cyan-800 font-semibold hover:underline transition-colors"
         >
-          {item.cvt_number}
+          {item.cvt_series || item.cvt_number || 'N/A'}
         </button>
       )
     },
