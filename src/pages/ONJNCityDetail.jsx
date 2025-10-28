@@ -3,7 +3,7 @@ import Layout from '../components/Layout'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Building2, MapPin, Activity, Users, Calendar, Download, Search } from 'lucide-react'
 import * as XLSX from 'xlsx'
-import { getCityPopulation } from '../utils/roPopulation'
+import { getCityPopulation, getCountyPopulation } from '../utils/roPopulation'
 
 const ONJNCityDetail = () => {
   const { cityName } = useParams()
@@ -65,7 +65,10 @@ const ONJNCityDetail = () => {
   }, [searchTerm, selectedBrand, selectedStatus, perPage])
 
   // Calculate population
-  const population = getCityPopulation(decodeURIComponent(cityName))
+  const cityPop = getCityPopulation(decodeURIComponent(cityName))
+  const countyPop = operators.length > 0 && operators[0].county 
+    ? getCountyPopulation(operators[0].county)
+    : null
 
   // Calculate statistics
   const stats = {
@@ -274,15 +277,22 @@ const ONJNCityDetail = () => {
           </div>
 
           <div className="card p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-amber-100 dark:bg-amber-900/20 rounded-lg">
-                <Users className="w-6 h-6 text-amber-600 dark:text-amber-400" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Populație</p>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {population ? population.toLocaleString('ro-RO') : '—'}
-                </p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center flex-1">
+                <div className="p-3 bg-amber-100 dark:bg-amber-900/20 rounded-lg">
+                  <Users className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Populație Oraș</p>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                    {cityPop ? cityPop.toLocaleString('ro-RO') : '—'}
+                  </p>
+                  {countyPop && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                      Județ: {countyPop.toLocaleString('ro-RO')}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
