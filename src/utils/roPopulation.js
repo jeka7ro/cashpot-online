@@ -179,7 +179,37 @@ export const getCountyPopulation = (countyRaw) => {
 export const getCityPopulation = (cityRaw) => {
   if (!cityRaw) return undefined
   const city = cityRaw.trim()
-  return cityPopulation[city]
+  
+  // Try exact match first
+  if (cityPopulation[city]) {
+    return cityPopulation[city]
+  }
+  
+  // Try without diacritics (fallback)
+  const cityWithoutDiacritics = city
+    .replace(/ă/g, 'a').replace(/Ă/g, 'A')
+    .replace(/â/g, 'a').replace(/Â/g, 'A')
+    .replace(/î/g, 'i').replace(/Î/g, 'I')
+    .replace(/ș/g, 's').replace(/Ș/g, 'S')
+    .replace(/ț/g, 't').replace(/Ț/g, 'T')
+  
+  // Search in all keys
+  for (const [key, value] of Object.entries(cityPopulation)) {
+    const keyWithoutDiacritics = key
+      .replace(/ă/g, 'a').replace(/Ă/g, 'A')
+      .replace(/â/g, 'a').replace(/Â/g, 'A')
+      .replace(/î/g, 'i').replace(/Î/g, 'I')
+      .replace(/ș/g, 's').replace(/Ș/g, 'S')
+      .replace(/ț/g, 't').replace(/Ț/g, 'T')
+    
+    if (keyWithoutDiacritics.toLowerCase() === cityWithoutDiacritics.toLowerCase() ||
+        key.toLowerCase().includes(city.toLowerCase()) ||
+        city.toLowerCase().includes(key.toLowerCase())) {
+      return value
+    }
+  }
+  
+  return undefined
 }
 
 export const formatNumber = (n) => (typeof n === 'number' ? n.toLocaleString('ro-RO') : '-')
