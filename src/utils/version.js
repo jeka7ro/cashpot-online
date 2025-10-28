@@ -1,17 +1,12 @@
 import versionData from '../../version.json'
 
-// Variabilă locală pentru a urmări numărul de build în sesiunea curentă
-let currentBuild = versionData.build
-
-// Incrementăm build-ul la fiecare import al fișierului (refresh)
-currentBuild++
-
 export const getVersion = () => {
   return versionData.version
 }
 
 export const getBuild = () => {
-  return currentBuild
+  // Afișăm numărul de build exact din version.json (stabil la build-time)
+  return versionData.build
 }
 
 export const getBuildDate = () => {
