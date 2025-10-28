@@ -3,6 +3,7 @@ import Layout from '../components/Layout'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Building2, MapPin, Activity, Users, Calendar, Download, Search } from 'lucide-react'
 import * as XLSX from 'xlsx'
+import { getCityPopulation } from '../utils/roPopulation'
 
 const ONJNCityDetail = () => {
   const { cityName } = useParams()
@@ -62,6 +63,9 @@ const ONJNCityDetail = () => {
   useEffect(() => {
     setPage(1)
   }, [searchTerm, selectedBrand, selectedStatus, perPage])
+
+  // Calculate population
+  const population = getCityPopulation(decodeURIComponent(cityName))
 
   // Calculate statistics
   const stats = {
@@ -223,6 +227,9 @@ const ONJNCityDetail = () => {
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
                   {stats.total.toLocaleString('ro-RO')}
                 </p>
+                {population && (
+                  <p className="text-xs text-slate-500">Populație: {population.toLocaleString('ro-RO')}</p>
+                )}
               </div>
             </div>
           </div>
