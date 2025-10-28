@@ -793,10 +793,10 @@ const ONJNReports = () => {
                           {operator.serial_number || '-'}
                         </td>
                         <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
-                          {operator.equipment_type || '-'}
+                          {operator.equipment_type && operator.equipment_type.trim() ? operator.equipment_type : '—'}
                         </td>
                         <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
-                          {operator.license_number || '-'}
+                          {operator.license_number && operator.license_number.trim() ? operator.license_number : '—'}
                         </td>
                         <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
                           {operator.company_name ? (
