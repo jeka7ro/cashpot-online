@@ -3740,13 +3740,13 @@ app.post('/api/authorities', authenticateUser, async (req, res) => {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
     
-    const { name, type, contact_info, address, email, phone, website } = req.body
+    const { name, address, price_initiala, price_reparatie, price_periodica, notes } = req.body
     
     const result = await pool.query(
-      `INSERT INTO authorities (name, type, contact_info, address, email, phone, website, created_at, updated_at) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) 
+      `INSERT INTO authorities (name, address, price_initiala, price_reparatie, price_periodica, notes, created_at, updated_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) 
        RETURNING *`,
-      [name, type, contact_info, address, email, phone, website]
+      [name, address, price_initiala, price_reparatie, price_periodica, notes]
     )
     
     res.json(result.rows[0])
@@ -3765,14 +3765,14 @@ app.put('/api/authorities/:id', authenticateUser, async (req, res) => {
     }
     
     const { id } = req.params
-    const { name, type, contact_info, address, email, phone, website } = req.body
+    const { name, address, price_initiala, price_reparatie, price_periodica, notes } = req.body
     
     const result = await pool.query(
       `UPDATE authorities 
-       SET name = $1, type = $2, contact_info = $3, address = $4, email = $5, phone = $6, website = $7, updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $8 
+       SET name = $1, address = $2, price_initiala = $3, price_reparatie = $4, price_periodica = $5, notes = $6, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $7 
        RETURNING *`,
-      [name, type, contact_info, address, email, phone, website, id]
+      [name, address, price_initiala, price_reparatie, price_periodica, notes, id]
     )
     
     res.json(result.rows[0])

@@ -279,16 +279,21 @@ const Metrology = () => {
 
   const handleAuthoritySave = async (formData) => {
     try {
-      const response = await fetch('/api/authorities', {
-        method: 'POST',
+      const url = editingAuthority ? `/api/authorities/${editingAuthority.id}` : '/api/authorities'
+      const method = editingAuthority ? 'PUT' : 'POST'
+      
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       })
+      
       if (response.ok) {
         const newData = await fetch('/api/authorities')
         const data = await newData.json()
         setAuthorities(data)
         setShowAuthorityModal(false)
+        setEditingAuthority(null)
       }
     } catch (error) {
       console.error('Error saving authority:', error)
@@ -550,11 +555,35 @@ const Metrology = () => {
 
   // Authorities columns
   const authoritiesColumns = [
-    { key: 'authority_name', label: 'NUME AUTORITATE', sortable: true },
-    { key: 'contact_person', label: 'PERSOANĂ CONTACT', sortable: true },
-    { key: 'contact_email', label: 'EMAIL', sortable: true },
-    { key: 'contact_phone', label: 'TELEFON', sortable: true },
+    { key: 'name', label: 'NUME AUTORITATE', sortable: true },
     { key: 'address', label: 'ADRESĂ', sortable: true },
+    { 
+      key: 'prices', 
+      label: 'PREȚURI', 
+      sortable: false,
+      render: (item) => (
+        <div className="space-y-1">
+          {item.price_initiala && (
+            <div className="text-xs">
+              <span className="text-slate-600">Inițială:</span> {item.price_initiala} LEI
+            </div>
+          )}
+          {item.price_reparatie && (
+            <div className="text-xs">
+              <span className="text-slate-600">Reparație:</span> {item.price_reparatie} LEI
+            </div>
+          )}
+          {item.price_periodica && (
+            <div className="text-xs">
+              <span className="text-slate-600">Periodică:</span> {item.price_periodica} LEI
+            </div>
+          )}
+          {!item.price_initiala && !item.price_reparatie && !item.price_periodica && (
+            <span className="text-slate-400">-</span>
+          )}
+        </div>
+      )
+    },
     { 
       key: 'created_info', 
       label: 'CREAT DE / DATA', 
