@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Building2, MapPin, Activity, Users, Calendar, Download, Search } from 'lucide-react'
+import { getCountyPopulation } from '../utils/roPopulation'
 import * as XLSX from 'xlsx'
 
 const ONJNCountyDetail = () => {
@@ -61,6 +62,8 @@ const ONJNCountyDetail = () => {
     byCity: {},
     byCompany: {}
   }
+
+  const population = getCountyPopulation(decodeURIComponent(countyName))
 
   // Calculate by brand
   filteredOperators.forEach(op => {
@@ -220,6 +223,9 @@ const ONJNCountyDetail = () => {
                 <p className="text-2xl font-bold text-slate-900 dark:text-white">
                   {stats.total.toLocaleString('ro-RO')}
                 </p>
+                {population && (
+                  <p className="text-xs text-slate-500">Populație: {population.toLocaleString('ro-RO')}</p>
+                )}
               </div>
             </div>
           </div>
