@@ -528,17 +528,9 @@ export const DataProvider = ({ children }) => {
           (prev || []).map(item => (item.id === id ? { ...item, ...updatedItem } : item))
         )
         
-        // Reload data for promotions to ensure consistency
-        if (entity === 'promotions') {
-          try {
-            const freshResponse = await axios.get('/api/promotions')
-            const freshData = Array.isArray(freshResponse.data) ? freshResponse.data : []
-            console.log('🔄 Reloaded promotions after update:', freshData.length)
-            setPromotions(freshData)
-          } catch (reloadError) {
-            console.error('❌ Error reloading promotions:', reloadError)
-          }
-        }
+        // Don't reload all data for promotions - just update the single item
+        // This prevents "zero peste tot" issue
+        console.log('✅ Updated', entity, 'item', id, 'without full reload')
         
         return { success: true, data: updatedItem }
       }
