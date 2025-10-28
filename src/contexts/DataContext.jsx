@@ -523,22 +523,12 @@ export const DataProvider = ({ children }) => {
           toast.success('Actualizat cu succes!')
         }
         
-        // Update state for this specific entity
+        // Update state for this specific entity (don't reload, prevents "zero peste tot")
         entityConfig[entity].setState(prev =>
           (prev || []).map(item => (item.id === id ? { ...item, ...updatedItem } : item))
         )
         
-        // Reload data for promotions to ensure consistency
-        if (entity === 'promotions') {
-          try {
-            const freshResponse = await axios.get('/api/promotions')
-            const freshData = Array.isArray(freshResponse.data) ? freshResponse.data : []
-            console.log('🔄 Reloaded promotions after update:', freshData.length)
-            setPromotions(freshData)
-          } catch (reloadError) {
-            console.error('❌ Error reloading promotions:', reloadError)
-          }
-        }
+        console.log('✅ Updated', entity, 'item', id)
         
         return { success: true, data: updatedItem }
       }
