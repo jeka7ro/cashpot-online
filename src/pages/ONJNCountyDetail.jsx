@@ -280,6 +280,12 @@ const ONJNCountyDetail = () => {
                     <div>
                       <p className="font-medium text-slate-900 dark:text-white">{brand}</p>
                       <p className="text-sm text-slate-500 dark:text-slate-400">{count.toLocaleString('ro-RO')} aparate</p>
+                      <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                        {new Set(filteredOperators
+                          .filter(op => op.brand_name === brand)
+                          .map(op => op.slot_address)
+                          .filter(Boolean)).size} săli
+                      </p>
                     </div>
                     <Activity className="w-5 h-5 text-slate-400" />
                   </div>
@@ -301,6 +307,12 @@ const ONJNCountyDetail = () => {
                     <div>
                       <p className="font-medium text-slate-900 dark:text-white">{city}</p>
                       <p className="text-sm text-slate-500 dark:text-slate-400">{count.toLocaleString('ro-RO')} aparate</p>
+                      <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                        {new Set(filteredOperators
+                          .filter(op => op.city === city)
+                          .map(op => op.slot_address)
+                          .filter(Boolean)).size} săli
+                      </p>
                     </div>
                     <MapPin className="w-5 h-5 text-slate-400" />
                   </div>
