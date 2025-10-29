@@ -19,6 +19,7 @@ const Marketing = () => {
   const [editingItem, setEditingItem] = useState(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [viewingItem, setViewingItem] = useState(null)
+  const [showCalendarModal, setShowCalendarModal] = useState(false)
 
   // Ensure data is loaded when arriving directly on Marketing (refresh/deep link)
   useEffect(() => {
@@ -201,7 +202,7 @@ const Marketing = () => {
       label: 'PERIOADA', 
       sortable: true,
       render: (item) => {
-        // Parse locations to get actual period per location
+        // Parse all locations and compute global min(start) and max(end)
         let locations = []
         if (item.locations) {
           try {
@@ -210,21 +211,26 @@ const Marketing = () => {
             console.error('Error parsing locations:', e)
           }
         }
-        
-        // If locations exist, show the first one's period, otherwise use global dates
-        const firstLocation = locations && locations.length > 0 ? locations[0] : null
-        const startDate = firstLocation?.start_date || item.start_date
-        const endDate = firstLocation?.end_date || item.end_date
-        
+
+        const allStarts = []
+        const allEnds = []
+        locations.forEach(loc => {
+          if (loc?.start_date) allStarts.push(new Date(loc.start_date))
+          if (loc?.end_date) allEnds.push(new Date(loc.end_date))
+        })
+
+        const startDate = (allStarts.length > 0 ? new Date(Math.min.apply(null, allStarts)) : (item.start_date ? new Date(item.start_date) : null))
+        const endDate = (allEnds.length > 0 ? new Date(Math.max.apply(null, allEnds)) : (item.end_date ? new Date(item.end_date) : null))
+
         return (
           <div className="space-y-1">
             <div className="flex items-center text-sm text-slate-700 dark:text-slate-300">
               <Calendar className="w-3.5 h-3.5 mr-1 text-green-600" />
-              {startDate ? new Date(startDate).toLocaleDateString('ro-RO') : 'N/A'}
+              {startDate ? startDate.toLocaleDateString('ro-RO') : 'N/A'}
             </div>
             <div className="flex items-center text-sm text-slate-700 dark:text-slate-300">
               <Calendar className="w-3.5 h-3.5 mr-1 text-red-600" />
-              {endDate ? new Date(endDate).toLocaleDateString('ro-RO') : 'N/A'}
+              {endDate ? endDate.toLocaleDateString('ro-RO') : 'N/A'}
             </div>
           </div>
         )
@@ -340,6 +346,14 @@ const Marketing = () => {
             </div>
             <div className="flex items-center space-x-3">
               <button
+                onClick={() => setShowCalendarModal(true)}
+                className="btn-secondary flex items-center space-x-2"
+                title="Calendar promoții"
+              >
+                <Calendar className="w-4 h-4" />
+                <span>Calendar</span>
+              </button>
+              <button
                 onClick={() => navigate('/marketing-ai')}
                 className="btn-secondary flex items-center space-x-2"
               >
@@ -373,10 +387,9 @@ const Marketing = () => {
           </div>
         </div>
 
-        {/* Marketing Tools - Smart Widgets */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Marketing Widgets: keep promotions; calendar in modal */}
+        <div className="grid grid-cols-1 gap-6">
           <PromotionsWidget />
-          <PromotionsCalendarWidget />
         </div>
 
         {/* Promotions Table */}
@@ -416,6 +429,23 @@ const Marketing = () => {
             }}
             onSave={handleSave}
           />
+        )}
+
+        {showCalendarModal && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+                <div className="flex items-center space-x-2">
+                  <Calendar className="w-5 h-5 text-pink-500" />
+                  <span className="font-semibold">Calendar Promoții</span>
+                </div>
+                <button onClick={() => setShowCalendarModal(false)} className="px-3 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">Închide</button>
+              </div>
+              <div className="p-4">
+                <PromotionsCalendarWidget />
+              </div>
+            </div>
+          </div>
         )}
 
         {showDetailModal && (
