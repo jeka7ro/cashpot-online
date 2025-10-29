@@ -9,16 +9,56 @@ const PromotionsAIWidget = () => {
 
   useEffect(() => {
     fetchPromotionsAndAnalyze()
+    window.addEventListener('promotionsUpdated', fetchPromotionsAndAnalyze)
+    return () => window.removeEventListener('promotionsUpdated', fetchPromotionsAndAnalyze)
   }, [])
 
   const fetchPromotionsAndAnalyze = async () => {
     try {
-      const response = await axios.get('/api/promotions/active')
-      const activePromos = response.data
-      setPromotions(activePromos)
+      const response = await axios.get('/api/promotions')
+      const allPromotions = Array.isArray(response.data) ? response.data : []
       
-      // AI Analysis
-      const aiInsights = analyzePromotions(activePromos)
+      // Filter out test promotions
+      const filteredPromotions = allPromotions.filter(p => 
+        !p.name?.toLowerCase().includes('test') && 
+        !p.description?.toLowerCase().includes('test')
+      )
+
+      // Parse all promotions with their locations and prizes
+      const parsedPromotions = filteredPromotions.map(p => {
+        let prizes = []
+        if (Array.isArray(p.prizes)) {
+          prizes = p.prizes
+        } else if (typeof p.prizes === 'string') {
+          try {
+            prizes = JSON.parse(p.prizes)
+          } catch (_) {
+            prizes = []
+          }
+        }
+
+        let locations = []
+        if (Array.isArray(p.locations)) {
+          locations = p.locations
+        } else if (typeof p.locations === 'string') {
+          try {
+            locations = JSON.parse(p.locations)
+          } catch (_) {
+            locations = []
+          }
+        }
+
+        return {
+          ...p,
+          __prizes: prizes,
+          __locations: locations
+        }
+      })
+      
+      setPromotions(parsedPromotions)
+      
+      // AI Analysis using parsed data
+      const aiInsights = analyzePromotions(parsedPromotions)
       setInsights(aiInsights)
     } catch (error) {
       console.error('Error fetching promotions:', error)
@@ -30,20 +70,51 @@ const PromotionsAIWidget = () => {
   const analyzePromotions = (promos) => {
     const insights = []
 
-    // Group promotions by date
+    // Group promotions by date - use locations array and prizes array
     const dateMap = new Map()
+    
     promos.forEach(promo => {
-      const start = new Date(promo.start_date)
-      const end = new Date(promo.end_date)
+      // Use locations array, or fallback to single location
+      const locations = promo.__locations && promo.__locations.length > 0 
+        ? promo.__locations 
+        : (promo.location ? [{ location: promo.location, start_date: promo.start_date, end_date: promo.end_date }] : [])
       
-      // Check each day in the promotion period
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dateKey = d.toISOString().split('T')[0]
-        if (!dateMap.has(dateKey)) {
-          dateMap.set(dateKey, [])
+      // Use prizes array for prize dates
+      const prizes = promo.__prizes || []
+      
+      // For each location, check promotion period
+      locations.forEach(loc => {
+        const start = loc.start_date ? new Date(loc.start_date) : (promo.start_date ? new Date(promo.start_date) : null)
+        const end = loc.end_date ? new Date(loc.end_date) : (promo.end_date ? new Date(promo.end_date) : null)
+        
+        if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) return
+        
+        // Check each day in the promotion period
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          const dateKey = d.toISOString().split('T')[0]
+          if (!dateMap.has(dateKey)) {
+            dateMap.set(dateKey, [])
+          }
+          dateMap.get(dateKey).push({ ...promo, __location: loc.location || promo.location })
         }
-        dateMap.get(dateKey).push(promo)
-      }
+      })
+      
+      // Also check prize dates
+      prizes.forEach(prize => {
+        if (!prize.date) return
+        try {
+          const prizeDate = new Date(prize.date)
+          if (isNaN(prizeDate.getTime())) return
+          const dateKey = prizeDate.toISOString().split('T')[0]
+          if (!dateMap.has(dateKey)) {
+            dateMap.set(dateKey, [])
+          }
+          const location = locations[0]?.location || promo.location || 'Nespecificat'
+          dateMap.get(dateKey).push({ ...promo, __location: location, __prizeDate: prizeDate })
+        } catch (e) {
+          console.warn('Error parsing prize date:', prize.date)
+        }
+      })
     })
 
     // AI INSIGHT 1: Detect same-day conflicts
@@ -51,8 +122,9 @@ const PromotionsAIWidget = () => {
       if (promosOnDate.length >= 2) {
         const locationGroups = {}
         promosOnDate.forEach(p => {
-          if (!locationGroups[p.location]) locationGroups[p.location] = []
-          locationGroups[p.location].push(p)
+          const location = p.__location || p.location || 'Nespecificat'
+          if (!locationGroups[location]) locationGroups[location] = []
+          locationGroups[location].push(p)
         })
 
         Object.entries(locationGroups).forEach(([location, locPromos]) => {
@@ -62,7 +134,7 @@ const PromotionsAIWidget = () => {
               icon: AlertTriangle,
               title: '🔴 CONFLICT CRITIC',
               message: `${locPromos.length} promoții în aceeași zi (${new Date(date).toLocaleDateString('ro-RO')}) la ${location}`,
-              details: locPromos.map(p => p.name).join(', '),
+              details: locPromos.map(p => p.name || p.title || 'Promoție').join(', '),
               severity: 'high'
             })
           }
@@ -81,25 +153,51 @@ const PromotionsAIWidget = () => {
         const promo1 = dateMap.get(sortedDates[i])
         const promo2 = dateMap.get(sortedDates[i + 1])
         
-        insights.push({
-          type: 'warning',
-          icon: AlertTriangle,
-          title: '🟡 ZILE CONSECUTIVE',
-          message: `Promoții la 1 zi distanță (${date1.toLocaleDateString('ro-RO')} - ${date2.toLocaleDateString('ro-RO')})`,
-          details: `Poate obosi audiența`,
-          severity: 'medium'
-        })
+        // Check if same location
+        const loc1 = promo1[0]?.__location || promo1[0]?.location
+        const loc2 = promo2[0]?.__location || promo2[0]?.location
+        
+        if (loc1 === loc2) {
+          insights.push({
+            type: 'warning',
+            icon: AlertTriangle,
+            title: '🟡 ZILE CONSECUTIVE',
+            message: `Promoții la 1 zi distanță la ${loc1} (${date1.toLocaleDateString('ro-RO')} - ${date2.toLocaleDateString('ro-RO')})`,
+            details: `Poate obosi audiența`,
+            severity: 'medium'
+          })
+        }
       }
     }
 
     // AI INSIGHT 3: Optimization suggestions
-    const totalPrizePool = promos.reduce((sum, p) => sum + (parseFloat(p.prize_amount) || 0), 0)
-    const avgPrize = totalPrizePool / promos.length
+    // Calculate total prize pool from prizes array
+    const totalPrizePool = promos.reduce((sum, p) => {
+      const prizes = p.__prizes || []
+      return sum + prizes.reduce((prizeSum, prize) => {
+        const amount = parseFloat(prize.amount) || 0
+        const currency = prize.currency || 'RON'
+        // Convert to RON for comparison
+        if (currency === 'RON') return prizeSum + amount
+        if (currency === 'EUR') return prizeSum + (amount * 5.0)
+        if (currency === 'USD') return prizeSum + (amount * 4.5)
+        return prizeSum + amount
+      }, 0)
+    }, 0)
+    const avgPrize = promos.length > 0 ? totalPrizePool / promos.length : 0
 
     if (promos.length > 0) {
       const locationDistribution = {}
       promos.forEach(p => {
-        locationDistribution[p.location] = (locationDistribution[p.location] || 0) + 1
+        // Count locations from locations array
+        if (p.__locations && p.__locations.length > 0) {
+          p.__locations.forEach(loc => {
+            const locName = loc.location || p.location || 'Nespecificat'
+            locationDistribution[locName] = (locationDistribution[locName] || 0) + 1
+          })
+        } else if (p.location) {
+          locationDistribution[p.location] = (locationDistribution[p.location] || 0) + 1
+        }
       })
 
       const mostActiveLocation = Object.entries(locationDistribution)
@@ -123,8 +221,8 @@ const PromotionsAIWidget = () => {
         type: 'success',
         icon: CheckCircle,
         title: '💰 ANALIZĂ BUGETE',
-        message: `Fond total: ${totalPrizePool.toLocaleString('ro-RO')} RON`,
-        details: `Premiu mediu: ${avgPrize.toLocaleString('ro-RO')} RON`,
+        message: `Fond total: ${totalPrizePool.toLocaleString('ro-RO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Lei`,
+        details: `Premiu mediu: ${avgPrize.toLocaleString('ro-RO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} Lei`,
         severity: 'low'
       })
     }
@@ -132,9 +230,19 @@ const PromotionsAIWidget = () => {
     // AI INSIGHT 5: Timeline gaps
     if (promos.length >= 2) {
       const dates = promos.flatMap(p => {
-        const start = new Date(p.start_date)
-        const end = new Date(p.end_date)
-        return [start, end]
+        // Use locations array dates or fallback to promo dates
+        const locations = p.__locations && p.__locations.length > 0 ? p.__locations : []
+        if (locations.length > 0) {
+          return locations.flatMap(loc => {
+            const start = loc.start_date ? new Date(loc.start_date) : (p.start_date ? new Date(p.start_date) : null)
+            const end = loc.end_date ? new Date(loc.end_date) : (p.end_date ? new Date(p.end_date) : null)
+            return [start, end].filter(d => d && !isNaN(d.getTime()))
+          })
+        } else {
+          const start = p.start_date ? new Date(p.start_date) : null
+          const end = p.end_date ? new Date(p.end_date) : null
+          return [start, end].filter(d => d && !isNaN(d.getTime()))
+        }
       }).sort((a, b) => a - b)
 
       const maxGap = Math.max(...dates.slice(1).map((date, i) => 
