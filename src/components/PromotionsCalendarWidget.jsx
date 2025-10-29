@@ -88,8 +88,11 @@ const PromotionsCalendarWidget = () => {
 
   // Get prize items for a specific date
   const getPrizeItemsForDate = (date) => {
+    // Normalize the check date to YYYY-MM-DD format for comparison
     const checkDate = new Date(date)
-    checkDate.setHours(0, 0, 0, 0)
+    const checkYear = checkDate.getFullYear()
+    const checkMonth = checkDate.getMonth()
+    const checkDay = checkDate.getDate()
     const items = []
 
     for (const promo of promotions) {
@@ -98,21 +101,52 @@ const PromotionsCalendarWidget = () => {
       for (const prize of prizes) {
         if (!prize.date) continue
         
-        const prizeDate = new Date(prize.date)
-        prizeDate.setHours(0, 0, 0, 0)
-        
-        if (prizeDate.getTime() === checkDate.getTime()) {
-          // Find the location for this prize
-          const location = promo.location || 
-                          (promo.__locations && promo.__locations.length > 0 ? promo.__locations[0].location : 'Nespecificat')
+        try {
+          // Handle different date formats (Date object, ISO string, YYYY-MM-DD string)
+          let prizeDate = null
+          if (prize.date instanceof Date) {
+            prizeDate = prize.date
+          } else if (typeof prize.date === 'string') {
+            // If it's already YYYY-MM-DD, create date directly
+            if (/^\d{4}-\d{2}-\d{2}/.test(prize.date)) {
+              prizeDate = new Date(prize.date + 'T00:00:00')
+            } else {
+              prizeDate = new Date(prize.date)
+            }
+          }
           
-          items.push({
-            id: `${promo.id}-${prize.date}-${location}`,
-            name: promo.name,
-            location: location,
-            amount: parseFloat(prize.amount) || 0,
-            color: locationColors[location] || '#64748b'
-          })
+          if (!prizeDate || isNaN(prizeDate.getTime())) continue
+          
+          const prizeYear = prizeDate.getFullYear()
+          const prizeMonth = prizeDate.getMonth()
+          const prizeDay = prizeDate.getDate()
+          
+          // Compare year, month, day (ignoring time)
+          if (prizeYear === checkYear && prizeMonth === checkMonth && prizeDay === checkDay) {
+            // Find the location for this prize - check all locations
+            let location = promo.location || 'Nespecificat'
+            
+            // Try to find location from __locations array
+            if (promo.__locations && promo.__locations.length > 0) {
+              // Use first location as default
+              location = promo.__locations[0].location || location
+              
+              // If we have location info in prize or promo, use it
+              if (promo.location) {
+                location = promo.location
+              }
+            }
+            
+            items.push({
+              id: `${promo.id}-${prize.date}-${location}-${prize.amount}`,
+              name: promo.name || promo.title || 'Promoție',
+              location: location,
+              amount: parseFloat(prize.amount) || 0,
+              color: locationColors[location] || '#64748b'
+            })
+          }
+        } catch (e) {
+          console.warn('Error parsing prize date:', prize.date, e)
         }
       }
     }
