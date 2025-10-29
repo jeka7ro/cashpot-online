@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 
@@ -29,6 +29,25 @@ export const AuthProvider = ({ children }) => {
       await axios.get('/api/health', { timeout: 15000 }) // Increased timeout
     } catch (_e) {
       // ignore
+    }
+  }
+
+  // Avoid parallel auth checks
+  const isAuthCheckRunning = useRef(false)
+
+  const verifyTokenWithRetry = async (maxRetries = 1) => {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        // Ensure backend is awake on first try
+        if (attempt === 0) await wakeUpBackend()
+        const response = await axios.get('/api/auth/verify', { timeout: 20000 })
+        return response
+      } catch (error) {
+        const isTimeout = error?.code === 'ECONNABORTED'
+        if (attempt === maxRetries || !isTimeout) throw error
+        // Exponential backoff and try again
+        await new Promise(r => setTimeout(r, 1200 * (attempt + 1)))
+      }
     }
   }
 
@@ -77,8 +96,10 @@ export const AuthProvider = ({ children }) => {
     const checkAuth = async () => {
       if (token) {
         try {
-          // Verify token and get real user data
-          const response = await axios.get('/api/auth/verify', { timeout: 20000 }) // Increased from 10s to 20s
+          if (isAuthCheckRunning.current) return
+          isAuthCheckRunning.current = true
+          // Verify token and get real user data (with retry)
+          const response = await verifyTokenWithRetry(1)
           const realUser = response.data.user
           
           if (realUser) {
@@ -118,6 +139,8 @@ export const AuthProvider = ({ children }) => {
             setToken(null)
             setUser(null)
           }
+        } finally {
+          isAuthCheckRunning.current = false
         }
       } else {
         // No token, only redirect if not already on login page
