@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { useData } from '../contexts/DataContext'
-import { TrendingUp, Plus, Search, Eye, Calendar, Clock, Brain } from 'lucide-react'
+import { TrendingUp, Plus, Search, Eye, Calendar, Clock, Brain, DollarSign } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import MarketingModal from '../components/modals/MarketingModal'
 import MarketingDetailModal from '../components/modals/MarketingDetailModal'
-import PromotionsWidget from '../components/PromotionsWidget'
 import PromotionsCalendarWidget from '../components/PromotionsCalendarWidget'
 import { useNavigate } from 'react-router-dom'
 
@@ -184,20 +183,6 @@ const Marketing = () => {
       )
     },
     { 
-      key: 'description', 
-      label: 'DESCRIERE', 
-      sortable: false,
-      render: (item) => (
-        <div className="text-sm text-slate-600 dark:text-slate-400 max-w-xs">
-          {item.description ? (
-            item.description.length > 60 
-              ? `${item.description.substring(0, 60)}...` 
-              : item.description
-          ) : 'Fără descriere'}
-        </div>
-      )
-    },
-    { 
       key: 'dates_period', 
       label: 'PERIOADA', 
       sortable: true,
@@ -232,6 +217,52 @@ const Marketing = () => {
               <Calendar className="w-3.5 h-3.5 mr-1 text-red-600" />
               {endDate ? endDate.toLocaleDateString('ro-RO') : 'N/A'}
             </div>
+          </div>
+        )
+      }
+    },
+    { 
+      key: 'prizes_total', 
+      label: 'SUMA PREMIILOR', 
+      sortable: true,
+      render: (item) => {
+        // Parse prizes and calculate total
+        let prizes = []
+        if (item.prizes) {
+          try {
+            prizes = typeof item.prizes === 'string' ? JSON.parse(item.prizes) : item.prizes
+          } catch (e) {
+            console.error('Error parsing prizes:', e)
+          }
+        }
+        
+        // Calculate total sum in RON
+        let totalRON = 0
+        prizes.forEach(prize => {
+          const amount = parseFloat(prize.amount) || 0
+          const currency = prize.currency || 'RON'
+          
+          // Simple conversion (you might want to use an API for real rates)
+          if (currency === 'RON') {
+            totalRON += amount
+          } else if (currency === 'EUR') {
+            totalRON += amount * 5.0 // Approximate rate
+          } else if (currency === 'USD') {
+            totalRON += amount * 4.5 // Approximate rate
+          }
+        })
+        
+        return (
+          <div className="flex items-center space-x-2">
+            <DollarSign className="w-4 h-4 text-green-600" />
+            <span className="font-semibold text-slate-900 dark:text-white">
+              {totalRON > 0 ? totalRON.toLocaleString('ro-RO', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '0'} RON
+            </span>
+            {prizes.length > 1 && (
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                ({prizes.length} premii)
+              </span>
+            )}
           </div>
         )
       }
@@ -385,11 +416,6 @@ const Marketing = () => {
               />
             </div>
           </div>
-        </div>
-
-        {/* Marketing Widgets: keep promotions; calendar in modal */}
-        <div className="grid grid-cols-1 gap-6">
-          <PromotionsWidget />
         </div>
 
         {/* Promotions Table */}
