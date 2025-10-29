@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { useData } from '../contexts/DataContext'
-import { TrendingUp, Plus, Search, Eye, Calendar, Clock, Brain, DollarSign } from 'lucide-react'
+import { TrendingUp, Plus, Search, Eye, Calendar, Clock, Brain } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import MarketingModal from '../components/modals/MarketingModal'
 import MarketingDetailModal from '../components/modals/MarketingDetailModal'
@@ -254,9 +254,8 @@ const Marketing = () => {
         
         return (
           <div className="flex items-center space-x-2">
-            <DollarSign className="w-4 h-4 text-green-600" />
             <span className="font-semibold text-slate-900 dark:text-white">
-              {totalRON > 0 ? totalRON.toLocaleString('ro-RO', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '0'} RON
+              {totalRON > 0 ? totalRON.toLocaleString('ro-RO', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '0'} Lei
             </span>
             {prizes.length > 1 && (
               <span className="text-xs text-slate-500 dark:text-slate-400">
