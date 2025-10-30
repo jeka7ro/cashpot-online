@@ -258,14 +258,6 @@ const Layout = ({ children }) => {
       module: MODULES.ONJN
     },
     { 
-      id: 'onjn-class-2', 
-      label: 'ONJN Clasa II', 
-      icon: Shield, 
-      path: '/onjn-class-2',
-      count: null,
-      module: MODULES.ONJN
-    },
-    { 
       id: 'legal-documents', 
       label: 'Documente Legale', 
       icon: DocIcon, 
