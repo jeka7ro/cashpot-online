@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { Search, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, RefreshCw, FileSpreadsheet, FileDown } from 'lucide-react'
 
 const ONJNClass2 = () => {
   const navigate = useNavigate()
@@ -40,6 +40,30 @@ const ONJNClass2 = () => {
       setLoading(false)
     }
   }
+
+  const exportArrayToCSV = (rows, filename) => {
+    const header = ['Serie','Tip','Adresă','Operator','Licență','Furnizor','Status','Beneficiar']
+    const csv = [header].concat(rows.map(r => [
+      r.serial,
+      r.type,
+      r.address,
+      r.operator,
+      r.license,
+      inferSupplier(r.operator),
+      r.status,
+      (r.transfer || '').replace(/^Către:\s*/i, '')
+    ])).map(r => r.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleExportCSV = () => exportArrayToCSV(displayItems, 'onjn_class_2.csv')
+  const handleExportExcel = () => exportArrayToCSV(displayItems, 'onjn_class_2.xlsx')
 
   useEffect(() => {
     loadData(1)
@@ -122,6 +146,14 @@ const ONJNClass2 = () => {
               <RefreshCw className="w-4 h-4" />
               <span>Reîncarcă</span>
             </button>
+            <div className="flex items-center space-x-2">
+              <button onClick={handleExportExcel} className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center space-x-1">
+                <FileSpreadsheet className="w-4 h-4" /><span>Excel</span>
+              </button>
+              <button onClick={handleExportCSV} className="px-3 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg flex items-center space-x-1">
+                <FileDown className="w-4 h-4" /><span>CSV</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -194,22 +226,22 @@ const ONJNClass2 = () => {
 
         {/* Cards like ONJN - totals and by status */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="card p-4">
+          <div className="card p-4 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-slate-800 dark:to-slate-900">
             <div className="text-sm text-slate-600">Total afișate</div>
             <div className="text-2xl font-bold">{totalDisplayed.toLocaleString('ro-RO')}</div>
             {totalResults && (
               <div className="text-xs text-slate-500">din {totalResults.toLocaleString('ro-RO')} rezultate</div>
             )}
           </div>
-          <div className="card p-4">
+          <div className="card p-4 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900">
             <div className="text-sm text-slate-600">În depozit</div>
             <div className="text-2xl font-bold text-blue-600">{inDepozit.toLocaleString('ro-RO')}</div>
           </div>
-          <div className="card p-4">
+          <div className="card p-4 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-slate-800 dark:to-slate-900">
             <div className="text-sm text-slate-600">Închiriat</div>
             <div className="text-2xl font-bold text-amber-600">{inchiriat.toLocaleString('ro-RO')}</div>
           </div>
-          <div className="card p-4">
+          <div className="card p-4 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
             <div className="text-sm text-slate-600">Vândut</div>
             <div className="text-2xl font-bold text-slate-700">{vandut.toLocaleString('ro-RO')}</div>
           </div>

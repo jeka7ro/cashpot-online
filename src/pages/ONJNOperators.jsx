@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import axios from 'axios'
-import { Building2, RefreshCw, Search, ExternalLink, Calendar, MapPin, FileCheck, TrendingUp, AlertCircle, Hash, BarChart3, X } from 'lucide-react'
+import { Building2, RefreshCw, Search, ExternalLink, Calendar, MapPin, FileCheck, TrendingUp, AlertCircle, Hash, BarChart3, X, FileSpreadsheet, FileDown } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import { toast } from 'react-hot-toast'
 // import ONJNStatsWidget from '../components/ONJNStatsWidget' // DISABLED TO FIX ReferenceError
@@ -112,6 +112,30 @@ const ONJNOperators = () => {
       console.error('Error loading stats:', error)
     }
   }
+
+  const exportArrayToCSV = (rows, filename) => {
+    const header = ['Serie','Tip','Companie','Brand','Județ','Adresă','Furnizor','Licență','Status']
+    const csv = [header].concat(rows.map(r => [
+      r.serial_number,
+      r.equipment_type,
+      r.company_name,
+      r.brand_name,
+      r.county,
+      r.slot_address,
+      inferSupplier(r.company_name),
+      r.license_number,
+      r.status
+    ])).map(r => r.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+  const handleExportCSV = () => exportArrayToCSV(filteredOperators, 'onjn_class_1.csv')
+  const handleExportExcel = () => exportArrayToCSV(filteredOperators, 'onjn_class_1.xlsx')
 
   // Function to fetch progress
   const fetchProgress = async () => {
@@ -426,6 +450,15 @@ const ONJNOperators = () => {
   }
 
   // Define columns
+  const inferSupplier = (companyName) => {
+    const name = (companyName || '').toLowerCase()
+    if (name.includes('euro games') || name.includes('egt')) return 'EGT'
+    if (name.includes('igt')) return 'IGT'
+    if (name.includes('novomatic') || name.includes('novo')) return 'Novomatic'
+    if (name.includes('apollo')) return 'Apollo'
+    if (name.includes('atronic')) return 'Atronic'
+    return 'Nesetat'
+  }
   const columns = [
     {
       key: 'serial_number',
@@ -439,6 +472,15 @@ const ONJNOperators = () => {
           >
             {item.serial_number}
           </button>
+          {/* Furnizor badge derived from company */}
+          {(() => {
+            const s = inferSupplier(item.company_name)
+            return s !== 'Nesetat' ? (
+              <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px]">
+                {s}
+              </span>
+            ) : null
+          })()}
           <a
             href={item.onjn_details_url}
             target="_blank"
@@ -458,6 +500,16 @@ const ONJNOperators = () => {
       render: (item) => (
         <div className="text-slate-700 dark:text-slate-300">
           {item.equipment_type || '-'}
+        </div>
+      )
+    },
+    {
+      key: 'supplier',
+      label: 'FURNIZOR',
+      sortable: false,
+      render: (item) => (
+        <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+          {inferSupplier(item.company_name)}
         </div>
       )
     },
@@ -628,6 +680,12 @@ const ONJNOperators = () => {
                 <span>
                   {refreshing ? 'Sincronizare...' : 'Refresh ONJN'}
                 </span>
+              </button>
+              <button onClick={handleExportExcel} className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center space-x-1">
+                <FileSpreadsheet className="w-4 h-4" /><span>Excel</span>
+              </button>
+              <button onClick={handleExportCSV} className="px-3 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg flex items-center space-x-1">
+                <FileDown className="w-4 h-4" /><span>CSV</span>
               </button>
               <button
                 onClick={handleImportJson}
