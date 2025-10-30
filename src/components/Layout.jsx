@@ -42,7 +42,7 @@ const Layout = ({ children }) => {
   
   // Show sidebar for all users, but filter menu items based on permissions
   const shouldShowSidebar = true
-  const { companies, locations, providers, platforms, cabinets, gameMixes, slots, warehouse, metrology, approvals, jackpots, invoices, onjnReports, legalDocuments, users, promotions, tasks, messages, notifications } = useData()
+  const { companies, locations, providers, platforms, cabinets, gameMixes, slots, warehouse, metrology, approvals, jackpots, invoices, onjnReports, legalDocuments, users, promotions, tasks, messages, notifications, loadAllData } = useData()
   const { theme, toggleTheme } = useTheme()
   const location = useLocation()
   
@@ -67,6 +67,14 @@ const Layout = ({ children }) => {
     // Load settings from server first, then localStorage as fallback
     loadSettingsFromServer()
   }, [])
+
+  // Ensure data loads after auth on any page (not just Dashboard)
+  React.useEffect(() => {
+    if (user) {
+      loadAllData()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
 
   const loadSettingsFromServer = async () => {
     let globalLoginSettings = {}

@@ -208,7 +208,10 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
         const uploadResponse = await axios.post('/api/upload', uploadFormData, {
           headers: {
             'Content-Type': 'multipart/form-data'
-          }
+          },
+          timeout: 120000,
+          maxBodyLength: Infinity,
+          maxContentLength: Infinity
         })
         
         if (uploadResponse.data) {
@@ -216,6 +219,8 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
         }
       } catch (error) {
         console.error('Error uploading file:', error)
+        // Fallback: proceed without the file to avoid blocking creation
+        filePath = null
       }
     }
     

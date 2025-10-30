@@ -318,11 +318,18 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                   const rawUrl = item.cvtFile || item.file_path || item.file?.url || item.file?.path || item.cvt_file || null
                   const makeAbsolute = (url) => {
                     if (!url) return null
+                    // Accept data URLs as-is (e.g., base64 PDFs stored directly)
+                    if (/^data:application\/pdf/i.test(url)) return url
                     if (/^https?:/i.test(url)) return url
                     const backend = (window && window.APP_BACKEND_URL) || 'https://cashpot-backend.onrender.com'
                     return `${backend}${url.startsWith('/') ? url : `/${url}`}`
                   }
-                  const pdfUrl = makeAbsolute(rawUrl)
+                  // Prefer direct URL; if missing or not usable, fallback to backend render endpoint
+                  let pdfUrl = makeAbsolute(rawUrl)
+                  if (!pdfUrl && item?.id) {
+                    const backend = (window && window.APP_BACKEND_URL) || 'https://cashpot-backend.onrender.com'
+                    pdfUrl = `${backend}/api/cvt-pdf/${item.id}`
+                  }
                   return pdfUrl ? (
                   <div className="space-y-4">
                     <iframe
