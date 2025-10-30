@@ -39,6 +39,7 @@ import ONJNAnalytics from './pages/ONJNAnalytics'
 import ONJNMap from './pages/ONJNMap'
 import ONJNClass2 from './pages/ONJNClass2'
 import ONJNClass2Detail from './pages/ONJNClass2Detail'
+import ONJNClass2Operator from './pages/ONJNClass2Operator'
 import ONJNCompanyDetail from './pages/ONJNCompanyDetail'
 import LegalDocuments from './pages/LegalDocuments'
 import UsersPage from './pages/Users'
@@ -83,6 +84,7 @@ function App() {
             <Route path="/onjn-map" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNMap /></RoleProtectedRoute>} />
             <Route path="/onjn-class-2" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNClass2 /></RoleProtectedRoute>} />
             <Route path="/onjn-class-2/:id" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNClass2Detail /></RoleProtectedRoute>} />
+            <Route path="/onjn-class-2/operator/:name" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNClass2Operator /></RoleProtectedRoute>} />
             <Route path="/onjn-reports/company/:companyName" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNCompanyDetail /></RoleProtectedRoute>} />
             <Route path="/onjn-operators" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNOperators /></RoleProtectedRoute>} />
             <Route path="/onjn-operators/brand/:brandName" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNBrandDetails /></RoleProtectedRoute>} />

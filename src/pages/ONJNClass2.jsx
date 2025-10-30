@@ -94,6 +94,17 @@ const ONJNClass2 = () => {
     )
   }
 
+  // Furnizor derivat din nume operator (fallback rules)
+  const inferSupplier = (operatorName) => {
+    const name = (operatorName || '').toLowerCase()
+    if (name.includes('euro games') || name.includes('egt')) return 'EGT'
+    if (name.includes('igt')) return 'IGT'
+    if (name.includes('novomatic') || name.includes('novo')) return 'Novomatic'
+    if (name.includes('apollo')) return 'Apollo'
+    if (name.includes('atronic')) return 'Atronic'
+    return 'Nesetat'
+  }
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -221,6 +232,7 @@ const ONJNClass2 = () => {
                     <th className="text-left p-3">Adresă</th>
                     <th className="text-left p-3">Operator</th>
                     <th className="text-left p-3">Licență</th>
+                    <th className="text-left p-3">Furnizor</th>
                     <th className="text-left p-3">Status</th>
                     <th className="text-left p-3">Transfer</th>
                   </tr>
@@ -233,8 +245,16 @@ const ONJNClass2 = () => {
                       </td>
                       <td className="p-3">{it.type}</td>
                       <td className="p-3">{it.address}</td>
-                      <td className="p-3">{it.operator}</td>
+                      <td className="p-3">
+                        <button
+                          onClick={() => navigate(`/onjn-class-2/operator/${encodeURIComponent(it.operator)}`)}
+                          className="text-indigo-600 dark:text-indigo-400 hover:underline"
+                        >
+                          {it.operator}
+                        </button>
+                      </td>
                       <td className="p-3">{it.license}</td>
+                      <td className="p-3">{inferSupplier(it.operator)}</td>
                       <td className="p-3"><StatusBadge value={it.status} /></td>
                       <td className="p-3">{it.transfer}</td>
                     </tr>

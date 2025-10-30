@@ -49,12 +49,16 @@ router.get('/', async (req, res) => {
       const serial = normalizeText(serialLink.text()) || normalizeText(serialCell.text())
       const detailHref = serialLink.attr('href') || ''
       const detailId = detailHref.split('/').pop()
+      // Deduplicate operator text that sometimes appears twice in the same cell
+      const rawOperator = normalizeText($(cells[3]).text())
+      const operator = rawOperator.split(/\s{2,}/)[0] || rawOperator
+
       rows.push({
         id: detailId,
         serial,
         type: normalizeText($(cells[1]).text()),
         address: normalizeText($(cells[2]).text()),
-        operator: normalizeText($(cells[3]).text()),
+        operator,
         license: normalizeText($(cells[4]).text()),
         status: normalizeText($(cells[5]).text()),
         transfer: normalizeText($(cells[6]).text()),
