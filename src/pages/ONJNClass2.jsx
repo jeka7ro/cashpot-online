@@ -234,7 +234,7 @@ const ONJNClass2 = () => {
                     <th className="text-left p-3">Licență</th>
                     <th className="text-left p-3">Furnizor</th>
                     <th className="text-left p-3">Status</th>
-                    <th className="text-left p-3">Transfer</th>
+                    <th className="text-left p-3">Beneficiar</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -256,7 +256,7 @@ const ONJNClass2 = () => {
                       <td className="p-3">{it.license}</td>
                       <td className="p-3">{inferSupplier(it.operator)}</td>
                       <td className="p-3"><StatusBadge value={it.status} /></td>
-                      <td className="p-3">{it.transfer}</td>
+                      <td className="p-3">{it.transfer?.replace(/^Către:\s*/i, '') || '-'}</td>
                     </tr>
                   ))}
                 </tbody>
