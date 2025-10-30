@@ -73,6 +73,13 @@ const ONJNClass2 = () => {
     return tpOk && opOk && stOk && ctOk && coOk
   })
 
+  // Simple counts for cards
+  const countByStatus = (label) => displayItems.filter(i => (i.status || '').toLowerCase().includes(label.toLowerCase())).length
+  const totalDisplayed = displayItems.length
+  const inDepozit = countByStatus('În depozit')
+  const inchiriat = countByStatus('Închiriat')
+  const vandut = countByStatus('Vândut')
+
   const StatusBadge = ({ value }) => {
     const v = (value || '').toLowerCase()
     const cls = v.includes('închiriat')
@@ -127,16 +134,18 @@ const ONJNClass2 = () => {
             <div className="md:col-span-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-                <select
+                <input
+                  list="onjn-operators"
                   value={filters.operator}
                   onChange={(e) => setFilters(prev => ({ ...prev, operator: e.target.value }))}
+                  placeholder="Toți operatorii"
                   className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                >
-                  <option value="">Toți operatorii</option>
+                />
+                <datalist id="onjn-operators">
                   {operators.map(op => (
-                    <option key={op} value={op}>{op}</option>
+                    <option key={op} value={op} />
                   ))}
-                </select>
+                </datalist>
               </div>
             </div>
             <select
@@ -170,6 +179,29 @@ const ONJNClass2 = () => {
               <button type="submit" className="btn-primary">Aplică filtre</button>
             </div>
           </form>
+        </div>
+
+        {/* Cards like ONJN - totals and by status */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="card p-4">
+            <div className="text-sm text-slate-600">Total afișate</div>
+            <div className="text-2xl font-bold">{totalDisplayed.toLocaleString('ro-RO')}</div>
+            {totalResults && (
+              <div className="text-xs text-slate-500">din {totalResults.toLocaleString('ro-RO')} rezultate</div>
+            )}
+          </div>
+          <div className="card p-4">
+            <div className="text-sm text-slate-600">În depozit</div>
+            <div className="text-2xl font-bold text-blue-600">{inDepozit.toLocaleString('ro-RO')}</div>
+          </div>
+          <div className="card p-4">
+            <div className="text-sm text-slate-600">Închiriat</div>
+            <div className="text-2xl font-bold text-amber-600">{inchiriat.toLocaleString('ro-RO')}</div>
+          </div>
+          <div className="card p-4">
+            <div className="text-sm text-slate-600">Vândut</div>
+            <div className="text-2xl font-bold text-slate-700">{vandut.toLocaleString('ro-RO')}</div>
+          </div>
         </div>
 
         <div className="card p-0 overflow-hidden">
