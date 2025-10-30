@@ -18,7 +18,8 @@ const ONJNClass2 = () => {
     operator: '',
     county: '',
     city: '',
-    status: ''
+    status: '',
+    supplier: ''
   })
 
   const loadData = async (pageNum = page) => {
@@ -86,6 +87,7 @@ const ONJNClass2 = () => {
     return parts.length > 0 ? parts[0] : ''
   }).filter(Boolean))).sort()
   const statuses = Array.from(new Set(items.map(i => i.status).filter(Boolean))).sort()
+  const suppliers = Array.from(new Set(items.map(i => inferSupplier(i.operator)).filter(Boolean))).sort()
 
   // Client-side filtered view
   const displayItems = items.filter(i => {
@@ -94,7 +96,8 @@ const ONJNClass2 = () => {
     const stOk = !filters.status || i.status === filters.status
     const ctOk = !filters.city || (i.address || '').toLowerCase().includes(filters.city.toLowerCase())
     const coOk = !filters.county || (i.address || '').toLowerCase().includes(filters.county.toLowerCase())
-    return tpOk && opOk && stOk && ctOk && coOk
+    const spOk = !filters.supplier || inferSupplier(i.operator) === filters.supplier
+    return tpOk && opOk && stOk && ctOk && coOk && spOk
   })
 
   // Simple counts for cards
@@ -158,7 +161,7 @@ const ONJNClass2 = () => {
         </div>
 
         <div className="card p-6">
-          <form onSubmit={onFilterSubmit} className="grid grid-cols-1 md:grid-cols-6 gap-3">
+          <form onSubmit={onFilterSubmit} className="grid grid-cols-1 md:grid-cols-7 gap-3">
             <div>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
@@ -218,7 +221,15 @@ const ONJNClass2 = () => {
               <option value="Vândut">Vândut</option>
               {statuses.map(s => (<option key={s} value={s}>{s}</option>))}
             </select>
-            <div className="md:col-span-6 flex justify-end">
+            <select
+              value={filters.supplier}
+              onChange={(e) => setFilters(prev => ({ ...prev, supplier: e.target.value }))}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            >
+              <option value="">Toți furnizorii</option>
+              {suppliers.map(s => (<option key={s} value={s}>{s}</option>))}
+            </select>
+            <div className="md:col-span-7 flex justify-end">
               <button type="submit" className="btn-primary">Aplică filtre</button>
             </div>
           </form>
