@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import axios from 'axios'
-import { Building2, RefreshCw, Search, ExternalLink, Calendar, MapPin, FileCheck, TrendingUp, AlertCircle, Hash, BarChart3 } from 'lucide-react'
+import { Building2, RefreshCw, Search, ExternalLink, Calendar, MapPin, FileCheck, TrendingUp, AlertCircle, Hash, BarChart3, X } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import { toast } from 'react-hot-toast'
 // import ONJNStatsWidget from '../components/ONJNStatsWidget' // DISABLED TO FIX ReferenceError
