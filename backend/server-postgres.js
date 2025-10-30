@@ -3373,6 +3373,8 @@ app.use('/api/invoices', invoicesRoutes)
 app.use('/api/jackpots', jackpotsRoutes)
 app.use('/api/legal-documents', legalDocumentsRoutes)
 app.use('/api/onjn-reports', onjnReportsRoutes)
+// ONJN Class 2 routes
+import onjnClass2Routes from './routes/onjnClass2.js'
 
 // Public endpoint for refresh status (no authentication required)
 app.get('/api/onjn-operators/refresh-status', (req, res) => {
@@ -3559,6 +3561,7 @@ app.post('/api/onjn-operators/import-json', async (req, res) => {
 })
 
 app.use('/api/onjn-operators', authenticateUser, onjnOperatorsRoutes)
+app.use('/api/onjn/class2', authenticateUser, onjnClass2Routes)
 app.use('/api/brands', authenticateUser, brandsRoutes)
 app.use('/api/metrology', metrologyRoutes)
 app.use('/api/warehouse', warehouseRoutes)
