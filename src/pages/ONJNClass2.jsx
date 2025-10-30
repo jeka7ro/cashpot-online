@@ -14,6 +14,7 @@ const ONJNClass2 = () => {
   const [totalResults, setTotalResults] = useState(null)
 
   const [filters, setFilters] = useState({
+    type: '',
     operator: '',
     county: '',
     city: '',
@@ -52,6 +53,7 @@ const ONJNClass2 = () => {
   }
 
   // Derived filter options from current page items
+  const types = Array.from(new Set(items.map(i => i.type).filter(Boolean))).sort()
   const operators = Array.from(new Set(items.map(i => i.operator).filter(Boolean))).sort()
   const counties = Array.from(new Set(items.map(i => (i.address || '').match(/JUDEȚUL\s+([^,]+)/i)?.[1] || '').filter(Boolean))).sort()
   const cities = Array.from(new Set(items.map(i => {
@@ -63,11 +65,12 @@ const ONJNClass2 = () => {
 
   // Client-side filtered view
   const displayItems = items.filter(i => {
+    const tpOk = !filters.type || i.type === filters.type
     const opOk = !filters.operator || i.operator === filters.operator
     const stOk = !filters.status || i.status === filters.status
     const ctOk = !filters.city || (i.address || '').toLowerCase().includes(filters.city.toLowerCase())
     const coOk = !filters.county || (i.address || '').toLowerCase().includes(filters.county.toLowerCase())
-    return opOk && stOk && ctOk && coOk
+    return tpOk && opOk && stOk && ctOk && coOk
   })
 
   const StatusBadge = ({ value }) => {
@@ -105,7 +108,22 @@ const ONJNClass2 = () => {
         </div>
 
         <div className="card p-6">
-          <form onSubmit={onFilterSubmit} className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <form onSubmit={onFilterSubmit} className="grid grid-cols-1 md:grid-cols-6 gap-3">
+            <div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                <select
+                  value={filters.type}
+                  onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                >
+                  <option value="">Toate tipurile</option>
+                  {types.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <div className="md:col-span-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
@@ -143,9 +161,12 @@ const ONJNClass2 = () => {
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
               <option value="">Toate statusurile</option>
+              <option value="În depozit">În depozit</option>
+              <option value="Închiriat">Închiriat</option>
+              <option value="Vândut">Vândut</option>
               {statuses.map(s => (<option key={s} value={s}>{s}</option>))}
             </select>
-            <div className="md:col-span-5 flex justify-end">
+            <div className="md:col-span-6 flex justify-end">
               <button type="submit" className="btn-primary">Aplică filtre</button>
             </div>
           </form>
