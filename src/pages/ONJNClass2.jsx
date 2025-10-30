@@ -51,6 +51,39 @@ const ONJNClass2 = () => {
     loadData(1)
   }
 
+  // Derived filter options from current page items
+  const operators = Array.from(new Set(items.map(i => i.operator).filter(Boolean))).sort()
+  const counties = Array.from(new Set(items.map(i => (i.address || '').match(/JUDEȚUL\s+([^,]+)/i)?.[1] || '').filter(Boolean))).sort()
+  const cities = Array.from(new Set(items.map(i => {
+    const addr = i.address || ''
+    const parts = addr.split(',').map(s => s.trim())
+    return parts.length > 0 ? parts[0] : ''
+  }).filter(Boolean))).sort()
+  const statuses = Array.from(new Set(items.map(i => i.status).filter(Boolean))).sort()
+
+  // Client-side filtered view
+  const displayItems = items.filter(i => {
+    const opOk = !filters.operator || i.operator === filters.operator
+    const stOk = !filters.status || i.status === filters.status
+    const ctOk = !filters.city || (i.address || '').toLowerCase().includes(filters.city.toLowerCase())
+    const coOk = !filters.county || (i.address || '').toLowerCase().includes(filters.county.toLowerCase())
+    return opOk && stOk && ctOk && coOk
+  })
+
+  const StatusBadge = ({ value }) => {
+    const v = (value || '').toLowerCase()
+    const cls = v.includes('închiriat')
+      ? 'bg-amber-100 text-amber-800'
+      : v.includes('vândut')
+        ? 'bg-slate-200 text-slate-800'
+        : v.includes('depozit')
+          ? 'bg-blue-100 text-blue-800'
+          : 'bg-green-100 text-green-800'
+    return (
+      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{value || '-'}</span>
+    )
+  }
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -76,38 +109,44 @@ const ONJNClass2 = () => {
             <div className="md:col-span-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Operator"
+                <select
                   value={filters.operator}
                   onChange={(e) => setFilters(prev => ({ ...prev, operator: e.target.value }))}
                   className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
+                >
+                  <option value="">Toți operatorii</option>
+                  {operators.map(op => (
+                    <option key={op} value={op}>{op}</option>
+                  ))}
+                </select>
               </div>
             </div>
-            <input
-              type="text"
-              placeholder="Județ"
+            <select
               value={filters.county}
               onChange={(e) => setFilters(prev => ({ ...prev, county: e.target.value }))}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-            <input
-              type="text"
-              placeholder="Localitate"
+            >
+              <option value="">Toate județele</option>
+              {counties.map(c => (<option key={c} value={c}>{c}</option>))}
+            </select>
+            <select
               value={filters.city}
               onChange={(e) => setFilters(prev => ({ ...prev, city: e.target.value }))}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-            <input
-              type="text"
-              placeholder="Status (ex: În depozit)"
+            >
+              <option value="">Toate localitățile</option>
+              {cities.map(c => (<option key={c} value={c}>{c}</option>))}
+            </select>
+            <select
               value={filters.status}
               onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
+            >
+              <option value="">Toate statusurile</option>
+              {statuses.map(s => (<option key={s} value={s}>{s}</option>))}
+            </select>
             <div className="md:col-span-5 flex justify-end">
-              <button type="submit" className="btn-primary">Filtrează</button>
+              <button type="submit" className="btn-primary">Aplică filtre</button>
             </div>
           </form>
         </div>
@@ -134,7 +173,7 @@ const ONJNClass2 = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((it) => (
+                  {displayItems.map((it) => (
                     <tr key={it.id} className="border-b hover:bg-slate-50">
                       <td className="p-3 text-indigo-600 font-semibold cursor-pointer" onClick={() => navigate(`/onjn-class-2/${it.id}`)}>
                         {it.serial}
@@ -143,7 +182,7 @@ const ONJNClass2 = () => {
                       <td className="p-3">{it.address}</td>
                       <td className="p-3">{it.operator}</td>
                       <td className="p-3">{it.license}</td>
-                      <td className="p-3">{it.status}</td>
+                      <td className="p-3"><StatusBadge value={it.status} /></td>
                       <td className="p-3">{it.transfer}</td>
                     </tr>
                   ))}
