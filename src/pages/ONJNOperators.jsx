@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import axios from 'axios'
-import { Building2, RefreshCw, Search, ExternalLink, Calendar, MapPin, FileCheck, TrendingUp, AlertCircle, Hash, BarChart3, X, FileSpreadsheet, FileDown } from 'lucide-react'
+import { Building2, RefreshCw, Search, ExternalLink, Calendar, MapPin, FileCheck, TrendingUp, AlertCircle, Hash, BarChart3, X, FileSpreadsheet, FileDown, Layers } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import { toast } from 'react-hot-toast'
 // import ONJNStatsWidget from '../components/ONJNStatsWidget' // DISABLED TO FIX ReferenceError
@@ -712,6 +712,29 @@ const ONJNOperators = () => {
               </button>
             </div>
           </div>
+
+        <div className="mt-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              className="btn-primary flex items-center space-x-2 pointer-events-none"
+            >
+              <Building2 className="w-4 h-4" />
+              <span>Clasa I</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/onjn/class-2')}
+              className="btn-secondary flex items-center space-x-2"
+            >
+              <Layers className="w-4 h-4" />
+              <span>Clasa II</span>
+            </button>
+          </div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">
+            Registrul aparatelor tip slot autorizate (Clasa I) sincronizate cu ONJN.
+          </div>
+        </div>
 
           {/* Progress Status Bar */}
           {(refreshProgress || refreshing) && (

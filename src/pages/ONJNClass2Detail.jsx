@@ -32,7 +32,7 @@ const ONJNClass2Detail = () => {
       <div className="space-y-6">
         <div className="card p-6 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <button onClick={() => navigate('/onjn-class-2')} className="btn-secondary flex items-center space-x-2">
+            <button onClick={() => navigate('/onjn/class-2')} className="btn-secondary flex items-center space-x-2">
               <ArrowLeft className="w-4 h-4" />
               <span>Înapoi</span>
             </button>
@@ -79,5 +79,7 @@ const ONJNClass2Detail = () => {
 }
 
 export default ONJNClass2Detail
+
+
 
 

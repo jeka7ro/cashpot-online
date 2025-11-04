@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import ExportButtons from '../components/ExportButtons'
 import { useData } from '../contexts/DataContext'
-import { Shield, Plus, Search, Upload, Download, Building2, ExternalLink, BarChart3, MapPin } from 'lucide-react'
+import { Shield, Plus, Search, Upload, Download, Building2, BarChart3, MapPin, Layers } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DataTable from '../components/DataTable'
 import ONJNReportModal from '../components/modals/ONJNReportModal'
@@ -480,13 +480,6 @@ const ONJNReports = () => {
                 </>
               )}
               <button
-                onClick={() => navigate('/onjn-operators')}
-                className="btn-secondary flex items-center space-x-2 mr-2"
-              >
-                <Building2 className="w-4 h-4" />
-                <span>Operatori ONJN</span>
-              </button>
-              <button
                 onClick={() => navigate('/onjn-map')}
                 className="btn-secondary flex items-center space-x-2 mr-2"
               >
@@ -507,6 +500,27 @@ const ONJNReports = () => {
                 <Plus className="w-4 h-4" />
                 <span>Adaugă Raport</span>
               </button>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => navigate('/onjn/class-1')}
+                className="btn-secondary flex items-center space-x-2"
+              >
+                <Building2 className="w-4 h-4" />
+                <span>Clasa I</span>
+              </button>
+              <button
+                onClick={() => navigate('/onjn/class-2')}
+                className="btn-secondary flex items-center space-x-2"
+              >
+                <Layers className="w-4 h-4" />
+                <span>Clasa II</span>
+              </button>
+            </div>
+            <div className="text-sm text-slate-500 dark:text-slate-400">
+              Accesează rapid secțiunile dedicate pentru aparatele de joc Clasa I și terminalele Clasa II.
             </div>
           </div>
         </div>

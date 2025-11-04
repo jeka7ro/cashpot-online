@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { Search, ChevronLeft, ChevronRight, RefreshCw, FileSpreadsheet, FileDown } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, RefreshCw, FileSpreadsheet, FileDown, Building2, Layers, TrendingUp, Users, Package } from 'lucide-react'
 
 const ONJNClass2 = () => {
   const navigate = useNavigate()
@@ -12,6 +12,8 @@ const ONJNClass2 = () => {
   const [page, setPage] = useState(1)
   const [hasNext, setHasNext] = useState(false)
   const [totalResults, setTotalResults] = useState(null)
+  const [detailedStats, setDetailedStats] = useState(null)
+  const [loadingStats, setLoadingStats] = useState(false)
 
   const [filters, setFilters] = useState({
     type: '',
@@ -66,8 +68,21 @@ const ONJNClass2 = () => {
   const handleExportCSV = () => exportArrayToCSV(displayItems, 'onjn_class_2.csv')
   const handleExportExcel = () => exportArrayToCSV(displayItems, 'onjn_class_2.xlsx')
 
+  const loadStats = async () => {
+    setLoadingStats(true)
+    try {
+      const res = await axios.get('/api/onjn/class2/statistics/overview', { timeout: 60000 })
+      setDetailedStats(res.data)
+    } catch (e) {
+      console.error('Error loading stats:', e)
+    } finally {
+      setLoadingStats(false)
+    }
+  }
+
   useEffect(() => {
     loadData(1)
+    loadStats()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -142,12 +157,16 @@ const ONJNClass2 = () => {
               <p className="text-slate-600 dark:text-slate-400">Listă sincronizată cu registrul ONJN</p>
             </div>
             <button
-              onClick={() => loadData(page)}
+              onClick={() => {
+                loadData(page)
+                loadStats()
+              }}
               className="btn-secondary flex items-center space-x-2"
-              title="Reîncarcă"
+              title="Reîncarcă datele și statisticile"
+              disabled={loading || loadingStats}
             >
-              <RefreshCw className="w-4 h-4" />
-              <span>Reîncarcă</span>
+              <RefreshCw className={`w-4 h-4 ${(loading || loadingStats) ? 'animate-spin' : ''}`} />
+              <span>{(loading || loadingStats) ? 'Se încarcă...' : 'Reîncarcă'}</span>
             </button>
             <div className="flex items-center space-x-2">
               <button onClick={handleExportExcel} className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center space-x-1">
@@ -156,6 +175,28 @@ const ONJNClass2 = () => {
               <button onClick={handleExportCSV} className="px-3 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg flex items-center space-x-1">
                 <FileDown className="w-4 h-4" /><span>CSV</span>
               </button>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => navigate('/onjn/class-1')}
+                className="btn-secondary flex items-center space-x-2"
+              >
+                <Building2 className="w-4 h-4" />
+                <span>Clasa I</span>
+              </button>
+              <button
+                type="button"
+                className="btn-primary flex items-center space-x-2 pointer-events-none"
+              >
+                <Layers className="w-4 h-4" />
+                <span>Clasa II</span>
+              </button>
+            </div>
+            <div className="text-sm text-slate-500 dark:text-slate-400">
+              Evidența terminalelor și mijloacelor de joc Clasa II conform registrului ONJN.
             </div>
           </div>
         </div>
@@ -238,25 +279,95 @@ const ONJNClass2 = () => {
         {/* Cards like ONJN - totals and by status */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="card p-4 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-slate-800 dark:to-slate-900">
-            <div className="text-sm text-slate-600">Total afișate</div>
-            <div className="text-2xl font-bold">{totalDisplayed.toLocaleString('ro-RO')}</div>
-            {totalResults && (
-              <div className="text-xs text-slate-500">din {totalResults.toLocaleString('ro-RO')} rezultate</div>
-            )}
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-slate-600">Total ONJN</div>
+                <div className="text-2xl font-bold">{detailedStats?.estimatedTotal?.toLocaleString('ro-RO') || '45,280'}</div>
+                <div className="text-xs text-slate-500">{detailedStats?.totalPages || 906} pagini</div>
+              </div>
+              <Package className="w-8 h-8 text-indigo-500 opacity-20" />
+            </div>
           </div>
           <div className="card p-4 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900">
-            <div className="text-sm text-slate-600">În depozit</div>
-            <div className="text-2xl font-bold text-blue-600">{inDepozit.toLocaleString('ro-RO')}</div>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-slate-600">În depozit</div>
+                <div className="text-2xl font-bold text-blue-600">{inDepozit.toLocaleString('ro-RO')}</div>
+                {detailedStats && (
+                  <div className="text-xs text-slate-500">~{((detailedStats.stats.inDepozit / detailedStats.sampleSize) * 100).toFixed(1)}% din total</div>
+                )}
+              </div>
+              <TrendingUp className="w-8 h-8 text-blue-500 opacity-20" />
+            </div>
           </div>
           <div className="card p-4 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-slate-800 dark:to-slate-900">
-            <div className="text-sm text-slate-600">Închiriat</div>
-            <div className="text-2xl font-bold text-amber-600">{inchiriat.toLocaleString('ro-RO')}</div>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-slate-600">Închiriat</div>
+                <div className="text-2xl font-bold text-amber-600">{inchiriat.toLocaleString('ro-RO')}</div>
+                {detailedStats && (
+                  <div className="text-xs text-slate-500">~{((detailedStats.stats.inchiriat / detailedStats.sampleSize) * 100).toFixed(1)}% din total</div>
+                )}
+              </div>
+              <Users className="w-8 h-8 text-amber-500 opacity-20" />
+            </div>
           </div>
           <div className="card p-4 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
-            <div className="text-sm text-slate-600">Vândut</div>
-            <div className="text-2xl font-bold text-slate-700">{vandut.toLocaleString('ro-RO')}</div>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-slate-600">Vândut</div>
+                <div className="text-2xl font-bold text-slate-700">{vandut.toLocaleString('ro-RO')}</div>
+                {detailedStats && (
+                  <div className="text-xs text-slate-500">~{((detailedStats.stats.vandut / detailedStats.sampleSize) * 100).toFixed(1)}% din total</div>
+                )}
+              </div>
+              <Building2 className="w-8 h-8 text-slate-500 opacity-20" />
+            </div>
           </div>
         </div>
+
+        {/* Additional Statistics - Top Operators and Types */}
+        {detailedStats && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="card p-6">
+              <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+                <Users className="w-5 h-5 text-indigo-600" />
+                <span>Top 10 Operatori</span>
+              </h3>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {Object.entries(detailedStats.stats.byOperator || {}).slice(0, 10).map(([operator, count]) => (
+                  <div key={operator} className="flex justify-between items-center p-2 hover:bg-slate-50 rounded">
+                    <button
+                      onClick={() => navigate(`/onjn/class-2/operator/${encodeURIComponent(operator)}`)}
+                      className="text-indigo-600 hover:underline text-left flex-1"
+                    >
+                      {operator}
+                    </button>
+                    <span className="font-mono text-sm font-semibold text-slate-700">{count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="card p-6">
+              <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+                <Package className="w-5 h-5 text-indigo-600" />
+                <span>Top Beneficiari (Închiriat)</span>
+              </h3>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {Object.entries(detailedStats.stats.byBeneficiary || {}).slice(0, 10).map(([beneficiary, count]) => (
+                  <div key={beneficiary} className="flex justify-between items-center p-2 hover:bg-slate-50 rounded">
+                    <span className="text-slate-800 text-left flex-1">{beneficiary}</span>
+                    <span className="font-mono text-sm font-semibold text-amber-700">{count}</span>
+                  </div>
+                ))}
+                {Object.keys(detailedStats.stats.byBeneficiary || {}).length === 0 && (
+                  <div className="text-slate-500 text-sm">Nu există date disponibile</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="card p-0 overflow-hidden">
           {loading ? (
@@ -283,14 +394,14 @@ const ONJNClass2 = () => {
                 <tbody>
                   {displayItems.map((it) => (
                     <tr key={it.id} className="border-b hover:bg-slate-50">
-                      <td className="p-3 text-indigo-600 font-semibold cursor-pointer" onClick={() => navigate(`/onjn-class-2/${it.id}`)}>
+                      <td className="p-3 text-indigo-600 font-semibold cursor-pointer" onClick={() => navigate(`/onjn/class-2/${it.id}`)}>
                         {it.serial}
                       </td>
                       <td className="p-3">{it.type}</td>
                       <td className="p-3">{it.address}</td>
                       <td className="p-3">
                         <button
-                          onClick={() => navigate(`/onjn-class-2/operator/${encodeURIComponent(it.operator)}`)}
+                          onClick={() => navigate(`/onjn/class-2/operator/${encodeURIComponent(it.operator)}`)}
                           className="text-indigo-600 dark:text-indigo-400 hover:underline"
                         >
                           {it.operator}

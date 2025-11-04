@@ -40,6 +40,24 @@ const Metrology = () => {
   const [editingAuthority, setEditingAuthority] = useState(null)
   const [showONJNCalendar, setShowONJNCalendar] = useState(false)
 
+  // Helper: build absolute PDF URL or fallback to backend viewer
+  const getCvtPdfUrl = (item) => {
+    const rawUrl = item?.cvtFile || item?.file_path || item?.file?.url || item?.file?.path || item?.cvt_file || null
+    const makeAbsolute = (url) => {
+      if (!url) return null
+      if (/^data:application\/pdf/i.test(url)) return url
+      if (/^https?:/i.test(url)) return url
+      const backend = (typeof window !== 'undefined' && window.APP_BACKEND_URL) || 'https://cashpot-backend.onrender.com'
+      return `${backend}${url.startsWith('/') ? url : `/${url}`}`
+    }
+    let pdfUrl = makeAbsolute(rawUrl)
+    if (!pdfUrl && item?.id) {
+      const backend = (typeof window !== 'undefined' && window.APP_BACKEND_URL) || 'https://cashpot-backend.onrender.com'
+      pdfUrl = `${backend}/api/cvt-pdf/${item.id}`
+    }
+    return pdfUrl
+  }
+
   // Update showBulkActions based on selectedItems
   useEffect(() => {
     setShowBulkActions(selectedItems.length > 0)
@@ -395,21 +413,24 @@ const Metrology = () => {
       key: 'cvtFile', 
       label: 'DOCUMENT CVT', 
       sortable: false,
-      render: (item) => (
-        <div className="flex items-center justify-center">
-          {item.cvtFile ? (
-            <button
-              onClick={() => window.open(item.cvtFile, '_blank')}
-              className="p-2 bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-900/20 dark:hover:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 rounded-lg transition-colors"
-              title="Vizualizează documentul CVT"
-            >
-              <Eye className="w-5 h-5" />
-            </button>
-          ) : (
-            <span className="text-slate-400 text-sm">-</span>
-          )}
-        </div>
-      )
+      render: (item) => {
+        const pdfUrl = getCvtPdfUrl(item)
+        return (
+          <div className="flex items-center justify-center">
+            {pdfUrl ? (
+              <button
+                onClick={() => window.open(pdfUrl, '_blank')}
+                className="p-2 bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-900/20 dark:hover:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 rounded-lg transition-colors"
+                title="Vizualizează documentul CVT"
+              >
+                <Eye className="w-5 h-5" />
+              </button>
+            ) : (
+              <span className="text-slate-400 text-sm">-</span>
+            )}
+          </div>
+        )
+      }
     },
     { 
       key: 'created_info', 

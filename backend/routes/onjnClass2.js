@@ -126,6 +126,89 @@ router.get('/:id', async (req, res) => {
   }
 })
 
+// GET /api/onjn/class2/stats - Statistics endpoint
+router.get('/statistics/overview', async (req, res) => {
+  try {
+    // Scrape first few pages to get a good sample for statistics
+    const pagesToScrape = 3
+    const allRows = []
+    
+    for (let p = 1; p <= pagesToScrape; p++) {
+      const url = `${BASE_URL}${LIST_PATH}?page=${p}`
+      const response = await http.get(url)
+      const $ = load(response.data)
+      
+      $('table tbody tr').each((_, row) => {
+        const cells = $(row).find('td')
+        if (cells.length < 8) return
+        const rawOperator = normalizeText($(cells[3]).text())
+        const operator = rawOperator.split(/\s{2,}/)[0] || rawOperator
+        
+        allRows.push({
+          type: normalizeText($(cells[1]).text()),
+          operator,
+          status: normalizeText($(cells[5]).text()),
+          transfer: normalizeText($(cells[6]).text())
+        })
+      })
+    }
+    
+    // Calculate statistics
+    const totalInSample = allRows.length
+    const inDepozit = allRows.filter(r => r.status.toLowerCase().includes('depozit')).length
+    const inchiriat = allRows.filter(r => r.status.toLowerCase().includes('închiriat')).length
+    const vandut = allRows.filter(r => r.status.toLowerCase().includes('vândut')).length
+    
+    // Count by operator
+    const byOperator = {}
+    allRows.forEach(r => {
+      const op = r.operator || 'Necunoscut'
+      byOperator[op] = (byOperator[op] || 0) + 1
+    })
+    
+    // Count by type
+    const byType = {}
+    allRows.forEach(r => {
+      const t = r.type || 'Necunoscut'
+      byType[t] = (byType[t] || 0) + 1
+    })
+    
+    // Top beneficiaries from "Către:"
+    const byBeneficiary = {}
+    allRows.forEach(r => {
+      if (r.transfer && r.transfer.includes('Către:')) {
+        const ben = r.transfer.replace(/^Către:\s*/i, '').trim()
+        if (ben) byBeneficiary[ben] = (byBeneficiary[ben] || 0) + 1
+      }
+    })
+    
+    res.json({
+      success: true,
+      sampleSize: totalInSample,
+      estimatedTotal: 45280,
+      totalPages: 906,
+      stats: {
+        inDepozit,
+        inchiriat,
+        vandut,
+        byOperator: Object.entries(byOperator)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 20)
+          .reduce((obj, [k, v]) => ({ ...obj, [k]: v }), {}),
+        byType: Object.entries(byType)
+          .sort((a, b) => b[1] - a[1])
+          .reduce((obj, [k, v]) => ({ ...obj, [k]: v }), {}),
+        byBeneficiary: Object.entries(byBeneficiary)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 20)
+          .reduce((obj, [k, v]) => ({ ...obj, [k]: v }), {})
+      }
+    })
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 export default router
 
 
