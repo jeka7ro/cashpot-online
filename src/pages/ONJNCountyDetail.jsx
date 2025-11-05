@@ -456,11 +456,31 @@ const ONJNCountyDetail = () => {
                             {location.city || '-'}
                           </td>
                           <td className="py-3 px-4">
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex flex-wrap gap-2">
                               {Array.from(location.brands).map((brand, i) => (
-                                <span key={i} className="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400 rounded text-xs font-medium">
-                                  {brand}
-                                </span>
+                                <div key={i} className="flex items-center space-x-1.5 px-2 py-1 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                                  {brand.toLowerCase() === 'cashpot' ? (
+                                    <div className="w-5 h-5 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded flex items-center justify-center shadow-sm">
+                                      <span className="text-white font-bold text-[8px]">C</span>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <img 
+                                        src={`https://logo.clearbit.com/${brand.toLowerCase().replace(/\s+/g, '')}.ro`}
+                                        alt={brand}
+                                        className="w-5 h-5 rounded object-cover"
+                                        onError={(e) => {
+                                          e.target.style.display = 'none'
+                                          e.target.nextSibling.style.display = 'flex'
+                                        }}
+                                      />
+                                      <div className="w-5 h-5 bg-gradient-to-br from-purple-500 to-indigo-500 rounded flex items-center justify-center shadow-sm" style={{display: 'none'}}>
+                                        <span className="text-white font-bold text-[8px]">{brand.charAt(0)}</span>
+                                      </div>
+                                    </>
+                                  )}
+                                  <span className="text-blue-800 dark:text-blue-400 text-xs font-medium">{brand}</span>
+                                </div>
                               ))}
                             </div>
                           </td>

@@ -439,6 +439,7 @@ const ONJNBrandDetail = () => {
                   <thead>
                     <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
                       <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">#</th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Brand</th>
                       <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Adresă Sală</th>
                       <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Oraș</th>
                       <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Județ</th>
@@ -449,10 +450,36 @@ const ONJNBrandDetail = () => {
                   <tbody>
                     {locations.map((location, index) => {
                       const activeSlots = location.slots.filter(s => s.status === 'În exploatare').length
+                      const currentBrand = decodeURIComponent(brandName)
                       return (
                         <tr key={index} className="border-b border-slate-100 dark:border-slate-800 hover:bg-purple-50 dark:hover:bg-slate-800/50 transition-colors">
                           <td className="py-3 px-4 text-slate-600 dark:text-slate-400 font-medium">
                             {index + 1}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center space-x-2">
+                              {currentBrand.toLowerCase() === 'cashpot' ? (
+                                <div className="w-8 h-8 bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 rounded-lg flex items-center justify-center shadow-lg">
+                                  <span className="text-white font-bold text-xs">C</span>
+                                </div>
+                              ) : (
+                                <>
+                                  <img 
+                                    src={`https://logo.clearbit.com/${currentBrand.toLowerCase().replace(/\s+/g, '')}.ro`}
+                                    alt={currentBrand}
+                                    className="w-8 h-8 rounded-lg object-cover"
+                                    onError={(e) => {
+                                      e.target.style.display = 'none'
+                                      e.target.nextSibling.style.display = 'flex'
+                                    }}
+                                  />
+                                  <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-lg flex items-center justify-center shadow-lg" style={{display: 'none'}}>
+                                    <span className="text-white font-bold text-xs">{currentBrand.charAt(0)}</span>
+                                  </div>
+                                </>
+                              )}
+                              <span className="font-medium text-slate-900 dark:text-slate-100">{currentBrand}</span>
+                            </div>
                           </td>
                           <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
                             <div className="font-medium">{location.address}</div>
