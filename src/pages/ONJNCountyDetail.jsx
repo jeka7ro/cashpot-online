@@ -390,10 +390,110 @@ const ONJNCountyDetail = () => {
           </div>
         </div>
 
+        {/* Locations Table - NEW */}
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center space-x-2">
+              <MapPin className="w-5 h-5 text-purple-600" />
+              <span>Săli de joc în județul {decodeURIComponent(countyName).replace(/^JUD[EȚ]UL\s+/i, '')}</span>
+            </h3>
+            <div className="text-sm text-slate-600 dark:text-slate-400">
+              {stats.uniqueLocations} săli totale
+            </div>
+          </div>
+          
+          {(() => {
+            // Group operators by location
+            const locationMap = {}
+            filteredOperators.forEach(op => {
+              if (op.slot_address) {
+                const cleanAddress = op.slot_address.replace(/,?\s*JUD[EȚ]UL?\s+[A-ZĂÂÎȘȚ-]+/gi, '').trim()
+                if (!locationMap[cleanAddress]) {
+                  locationMap[cleanAddress] = {
+                    address: cleanAddress,
+                    fullAddress: op.slot_address,
+                    city: op.city,
+                    brands: new Set(),
+                    slots: []
+                  }
+                }
+                locationMap[cleanAddress].slots.push(op)
+                if (op.brand_name) locationMap[cleanAddress].brands.add(op.brand_name)
+              }
+            })
+            
+            const locations = Object.values(locationMap).sort((a, b) => b.slots.length - a.slots.length)
+            
+            return locations.length === 0 ? (
+              <div className="text-center py-8 text-slate-500">
+                Nu există săli pentru acest județ
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                      <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">#</th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Adresă Sală</th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Oraș</th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Branduri</th>
+                      <th className="text-center py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Nr. Sloturi</th>
+                      <th className="text-center py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">Active</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {locations.map((location, index) => {
+                      const activeSlots = location.slots.filter(s => s.status === 'În exploatare').length
+                      return (
+                        <tr key={index} className="border-b border-slate-100 dark:border-slate-800 hover:bg-purple-50 dark:hover:bg-slate-800/50 transition-colors">
+                          <td className="py-3 px-4 text-slate-600 dark:text-slate-400 font-medium">
+                            {index + 1}
+                          </td>
+                          <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
+                            <div className="font-medium">{location.address}</div>
+                          </td>
+                          <td className="py-3 px-4 text-slate-900 dark:text-slate-100">
+                            {location.city || '-'}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex flex-wrap gap-1">
+                              {Array.from(location.brands).map((brand, i) => (
+                                <span key={i} className="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400 rounded text-xs font-medium">
+                                  {brand}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <span className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-xl font-bold text-lg shadow-lg">
+                              {location.slots.length}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <span className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-semibold ${
+                              activeSlots === location.slots.length 
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                                : activeSlots > 0
+                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400'
+                                : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                            }`}>
+                              {activeSlots}/{location.slots.length}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )
+          })()}
+        </div>
+
         {/* Data Table */}
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-slate-800 dark:text-white">Lista Aparatelor</h3>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white">Lista Aparatelor (Detaliat)</h3>
             <div className="text-sm text-slate-600 dark:text-slate-400">
               {filteredOperators.length} aparate găsite
             </div>
