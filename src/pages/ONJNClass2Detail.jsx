@@ -11,7 +11,17 @@ const ONJNClass2Detail = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Redirect if ID is missing
   useEffect(() => {
+    if (!id || id.trim() === '') {
+      console.error('ONJNClass2Detail: Missing ID parameter')
+      navigate('/onjn/class-2')
+    }
+  }, [id, navigate])
+
+  useEffect(() => {
+    if (!id) return // Don't load if ID is missing
+    
     const load = async () => {
       setLoading(true)
       setError('')
@@ -26,6 +36,17 @@ const ONJNClass2Detail = () => {
     }
     load()
   }, [id])
+
+  // Early return if ID is missing (while redirecting)
+  if (!id || id.trim() === '') {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-slate-600">Se redirecționează...</div>
+        </div>
+      </Layout>
+    )
+  }
 
   return (
     <Layout>

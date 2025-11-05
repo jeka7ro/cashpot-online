@@ -11,7 +11,17 @@ const ONJNClass2Operator = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Redirect if name is missing
   useEffect(() => {
+    if (!name || name.trim() === '') {
+      console.error('ONJNClass2Operator: Missing operator name parameter')
+      navigate('/onjn/class-2')
+    }
+  }, [name, navigate])
+
+  useEffect(() => {
+    if (!name) return // Don't load if name is missing
+    
     const load = async () => {
       setLoading(true)
       setError('')
@@ -42,6 +52,19 @@ const ONJNClass2Operator = () => {
     return Array.from(map.entries()).sort((a, b) => b[1] - a[1])
   }, [items])
 
+  // Early return if name is missing (while redirecting)
+  if (!name || name.trim() === '') {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-slate-600">Se redirecționează...</div>
+        </div>
+      </Layout>
+    )
+  }
+
+  const operatorName = decodeURIComponent(name)
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -52,7 +75,7 @@ const ONJNClass2Operator = () => {
               <span>Înapoi</span>
             </button>
             <div>
-              <h2 className="text-2xl font-bold text-slate-800 dark:text-white">{decodeURIComponent(name)}</h2>
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-white">{operatorName}</h2>
               <p className="text-slate-600 dark:text-slate-400">Statistici operator</p>
             </div>
           </div>
@@ -75,8 +98,15 @@ const ONJNClass2Operator = () => {
 
         <div className="card p-6">
           <h3 className="text-lg font-semibold mb-4">Beneficiari (din "Transfer")</h3>
-          {beneficiaries.length === 0 ? (
-            <div className="text-slate-500">Nu există date</div>
+          {loading ? (
+            <div className="text-center py-8 text-slate-500">Se încarcă...</div>
+          ) : error ? (
+            <div className="text-center py-8 text-red-600">
+              <p className="font-semibold">Eroare</p>
+              <p className="text-sm mt-2">{error}</p>
+            </div>
+          ) : beneficiaries.length === 0 ? (
+            <div className="text-slate-500">Nu există date pentru operatorul "{operatorName}"</div>
           ) : (
             <div className="space-y-2">
               {beneficiaries.map(([b, count]) => (
