@@ -82,8 +82,35 @@ export const DataProvider = ({ children }) => {
   }
 
   const fetchAllData = async () => {
-    console.log('🚀 Starting to fetch all data in parallel...')
+    console.log('🚀 Starting OPTIMIZED data fetch...')
     setLoading(true)
+    
+    // Check cache first
+    const cacheKey = 'dataCache_v1'
+    const cacheTime = sessionStorage.getItem('dataCacheTime')
+    const now = Date.now()
+    
+    // Use cache if less than 5 minutes old
+    if (cacheTime && (now - parseInt(cacheTime)) < 300000) {
+      console.log('⚡ Using cached data (fresh)')
+      const cached = sessionStorage.getItem(cacheKey)
+      if (cached) {
+        try {
+          const parsedCache = JSON.parse(cached)
+          Object.keys(parsedCache).forEach(key => {
+            if (entityConfig[key]) {
+              entityConfig[key].setState(parsedCache[key])
+            }
+          })
+          setLoading(false)
+          console.log('✅ All data loaded from cache!')
+          return
+        } catch (e) {
+          console.warn('Cache parse error, fetching fresh data')
+        }
+      }
+    }
+    
     try {
       // Check if we have a token before trying to fetch data
       const token = sessionStorage.getItem('authToken')
@@ -92,147 +119,87 @@ export const DataProvider = ({ children }) => {
         setLoading(false)
         return
       }
-
-      // Wake up backend first
-      await wakeUpBackend()
       
       const entities = Object.keys(entityConfig)
       
-      // Priority entities - load first
-      const priorityEntities = ['companies', 'locations', 'providers']
-      const regularEntities = entities.filter(e => !priorityEntities.includes(e))
+      // OPTIMIZED: Load only essential data initially
+      const essentialEntities = ['companies', 'locations', 'providers', 'cabinets', 'gameMixes', 'slots']
+      const backgroundEntities = entities.filter(e => !essentialEntities.includes(e))
       
-      // Funcție pentru retry cu timeout progresiv
-      const fetchWithRetry = async (entity, maxRetries = 2) => {
+      // Funcție pentru retry REDUSĂ (doar 1 retry)
+      const fetchWithRetry = async (entity, maxRetries = 1) => {
         for (let attempt = 0; attempt <= maxRetries; attempt++) {
           try {
-            const timeout = attempt === 0 ? 30000 : 15000 // Prima încercare cu timeout mai mare
-            console.log(`📡 Fetching ${entity}... (attempt ${attempt + 1}/${maxRetries + 1})`)
+            const timeout = 15000 // Timeout redus la 15s
+            console.log(`📡 Fetching ${entity}...`)
             const response = await axios.get(`/api/${entity}`, { timeout })
             console.log(`✅ ${entity}: ${response.data.length} items`)
             return response
           } catch (error) {
-            console.error(`❌ Error fetching ${entity} (attempt ${attempt + 1}):`, error.message)
-            
             // Don't retry if it's an auth error
             if (error.response?.status === 401 || error.response?.status === 403) {
-              console.error('🔒 Auth error - stopping retry')
               throw error
             }
             
             if (attempt === maxRetries) {
               return { data: [] }
             }
-            // Așteaptă 1.5 secunde înainte de retry
-            await new Promise(resolve => setTimeout(resolve, 1500))
+            // Așteaptă doar 500ms înainte de retry
+            await new Promise(resolve => setTimeout(resolve, 500))
           }
         }
       }
 
-      // Fetch priority entities first (for dashboard)
-      const priorityRequests = priorityEntities.map(entity => fetchWithRetry(entity))
+      // Fetch ESSENTIAL entities (reduced from priority)
+      const essentialRequests = essentialEntities.map(entity => fetchWithRetry(entity, 0)) // NO retries for speed
       
-      console.log(`📡 Making ${priorityRequests.length} priority requests...`)
-      const priorityResponses = await Promise.all(priorityRequests)
+      console.log(`📡 Loading ${essentialRequests.length} essential entities...`)
+      const essentialResponses = await Promise.all(essentialRequests)
       
-      priorityResponses.forEach((response, index) => {
-        const entity = priorityEntities[index]
+      essentialResponses.forEach((response, index) => {
+        const entity = essentialEntities[index]
         const data = Array.isArray(response.data) ? response.data : []
-        console.log(`✅ ${entity}: ${data.length} items`)
         entityConfig[entity].setState(data)
       })
       
-      console.log('⚡ Priority data loaded!')
+      console.log('⚡ Essential data loaded!')
       
-      // Load slots with jackpots separately
-      // Load slots with retry logic
-      const loadSlots = async () => {
-        // Try slots with jackpots first
+      // REMOVED: Slots already loaded in essentialEntities above
+      // No more separate loadSlots() - faster!
+      
+      // Load background entities ASYNC (don't block UI!)
+      setTimeout(async () => {
+        console.log(`📡 Loading ${backgroundEntities.length} background entities...`)
+        
+        const backgroundRequests = backgroundEntities.map(entity => 
+          fetchWithRetry(entity, 0) // NO retries for speed
+        )
+        
+        const backgroundResponses = await Promise.all(backgroundRequests)
+        
+        backgroundResponses.forEach((response, index) => {
+          const entity = backgroundEntities[index]
+          const data = Array.isArray(response.data) ? response.data : []
+          entityConfig[entity].setState(data)
+        })
+        
+        console.log('⚡ Background data loaded!')
+        
+        // Save to cache after all data loaded
+        const cacheData = {}
+        entities.forEach(entity => {
+          cacheData[entity] = entityConfig[entity].state
+        })
         try {
-          console.log('📡 Trying slots with jackpots...')
-          const slotsResponse = await axios.get('/api/cyber/slots-with-jackpots', { timeout: 30000 })
-          const slotsData = Array.isArray(slotsResponse.data) ? slotsResponse.data : []
-          console.log(`✅ slots with jackpots: ${slotsData.length} items`)
-          setSlots(slotsData)
-          return
-        } catch (error) {
-          console.error('❌ Error fetching slots with jackpots, trying regular slots:', error.message)
+          sessionStorage.setItem(cacheKey, JSON.stringify(cacheData))
+          sessionStorage.setItem('dataCacheTime', now.toString())
+          console.log('💾 Data cached for future use')
+        } catch (cacheError) {
+          console.warn('⚠️ Cache save failed (quota exceeded?)')
         }
-        
-        // Try regular slots
-        try {
-          console.log('📡 Trying regular slots...')
-          const slotsResponse = await axios.get('/api/slots', { timeout: 20000 })
-          const slotsData = Array.isArray(slotsResponse.data) ? slotsResponse.data : []
-          console.log(`✅ slots (fallback): ${slotsData.length} items`)
-          setSlots(slotsData)
-          return
-        } catch (fallbackError) {
-          console.error('❌ Error fetching regular slots, trying local file:', fallbackError.message)
-        }
-        
-        // Try local file as last resort
-        try {
-          console.log('🔄 Trying to load slots from local file...')
-          const localResponse = await axios.get('/cyber-slots.json', { timeout: 10000 })
-          const localData = Array.isArray(localResponse.data) ? localResponse.data : []
-          console.log(`✅ slots (local file): ${localData.length} items`)
-          
-          if (localData.length > 0) {
-            setSlots(localData)
-            toast.success(`${localData.length} sloturi încărcate din fișier local (mod offline)`)
-            return
-          }
-        } catch (localError) {
-          console.error('❌ Error fetching slots from local file:', localError.message)
-        }
-        
-        console.log('⚠️ All slot data sources failed, using empty array')
-        setSlots([])
-      }
+      }, 100) // Load in background after 100ms
       
-      await loadSlots()
-      
-      // Fetch remaining entities in background with retry (2 retries for better reliability)
-      const regularRequests = regularEntities.map(entity => 
-        fetchWithRetry(entity, 2) // 2 retries pentru entitățile regulate
-      )
-      
-      console.log(`📡 Loading ${regularRequests.length} remaining entities in background...`)
-      const regularResponses = await Promise.all(regularRequests)
-      
-      regularResponses.forEach((response, index) => {
-        const entity = regularEntities[index]
-        const data = Array.isArray(response.data) ? response.data : []
-        console.log(`✅ ${entity}: ${data.length} items`)
-        entityConfig[entity].setState(data)
-      })
-      
-      console.log('⚡ All background data loaded!')
-      
-      // SPECIAL FALLBACK FOR PROMOTIONS - if empty, try direct API call
-      const promotionsIndex = regularEntities.findIndex(e => e === 'promotions')
-      if (promotionsIndex !== -1) {
-        const promotionsResponse = regularResponses[promotionsIndex]
-        const promotionsData = Array.isArray(promotionsResponse.data) ? promotionsResponse.data : []
-        
-        if (promotionsData.length === 0) {
-          console.log('🚨 PROMOTIONS EMPTY - trying direct API call...')
-          
-          // Try direct API call as fallback
-          try {
-            const directPromotionsResponse = await axios.get('/api/promotions', { timeout: 5000 })
-            if (Array.isArray(directPromotionsResponse.data) && directPromotionsResponse.data.length > 0) {
-              console.log(`✅ Direct promotions fetch: ${directPromotionsResponse.data.length} items`)
-              setPromotions(directPromotionsResponse.data)
-            }
-          } catch (promoError) {
-            console.error('❌ Direct promotions fetch failed:', promoError)
-          }
-        }
-      }
-      
-      console.log('⚡ All data loaded!')
+      console.log('✅ Essential data loaded! (Background loading...)')
     } catch (error) {
       console.error('Error fetching data:', error)
       toast.error('Eroare la încărcarea datelor')
