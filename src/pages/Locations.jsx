@@ -128,10 +128,25 @@ const Locations = () => {
       const surface = parseFloat(contract.surface_area) || 0
       return sum + surface
     }, 0)
+    
+    // Debug log for Valcea (location_id = 4)
+    if (locationId === 4) {
+      console.log('🔍 DEBUG Valcea Surface:', {
+        locationId,
+        contractCount: locationContracts.length,
+        contracts: locationContracts.map(c => ({
+          id: c.id,
+          contract_number: c.contract_number,
+          surface_area: c.surface_area
+        })),
+        totalSurface
+      })
+    }
+    
     return totalSurface
   }
 
-  // Helper function to calculate cost per m²
+  // Helper function to calculate cost per m² (returns value + currency)
   const getCostPerM2 = (locationId, surface) => {
     const locationContracts = contracts.filter(c => c.location_id === locationId && c.status === 'Active')
     if (locationContracts.length === 0 || !surface) return null
@@ -142,7 +157,12 @@ const Locations = () => {
     if (!activeContract.monthly_rent) return null
 
     const costPerM2 = activeContract.monthly_rent / surface
-    return costPerM2.toFixed(2)
+    const currency = activeContract.currency || 'EUR'
+    
+    return {
+      value: costPerM2.toFixed(2),
+      currency: currency
+    }
   }
 
   const columns = [
@@ -239,9 +259,9 @@ const Locations = () => {
           sortable: false,
           render: (item) => {
             const surfaceFromContracts = getSurfaceFromContracts(item.id)
-            const costPerM2 = getCostPerM2(item.id, surfaceFromContracts)
+            const costData = getCostPerM2(item.id, surfaceFromContracts)
             
-            if (costPerM2 === null) {
+            if (costData === null) {
               return (
                 <span className="text-slate-400 dark:text-slate-500 italic">
                   N/A
@@ -252,10 +272,10 @@ const Locations = () => {
             return (
               <div className="flex items-center space-x-1">
                 <span className="text-blue-600 dark:text-blue-400">
-                  {costPerM2}
+                  {costData.value}
                 </span>
                 <span className="text-slate-500 dark:text-slate-400">
-                  RON/m²
+                  {costData.currency}/m²
                 </span>
               </div>
             )
