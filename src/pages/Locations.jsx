@@ -121,6 +121,16 @@ const Locations = () => {
     return parts.join(', ')
   }
 
+  // Helper function to calculate total surface from contracts (as user requested!)
+  const getSurfaceFromContracts = (locationId) => {
+    const locationContracts = contracts.filter(c => c.location_id === locationId)
+    const totalSurface = locationContracts.reduce((sum, contract) => {
+      const surface = parseFloat(contract.surface_area) || 0
+      return sum + surface
+    }, 0)
+    return totalSurface
+  }
+
   // Helper function to calculate cost per m²
   const getCostPerM2 = (locationId, surface) => {
     const locationContracts = contracts.filter(c => c.location_id === locationId && c.status === 'Active')
@@ -208,7 +218,8 @@ const Locations = () => {
           label: 'Cost/m²',
           sortable: false,
           render: (item) => {
-            const costPerM2 = getCostPerM2(item.id, item.surface)
+            const surfaceFromContracts = getSurfaceFromContracts(item.id)
+            const costPerM2 = getCostPerM2(item.id, surfaceFromContracts)
             
             if (costPerM2 === null) {
               return (
