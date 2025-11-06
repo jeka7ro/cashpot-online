@@ -81,8 +81,15 @@ const CyberImport = () => {
       // Try to get data from API
       try {
         const response = await axios.get('/api/cyber/machine-audit-summaries')
-        setMachineAuditSummaries(response.data)
-        console.log('✅ Machine audit summaries loaded from API:', response.data.length)
+        // Map 'mix' → 'game_mix' for consistency (în caz că API returnează cu numele vechi)
+        const mappedData = response.data.map(item => ({
+          ...item,
+          game_mix: item.mix || item.game_mix || null,
+          provider: item.producator || item.provider || null,
+          manufacture_year: item.manufacture_year || null
+        }))
+        setMachineAuditSummaries(mappedData)
+        console.log('✅ Machine audit summaries loaded from API:', mappedData.length)
         return;
       } catch (apiError) {
         console.error('❌ API Error fetching machine audit summaries:', apiError)
@@ -92,8 +99,15 @@ const CyberImport = () => {
       // Fallback to local JSON file if API fails
       try {
         const response = await axios.get('/cyber-data/machine_audit_summaries.json')
-        setMachineAuditSummaries(response.data)
-        console.log('✅ Machine audit summaries loaded from local file:', response.data.length)
+        // Map 'mix' → 'game_mix' and 'producator' → 'provider' for consistency
+        const mappedData = response.data.map(item => ({
+          ...item,
+          game_mix: item.mix || item.game_mix || null,
+          provider: item.producator || item.provider || null,
+          manufacture_year: item.manufacture_year || null
+        }))
+        setMachineAuditSummaries(mappedData)
+        console.log('✅ Machine audit summaries loaded from local file:', mappedData.length)
         toast.success('Date încărcate din fișierul local (mod offline)')
       } catch (localError) {
         console.error('❌ Local file error:', localError)
