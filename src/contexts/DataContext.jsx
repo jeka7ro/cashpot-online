@@ -42,6 +42,12 @@ export const DataProvider = ({ children }) => {
   const [messages, setMessages] = useState([])
   const [notifications, setNotifications] = useState([])
   const [loading, setLoading] = useState(false)
+  
+  // CIRCUIT BREAKER pentru DataContext (împiedică cascada de erori!)
+  const dataFetchFailures = React.useRef(0)
+  const lastDataFetchFailureTime = React.useRef(0)
+  const DATA_CIRCUIT_BREAKER_THRESHOLD = 5 // După 5 eșecuri, STOP
+  const DATA_CIRCUIT_BREAKER_RESET_TIME = 120000 // Reset după 2 minute
 
   // Entity config
   const entityConfig = {
@@ -70,17 +76,6 @@ export const DataProvider = ({ children }) => {
   }
 
   // Fetch all data in parallel for maximum speed
-  // Funcție pentru a "trezi" backend-ul
-  const wakeUpBackend = async () => {
-    try {
-      console.log('🔔 Waking up backend...')
-      await axios.get('/api/health', { timeout: 5000 })
-      console.log('✅ Backend is awake!')
-    } catch (error) {
-      console.log('⚠️ Backend wake-up failed, continuing anyway...')
-    }
-  }
-
   const fetchAllData = async () => {
     console.log('🚀 Starting OPTIMIZED data fetch...')
     setLoading(true)
@@ -126,14 +121,27 @@ export const DataProvider = ({ children }) => {
       const essentialEntities = ['companies', 'locations', 'providers', 'cabinets', 'gameMixes', 'slots']
       const backgroundEntities = entities.filter(e => !essentialEntities.includes(e))
       
-      // Funcție pentru retry REDUSĂ (doar 1 retry)
-      const fetchWithRetry = async (entity, maxRetries = 1) => {
+      // Funcție FĂRĂ retry (maxRetries = 0!) + CIRCUIT BREAKER
+      const fetchWithRetry = async (entity, maxRetries = 0) => {
+        // CIRCUIT BREAKER: Verificăm dacă backend-ul e down
+        const now = Date.now()
+        if (dataFetchFailures.current >= DATA_CIRCUIT_BREAKER_THRESHOLD) {
+          if (now - lastDataFetchFailureTime.current < DATA_CIRCUIT_BREAKER_RESET_TIME) {
+            console.warn(`🚫 CIRCUIT BREAKER ACTIV pentru ${entity} - Backend DOWN! Returnez array gol...`)
+            return { data: [] }
+          } else {
+            console.log('🔄 Data circuit breaker RESET')
+            dataFetchFailures.current = 0
+          }
+        }
+
         for (let attempt = 0; attempt <= maxRetries; attempt++) {
           try {
-            const timeout = 15000 // Timeout redus la 15s
-            console.log(`📡 Fetching ${entity}...`)
+            const timeout = 10000 // Timeout redus la 10s (era 15s!)
             const response = await axios.get(`/api/${entity}`, { timeout })
             console.log(`✅ ${entity}: ${response.data.length} items`)
+            // Success - reset failures counter
+            dataFetchFailures.current = 0
             return response
           } catch (error) {
             // Don't retry if it's an auth error
@@ -141,11 +149,23 @@ export const DataProvider = ({ children }) => {
               throw error
             }
             
-            if (attempt === maxRetries) {
+            // Incrementăm failures counter
+            dataFetchFailures.current++
+            lastDataFetchFailureTime.current = Date.now()
+            
+            // 503 = backend down - activează circuit breaker IMEDIAT
+            if (error.response?.status === 503) {
+              console.error(`🔴 503 pentru ${entity} - Backend CĂZUT! Circuit breaker ACTIV!`)
+              dataFetchFailures.current = DATA_CIRCUIT_BREAKER_THRESHOLD
               return { data: [] }
             }
-            // Așteaptă doar 500ms înainte de retry
-            await new Promise(resolve => setTimeout(resolve, 500))
+            
+            if (attempt === maxRetries) {
+              console.warn(`⚠️ Failed to fetch ${entity} after ${attempt + 1} attempts`)
+              return { data: [] }
+            }
+            // NU mai așteptăm - throw imediat!
+            return { data: [] }
           }
         }
       }
@@ -216,7 +236,18 @@ export const DataProvider = ({ children }) => {
       console.log('✅ Essential data loaded! (Background loading...)')
     } catch (error) {
       console.error('Error fetching data:', error)
-      toast.error('Eroare la încărcarea datelor')
+      
+      // CIRCUIT BREAKER: NU mai afișăm toast-uri repetate!
+      // Afișăm doar UN toast când backend-ul e down
+      if (dataFetchFailures.current >= DATA_CIRCUIT_BREAKER_THRESHOLD) {
+        toast.error('Backend-ul este temporar indisponibil. Datele nu pot fi încărcate.', {
+          duration: 10000,
+          id: 'data-backend-down' // Prevent duplicate toasts!
+        })
+      } else {
+        // Alte erori (nu backend down) - afișăm toast normal
+        toast.error('Eroare la încărcarea datelor', { id: 'data-error' })
+      }
     } finally {
       setLoading(false)
     }

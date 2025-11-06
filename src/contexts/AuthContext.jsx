@@ -23,30 +23,50 @@ export const AuthProvider = ({ children }) => {
     return sessionStorage.getItem('authToken')
   })
 
-  // Wake-up helper to avoid long cold starts on Render
-  const wakeUpBackend = async () => {
-    try {
-      await axios.get('/api/health', { timeout: 15000 }) // Increased timeout
-    } catch (_e) {
-      // ignore
-    }
-  }
-
   // Avoid parallel auth checks
   const isAuthCheckRunning = useRef(false)
 
-  const verifyTokenWithRetry = async (maxRetries = 1) => {
+  // CIRCUIT BREAKER - oprește cascada de erori când backend-ul e down
+  const backendFailures = useRef(0)
+  const lastFailureTime = useRef(0)
+  const CIRCUIT_BREAKER_THRESHOLD = 3 // După 3 eșecuri, STOP
+  const CIRCUIT_BREAKER_RESET_TIME = 60000 // Reset după 1 minut
+
+  const verifyTokenWithRetry = async (maxRetries = 0) => { // SCHIMBAT: 0 retry-uri!
+    // CIRCUIT BREAKER: Dacă backend-ul e down, NU mai încerca!
+    const now = Date.now()
+    if (backendFailures.current >= CIRCUIT_BREAKER_THRESHOLD) {
+      if (now - lastFailureTime.current < CIRCUIT_BREAKER_RESET_TIME) {
+        console.warn('🚫 CIRCUIT BREAKER ACTIV - Backend-ul este DOWN! Opresc request-urile...')
+        throw new Error('Backend unavailable - circuit breaker active')
+      } else {
+        // Reset circuit breaker după 1 minut
+        console.log('🔄 Circuit breaker RESET - încerc din nou...')
+        backendFailures.current = 0
+      }
+    }
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        // Ensure backend is awake on first try
-        if (attempt === 0) await wakeUpBackend()
-        const response = await axios.get('/api/auth/verify', { timeout: 20000 })
+        // NU mai trezesc backend-ul - pierdere de timp!
+        const response = await axios.get('/api/auth/verify', { timeout: 10000 }) // Redus la 10s
+        backendFailures.current = 0 // Reset failures on success
         return response
       } catch (error) {
+        backendFailures.current++
+        lastFailureTime.current = Date.now()
+        
         const isTimeout = error?.code === 'ECONNABORTED'
+        const is503 = error?.response?.status === 503
+        
+        if (is503) {
+          console.error('🔴 Backend CĂZUT (503) - OPRESC retry-urile!')
+          throw new Error('Backend service unavailable (503)')
+        }
+        
         if (attempt === maxRetries || !isTimeout) throw error
-        // Exponential backoff and try again
-        await new Promise(r => setTimeout(r, 1200 * (attempt + 1)))
+        // NU mai aștept - throw imediat!
+        throw error
       }
     }
   }
@@ -98,8 +118,8 @@ export const AuthProvider = ({ children }) => {
         try {
           if (isAuthCheckRunning.current) return
           isAuthCheckRunning.current = true
-          // Verify token and get real user data (with retry)
-          const response = await verifyTokenWithRetry(1)
+          // Verify token and get real user data (FĂRĂ retry!)
+          const response = await verifyTokenWithRetry(0) // 0 retry-uri!
           const realUser = response.data.user
           
           if (realUser) {
@@ -122,8 +142,21 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
           console.error('Auth verification failed:', error)
           
-          // Only clear token if it's an actual auth error (not timeout)
-          if (error.response?.status === 401 || error.response?.status === 403) {
+          // CIRCUIT BREAKER: Dacă backend-ul e down, OPRESC toast-urile!
+          const isCircuitBreakerActive = error.message?.includes('circuit breaker')
+          const is503 = error.message?.includes('503') || error.response?.status === 503
+          
+          if (isCircuitBreakerActive || is503) {
+            // NU mai afișez toast-uri repetate - doar un warning în consolă
+            console.warn('🚫 Backend UNAVAILABLE - circuit breaker activ!')
+            // Redirecționez la login FĂRĂ să șterg token-ul (pentru când revine backend-ul)
+            if (window.location.pathname !== '/login') {
+              toast.error('Backend-ul este temporar indisponibil. Încearcă din nou în câteva minute.', {
+                duration: 10000,
+                id: 'backend-down' // Prevent duplicate toasts!
+              })
+            }
+          } else if (error.response?.status === 401 || error.response?.status === 403) {
             console.log('🔄 Token expired - clearing session')
             sessionStorage.removeItem('authToken')
             setToken(null)
@@ -132,7 +165,7 @@ export const AuthProvider = ({ children }) => {
           } else if (error.code === 'ECONNABORTED') {
             // On timeout, just warn but don't clear token
             console.warn('⚠️ Timeout on auth verification - keeping session alive')
-            toast.error('Timeout la verificare autentificare. Încercă refresh.')
+            // NU mai afișez toast!
           } else {
             console.error('❌ Auth check failed - clearing session')
             sessionStorage.removeItem('authToken')
@@ -157,13 +190,13 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     try {
       setLoading(true)
-      // Attempt to wake the backend quickly to avoid UI hang
-      await wakeUpBackend()
+      
+      // NU mai trezesc backend-ul - pierdere de timp și request-uri extra!
 
       const response = await axios.post(
         '/api/auth/login',
         { username, password },
-        { timeout: 30000 } // Increased to 30s for cold start
+        { timeout: 15000 } // Redus la 15s (era 30s!)
       )
 
       const { token: newToken } = response.data
@@ -192,16 +225,27 @@ export const AuthProvider = ({ children }) => {
         }
         setUser(userData)
         toast.success(`Bun venit, ${userData.fullName}!`)
+        // Reset circuit breaker on successful login
+        backendFailures.current = 0
         return { success: true }
       } else {
         throw new Error('No user data received after login')
       }
     } catch (error) {
       const isTimeout = error.code === 'ECONNABORTED'
-      const message = isTimeout
-        ? 'Server-ul răspunde greu. Încearcă din nou (auto-wake aplicat)'
-        : (error.response?.data?.message || 'Eroare la autentificare')
-      toast.error(message)
+      const is503 = error.response?.status === 503
+      
+      let message
+      if (is503) {
+        message = '🔴 Backend-ul este CĂZUT (503). Contactează echipa tehnică!'
+        backendFailures.current = CIRCUIT_BREAKER_THRESHOLD // Activează circuit breaker
+      } else if (isTimeout) {
+        message = '⏱️ Timeout la autentificare. Backend-ul răspunde greu - încearcă din nou în 1 minut.'
+      } else {
+        message = error.response?.data?.message || 'Eroare la autentificare'
+      }
+      
+      toast.error(message, { duration: 8000, id: 'login-error' })
       return { success: false, error: message }
     } finally {
       setLoading(false)
