@@ -22,6 +22,7 @@ const ContractModal = ({ item, onClose, onSave, locationId }) => {
     deposit: '',
     payment_terms: '',
     description: '',
+    surface_area: '', // Câmp nou: Suprafață în m²
     contractFile: null,
     contractPreview: null,
     annexes: [] // Câmp nou pentru anexe
@@ -53,6 +54,7 @@ const ContractModal = ({ item, onClose, onSave, locationId }) => {
         deposit: item.deposit || '',
         payment_terms: item.payment_terms || '',
         description: item.description || '',
+        surface_area: item.surface_area || '',
         contractFile: item.contractFile || null,
         contractPreview: item.contractFile || null,
         annexes: item.annexes || [] // Încarcă anexele existente
@@ -395,6 +397,23 @@ const ContractModal = ({ item, onClose, onSave, locationId }) => {
                 type="number"
                 name="deposit"
                 value={formData.deposit}
+                onChange={handleChange}
+                step="0.01"
+                min="0"
+                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                placeholder="0.00"
+              />
+            </div>
+
+            {/* Surface Area */}
+            <div>
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-2">
+                Suprafață (m²)
+              </label>
+              <input
+                type="number"
+                name="surface_area"
+                value={formData.surface_area}
                 onChange={handleChange}
                 step="0.01"
                 min="0"
