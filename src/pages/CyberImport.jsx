@@ -735,6 +735,14 @@ const CyberImport = () => {
         }))
       
       console.log('Importing slots:', itemsToImport)
+      console.log('🔍 DEBUG - Primul slot pentru import:', {
+        serial_number: itemsToImport[0]?.serial_number,
+        provider: itemsToImport[0]?.provider,
+        cabinet: itemsToImport[0]?.cabinet,
+        game_mix: itemsToImport[0]?.game_mix,
+        manufacture_year: itemsToImport[0]?.manufacture_year,
+        location: itemsToImport[0]?.location
+      })
       
       const response = await axios.post('/api/slots/import-marina', {
         items: itemsToImport
