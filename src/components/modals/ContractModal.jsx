@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react'
-import { X, Save, FileText, FileCheck, Calendar, DollarSign, Upload, Download, Eye } from 'lucide-react'
+import { X, Save, FileText, FileCheck, Calendar, DollarSign, Upload, Download, Eye, Trash2, Paperclip } from 'lucide-react'
 import { useData } from '../../contexts/DataContext'
 import PDFViewer from '../PDFViewer'
+import axios from 'axios'
+import { toast } from 'react-hot-toast'
 
 const ContractModal = ({ item, onClose, onSave, locationId }) => {
   const { locations, proprietari } = useData()
+  const [uploading, setUploading] = useState(false)
   const [formData, setFormData] = useState({
     contract_number: '',
     title: '',
@@ -20,7 +23,8 @@ const ContractModal = ({ item, onClose, onSave, locationId }) => {
     payment_terms: '',
     description: '',
     contractFile: null,
-    contractPreview: null
+    contractPreview: null,
+    annexes: [] // Câmp nou pentru anexe
   })
 
   // Generate unique contract number
@@ -50,7 +54,8 @@ const ContractModal = ({ item, onClose, onSave, locationId }) => {
         payment_terms: item.payment_terms || '',
         description: item.description || '',
         contractFile: item.contractFile || null,
-        contractPreview: item.contractFile || null
+        contractPreview: item.contractFile || null,
+        annexes: item.annexes || [] // Încarcă anexele existente
       })
     } else {
       // Generate contract number for new contracts
@@ -69,20 +74,84 @@ const ContractModal = ({ item, onClose, onSave, locationId }) => {
     }))
   }
 
-  const handleContractFileChange = (e) => {
+  const handleContractFileChange = async (e) => {
     const file = e.target.files[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const base64String = e.target.result
-        setFormData(prev => ({
-          ...prev,
-          contractFile: base64String,
-          contractPreview: base64String
-        }))
-      }
-      reader.readAsDataURL(file)
+    if (!file) return
+    
+    setUploading(true)
+    const uploadFormData = new FormData()
+    uploadFormData.append('file', file)
+    
+    try {
+      const response = await axios.post('/api/upload', uploadFormData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      
+      const fileUrl = response.data.url || response.data.file_path
+      setFormData(prev => ({
+        ...prev,
+        contractFile: fileUrl,
+        contractPreview: fileUrl
+      }))
+      toast.success('Contract încărcat cu succes!')
+    } catch (error) {
+      console.error('Upload error:', error)
+      toast.error('Eroare la încărcarea contractului')
+    } finally {
+      setUploading(false)
     }
+  }
+  
+  // Handle annexes upload (multiple files)
+  const handleAnnexesUpload = async (e) => {
+    const files = Array.from(e.target.files)
+    if (files.length === 0) return
+    
+    setUploading(true)
+    const uploadPromises = files.map(async (file) => {
+      const uploadFormData = new FormData()
+      uploadFormData.append('file', file)
+      
+      try {
+        const response = await axios.post('/api/upload', uploadFormData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+        return {
+          name: file.name,
+          url: response.data.url || response.data.file_path,
+          size: file.size,
+          type: file.type
+        }
+      } catch (error) {
+        console.error('Upload error:', error)
+        toast.error(`Eroare la upload pentru ${file.name}`)
+        return null
+      }
+    })
+    
+    try {
+      const results = await Promise.all(uploadPromises)
+      const validResults = results.filter(result => result !== null)
+      
+      setFormData(prev => ({
+        ...prev,
+        annexes: [...prev.annexes, ...validResults]
+      }))
+      
+      toast.success(`${validResults.length} anexe încărcate cu succes`)
+    } catch (error) {
+      toast.error('Eroare la încărcarea anexelor')
+    } finally {
+      setUploading(false)
+    }
+  }
+  
+  const handleRemoveAnnex = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      annexes: prev.annexes.filter((_, i) => i !== index)
+    }))
+    toast.success('Anexă ștearsă')
   }
 
   const handleDownloadContract = () => {
@@ -441,6 +510,101 @@ const ContractModal = ({ item, onClose, onSave, locationId }) => {
                   placeholder="Contractul nu este disponibil"
                   placeholderSubtext="Atașează fișierul contractului pentru vizualizare"
                 />
+              </div>
+            )}
+          </div>
+
+          {/* Annexes Section */}
+          <div className="space-y-4">
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-2">
+              <Paperclip className="w-4 h-4 inline mr-2" />
+              Anexe Contract (Multiple Fișiere)
+            </label>
+            
+            {/* Upload Annexes */}
+            <div className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl p-6 text-center hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
+              <input
+                type="file"
+                id="annexFiles"
+                multiple
+                accept=".pdf,.doc,.docx"
+                onChange={handleAnnexesUpload}
+                className="hidden"
+                disabled={uploading}
+              />
+              <label
+                htmlFor="annexFiles"
+                className="cursor-pointer flex flex-col items-center space-y-3"
+              >
+                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-white">
+                  <Upload className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                    {uploading ? 'Se încarcă...' : 'Încarcă anexe contract'}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    PDF, DOC, DOCX (multiple files)
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            {/* List of Annexes */}
+            {formData.annexes && formData.annexes.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Anexe atașate ({formData.annexes.length})
+                </p>
+                {formData.annexes.map((annex, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      <div>
+                        <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                          {annex.name}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {(annex.size / 1024).toFixed(2)} KB
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => window.open(annex.url, '_blank')}
+                        className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                        title="Vizualizează"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const link = document.createElement('a')
+                          link.href = annex.url
+                          link.download = annex.name
+                          link.click()
+                        }}
+                        className="p-2 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30 rounded-lg transition-colors"
+                        title="Descarcă"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAnnex(index)}
+                        className="p-2 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                        title="Șterge"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
