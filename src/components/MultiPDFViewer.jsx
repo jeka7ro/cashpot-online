@@ -14,6 +14,22 @@ const MultiPDFViewer = ({
   // Normalize files to array format
   const normalizedFiles = Array.isArray(files) ? files : (files ? [files] : [])
   
+  // Helper function to get absolute URL for backend files
+  const getAbsoluteUrl = (url) => {
+    if (!url) return null
+    // Already absolute URL
+    if (url.startsWith('http://') || url.startsWith('https://')) return url
+    // Data URL (base64)
+    if (url.startsWith('data:')) return url
+    // Blob URL
+    if (url.startsWith('blob:')) return url
+    // Relative URL - make absolute using backend URL
+    const backendUrl = import.meta.env.PROD 
+      ? 'https://cashpot-backend.onrender.com' 
+      : 'http://localhost:5001'
+    return `${backendUrl}${url.startsWith('/') ? url : '/' + url}`
+  }
+  
   if (normalizedFiles.length === 0) {
     return (
       <div className="aspect-[3/4] bg-slate-100 dark:bg-slate-700 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center">
@@ -27,7 +43,8 @@ const MultiPDFViewer = ({
   }
 
   const activeFile = normalizedFiles[activeFileIndex]
-  const fileUrl = activeFile?.url || activeFile?.file_path || activeFile
+  const rawFileUrl = activeFile?.url || activeFile?.file_path || activeFile
+  const fileUrl = getAbsoluteUrl(rawFileUrl)
 
   return (
     <div className="space-y-4">
@@ -167,7 +184,8 @@ const MultiPDFViewer = ({
           </h4>
           <div className="space-y-2">
             {normalizedFiles.map((file, index) => {
-              const fUrl = file?.url || file?.file_path || file
+              const rawFUrl = file?.url || file?.file_path || file
+              const fUrl = getAbsoluteUrl(rawFUrl)
               const fName = file?.name || file?.type || `Document ${index + 1}`
               const isActive = index === activeFileIndex
               
