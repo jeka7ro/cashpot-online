@@ -174,11 +174,14 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
   const handleFileChange = (e) => {
     const file = e.target.files[0]
     if (file) {
-      // Store the actual File object, not base64
+      // Create URL for preview
+      const fileUrl = URL.createObjectURL(file)
+      
+      // Store the actual File object for upload, and URL for preview
       setFormData(prev => ({
         ...prev,
         cvtFile: file,
-        cvtPreview: file // For preview
+        cvtPreview: fileUrl // URL for immediate preview
       }))
     }
   }
@@ -453,11 +456,15 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
                     <FileCheck className="w-5 h-5 text-cyan-600" />
                     <div>
                       <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                        {formData.cvtPreview instanceof File 
+                        {formData.cvtFile instanceof File 
                           ? 'Document CVT nou' 
                           : 'Document CVT existent'}
                       </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">PDF Document</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {formData.cvtFile instanceof File 
+                          ? formData.cvtFile.name 
+                          : 'PDF Document'}
+                      </p>
                     </div>
                   </div>
                   <button
@@ -470,23 +477,29 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
                   </button>
                 </div>
                 
-                {/* PDF Viewer */}
-                {formData.cvtPreview instanceof File ? (
+                {/* PDF Viewer - FIXED pentru afișare corectă */}
+                {formData.cvtPreview ? (
                   <iframe
-                    src={URL.createObjectURL(formData.cvtPreview)}
+                    src={formData.cvtPreview}
                     className="w-full h-[600px] rounded-lg border-2 border-slate-300 dark:border-slate-600"
                     title="PDF Preview"
+                    onError={(e) => {
+                      console.error('PDF Preview Error:', e)
+                      e.target.style.display = 'none'
+                      const errorDiv = e.target.nextSibling
+                      if (errorDiv) errorDiv.style.display = 'block'
+                    }}
                   />
-                ) : formData.cvtPreview ? (
-                  <div className="w-full h-[600px]">
-                    <PDFViewer 
-                      pdfUrl={formData.cvtPreview}
-                      title={`CVT Document ${formData.cvt_series || ''}`}
-                      placeholder="Documentul CVT nu este disponibil"
-                      placeholderSubtext="Atașează documentul CVT pentru vizualizare"
-                    />
-                  </div>
                 ) : null}
+                {formData.cvtPreview && (
+                  <div className="w-full h-[600px] bg-slate-100 dark:bg-slate-700 rounded-lg border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center" style={{display: 'none'}}>
+                    <div className="text-center text-slate-500 dark:text-slate-400">
+                      <FileText className="w-16 h-16 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm font-medium">Eroare la încărcarea documentului</p>
+                      <p className="text-xs mt-1">Verifică că fișierul este un PDF valid</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             <p className="text-xs text-slate-500">Încărcați documentul CVT în format PDF</p>
