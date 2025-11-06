@@ -3,7 +3,7 @@ import { X, MapPin } from 'lucide-react'
 import { useData } from '../../contexts/DataContext'
 
 const LocationModal = ({ item, onClose, onSave }) => {
-  const { companies, users } = useData()
+  const { companies, users, contracts } = useData()
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -55,6 +55,21 @@ const LocationModal = ({ item, onClose, onSave }) => {
     e.preventDefault()
     onSave(formData)
   }
+
+  // Calculate total surface area from contracts for this location
+  const calculateTotalSurfaceFromContracts = () => {
+    if (!item || !item.id || !contracts) return 0
+    
+    const locationContracts = contracts.filter(c => c.location_id === item.id)
+    const totalSurface = locationContracts.reduce((sum, contract) => {
+      const surface = parseFloat(contract.surface_area) || 0
+      return sum + surface
+    }, 0)
+    
+    return totalSurface
+  }
+
+  const calculatedSurface = item ? calculateTotalSurfaceFromContracts() : 0
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -162,20 +177,17 @@ const LocationModal = ({ item, onClose, onSave }) => {
                 />
               </div>
 
-              {/* Surface */}
+              {/* Surface - Calculated from contracts */}
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-slate-700">
-                  Suprafață (m²) *
+                  Suprafață (calculată din contracte)
                 </label>
-                <input 
-                  type="number" 
-                  name="surface" 
-                  value={formData.surface} 
-                  onChange={handleChange} 
-                  className="input-field" 
-                  placeholder="ex: 150"
-                  required
-                />
+                <div className="input-field bg-slate-50 text-slate-600 cursor-not-allowed">
+                  {calculatedSurface.toFixed(2)} m²
+                </div>
+                <p className="text-xs text-slate-500">
+                  Suprafața se calculează automat din suma suprafețelor contractelor acestei locații
+                </p>
               </div>
 
               {/* Capacity - Calculated from slots */}
