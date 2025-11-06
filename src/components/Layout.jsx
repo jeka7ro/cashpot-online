@@ -42,7 +42,7 @@ const Layout = ({ children }) => {
   
   // Show sidebar for all users, but filter menu items based on permissions
   const shouldShowSidebar = true
-  const { companies, locations, providers, platforms, cabinets, gameMixes, slots, warehouse, metrology, approvals, jackpots, invoices, onjnReports, legalDocuments, users, promotions, tasks, messages, notifications, loadAllData } = useData()
+  const { companies, locations, contracts, providers, platforms, cabinets, gameMixes, slots, warehouse, metrology, approvals, jackpots, invoices, onjnReports, legalDocuments, users, promotions, tasks, messages, notifications, loadAllData } = useData()
   const { theme, toggleTheme } = useTheme()
   const location = useLocation()
   
@@ -183,6 +183,14 @@ const Layout = ({ children }) => {
       icon: MapPin, 
       path: '/locations',
       count: locations.length,
+      module: MODULES.LOCATIONS
+    },
+    { 
+      id: 'contracts', 
+      label: 'Contracte', 
+      icon: FileText, 
+      path: '/contracts',
+      count: contracts?.length || 0,
       module: MODULES.LOCATIONS
     },
     { 
