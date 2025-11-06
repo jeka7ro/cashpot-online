@@ -194,11 +194,31 @@ const Locations = () => {
           key: 'surface',
           label: 'Suprafață (m²)',
           sortable: true,
-          render: (item) => (
-            <div className="text-slate-600">
-              {item.surface ? `${item.surface} m²` : 'N/A'}
-            </div>
-          )
+          render: (item) => {
+            const surfaceFromContracts = getSurfaceFromContracts(item.id)
+            return (
+              <div className="text-slate-600 dark:text-slate-400">
+                {surfaceFromContracts > 0 ? `${surfaceFromContracts.toFixed(2)} m²` : 'N/A'}
+              </div>
+            )
+          }
+        },
+        {
+          key: 'contracts_count',
+          label: 'Contracte',
+          sortable: true,
+          render: (item) => {
+            const contractsCount = contracts.filter(c => c.location_id === item.id).length
+            const activeCount = contracts.filter(c => c.location_id === item.id && c.status === 'Active').length
+            return (
+              <div className="text-slate-600 dark:text-slate-400">
+                <span className="font-semibold text-green-600 dark:text-green-400">{activeCount}</span>
+                {contractsCount > activeCount && (
+                  <span className="text-slate-400"> / {contractsCount}</span>
+                )}
+              </div>
+            )
+          }
         },
         {
           key: 'capacity',

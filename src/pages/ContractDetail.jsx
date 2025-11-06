@@ -84,7 +84,7 @@ const ContractDetail = () => {
       try {
         await axios.delete(`/api/contracts/${contract.id}`)
         toast.success('Contract șters cu succes!')
-        navigate(`/locations/${contract.location_id}`)
+        navigate(`/locations/${contract.location_id}?tab=contracte`)
       } catch (error) {
         console.error('Error deleting contract:', error)
         toast.error('Eroare la ștergerea contractului')
@@ -115,9 +115,9 @@ const ContractDetail = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <button
-                    onClick={() => navigate(`/locations/${contract.location_id}`)}
+                    onClick={() => navigate(`/locations/${contract.location_id}?tab=contracte`)}
                     className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-                    title="Înapoi la Locație"
+                    title="Înapoi la Contracte"
                   >
                     <ArrowLeft className="w-6 h-6 text-white" />
                   </button>
