@@ -96,6 +96,14 @@ const ContractDetail = () => {
   const contractAnnexes = Array.isArray(contract.annexes) 
     ? contract.annexes 
     : (typeof contract.annexes === 'string' ? JSON.parse(contract.annexes) : [])
+  
+  console.log('📋 Contract loaded:', {
+    id: contract.id,
+    contract_number: contract.contract_number,
+    has_contract_file: !!contract.contract_file,
+    annexes_count: contractAnnexes.length,
+    annexes: contractAnnexes
+  })
 
   return (
     <Layout>
@@ -303,9 +311,12 @@ const ContractDetail = () => {
                       id: 'main'
                     }] : []),
                     ...contractAnnexes.map((annex, idx) => ({
-                      ...annex,
+                      name: annex.name || `Anexă ${idx + 1}`,
+                      type: annex.type || 'Anexă Contract',
                       file_path: annex.url || annex.file_path,
-                      id: `annex-${idx}`
+                      url: annex.url || annex.file_path,
+                      size: annex.size,
+                      id: annex.id || `annex-${idx}`
                     }))
                   ]}
                   title="Documente Contract"

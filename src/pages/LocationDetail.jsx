@@ -298,31 +298,13 @@ const LocationDetail = () => {
                               </span>
                             </td>
                             <td className="p-4">
-                              {contract.file_path ? (
-                                <div className="flex space-x-2">
-                                  <button
-                                    onClick={() => window.open(`https://www.w1n.ro${contract.file_path}`, '_blank')}
-                                    className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-                                    title="Vizualizează PDF"
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      const link = document.createElement('a')
-                                      link.href = `https://www.w1n.ro${contract.file_path}`
-                                      link.download = `contract-${contract.contract_number}.pdf`
-                                      link.click()
-                                    }}
-                                    className="p-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
-                                    title="Descarcă PDF"
-                                  >
-                                    <Download className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              ) : (
-                                <span className="text-slate-400 italic">N/A</span>
-                              )}
+                              <button
+                                onClick={() => navigate(`/contracts/${contract.id}`)}
+                                className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                                title="Vezi Detalii Contract"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
                             </td>
                           </tr>
                         ))}
