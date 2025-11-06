@@ -91,6 +91,13 @@ router.post('/login', [
 
   } catch (error) {
     console.error('Login error:', error)
+    // Check if it's a DB connection error
+    if (error.message && error.message.includes('Connection terminated')) {
+      return res.status(503).json({
+        success: false,
+        message: 'Database connection error. Please try again.'
+      })
+    }
     res.status(500).json({
       success: false,
       message: 'Internal server error'

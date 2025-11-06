@@ -124,10 +124,23 @@ const s3Client = new S3Client({
 
 const S3_BUCKET = process.env.AWS_S3_BUCKET || 'cashpot-uploads'
 
-// PostgreSQL Connection
+// PostgreSQL Connection with robust pooling
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('render.com') ? { rejectUnauthorized: false } : false
+  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('render.com') ? { rejectUnauthorized: false } : false,
+  // Connection pool settings for Render.com free tier
+  max: 10, // Maximum number of clients in the pool
+  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+  connectionTimeoutMillis: 10000, // Return error after 10 seconds if connection unavailable
+  // Handle connection errors
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000
+})
+
+// Handle pool errors to prevent crashes
+pool.on('error', (err, client) => {
+  console.error('❌ Unexpected error on idle client', err)
+  // Don't crash the app, just log the error
 })
 
 // Make pool available to routes
