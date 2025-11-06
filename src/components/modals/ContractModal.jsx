@@ -76,75 +76,86 @@ const ContractModal = ({ item, onClose, onSave, locationId }) => {
     }))
   }
 
-  const handleContractFileChange = async (e) => {
+  const handleContractFileChange = (e) => {
     const file = e.target.files[0]
     if (!file) return
     
-    setUploading(true)
-    const uploadFormData = new FormData()
-    uploadFormData.append('file', file)
+    // Verifică dimensiune (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Fișierul este prea mare! Maxim 10MB.')
+      return
+    }
     
-    try {
-      const response = await axios.post('/api/upload', uploadFormData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 120000 // 2 minute timeout pentru fișiere mari
-      })
-      
-      const fileUrl = response.data.url || response.data.file_path
+    setUploading(true)
+    const reader = new FileReader()
+    
+    reader.onload = (e) => {
+      const base64String = e.target.result
       setFormData(prev => ({
         ...prev,
-        contractFile: fileUrl,
-        contractPreview: fileUrl
+        contractFile: base64String,
+        contractPreview: base64String
       }))
       toast.success('Contract încărcat cu succes!')
-    } catch (error) {
-      console.error('Upload error:', error)
-      if (error.code === 'ECONNABORTED') {
-        toast.error('Timeout - fișierul este prea mare sau conexiunea este lentă')
-      } else {
-        toast.error('Eroare la încărcarea contractului: ' + (error.response?.data?.error || error.message))
-      }
-    } finally {
       setUploading(false)
     }
+    
+    reader.onerror = () => {
+      toast.error('Eroare la citirea fișierului')
+      setUploading(false)
+    }
+    
+    reader.readAsDataURL(file)
   }
   
-  // Handle annexes upload (multiple files)
-  const handleAnnexesUpload = async (e) => {
+  // Handle annexes upload (multiple files) - base64 encoding
+  const handleAnnexesUpload = (e) => {
     const files = Array.from(e.target.files)
     if (files.length === 0) return
     
     setUploading(true)
-    const uploadPromises = files.map(async (file) => {
-      const uploadFormData = new FormData()
-      uploadFormData.append('file', file)
+    let processedCount = 0
+    const newAnnexes = []
+    
+    files.forEach((file) => {
+      // Verifică dimensiune (max 5MB per anexă)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error(`${file.name} este prea mare! Maxim 5MB per anexă.`)
+        processedCount++
+        if (processedCount === files.length) {
+          finishUpload(newAnnexes)
+        }
+        return
+      }
       
-      try {
-        const response = await axios.post('/api/upload', uploadFormData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-          timeout: 120000 // 2 minute timeout
-        })
-        return {
+      const reader = new FileReader()
+      
+      reader.onload = (e) => {
+        newAnnexes.push({
           name: file.name,
-          url: response.data.url || response.data.file_path,
+          url: e.target.result, // base64
           size: file.size,
           type: file.type
+        })
+        
+        processedCount++
+        if (processedCount === files.length) {
+          finishUpload(newAnnexes)
         }
-      } catch (error) {
-        console.error('Upload error:', error)
-        if (error.code === 'ECONNABORTED') {
-          toast.error(`Timeout pentru ${file.name} - fișier prea mare`)
-        } else {
-          toast.error(`Eroare la upload pentru ${file.name}`)
-        }
-        return null
       }
+      
+      reader.onerror = () => {
+        toast.error(`Eroare la citirea ${file.name}`)
+        processedCount++
+        if (processedCount === files.length) {
+          finishUpload(newAnnexes)
+        }
+      }
+      
+      reader.readAsDataURL(file)
     })
     
-    try {
-      const results = await Promise.all(uploadPromises)
-      const validResults = results.filter(result => result !== null)
-      
+    function finishUpload(validResults) {
       setFormData(prev => ({
         ...prev,
         annexes: [...prev.annexes, ...validResults]
@@ -153,9 +164,6 @@ const ContractModal = ({ item, onClose, onSave, locationId }) => {
       if (validResults.length > 0) {
         toast.success(`${validResults.length} anexe încărcate cu succes`)
       }
-    } catch (error) {
-      toast.error('Eroare la încărcarea anexelor')
-    } finally {
       setUploading(false)
     }
   }
