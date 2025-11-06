@@ -47,6 +47,12 @@ const LocationDetail = () => {
   const activeContracts = locationContracts.filter(c => c.status === 'Active')
   const totalSlots = locationSlots.length
   const totalCabinets = locationCabinets.length
+  
+  // Calculate total surface area from contracts (as user requested!)
+  const totalSurfaceFromContracts = locationContracts.reduce((sum, contract) => {
+    const surface = parseFloat(contract.surface_area) || 0
+    return sum + surface
+  }, 0)
 
   return (
     <Layout>
@@ -121,8 +127,8 @@ const LocationDetail = () => {
           <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 p-6 rounded-2xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Suprafață</p>
-                <p className="text-3xl font-bold text-orange-600 dark:text-orange-400 mt-2">{location.surface || 0} m²</p>
+                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Suprafață (din contracte)</p>
+                <p className="text-3xl font-bold text-orange-600 dark:text-orange-400 mt-2">{totalSurfaceFromContracts.toFixed(2)} m²</p>
               </div>
               <div className="p-4 bg-orange-500/10 rounded-2xl">
                 <Ruler className="w-8 h-8 text-orange-600 dark:text-orange-400" />
@@ -203,8 +209,8 @@ const LocationDetail = () => {
                       <div className="flex items-center space-x-3">
                         <Ruler className="w-5 h-5 text-orange-500" />
                         <div>
-                          <p className="text-sm text-slate-600 dark:text-slate-400">Suprafață</p>
-                          <p className="font-semibold text-slate-900 dark:text-slate-100">{location.surface || 0} m²</p>
+                          <p className="text-sm text-slate-600 dark:text-slate-400">Suprafață (din contracte)</p>
+                          <p className="font-semibold text-slate-900 dark:text-slate-100">{totalSurfaceFromContracts.toFixed(2)} m²</p>
                         </div>
                       </div>
                       <div className="flex items-center space-x-3">
