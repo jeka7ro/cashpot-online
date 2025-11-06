@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { FileText, Plus, Download, Eye, Edit, Trash2, ArrowLeft, Calendar, MapPin, DollarSign, Ruler } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 import ContractModal from './modals/ContractModal'
 import MultiPDFViewer from './MultiPDFViewer'
 
 const LocationContracts = ({ locationId, locationName }) => {
+  const navigate = useNavigate()
   const { contracts, locations, proprietari, createItem, updateItem, deleteItem, loading } = useData()
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingContract, setEditingContract] = useState(null)
@@ -328,9 +330,12 @@ const LocationContracts = ({ locationId, locationName }) => {
               {filteredContracts.map((contract) => (
                 <tr key={contract.id} className="table-row hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-indigo-50/50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-bold text-slate-900">
+                    <button
+                      onClick={() => navigate(`/contracts/${contract.id}`)}
+                      className="font-bold text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 hover:underline transition-colors"
+                    >
                       {contract.contract_number}
-                    </div>
+                    </button>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-slate-700 font-medium">
