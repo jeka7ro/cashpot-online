@@ -30,9 +30,21 @@ router.get('/fetch-yesterday', async (req, res) => {
     const yesterdayStr = yesterday.toISOString().split('T')[0]
     console.log(`📅 Fetching data for yesterday: ${yesterdayStr}`)
     
-    // Query yesterday's data from Cyber DB
+    // Query yesterday's data from Cyber DB with proper column mapping
     const [rows] = await cyberConnection.execute(
-      `SELECT * FROM machine_audit_summaries 
+      `SELECT 
+        id,
+        serial_number,
+        location,
+        cabinet,
+        mix as game_mix,
+        producator as provider,
+        manufacture_year,
+        address,
+        status,
+        created_at,
+        updated_at
+       FROM machine_audit_summaries 
        WHERE DATE(created_at) = ? OR DATE(updated_at) = ?
        ORDER BY id DESC`,
       [yesterdayStr, yesterdayStr]
