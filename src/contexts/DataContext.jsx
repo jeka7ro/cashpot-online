@@ -177,19 +177,25 @@ export const DataProvider = ({ children }) => {
         
         const backgroundResponses = await Promise.all(backgroundRequests)
         
+        // Build cache data with FRESH data (not old state)
+        const cacheData = {}
+        
+        // Add essential entities (already loaded)
+        essentialEntities.forEach(entity => {
+          cacheData[entity] = entityConfig[entity].state
+        })
+        
+        // Add background entities with FRESH data
         backgroundResponses.forEach((response, index) => {
           const entity = backgroundEntities[index]
           const data = Array.isArray(response.data) ? response.data : []
           entityConfig[entity].setState(data)
+          cacheData[entity] = data // Use FRESH data, not old state!
         })
         
         console.log('⚡ Background data loaded!')
         
-        // Save to cache after all data loaded
-        const cacheData = {}
-        entities.forEach(entity => {
-          cacheData[entity] = entityConfig[entity].state
-        })
+        // Save to cache with CORRECT data
         try {
           sessionStorage.setItem(cacheKey, JSON.stringify(cacheData))
           sessionStorage.setItem('dataCacheTime', now.toString())

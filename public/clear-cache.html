@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Cache - Cashpot</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            background: white;
+            padding: 3rem;
+            border-radius: 1rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 500px;
+        }
+        h1 { color: #333; margin-bottom: 1rem; }
+        p { color: #666; margin-bottom: 2rem; line-height: 1.6; }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        button:hover { transform: translateY(-2px); }
+        .success {
+            color: #10b981;
+            font-weight: 600;
+            margin-top: 1rem;
+            display: none;
+        }
+        .icon { font-size: 3rem; margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">🗑️</div>
+        <h1>Clear Broken Cache</h1>
+        <p>
+            Există un cache corupt care afișează date goale (totul pe 0).
+            Apasă butonul pentru a șterge cache-ul și reîncărca datele fresh.
+        </p>
+        <button onclick="clearCache()">🧹 Șterge Cache-ul Acum</button>
+        <div class="success" id="success">
+            ✅ Cache șters cu succes!<br>
+            <small>Redirecting în 2 secunde...</small>
+        </div>
+    </div>
+    
+    <script>
+        function clearCache() {
+            // Clear sessionStorage
+            sessionStorage.removeItem('dataCache_v1')
+            sessionStorage.removeItem('dataCacheTime')
+            
+            // Clear localStorage (backup)
+            localStorage.removeItem('dataCache_v1')
+            localStorage.removeItem('dataCacheTime')
+            
+            console.log('✅ Cache cleared successfully!')
+            
+            document.getElementById('success').style.display = 'block'
+            
+            setTimeout(() => {
+                window.location.href = '/'
+            }, 2000)
+        }
+    </script>
+</body>
+</html>
+
