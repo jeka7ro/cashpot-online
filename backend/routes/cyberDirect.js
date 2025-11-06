@@ -30,23 +30,29 @@ router.get('/fetch-yesterday', async (req, res) => {
     const yesterdayStr = yesterday.toISOString().split('T')[0]
     console.log(`📅 Fetching data for yesterday: ${yesterdayStr}`)
     
-    // Query yesterday's data from Cyber DB with proper column mapping
+    // Query from machines table with proper JOINs to get ALL data
     const [rows] = await cyberConnection.execute(
       `SELECT 
-        id,
-        serial_number,
-        location,
-        cabinet,
-        mix as game_mix,
-        producator as provider,
-        manufacture_year,
-        address,
-        status,
-        created_at,
-        updated_at
-       FROM machine_audit_summaries 
-       WHERE DATE(created_at) = ? OR DATE(updated_at) = ?
-       ORDER BY id DESC`,
+        m.id,
+        m.slot_machine_id as serial_number,
+        l.code as location,
+        mct.name as cabinet,
+        gt.name as game_mix,
+        mm.name as provider,
+        mt.manufacture_year,
+        l.address,
+        CASE WHEN m.active = 1 THEN 'Active' ELSE 'Inactive' END as status,
+        m.created_at,
+        m.updated_at
+       FROM machines m
+       LEFT JOIN locations l ON m.location_id = l.id
+       LEFT JOIN machine_cabinet_types mct ON m.cabinet_type_id = mct.id
+       LEFT JOIN machine_game_templates gt ON m.game_template_id = gt.id
+       LEFT JOIN machine_types mt ON m.machine_type_id = mt.id
+       LEFT JOIN machine_manufacturers mm ON mt.manufacturer_id = mm.id
+       WHERE m.deleted_at IS NULL
+         AND (DATE(m.created_at) = ? OR DATE(m.updated_at) = ?)
+       ORDER BY m.id DESC`,
       [yesterdayStr, yesterdayStr]
     )
     
