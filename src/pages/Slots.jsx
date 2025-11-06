@@ -429,6 +429,16 @@ const Slots = () => {
         )
       }
     },
+    {
+      key: 'manufacture_year',
+      label: 'AN FABRICAT',
+      sortable: true,
+      render: (item) => (
+        <div className="text-slate-800 dark:text-slate-200 font-medium text-base">
+          {item.manufacture_year || 'N/A'}
+        </div>
+      )
+    },
   ]
 
   const handleCreate = () => {

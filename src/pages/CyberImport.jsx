@@ -730,7 +730,8 @@ const CyberImport = () => {
           cabinet: item.cabinet || null,
           game_mix: item.game_mix || null, // Keep null if no game_mix
           status: item.status || 'Active',
-          location: item.location || null
+          location: item.location || null,
+          manufacture_year: item.manufacture_year || null // FIX: Adăugat anul fabricației
         }))
       
       console.log('Importing slots:', itemsToImport)
@@ -800,7 +801,8 @@ const CyberImport = () => {
         cabinet: item.cabinet || null,
         game_mix: item.game_mix || null, // Keep null if no game_mix
         status: item.status || 'Active',
-        location: item.location || null
+        location: item.location || null,
+        manufacture_year: item.manufacture_year || null // FIX: Adăugat anul fabricației
       }))
       
       console.log('Importing all visible slots:', itemsToImport.length)
