@@ -286,19 +286,15 @@ const Locations = () => {
         const formattedTime = formatDaysAsYearsMonthsDays(daysRemaining)
         
         return (
-          <div className={`${
+          <div className={`font-semibold ${
             isExpired 
               ? 'text-red-600 dark:text-red-400' 
               : isExpiringSoon 
               ? 'text-orange-600 dark:text-orange-400' 
               : 'text-green-600 dark:text-green-400'
           }`}>
-            <div className="font-semibold">
-              {formattedTime}
-            </div>
-            <div className="text-xs">
-              {isExpired ? 'expirat' : 'rămase'}
-            </div>
+            {isExpired && '❌ '}
+            {formattedTime}
           </div>
         )
       }
