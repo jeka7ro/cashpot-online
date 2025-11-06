@@ -7,6 +7,10 @@ import LocationContracts from '../components/LocationContracts'
 import LocationSlots from '../components/LocationSlots'
 import LocationCabinets from '../components/LocationCabinets'
 import MultiPDFViewer from '../components/MultiPDFViewer'
+import LocationMap from '../components/LocationMap'
+import ManagerCard from '../components/ManagerCard'
+import LocationStats from '../components/LocationStats'
+import 'leaflet/dist/leaflet.css'
 
 const LocationDetail = () => {
   const { id } = useParams()
@@ -56,7 +60,11 @@ const LocationDetail = () => {
 
   // Calculate stats
   const activeContracts = locationContracts.filter(c => c.status === 'Active')
-  const totalSlots = locationSlots.length
+  
+  // FIX: Total slots = DISTINCT serial numbers (as user requested!)
+  const uniqueSerialNumbers = [...new Set(locationSlots.map(s => s.serial_number))]
+  const totalSlots = uniqueSerialNumbers.length
+  
   const totalCabinets = locationCabinets.length
   
   // Calculate total surface area from contracts (as user requested!)
@@ -194,8 +202,24 @@ const LocationDetail = () => {
                 </div>
               </div>
             )}
+
+            {/* Manager Card */}
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-3">Manager Locație</h3>
+              <ManagerCard contactPersonUsername={location.contact_person} locationName={location.name} />
+            </div>
           </div>
         </div>
+
+        {/* HARTĂ GEOGRAFICĂ */}
+        <LocationMap location={location} />
+
+        {/* STATISTICI DETALIATE */}
+        <LocationStats 
+          location={location} 
+          contracts={locationContracts} 
+          slots={locationSlots} 
+        />
 
         {/* PLAN LOCAȚIE */}
         {location.planFile && (

@@ -291,8 +291,8 @@ const ONJNClass2 = () => {
           <div className="card p-4 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm text-slate-600">În depozit</div>
-                <div className="text-2xl font-bold text-blue-600">{inDepozit.toLocaleString('ro-RO')}</div>
+            <div className="text-sm text-slate-600">În depozit</div>
+            <div className="text-2xl font-bold text-blue-600">{inDepozit.toLocaleString('ro-RO')}</div>
                 {detailedStats && (
                   <div className="text-xs text-slate-500">~{((detailedStats.stats.inDepozit / detailedStats.sampleSize) * 100).toFixed(1)}% din total</div>
                 )}
@@ -303,8 +303,8 @@ const ONJNClass2 = () => {
           <div className="card p-4 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-slate-800 dark:to-slate-900">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm text-slate-600">Închiriat</div>
-                <div className="text-2xl font-bold text-amber-600">{inchiriat.toLocaleString('ro-RO')}</div>
+            <div className="text-sm text-slate-600">Închiriat</div>
+            <div className="text-2xl font-bold text-amber-600">{inchiriat.toLocaleString('ro-RO')}</div>
                 {detailedStats && (
                   <div className="text-xs text-slate-500">~{((detailedStats.stats.inchiriat / detailedStats.sampleSize) * 100).toFixed(1)}% din total</div>
                 )}
@@ -315,8 +315,8 @@ const ONJNClass2 = () => {
           <div className="card p-4 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm text-slate-600">Vândut</div>
-                <div className="text-2xl font-bold text-slate-700">{vandut.toLocaleString('ro-RO')}</div>
+            <div className="text-sm text-slate-600">Vândut</div>
+            <div className="text-2xl font-bold text-slate-700">{vandut.toLocaleString('ro-RO')}</div>
                 {detailedStats && (
                   <div className="text-xs text-slate-500">~{((detailedStats.stats.vandut / detailedStats.sampleSize) * 100).toFixed(1)}% din total</div>
                 )}
