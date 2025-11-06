@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Edit, Trash2, Calendar, MapPin, User, DollarSign, FileText, Building2, Ruler } from 'lucide-react'
+import { ArrowLeft, Edit, Trash2, Calendar, MapPin, User, DollarSign, FileText, Building2, Ruler, Eye, Download } from 'lucide-react'
 import Layout from '../components/Layout'
 import MultiPDFViewer from '../components/MultiPDFViewer'
 import { useData } from '../contexts/DataContext'
