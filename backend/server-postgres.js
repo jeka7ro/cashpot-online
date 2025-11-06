@@ -383,6 +383,9 @@ const initializeDatabase = async () => {
       await pool.query('ALTER TABLE contracts ADD COLUMN IF NOT EXISTS monthly_rent DECIMAL(15,2)')
       await pool.query('ALTER TABLE contracts ADD COLUMN IF NOT EXISTS deposit DECIMAL(15,2)')
       await pool.query('ALTER TABLE contracts ADD COLUMN IF NOT EXISTS payment_terms VARCHAR(255)')
+      await pool.query('ALTER TABLE contracts ADD COLUMN IF NOT EXISTS surface_area DECIMAL(10,2)')
+      await pool.query('ALTER TABLE contracts ADD COLUMN IF NOT EXISTS contract_file TEXT')
+      await pool.query('ALTER TABLE contracts ADD COLUMN IF NOT EXISTS annexes JSONB DEFAULT \'[]\'')
       await pool.query('ALTER TABLE contracts DROP COLUMN IF EXISTS company_id')
       await pool.query('ALTER TABLE contracts DROP COLUMN IF EXISTS provider_id')
       await pool.query('ALTER TABLE contracts DROP COLUMN IF EXISTS value')
@@ -2661,18 +2664,25 @@ app.post('/api/contracts', async (req, res) => {
       currency, 
       deposit,
       payment_terms,
-      description 
+      description,
+      surface_area,
+      contractFile,
+      annexes
     } = req.body
     
     const result = await pool.query(`
       INSERT INTO contracts (
         contract_number, title, location_id, proprietar_id, 
-        type, status, start_date, end_date, monthly_rent, currency, deposit, payment_terms, description
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        type, status, start_date, end_date, monthly_rent, currency, deposit, payment_terms, description,
+        surface_area, contract_file, annexes
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING *
     `, [
       contract_number, title, location_id, proprietar_id,
-      type, status, start_date, end_date, monthly_rent, currency, deposit, payment_terms, description
+      type, status, start_date, end_date, monthly_rent, currency, deposit, payment_terms, description,
+      surface_area || null,
+      contractFile || null,
+      JSON.stringify(annexes || [])
     ])
     
     res.json(result.rows[0])
@@ -2696,9 +2706,12 @@ app.put('/api/contracts/:id', async (req, res) => {
       end_date, 
       monthly_rent, 
       currency, 
-      deposit, 
+      deposit,
       payment_terms, 
-      description 
+      description,
+      surface_area,
+      contractFile,
+      annexes
     } = req.body
 
     const result = await pool.query(`
@@ -2716,12 +2729,19 @@ app.put('/api/contracts/:id', async (req, res) => {
         deposit = $11, 
         payment_terms = $12, 
         description = $13,
+        surface_area = $14,
+        contract_file = $15,
+        annexes = $16,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $14
+      WHERE id = $17
       RETURNING *
     `, [
       contract_number, title, location_id, proprietar_id,
-      type, status, start_date, end_date, monthly_rent, currency, deposit, payment_terms, description, id
+      type, status, start_date, end_date, monthly_rent, currency, deposit, payment_terms, description,
+      surface_area || null,
+      contractFile || null,
+      JSON.stringify(annexes || []),
+      id
     ])
 
     if (result.rows.length === 0) {

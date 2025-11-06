@@ -274,9 +274,16 @@ const LocationDetail = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                        {locationContracts.map((contract) => (
+                        {locationContracts.map((contract) => (                        
                           <tr key={contract.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-                            <td className="p-4">{contract.contract_number}</td>
+                            <td className="p-4">
+                              <button
+                                onClick={() => navigate(`/contracts/${contract.id}`)}
+                                className="text-green-600 dark:text-green-400 hover:underline font-semibold"
+                              >
+                                {contract.contract_number}
+                              </button>
+                            </td>
                             <td className="p-4">{contract.type}</td>
                             <td className="p-4">{contract.proprietar_name}</td>
                             <td className="p-4">

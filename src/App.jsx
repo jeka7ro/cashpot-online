@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard'
 import Companies from './pages/Companies'
 import Locations from './pages/Locations'
 import LocationDetail from './pages/LocationDetail'
+import ContractDetail from './pages/ContractDetail'
 import Providers from './pages/Providers'
 import Cabinets from './pages/Cabinets'
 import GameMixes from './pages/GameMixes'
@@ -62,6 +63,7 @@ function App() {
             <Route path="/companies/:id" element={<RoleProtectedRoute module={MODULES.COMPANIES}><CompanyDetail /></RoleProtectedRoute>} />
             <Route path="/locations" element={<RoleProtectedRoute module={MODULES.LOCATIONS}><Locations /></RoleProtectedRoute>} />
             <Route path="/locations/:id" element={<RoleProtectedRoute module={MODULES.LOCATIONS}><LocationDetail /></RoleProtectedRoute>} />
+            <Route path="/contracts/:id" element={<RoleProtectedRoute module={MODULES.LOCATIONS}><ContractDetail /></RoleProtectedRoute>} />
             <Route path="/providers" element={<RoleProtectedRoute module={MODULES.PROVIDERS}><Providers /></RoleProtectedRoute>} />
             <Route path="/cabinets" element={<RoleProtectedRoute module={MODULES.CABINETS}><Cabinets /></RoleProtectedRoute>} />
             <Route path="/game-mixes" element={<RoleProtectedRoute module={MODULES.GAME_MIXES}><GameMixes /></RoleProtectedRoute>} />

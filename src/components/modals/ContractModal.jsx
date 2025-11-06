@@ -55,9 +55,10 @@ const ContractModal = ({ item, onClose, onSave, locationId }) => {
         payment_terms: item.payment_terms || '',
         description: item.description || '',
         surface_area: item.surface_area || '',
-        contractFile: item.contractFile || null,
-        contractPreview: item.contractFile || null,
-        annexes: item.annexes || [] // Încarcă anexele existente
+        contractFile: item.contract_file || item.contractFile || null,
+        contractPreview: item.contract_file || item.contractFile || null,
+        annexes: Array.isArray(item.annexes) ? item.annexes : 
+                 (typeof item.annexes === 'string' ? JSON.parse(item.annexes) : []) // Parse JSONB
       })
     } else {
       // Generate contract number for new contracts
