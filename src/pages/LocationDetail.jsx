@@ -5,7 +5,7 @@ import Layout from '../components/Layout'
 import { ArrowLeft, MapPin, Building2, FileText, Package, Calendar, DollarSign, Ruler, Users, Edit, Trash2, Download, Eye } from 'lucide-react'
 import LocationContracts from '../components/LocationContracts'
 import LocationSlots from '../components/LocationSlots'
-import LocationCabinets from '../components/LocationCabinets'
+// import LocationCabinets from '../components/LocationCabinets' // REMOVED - user doesn't need it!
 import MultiPDFViewer from '../components/MultiPDFViewer'
 import LocationMap from '../components/LocationMap'
 import ManagerCard from '../components/ManagerCard'
@@ -56,7 +56,7 @@ const LocationDetail = () => {
   // Get related data
   const locationContracts = contracts.filter(c => c.location_id === location.id)
   const locationSlots = slots.filter(s => s.location === location.name && s.status !== 'Depozit')
-  const locationCabinets = cabinets.filter(c => c.location_id === location.id)
+  // const locationCabinets = cabinets.filter(c => c.location_id === location.id) // REMOVED!
 
   // Calculate stats
   const activeContracts = locationContracts.filter(c => c.status === 'Active')
@@ -65,7 +65,7 @@ const LocationDetail = () => {
   const uniqueSerialNumbers = [...new Set(locationSlots.map(s => s.serial_number))]
   const totalSlots = uniqueSerialNumbers.length
   
-  const totalCabinets = locationCabinets.length
+  // const totalCabinets = locationCabinets.length // REMOVED - user doesn't need cabinets!
   
   // Calculate total surface area from contracts (as user requested!)
   const totalSurfaceFromContracts = locationContracts.reduce((sum, contract) => {
@@ -105,8 +105,8 @@ const LocationDetail = () => {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Stats Cards - DOAR 3 (fără Cabinete!) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-6 rounded-2xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>
@@ -122,23 +122,11 @@ const LocationDetail = () => {
           <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-6 rounded-2xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Sloturi</p>
+                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Sloturi (Distinct)</p>
                 <p className="text-3xl font-bold text-green-600 dark:text-green-400 mt-2">{totalSlots}</p>
               </div>
               <div className="p-4 bg-green-500/10 rounded-2xl">
                 <Package className="w-8 h-8 text-green-600 dark:text-green-400" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 p-6 rounded-2xl shadow-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Cabinete</p>
-                <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-2">{totalCabinets}</p>
-              </div>
-              <div className="p-4 bg-purple-500/10 rounded-2xl">
-                <Building2 className="w-8 h-8 text-purple-600 dark:text-purple-400" />
               </div>
             </div>
           </div>
@@ -256,19 +244,12 @@ const LocationDetail = () => {
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6">
           <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6 flex items-center">
             <Package className="w-6 h-6 mr-3 text-blue-500" />
-            Sloturi ({totalSlots})
+            Sloturi ({totalSlots} distinct)
           </h2>
           <LocationSlots locationId={location.id} locationName={location.name} />
         </div>
 
-        {/* CABINETE */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6 flex items-center">
-            <Building2 className="w-6 h-6 mr-3 text-orange-500" />
-            Cabinete ({totalCabinets})
-          </h2>
-          <LocationCabinets locationId={location.id} locationName={location.name} />
-        </div>
+        {/* CABINETE - REMOVED! User doesn't need it! */}
       </div>
     </Layout>
   )
