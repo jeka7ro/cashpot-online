@@ -105,6 +105,21 @@ const Locations = () => {
 
     return diffDays
   }
+  
+  // Helper function to format days as "X ani, Y luni, Z zile"
+  const formatDaysAsYearsMonthsDays = (totalDays) => {
+    const absDay = Math.abs(totalDays)
+    const years = Math.floor(absDay / 365)
+    const months = Math.floor((absDay % 365) / 30)
+    const days = absDay % 30
+    
+    const parts = []
+    if (years > 0) parts.push(`${years} ${years === 1 ? 'an' : 'ani'}`)
+    if (months > 0) parts.push(`${months} ${months === 1 ? 'lună' : 'luni'}`)
+    if (days > 0 || parts.length === 0) parts.push(`${days} ${days === 1 ? 'zi' : 'zile'}`)
+    
+    return parts.join(', ')
+  }
 
   // Helper function to calculate cost per m²
   const getCostPerM2 = (locationId, surface) => {
@@ -268,21 +283,22 @@ const Locations = () => {
 
         const isExpired = daysRemaining < 0
         const isExpiringSoon = daysRemaining <= 30 && daysRemaining >= 0
+        const formattedTime = formatDaysAsYearsMonthsDays(daysRemaining)
         
         return (
-          <div className={`flex items-center space-x-1 ${
+          <div className={`${
             isExpired 
               ? 'text-red-600 dark:text-red-400' 
               : isExpiringSoon 
               ? 'text-orange-600 dark:text-orange-400' 
               : 'text-green-600 dark:text-green-400'
           }`}>
-            <span>
-              {isExpired ? Math.abs(daysRemaining) : daysRemaining}
-            </span>
-            <span>
-              {isExpired ? 'zile expirat' : 'zile rămase'}
-            </span>
+            <div className="font-semibold">
+              {formattedTime}
+            </div>
+            <div className="text-xs">
+              {isExpired ? 'expirat' : 'rămase'}
+            </div>
           </div>
         )
       }
