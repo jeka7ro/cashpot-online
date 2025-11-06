@@ -44,10 +44,10 @@ const ContractDetail = () => {
             <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-2">Contract negăsit</h2>
             <p className="text-slate-600 dark:text-slate-400 mb-6">Contractul solicitat nu există în sistem.</p>
             <button
-              onClick={() => navigate('/contracts')}
+              onClick={() => navigate('/locations')}
               className="btn-primary"
             >
-              Înapoi la Contracte
+              Înapoi la Locații
             </button>
           </div>
         </div>
@@ -84,7 +84,7 @@ const ContractDetail = () => {
       try {
         await axios.delete(`/api/contracts/${contract.id}`)
         toast.success('Contract șters cu succes!')
-        navigate('/contracts')
+        navigate(`/locations/${contract.location_id}`)
       } catch (error) {
         console.error('Error deleting contract:', error)
         toast.error('Eroare la ștergerea contractului')
@@ -115,8 +115,9 @@ const ContractDetail = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <button
-                    onClick={() => navigate('/contracts')}
+                    onClick={() => navigate(`/locations/${contract.location_id}`)}
                     className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                    title="Înapoi la Locație"
                   >
                     <ArrowLeft className="w-6 h-6 text-white" />
                   </button>
