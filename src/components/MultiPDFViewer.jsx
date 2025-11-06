@@ -23,11 +23,13 @@ const MultiPDFViewer = ({
     if (url.startsWith('data:')) return url
     // Blob URL
     if (url.startsWith('blob:')) return url
-    // Relative URL - make absolute using backend URL
+    // Relative URL - make absolute using backend URL (ALWAYS backend, not frontend!)
     const backendUrl = import.meta.env.PROD 
       ? 'https://cashpot-backend.onrender.com' 
       : 'http://localhost:5001'
-    return `${backendUrl}${url.startsWith('/') ? url : '/' + url}`
+    // Handle both /uploads/... and uploads/...
+    const cleanPath = url.startsWith('/') ? url : '/' + url
+    return `${backendUrl}${cleanPath}`
   }
   
   if (normalizedFiles.length === 0) {

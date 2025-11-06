@@ -86,7 +86,8 @@ const ContractModal = ({ item, onClose, onSave, locationId }) => {
     
     try {
       const response = await axios.post('/api/upload', uploadFormData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120000 // 2 minute timeout pentru fișiere mari
       })
       
       const fileUrl = response.data.url || response.data.file_path
@@ -98,7 +99,11 @@ const ContractModal = ({ item, onClose, onSave, locationId }) => {
       toast.success('Contract încărcat cu succes!')
     } catch (error) {
       console.error('Upload error:', error)
-      toast.error('Eroare la încărcarea contractului')
+      if (error.code === 'ECONNABORTED') {
+        toast.error('Timeout - fișierul este prea mare sau conexiunea este lentă')
+      } else {
+        toast.error('Eroare la încărcarea contractului: ' + (error.response?.data?.error || error.message))
+      }
     } finally {
       setUploading(false)
     }
@@ -116,7 +121,8 @@ const ContractModal = ({ item, onClose, onSave, locationId }) => {
       
       try {
         const response = await axios.post('/api/upload', uploadFormData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 120000 // 2 minute timeout
         })
         return {
           name: file.name,
@@ -126,7 +132,11 @@ const ContractModal = ({ item, onClose, onSave, locationId }) => {
         }
       } catch (error) {
         console.error('Upload error:', error)
-        toast.error(`Eroare la upload pentru ${file.name}`)
+        if (error.code === 'ECONNABORTED') {
+          toast.error(`Timeout pentru ${file.name} - fișier prea mare`)
+        } else {
+          toast.error(`Eroare la upload pentru ${file.name}`)
+        }
         return null
       }
     })
@@ -140,7 +150,9 @@ const ContractModal = ({ item, onClose, onSave, locationId }) => {
         annexes: [...prev.annexes, ...validResults]
       }))
       
-      toast.success(`${validResults.length} anexe încărcate cu succes`)
+      if (validResults.length > 0) {
+        toast.success(`${validResults.length} anexe încărcate cu succes`)
+      }
     } catch (error) {
       toast.error('Eroare la încărcarea anexelor')
     } finally {
