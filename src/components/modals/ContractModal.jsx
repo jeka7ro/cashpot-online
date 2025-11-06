@@ -203,6 +203,12 @@ const ContractModal = ({ item, onClose, onSave, locationId }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault()
+    console.log('💾 Saving contract:', {
+      contract_number: formData.contract_number,
+      has_contractFile: !!formData.contractFile,
+      annexes_count: formData.annexes?.length || 0,
+      surface_area: formData.surface_area
+    })
     onSave(formData)
   }
 
