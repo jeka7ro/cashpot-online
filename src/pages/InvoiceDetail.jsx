@@ -199,20 +199,27 @@ const InvoiceDetail = () => {
 
             {/* Locații */}
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-6">
-              <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center">
+              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center">
                 <MapPin className="w-5 h-5 mr-2 text-green-600" />
                 Locații
               </h2>
               <div className="space-y-2">
                 {Array.isArray(invoiceLocations) && invoiceLocations.length > 0 ? (
-                  invoiceLocations.map((location, index) => (
-                    <div key={index} className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span className="text-slate-700">{location}</span>
-                    </div>
-                  ))
+                  invoiceLocations.map((location, index) => {
+                    // Ensure location is a string, not an object or array
+                    const locationName = typeof location === 'string' 
+                      ? location 
+                      : location?.name || location?.city || JSON.stringify(location)
+                    
+                    return (
+                      <div key={index} className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-slate-700 dark:text-slate-300">{locationName}</span>
+                      </div>
+                    )
+                  })
                 ) : (
-                  <p className="text-slate-500">Toate locațiile</p>
+                  <p className="text-slate-500 dark:text-slate-400">Toate locațiile</p>
                 )}
               </div>
             </div>
