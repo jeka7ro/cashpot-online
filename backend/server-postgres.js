@@ -1180,6 +1180,7 @@ app.get('/health', (req, res) => {
 // Global settings endpoints
 app.get('/api/global-settings', async (req, res) => {
   try {
+    // Try to query global_settings table
     const result = await pool.query('SELECT * FROM global_settings ORDER BY setting_key')
     const settings = {}
     result.rows.forEach(row => {
@@ -1188,7 +1189,8 @@ app.get('/api/global-settings', async (req, res) => {
     res.json(settings)
   } catch (error) {
     console.error('Error fetching global settings:', error)
-    res.status(500).json({ error: 'Failed to fetch global settings' })
+    // Return empty settings instead of 500 - don't crash the app!
+    res.json({})
   }
 })
 
