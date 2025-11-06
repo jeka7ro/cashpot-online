@@ -6,7 +6,7 @@ import ExportButtons from '../components/ExportButtons'
 import PDFViewer from '../components/PDFViewer'
 import DataTable from '../components/DataTable'
 import LocationModal from '../components/modals/LocationModal'
-import LocationDetailModal from '../components/modals/LocationDetailModal'
+// import LocationDetailModal from '../components/modals/LocationDetailModal' // REMOVED - use full page instead!
 import LocationContracts from '../components/LocationContracts'
 import LocationProprietari from '../components/LocationProprietari'
 import { MapPin, Plus, Search, Upload, Download, FileText, Edit, Trash2, Building2, Eye, X, Database } from 'lucide-react'
@@ -21,8 +21,8 @@ const Locations = () => {
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
-  const [viewingItem, setViewingItem] = useState(null)
-  const [showDetailModal, setShowDetailModal] = useState(false)
+  // const [viewingItem, setViewingItem] = useState(null)  // REMOVED - use navigate instead!
+  // const [showDetailModal, setShowDetailModal] = useState(false)  // REMOVED!
 
   // Update showBulkActions based on selectedItems
   useEffect(() => {
@@ -621,8 +621,7 @@ const Locations = () => {
           onDelete={handleDelete}
           onViewContracts={handleViewContracts}
           onRowClick={(item) => {
-            setViewingItem(item)
-            setShowDetailModal(true)
+            navigate(`/locations/${item.id}`)  // Navigate to FULL detail page!
           }}
           onViewProprietari={handleViewProprietari}
           loading={loading.locations}
@@ -753,16 +752,7 @@ const Locations = () => {
           </div>
         )}
 
-        {/* Detail Modal */}
-        {showDetailModal && (
-          <LocationDetailModal
-            item={viewingItem}
-            onClose={() => {
-              setShowDetailModal(false)
-              setViewingItem(null)
-            }}
-          />
-        )}
+        {/* Detail Modal - REMOVED! User wants FULL page, not modal! */}
       </div>
     </Layout>
   )
