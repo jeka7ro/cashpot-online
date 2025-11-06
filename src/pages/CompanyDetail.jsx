@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import PDFViewer from '../components/PDFViewer'
+import MultiPDFViewer from '../components/MultiPDFViewer'
 import { useData } from '../contexts/DataContext'
 import { toast } from 'react-hot-toast'
 import axios from 'axios'
@@ -458,152 +459,40 @@ const CompanyDetail = () => {
                 
                 {(company.documents && company.documents.length > 0) || company.cuiFile ? (
                   <div className="space-y-6">
-                    {/* PDF Viewer - Prioritate pentru CUI */}
-                    {(company.cuiFile || (company.documents && company.documents.length > 0)) && (
-                      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-6">
-                        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center">
-                          <FileText className="w-5 h-5 mr-2 text-blue-600" />
-                          Vizualizare Document
-                        </h3>
-                        <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-4 mb-4">
-                          <PDFViewer 
-                            pdfUrl={company.cui_file || (company.documents && company.documents[0]?.file_path ? company.documents[0].file_path : null)}
-                            title={company.cui_file ? `CUI Document ${company.name}` : (company.documents && company.documents[0] ? `PDF ${company.documents[0].name}` : "Document PDF")}
-                            placeholder="Nu există documente de afișat"
-                            placeholderSubtext="Atașează primul document sau CUI pentru a începe"
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-slate-600 dark:text-slate-400">
-                            {company.cuiFile ? `Document: CUI ${company.name}` : `Document: ${company.documents[0]?.name} (${company.documents[0]?.type})`}
-                          </p>
-                          <button
-                            onClick={() => {
-                              if (company.cui_file) {
-                                const link = document.createElement('a')
-                                link.href = company.cui_file
-                                link.download = `CUI-${company.name}.pdf`
-                                link.click()
-                              } else if (company.documents && company.documents[0]) {
-                                handleDownloadDocument(company.documents[0])
-                              }
-                            }}
-                            className="btn-primary flex items-center space-x-2"
-                          >
-                            <Download className="w-4 h-4" />
-                            <span>Descarcă PDF</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Lista documentelor */}
+                    {/* Multi PDF Viewer - Afișează TOATE documentele */}
                     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-6">
                       <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center">
-                        <FileText className="w-5 h-5 mr-2 text-green-600" />
-                        Toate Documentele ({company.cuiFile ? 1 : 0} + {company.documents ? company.documents.length : 0})
+                        <FileText className="w-5 h-5 mr-2 text-blue-600" />
+                        Vizualizare Documente
                       </h3>
-                      <div className="space-y-4">
-                        {/* CUI Document */}
-                        {company.cuiFile && (
-                          <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                                  <FileText className="w-5 h-5 text-blue-600" />
-                                </div>
-                                <div>
-                                  <h3 className="font-semibold text-slate-800 dark:text-slate-200">CUI {company.name}</h3>
-                                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                                    Document CUI • {new Date(company.created_at).toLocaleDateString('ro-RO')}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <button
-                                  onClick={() => {
-                                    // Update the PDF viewer to show CUI document
-                                    const viewer = document.querySelector('iframe')
-                                    if (viewer) {
-                                      viewer.src = company.cuiFile
-                                    }
-                                  }}
-                                  className="p-2 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
-                                  title="Vezi în viewer"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    const link = document.createElement('a')
-                                    link.href = company.cuiFile
-                                    link.download = `CUI_${company.name || 'company'}.pdf`
-                                    link.click()
-                                  }}
-                                  className="p-2 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-lg transition-colors"
-                                  title="Descarcă"
-                                >
-                                  <Download className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Other Documents */}
-                        {company.documents && company.documents.map((doc, index) => (
-                          <div key={(doc._id || doc.id || index)} className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
-                                  <FileText className="w-5 h-5 text-red-600" />
-                                </div>
-                                <div>
-                                  <h3 className="font-semibold text-slate-800 dark:text-slate-200">{doc.name}</h3>
-                                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                                    {doc.type} • {new Date(doc.uploadedAt || doc.uploaded_at).toLocaleDateString('ro-RO')}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <button
-                                  onClick={() => {
-                                    // Update the PDF viewer to show this document
-                                    const viewer = document.querySelector('iframe')
-                                    if (viewer) {
-                                      viewer.src = (doc.url || doc.file_path)
-                                    }
-                                  }}
-                                  className="p-2 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
-                                  title="Vezi în viewer"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    const link = document.createElement('a')
-                                    link.href = (doc.url || doc.file_path)
-                                    link.download = doc.name
-                                    link.click()
-                                  }}
-                                  className="p-2 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-lg transition-colors"
-                                  title="Descarcă"
-                                >
-                                  <Download className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteDocument(doc._id || doc.id)}
-                                  className="p-2 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-lg transition-colors"
-                                  title="Șterge"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      <MultiPDFViewer 
+                        files={[
+                          ...(company.cui_file ? [{ 
+                            name: `CUI ${company.name}`, 
+                            type: 'Document CUI',
+                            file_path: company.cui_file,
+                            url: company.cui_file,
+                            id: 'cui'
+                          }] : []),
+                          ...(company.documents || []).map(doc => ({
+                            ...doc,
+                            file_path: doc.file_path || doc.url,
+                            url: doc.url || doc.file_path
+                          }))
+                        ]}
+                        title="Documente Companie"
+                        onDelete={async (file) => {
+                          if (file.id === 'cui') {
+                            toast.error('Nu poți șterge documentul CUI din aici')
+                          } else {
+                            await handleDeleteDocument(file._id || file.id)
+                          }
+                        }}
+                      />
                     </div>
+
+                    {/* REMOVED - Documentele sunt deja afișate în MultiPDFViewer mai sus */}
+                    {/* MultiPDFViewer include deja toate funcțiile de Eye/Download/Delete */}
                   </div>
                 ) : (
                   <div className="text-center py-12 text-slate-500">

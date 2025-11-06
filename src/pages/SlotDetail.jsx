@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Edit, Trash2, Calendar, MapPin, Building2, Gamepad2, BarChart3, DollarSign, Settings, FileText, AlertCircle, CheckCircle, History } from 'lucide-react'
 import Layout from '../components/Layout'
 import PDFViewer from '../components/PDFViewer'
+import MultiPDFViewer from '../components/MultiPDFViewer'
 import { useData } from '../contexts/DataContext'
 import { toast } from 'react-hot-toast'
 import axios from 'axios'
@@ -510,55 +511,52 @@ const SlotDetail = () => {
             </div>
           </div>
 
-          {/* Atașamente - Secțiune separată mai jos */}
-          {(relatedMetrology.length > 0 || relatedInvoices.length > 0) && (
+          {/* Atașamente - TOATE DOCUMENTELE cu MultiPDFViewer */}
+          {showAttachments && (relatedMetrology.length > 0 || relatedInvoices.length > 0) && (
             <div className="mt-6">
-              <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-4">
-                <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center">
-                  <FileText className="w-4 h-4 mr-2 text-indigo-600" />
-                  Atașamente ({relatedMetrology.length + relatedInvoices.length})
+              <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-6">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center">
+                  <FileText className="w-5 h-5 mr-2 text-indigo-600" />
+                  Documente Asociate
                 </h3>
                 
-                {/* Grid pentru PDF-uri - afișare compactă */}
-                {showAttachments && (
-                  <div className="mb-4">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      {/* CVT PDF */}
-                      {relatedMetrology.length > 0 && relatedMetrology[0] && relatedMetrology[0].cvtFile && (
-                        <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
-                          <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2 flex items-center">
-                            <FileText className="w-3 h-3 mr-1 text-orange-600" />
-                            CVT {relatedMetrology[0].cvt_number}
-                          </h4>
-                          <div className="h-64 border border-slate-200 dark:border-slate-600 rounded overflow-hidden">
-                            <iframe
-                              src={`http://localhost:5001/api/cvt-pdf/${relatedMetrology[0].id}`}
-                              className="w-full h-full"
-                              title={`CVT Document ${relatedMetrology[0].cvt_number}`}
-                            />
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Invoice PDF */}
-                      {relatedInvoices.length > 0 && relatedInvoices[0] && relatedInvoices[0].file_path && (
-                        <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-3">
-                          <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2 flex items-center">
-                            <FileText className="w-3 h-3 mr-1 text-blue-600" />
-                            Factură {relatedInvoices[0].invoice_number}
-                          </h4>
-                          <div className="h-64 border border-slate-200 dark:border-slate-600 rounded overflow-hidden">
-                            <iframe
-                              src={relatedInvoices[0].file_path}
-                              className="w-full h-full"
-                              title={`Factură ${relatedInvoices[0].invoice_number}`}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                {/* Multi PDF Viewer - Afișează CVT + Facturi */}
+                <MultiPDFViewer 
+                  files={[
+                    ...relatedMetrology
+                      .filter(met => met.cvtFile || met.cvt_file)
+                      .map(met => ({
+                        name: `CVT ${met.cvt_number}`,
+                        type: 'Certificat CVT',
+                        file_path: met.cvt_file || `/api/cvt-pdf/${met.id}`,
+                        url: met.cvt_file || `/api/cvt-pdf/${met.id}`,
+                        id: `cvt-${met.id}`
+                      })),
+                    ...relatedInvoices
+                      .filter(inv => inv.file_path)
+                      .map(inv => ({
+                        name: `Factură ${inv.invoice_number}`,
+                        type: `Factură ${inv.invoice_type || ''}`,
+                        file_path: inv.file_path,
+                        url: inv.file_path,
+                        id: `invoice-${inv.id}`
+                      }))
+                  ]}
+                  title="Documente Slot"
+                  placeholder="Nu există documente CVT sau Facturi"
+                  placeholderSubtext="Documentele vor apărea automat când sunt atașate"
+                />
+              </div>
+            </div>
+          )}
+          
+          {/* Lista compactă separată - doar pentru referință */}
+          {(relatedMetrology.length > 0 || relatedInvoices.length > 0) && (
+            <div className="mt-4">
+              <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-4">
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                  Listă rapidă documente
+                </h3>
                 
                 {/* Lista compactă a documentelor */}
                 <div className="space-y-3">

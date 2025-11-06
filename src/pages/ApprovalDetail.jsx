@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Edit, Trash2, FileText, Download, Upload, CheckCircle, AlertCircle, Settings, Building2, Wrench, Package } from 'lucide-react'
 import Layout from '../components/Layout'
+import MultiPDFViewer from '../components/MultiPDFViewer'
 import { useData } from '../contexts/DataContext'
 import { toast } from 'react-hot-toast'
 import ApprovalModal from '../components/modals/ApprovalModal'
@@ -299,12 +300,29 @@ const ApprovalDetail = () => {
 
             {/* Right Column - Sidebar */}
             <div className="space-y-6">
+              {/* PDF VIEWER AUTOMAT - Afișează TOATE fișierele */}
+              {showAttachments && attachments.length > 0 && (
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-6">
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center">
+                    <FileText className="w-5 h-5 mr-2 text-blue-500" />
+                    Preview Documente
+                  </h3>
+                  <MultiPDFViewer 
+                    files={attachments}
+                    title="Atașamente Aprobare"
+                    onDelete={async (file) => {
+                      await removeAttachment(file.id)
+                    }}
+                  />
+                </div>
+              )}
+
               {/* File Upload - Only show if showAttachments is true */}
               {showAttachments && (
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-6">
                   <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center">
                     <Upload className="w-5 h-5 mr-2 text-blue-500" />
-                    Atașamente
+                    Adaugă Atașamente
                   </h3>
                   
                   <div className="space-y-4">
@@ -319,41 +337,24 @@ const ApprovalDetail = () => {
                       <div className="w-full p-4 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg hover:border-green-500 transition-colors cursor-pointer text-center">
                         <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
                         <p className="text-slate-600 dark:text-slate-400">Apasă pentru a adăuga fișiere</p>
-                        <p className="text-sm text-slate-500 dark:text-slate-500">PDF, DOC, JPG, PNG</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-500">PDF, DOC, JPG, PNG (Multiple fișiere)</p>
                       </div>
                     </label>
 
-                    {/* Attachments List */}
+                    {/* Attachments List - Compact version */}
                     {attachments.length > 0 && (
                       <div className="space-y-2">
+                        <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                          {attachments.length} fișier{attachments.length !== 1 ? 'e' : ''} atașat{attachments.length !== 1 ? 'e' : ''}
+                        </p>
                         {attachments.map((attachment) => (
-                          <div key={attachment.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
-                            <div className="flex items-center space-x-3 flex-1">
-                              <FileText className="w-4 h-4 text-slate-500" />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{attachment.name}</p>
-                                <p className="text-xs text-slate-500 dark:text-slate-500">
-                                  {(attachment.size / 1024).toFixed(1)} KB
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              {attachment.url && (
-                                <a
-                                  href={attachment.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-blue-500 hover:text-blue-700 transition-colors"
-                                >
-                                  <Download className="w-4 h-4" />
-                                </a>
-                              )}
-                              <button
-                                onClick={() => removeAttachment(attachment.id)}
-                                className="text-red-500 hover:text-red-700 transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                          <div key={attachment.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-700 rounded-lg text-xs">
+                            <div className="flex items-center space-x-2 flex-1 min-w-0">
+                              <FileText className="w-3 h-3 text-slate-500 flex-shrink-0" />
+                              <span className="font-medium text-slate-700 dark:text-slate-300 truncate">{attachment.name}</span>
+                              <span className="text-slate-500 dark:text-slate-500">
+                                {(attachment.size / 1024).toFixed(1)} KB
+                              </span>
                             </div>
                           </div>
                         ))}

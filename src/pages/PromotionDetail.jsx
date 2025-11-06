@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Edit, Trash2, Calendar, MapPin, Award, DollarSign, Settings, FileText, Upload, Download, Image, FileImage, Trophy, Gift, Clock, User, Building2 } from 'lucide-react'
 import Layout from '../components/Layout'
 import PDFViewer from '../components/PDFViewer'
+import MultiPDFViewer from '../components/MultiPDFViewer'
 import { useData } from '../contexts/DataContext'
 import { toast } from 'react-hot-toast'
 import axios from 'axios'
@@ -571,11 +572,26 @@ const PromotionDetail = () => {
                         <span>Deschide</span>
                       </button>
                     </div>
-                    {showAttachments && (
+                    {showAttachments && promotion.regulation_path && (
                       <div className="mt-4">
-                        <PDFViewer 
-                          filePath={`/uploads/promotions/${promotion.regulation_path}`}
-                          title="Regulament Promoție"
+                        <MultiPDFViewer 
+                          files={[
+                            {
+                              name: `Regulament ${promotion.name}`,
+                              type: 'Regulament Promoție',
+                              file_path: `/uploads/promotions/${promotion.regulation_path}`,
+                              url: `/uploads/promotions/${promotion.regulation_path}`,
+                              id: 'regulation'
+                            },
+                            ...(promotion.attachments || []).map(att => ({
+                              ...att,
+                              file_path: att.file_path || att.url,
+                              url: att.url || att.file_path
+                            }))
+                          ]}
+                          title="Documente Promoție"
+                          placeholder="Nu există regulament"
+                          placeholderSubtext="Adaugă regulament pentru vizualizare"
                         />
                       </div>
                     )}

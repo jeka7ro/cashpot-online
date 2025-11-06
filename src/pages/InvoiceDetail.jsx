@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Download, FileText, Building2, MapPin, BarChart3, Gamepad2, Calendar, DollarSign, Eye } from 'lucide-react'
 import Layout from '../components/Layout'
 import PDFViewer from '../components/PDFViewer'
+import MultiPDFViewer from '../components/MultiPDFViewer'
 import { useData } from '../contexts/DataContext'
 
 const InvoiceDetail = () => {
@@ -219,15 +220,28 @@ const InvoiceDetail = () => {
 
           {/* PDF Viewer și Tabel Serii */}
           <div className="lg:col-span-2">
-            {/* PDF Viewer */}
+            {/* Multi PDF Viewer - Afișează TOATE documentele */}
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-6 mb-6">
-              <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center">
+              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center">
                 <FileText className="w-5 h-5 mr-2 text-red-600" />
-                PDF Factură
+                Documente Factură
               </h2>
-              <PDFViewer 
-                pdfUrl={invoice.file_path}
-                title={`PDF ${invoice.invoice_number}`}
+              <MultiPDFViewer 
+                files={[
+                  ...(invoice.file_path ? [{
+                    name: `Factură ${invoice.invoice_number}`,
+                    type: 'Factură Principală',
+                    file_path: invoice.file_path,
+                    url: invoice.file_path,
+                    id: 'main'
+                  }] : []),
+                  ...(invoice.attachments || []).map(att => ({
+                    ...att,
+                    file_path: att.file_path || att.url,
+                    url: att.url || att.file_path
+                  }))
+                ]}
+                title="Documente Factură"
                 placeholder="PDF-ul facturii nu este disponibil"
                 placeholderSubtext="Atașează PDF-ul facturii pentru vizualizare"
               />

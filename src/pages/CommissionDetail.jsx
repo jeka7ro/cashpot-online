@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Edit, Trash2, FileText, Download, Upload, Users, Calendar, CheckCircle, AlertCircle, Settings } from 'lucide-react'
 import Layout from '../components/Layout'
+import MultiPDFViewer from '../components/MultiPDFViewer'
 import { toast } from 'react-hot-toast'
 
 const CommissionDetail = () => {
@@ -240,7 +241,23 @@ const CommissionDetail = () => {
 
             {/* Right Column - Attachments and Metadata */}
             <div className="space-y-6">
-              {/* Attachments */}
+              {/* PDF VIEWER AUTOMAT - Afișează TOATE fișierele */}
+              {showAttachments && attachments.length > 0 && (
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-6">
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center">
+                    <FileText className="w-5 h-5 mr-2 text-blue-500" />
+                    Preview Documente
+                  </h3>
+                  <MultiPDFViewer 
+                    files={attachments}
+                    title="Atașamente Comisie"
+                    placeholder="Nu există documente de afișat"
+                    placeholderSubtext="Adaugă documente pentru preview automat"
+                  />
+                </div>
+              )}
+
+              {/* Attachments Upload Area */}
               {showAttachments && (
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-6">
                   <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center">
@@ -249,53 +266,80 @@ const CommissionDetail = () => {
                   </h3>
                   
                   <div className="space-y-4">
-                    {attachments.length > 0 ? (
+                    {/* Upload Button */}
+                    <label className="block">
+                      <input
+                        type="file"
+                        multiple
+                        onChange={(e) => {
+                          // Handle file upload
+                          const files = Array.from(e.target.files)
+                          files.forEach(file => {
+                            const formData = new FormData()
+                            formData.append('file', file)
+                            formData.append('entityType', 'commission')
+                            formData.append('entityId', commission.id.toString())
+                            
+                            fetch('/api/upload', {
+                              method: 'POST',
+                              body: formData
+                            })
+                            .then(res => res.json())
+                            .then(data => {
+                              const newAttachment = {
+                                id: Date.now() + Math.random(),
+                                name: file.name,
+                                size: file.size,
+                                type: file.type,
+                                url: data.fileUrl,
+                                uploaded: true
+                              }
+                              const updatedAttachments = [...attachments, newAttachment]
+                              setAttachments(updatedAttachments)
+                              
+                              // Update in backend
+                              fetch(`/api/commissions/${commission.id}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ attachments: JSON.stringify(updatedAttachments) })
+                              })
+                              
+                              toast.success(`${file.name} încărcat cu succes`)
+                            })
+                            .catch(() => toast.error(`Eroare la încărcarea ${file.name}`))
+                          })
+                        }}
+                        className="hidden"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                      />
+                      <div className="w-full p-4 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg hover:border-blue-500 transition-colors cursor-pointer text-center">
+                        <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                        <p className="text-slate-600 dark:text-slate-400">Apasă pentru a adăuga fișiere</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-500">PDF, DOC, JPG, PNG (Multiple fișiere)</p>
+                      </div>
+                    </label>
+
+                    {/* Compact Attachments List */}
+                    {attachments.length > 0 && (
                       <div className="space-y-2">
+                        <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                          {attachments.length} fișier{attachments.length !== 1 ? 'e' : ''} atașat{attachments.length !== 1 ? 'e' : ''}
+                        </p>
                         {attachments.map((attachment, index) => (
-                          <div key={index} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
-                            <div className="flex items-center space-x-3 flex-1">
-                              <FileText className="w-4 h-4 text-slate-500" />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
-                                  {attachment.name || `Atașament ${index + 1}`}
-                                </p>
-                                {attachment.size && (
-                                  <p className="text-xs text-slate-500 dark:text-slate-500">
-                                    {(attachment.size / 1024).toFixed(1)} KB
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              {attachment.url && (
-                                <a
-                                  href={attachment.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-blue-500 hover:text-blue-700 transition-colors"
-                                  title="Vizualizează"
-                                >
-                                  <FileText className="w-4 h-4" />
-                                </a>
-                              )}
-                              {attachment.url && (
-                                <a
-                                  href={attachment.url}
-                                  download
-                                  className="text-green-500 hover:text-green-700 transition-colors"
-                                  title="Descarcă"
-                                >
-                                  <Download className="w-4 h-4" />
-                                </a>
+                          <div key={index} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-700 rounded-lg text-xs">
+                            <div className="flex items-center space-x-2 flex-1 min-w-0">
+                              <FileText className="w-3 h-3 text-slate-500 flex-shrink-0" />
+                              <span className="font-medium text-slate-700 dark:text-slate-300 truncate">
+                                {attachment.name || `Atașament ${index + 1}`}
+                              </span>
+                              {attachment.size && (
+                                <span className="text-slate-500 dark:text-slate-500">
+                                  {(attachment.size / 1024).toFixed(1)} KB
+                                </span>
                               )}
                             </div>
                           </div>
                         ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-                        <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                        <p>Nu există atașamente</p>
                       </div>
                     )}
                   </div>
