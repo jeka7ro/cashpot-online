@@ -197,11 +197,19 @@ export const DataProvider = ({ children }) => {
         
         // Save to cache with CORRECT data
         try {
-          sessionStorage.setItem(cacheKey, JSON.stringify(cacheData))
+          // Reduce cache size by excluding large arrays
+          const compactCache = {}
+          Object.keys(cacheData).forEach(key => {
+            // Only cache small entities (< 100 items)
+            if (Array.isArray(cacheData[key]) && cacheData[key].length < 100) {
+              compactCache[key] = cacheData[key]
+            }
+          })
+          sessionStorage.setItem(cacheKey, JSON.stringify(compactCache))
           sessionStorage.setItem('dataCacheTime', now.toString())
-          console.log('💾 Data cached for future use')
+          console.log('💾 Data cached (compact version)')
         } catch (cacheError) {
-          console.warn('⚠️ Cache save failed (quota exceeded?)')
+          console.warn('⚠️ Cache save failed, continuing without cache')
         }
       }, 100) // Load in background after 100ms
       
