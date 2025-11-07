@@ -283,6 +283,7 @@ const initializeDatabase = async () => {
         model VARCHAR(255),
         provider VARCHAR(255),
         location VARCHAR(255) NOT NULL,
+        address TEXT,
         game VARCHAR(255),
         cabinet VARCHAR(255),
         game_mix VARCHAR(255),
@@ -301,6 +302,12 @@ const initializeDatabase = async () => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
+    `)
+    
+    // Add address column if it doesn't exist
+    await pool.query(`
+      ALTER TABLE slots 
+      ADD COLUMN IF NOT EXISTS address TEXT
     `)
 
     // Game Mixes table (UPDATED with RTP)
@@ -1452,9 +1459,10 @@ app.post('/api/slots/import-marina', async (req, res) => {
               game_mix = $4,
               status = $5,
               location = $6,
-              manufacture_year = $7,
+              address = $7,
+              manufacture_year = $8,
               updated_at = CURRENT_TIMESTAMP
-            WHERE serial_number = $8
+            WHERE serial_number = $9
           `
           await pool.query(updateQuery, [
             item.slot_id || item.serial_number,
@@ -1463,6 +1471,7 @@ app.post('/api/slots/import-marina', async (req, res) => {
             item.game_mix || null,
             item.status || 'Active',
             item.location || null,
+            item.address || null,
             item.manufacture_year || null,
             item.serial_number
           ])
@@ -1471,8 +1480,8 @@ app.post('/api/slots/import-marina', async (req, res) => {
           const insertQuery = `
             INSERT INTO slots (
               slot_id, serial_number, provider, cabinet, game_mix, 
-              status, location, manufacture_year, created_at, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+              status, location, address, manufacture_year, created_at, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
           `
           await pool.query(insertQuery, [
             item.slot_id || item.serial_number, // Use slot_id if provided, otherwise use serial_number
@@ -1482,6 +1491,7 @@ app.post('/api/slots/import-marina', async (req, res) => {
             item.game_mix || null,
             item.status || 'Active',
             item.location || null,
+            item.address || null,
             item.manufacture_year || null
           ])
         }

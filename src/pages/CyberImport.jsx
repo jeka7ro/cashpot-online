@@ -745,6 +745,7 @@ const CyberImport = () => {
           game_mix: item.game_mix || null, // Keep null if no game_mix
           status: item.status || 'Active',
           location: item.location || null,
+          address: item.address || null, // FIX: Adăugat address!
           manufacture_year: item.manufacture_year || null // FIX: Adăugat anul fabricației
         }))
       
@@ -754,6 +755,7 @@ const CyberImport = () => {
         provider: itemsToImport[0]?.provider,
         cabinet: itemsToImport[0]?.cabinet,
         game_mix: itemsToImport[0]?.game_mix,
+        address: itemsToImport[0]?.address,
         manufacture_year: itemsToImport[0]?.manufacture_year,
         location: itemsToImport[0]?.location
       })
@@ -824,6 +826,7 @@ const CyberImport = () => {
         game_mix: item.game_mix || null, // Keep null if no game_mix
         status: item.status || 'Active',
         location: item.location || null,
+        address: item.address || null, // FIX: Adăugat address!
         manufacture_year: item.manufacture_year || null // FIX: Adăugat anul fabricației
       }))
       
