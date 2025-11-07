@@ -147,17 +147,24 @@ pool.on('error', (err, client) => {
 app.set('pool', pool)
 
 // Routes are now registered IMMEDIATELY after middleware setup (line ~1080)
-// Test connection
-pool.query('SELECT NOW()', async (err, res) => {
-  if (err) {
-    console.error('❌ PostgreSQL connection error:', err)
-  } else {
+// Test connection IN BACKGROUND (don't block server startup!)
+const connectAndInitDB = async () => {
+  try {
+    const result = await pool.query('SELECT NOW()')
     console.log('✅ Connected to PostgreSQL')
-    console.log('⏰ Database time:', res.rows[0].now)
+    console.log('⏰ Database time:', result.rows[0].now)
     
-    // Initialize database schema after connection is established
+    // Initialize database schema in background
     await initializeDatabase()
+  } catch (err) {
+    console.error('❌ PostgreSQL connection error:', err)
+    console.error('⚠️ Server will continue running but DB operations may fail!')
   }
+}
+
+// Start DB connection in background - DON'T BLOCK SERVER STARTUP!
+connectAndInitDB().catch(err => {
+  console.error('❌ Fatal DB initialization error:', err)
 })
 
 // Initialize database schema
@@ -1257,6 +1264,18 @@ try {
 } catch (error) {
   console.error('❌❌❌ IMMEDIATE ERROR during route registration:', error)
 }
+
+// 🚀 START SERVER IMMEDIATELY - DON'T WAIT FOR DB!
+// This ensures Render health checks pass even if DB is slow
+console.log('🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...')
+const server = app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`)
+  console.log(`📊 Database: PostgreSQL`)
+  console.log(`🌐 Environment: ${process.env.NODE_ENV || 'production'}`)
+  console.log(`📅 Build: ${BUILD_NUMBER} (${BUILD_DATE})`)
+  console.log('✅ Server is LIVE - Health checks will PASS!')
+  console.log('⏳ Database initialization running in background...')
+})
 
 // DIRECT PROMOTIONS ENDPOINTS - BACKUP IF ROUTER FAILS
 app.get('/api/promotions', async (req, res) => {
@@ -4468,10 +4487,6 @@ app.post('/api/restore-dashboard/:userId', authenticateUser, async (req, res) =>
   }
 })
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`)
-  console.log(`📊 Database: ${process.env.DATABASE_URL ? 'PostgreSQL' : 'SQLite'}`)
-  console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`)
-  console.log(`📅 Build: ${BUILD_NUMBER} (${BUILD_DATE})`)
-})
+// Server already started at line 1271 - IMMEDIATELY after route registration!
+// This prevents timeout issues on Render.com
+console.log('✅ Server startup complete - all endpoints registered')
