@@ -1195,12 +1195,34 @@ console.log('🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!')
 console.log('🌐 CORS allowed origins:', allowedOrigins)
 
 // Health check endpoint
+// PRIMARY HEALTH CHECK - NO DB DEPENDENCY (for Render health checks)
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    version: '1.0.49'
+    version: '1.0.49',
+    message: 'Server is running'
+  })
+})
+
+// DETAILED HEALTH CHECK - includes DB status (optional)
+app.get('/health/detailed', async (req, res) => {
+  let dbStatus = 'Unknown'
+  try {
+    await pool.query('SELECT NOW()')
+    dbStatus = 'Connected'
+  } catch (err) {
+    dbStatus = 'Disconnected'
+  }
+  
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    version: '1.0.49',
+    database: dbStatus,
+    message: 'Server is running with detailed status'
   })
 })
 
@@ -1548,55 +1570,8 @@ app.get('/api/cyber-direct/fetch-yesterday', async (req, res) => {
   res.json({ success: false, error: 'Endpoint not implemented yet', data: [] })
 })
 
-// Health check - Force redeploy
-app.get('/health', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT NOW()')
-    res.json({ 
-      status: 'OK', 
-      timestamp: new Date().toISOString(),
-      version: '7.0.9',
-      build: BUILD_NUMBER,
-      buildDate: BUILD_DATE,
-      uptime: process.uptime(),
-      database: 'Connected',
-      dbTime: result.rows[0].now
-    })
-  } catch (error) {
-    res.json({ 
-      status: 'OK', 
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      database: 'Disconnected',
-      error: error.message
-    })
-  }
-})
-
-// Health check endpoint with /api prefix
-app.get('/api/health', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT NOW()')
-    res.json({ 
-      status: 'OK', 
-      timestamp: new Date().toISOString(),
-      version: '7.0.9',
-      build: BUILD_NUMBER,
-      buildDate: BUILD_DATE,
-      uptime: process.uptime(),
-      database: 'Connected',
-      dbTime: result.rows[0].now
-    })
-  } catch (error) {
-    res.json({ 
-      status: 'OK', 
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      database: 'Disconnected',
-      error: error.message
-    })
-  }
-})
+// REMOVED DUPLICATE HEALTH ENDPOINTS - using only /health and /health/detailed from line 1199
+// These duplicates were causing timeout issues by blocking on DB queries
 
 // PDF viewer endpoint
 app.get('/api/pdf/:companyId', async (req, res) => {
