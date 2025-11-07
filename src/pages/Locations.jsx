@@ -408,13 +408,12 @@ const Locations = () => {
         })
         if (!response.ok) throw new Error('Failed to update location')
       } else {
-          const response = await fetch('/api/locations', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(jsonData)
-          })
-          if (!response.ok) throw new Error('Failed to create location')
-        }
+        const response = await fetch('/api/locations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(jsonData)
+        })
+        if (!response.ok) throw new Error('Failed to create location')
       }
       
       // Refresh data
