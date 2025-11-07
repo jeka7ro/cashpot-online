@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react'
-import { X, TrendingUp, TrendingDown, BarChart3, PieChart as PieChartIcon } from 'lucide-react'
+import { X, TrendingUp, TrendingDown, BarChart3, PieChart as PieChartIcon, Brain } from 'lucide-react'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts'
+import { generateAIInsights } from '../../utils/aiInsights'
 
 const AdvancedAnalyticsModal = ({ onClose, expendituresData }) => {
   const [selectedCategory, setSelectedCategory] = useState('all')
@@ -98,6 +99,21 @@ const AdvancedAnalyticsModal = ({ onClose, expendituresData }) => {
   const trendData = getComparativeData()
   const locationComparisonData = getLocationComparison()
   const radarData = getDepartmentRadar()
+  
+  // Generate AI Insights for filtered data
+  const filteredInsights = useMemo(() => {
+    let filtered = expendituresData
+    
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(item => item.expenditure_type === selectedCategory)
+    }
+    
+    if (selectedLocation !== 'all') {
+      filtered = filtered.filter(item => item.location_name === selectedLocation)
+    }
+    
+    return generateAIInsights(filtered, { startDate: '', endDate: '' })
+  }, [expendituresData, selectedCategory, selectedLocation])
   
   const COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899']
   
@@ -348,27 +364,56 @@ const AdvancedAnalyticsModal = ({ onClose, expendituresData }) => {
             )}
           </div>
           
-          {/* Key Insights */}
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl p-6 text-white">
-              <h4 className="text-lg font-bold mb-4 flex items-center">
-                💡 Insight #1
-              </h4>
-              <p className="text-blue-100">
-                {highestLocation?.name} are cele mai mari cheltuieli ({formatCurrency(highestLocation?.value || 0)} RON),
-                reprezentând {((highestLocation?.value / totalAmount) * 100).toFixed(1)}% din total.
-              </p>
+          {/* AI Insights Section */}
+          <div className="mt-8">
+            <div className="flex items-center space-x-3 mb-6">
+              <Brain className="w-6 h-6 text-purple-600 dark:text-purple-400 animate-pulse" />
+              <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                🤖 AI Insights Detaliate
+              </h3>
             </div>
             
-            <div className="bg-gradient-to-br from-green-500 to-teal-600 rounded-2xl p-6 text-white">
-              <h4 className="text-lg font-bold mb-4 flex items-center">
-                💡 Insight #2
-              </h4>
-              <p className="text-green-100">
-                Diferența între cea mai mare și cea mai mică locație este de {formatCurrency((highestLocation?.value || 0) - (lowestLocation?.value || 0))} RON
-                ({(((highestLocation?.value || 0) - (lowestLocation?.value || 0)) / totalAmount * 100).toFixed(1)}% din total).
-              </p>
-            </div>
+            {filteredInsights.length === 0 ? (
+              <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl p-8 text-center">
+                <Brain className="w-12 h-12 mx-auto mb-3 text-slate-400" />
+                <p className="text-slate-600 dark:text-slate-400">
+                  Nu există suficiente date pentru analiză AI cu filtrele selectate
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredInsights.map((insight, idx) => {
+                  const gradients = [
+                    'from-blue-500 to-purple-600',
+                    'from-green-500 to-teal-600',
+                    'from-orange-500 to-pink-600',
+                    'from-red-500 to-rose-600',
+                    'from-cyan-500 to-blue-600',
+                    'from-purple-500 to-indigo-600'
+                  ]
+                  const gradient = gradients[idx % gradients.length]
+                  
+                  return (
+                    <div key={idx} className={`bg-gradient-to-br ${gradient} rounded-2xl p-6 text-white`}>
+                      <h4 className="text-lg font-bold mb-3 flex items-center">
+                        <span className="text-2xl mr-2">{insight.icon}</span>
+                        {insight.title}
+                      </h4>
+                      <p className="text-white/90 text-sm mb-3 leading-relaxed">
+                        {insight.message}
+                      </p>
+                      {insight.recommendation && (
+                        <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 border border-white/30">
+                          <p className="text-xs font-semibold text-white">
+                            💡 {insight.recommendation}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>

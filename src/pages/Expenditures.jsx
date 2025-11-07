@@ -10,6 +10,8 @@ import ExpendituresSettingsModal from '../components/modals/ExpendituresSettings
 import AdvancedAnalyticsModal from '../components/modals/AdvancedAnalyticsModal'
 import ExpendituresCharts from '../components/ExpendituresCharts'
 import ExpendituresTable from '../components/ExpendituresTable'
+import AIInsightsPanel from '../components/AIInsightsPanel'
+import { generateAIInsights } from '../utils/aiInsights'
 
 const Expenditures = () => {
   const { user } = useAuth()
@@ -234,6 +236,11 @@ const Expenditures = () => {
     return processDataToMatrix()
   }, [expendituresData, dateRange, departmentFilter, expenditureTypeFilter])
   
+  // Generate AI Insights
+  const aiInsights = React.useMemo(() => {
+    return generateAIInsights(expendituresData, dateRange)
+  }, [expendituresData, dateRange])
+  
   // Export to Excel
   const handleExportExcel = () => {
     try {
@@ -392,6 +399,11 @@ const Expenditures = () => {
             expendituresData={expendituresData}
             dateRange={dateRange}
           />
+        )}
+        
+        {/* AI Insights Panel */}
+        {expendituresData.length > 0 && (
+          <AIInsightsPanel insights={aiInsights} />
         )}
         
         {/* Filters */}
