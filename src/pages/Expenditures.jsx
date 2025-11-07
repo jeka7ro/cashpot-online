@@ -477,6 +477,7 @@ const Expenditures = () => {
                 </select>
               </div>
             </div>
+          </div>
           )}
           
           {/* Quick Actions */}
