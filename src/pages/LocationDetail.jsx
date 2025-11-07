@@ -210,7 +210,7 @@ const LocationDetail = () => {
         />
 
         {/* PLAN LOCAȚIE */}
-        {location.planFile && (
+        {(location.planFile || location.plan_file) && (
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6">
             <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6 flex items-center">
               <FileText className="w-6 h-6 mr-3 text-purple-500" />
@@ -220,8 +220,8 @@ const LocationDetail = () => {
               files={[{
                 name: `Plan ${location.name}`,
                 type: 'Plan Locație',
-                file_path: location.planFile,
-                url: location.planFile,
+                file_path: location.plan_file || location.planFile,
+                url: location.plan_file || location.planFile,
                 id: 'plan'
               }]}
               title="Plan Locație"

@@ -43,12 +43,27 @@ const LocationModal = ({ item, onClose, onSave }) => {
 
   const handleFileChange = (e) => {
     const file = e.target.files[0]
-    if (file) {
+    if (!file) return
+    
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Fișierul este prea mare! Maxim 10MB.')
+      return
+    }
+    
+    // Convert file to Base64 (same as ContractModal)
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const base64String = e.target.result
       setFormData({
         ...formData,
-        planFile: file
+        planFile: base64String,
+        planFileName: file.name
       })
     }
+    reader.onerror = () => {
+      alert('Eroare la citirea fișierului')
+    }
+    reader.readAsDataURL(file)
   }
 
   const handleSubmit = (e) => {
@@ -249,7 +264,7 @@ const LocationModal = ({ item, onClose, onSave }) => {
                   />
                   {formData.planFile && (
                     <div className="mt-2 text-sm text-green-600 font-medium">
-                      ✓ Fișier selectat: {formData.planFile.name}
+                      ✓ Fișier selectat: {formData.planFileName || 'Plan locație.pdf'}
                     </div>
                   )}
                 </div>

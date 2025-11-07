@@ -79,16 +79,36 @@ const LocationMap = ({ location }) => {
         
         // If no coordinates, geocode the address
         const fullAddress = getFullAddress(location)
+        console.log('🗺️ Geocoding pentru:', location.name)
+        console.log('📍 Adresă completă:', fullAddress)
 
         if (!coords && fullAddress) {
           // Append country to improve geocoding accuracy
           const addressWithCountry = fullAddress.toLowerCase().includes('romania') || fullAddress.toLowerCase().includes('românia')
             ? fullAddress
             : `${fullAddress}, România`
+          
+          console.log('🌍 Geocoding cu:', addressWithCountry)
           coords = await geocodeAddress(addressWithCountry)
+          console.log('✅ Coordonate găsite:', coords)
+          
+          // Save coordinates back to database for future use
+          if (coords && location.id) {
+            try {
+              const coordsString = `${coords.lat}, ${coords.lng}`
+              await axios.put(`/api/locations/${location.id}`, {
+                ...location,
+                coordinates: coordsString
+              })
+              console.log('💾 Coordonate salvate în DB:', coordsString)
+            } catch (saveError) {
+              console.warn('⚠️ Could not save coordinates to DB:', saveError)
+            }
+          }
         }
         
         if (!coords) {
+          console.error('❌ NU s-au găsit coordonate pentru:', fullAddress)
           setError('Nu s-au putut determina coordonatele locației')
           setLoading(false)
           return

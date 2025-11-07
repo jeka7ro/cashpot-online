@@ -1978,13 +1978,12 @@ app.get('/api/locations', async (req, res) => {
   }
 })
 
-app.post('/api/locations', upload.single('planFile'), async (req, res) => {
+app.post('/api/locations', async (req, res) => {
   try {
-    const { name, address, company, surface, status, coordinates, contact_person, notes } = req.body
-    const planFile = req.file ? `/uploads/locations/${req.file.filename}` : null
+    const { name, address, company, surface, status, coordinates, contact_person, notes, plan_file } = req.body
     const result = await pool.query(
       'INSERT INTO locations (name, address, company, surface, status, coordinates, contact_person, plan_file, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
-      [name, address, company, surface, status || 'Active', coordinates, contact_person, planFile, notes]
+      [name, address, company, surface, status || 'Active', coordinates, contact_person, plan_file || null, notes]
     )
     const newLocation = { ...result.rows[0], capacity: 0 }
     res.json(newLocation)
@@ -1993,20 +1992,18 @@ app.post('/api/locations', upload.single('planFile'), async (req, res) => {
   }
 })
 
-app.put('/api/locations/:id', upload.single('planFile'), async (req, res) => {
+app.put('/api/locations/:id', async (req, res) => {
   try {
     const { id } = req.params
     console.log('PUT /api/locations/:id - req.body:', req.body)
-    console.log('PUT /api/locations/:id - req.file:', req.file)
-    const { name, address, company, surface, status, coordinates, contact_person, notes } = req.body
-    const planFile = req.file ? `/uploads/locations/${req.file.filename}` : undefined
+    const { name, address, company, surface, status, coordinates, contact_person, notes, plan_file } = req.body
     
-    // If a new file is uploaded, use it; otherwise keep the existing one
+    // If plan_file is provided, update it; otherwise keep existing
     let updateQuery
     let queryParams
-    if (planFile) {
+    if (plan_file !== undefined) {
       updateQuery = 'UPDATE locations SET name = $1, address = $2, company = $3, surface = $4, status = $5, coordinates = $6, contact_person = $7, plan_file = $8, notes = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10 RETURNING *'
-      queryParams = [name, address, company, surface, status, coordinates, contact_person, planFile, notes, id]
+      queryParams = [name, address, company, surface, status, coordinates, contact_person, plan_file, notes, id]
     } else {
       updateQuery = 'UPDATE locations SET name = $1, address = $2, company = $3, surface = $4, status = $5, coordinates = $6, contact_person = $7, notes = $8, updated_at = CURRENT_TIMESTAMP WHERE id = $9 RETURNING *'
       queryParams = [name, address, company, surface, status, coordinates, contact_person, notes, id]
