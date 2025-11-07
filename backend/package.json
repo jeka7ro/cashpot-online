@@ -10,7 +10,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "export-marina": "node export-marina-data.js",
     "compress-pdfs": "node scripts/compress-existing-pdfs.js",
-    "import-onjn": "node scripts/import-onjn-data.js"
+    "import-onjn": "node scripts/import-onjn-data.js",
+    "sync-expenditures": "node sync_expenditures_local.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.450.0",
