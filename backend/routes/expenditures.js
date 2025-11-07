@@ -130,12 +130,77 @@ router.get('/departments', async (req, res) => {
   }
 })
 
+// UPLOAD data directly from LOCAL sync script (bypass external DB connection!)
+router.post('/upload', async (req, res) => {
+  try {
+    const { records } = req.body
+    const localPool = req.app.get('pool')
+    
+    if (!records || !Array.isArray(records)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid format. Expected: { records: [...] }' 
+      })
+    }
+    
+    console.log(`📤 Receiving ${records.length} expenditure records from LOCAL sync...`)
+    
+    // Clear old data
+    await localPool.query('DELETE FROM expenditures_sync')
+    console.log('🗑️ Cleared old expenditures data')
+    
+    // Insert new records
+    let inserted = 0
+    for (const record of records) {
+      await localPool.query(`
+        INSERT INTO expenditures_sync (
+          location_name, department_name, expenditure_type, amount, 
+          operational_date, original_location_id, synced_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      `, [
+        record.location_name,
+        record.department_name,
+        record.expenditure_type,
+        parseFloat(record.amount || 0),
+        record.operational_date,
+        record.original_location_id || null
+      ])
+      inserted++
+    }
+    
+    console.log(`✅ Successfully inserted ${inserted} expenditure records!`)
+    res.json({ 
+      success: true, 
+      message: `Uploaded ${inserted} records`, 
+      records: inserted 
+    })
+  } catch (error) {
+    console.error('❌ Error uploading expenditures:', error)
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    })
+  }
+})
+
 // Sync expenditures data from external DB
 router.post('/sync', async (req, res) => {
   try {
     const { startDate, endDate, filters } = req.body
     const localPool = req.app.get('pool')
-    const externalPool = getExternalPool()
+    
+    // Try to get external pool - catch error if connection fails
+    let externalPool
+    try {
+      externalPool = getExternalPool()
+    } catch (poolError) {
+      console.error('❌ Cannot create external DB pool:', poolError.message)
+      return res.status(500).json({
+        success: false,
+        error: 'Nu se poate conecta la DB extern. Folosește LOCAL sync script când ești conectat remote la birou!',
+        hint: 'cd backend && npm run sync-expenditures'
+      })
+    }
     
     console.log('🔄 Starting expenditures sync...', { startDate, endDate, filters })
     
