@@ -34,6 +34,56 @@ const Expenditures = () => {
   const [departmentFilter, setDepartmentFilter] = useState('all')
   const [expenditureTypeFilter, setExpenditureTypeFilter] = useState('all')
   const [showFilters, setShowFilters] = useState(false)
+  const [selectedDateFilter, setSelectedDateFilter] = useState('anul-curent')
+  
+  // Quick date filters
+  const applyQuickDateFilter = (filterType) => {
+    const today = new Date()
+    let startDate, endDate
+    
+    switch (filterType) {
+      case 'azi':
+        startDate = today.toISOString().split('T')[0]
+        endDate = today.toISOString().split('T')[0]
+        break
+      
+      case 'saptamana-curenta':
+        const dayOfWeek = today.getDay()
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek // Monday as start
+        const monday = new Date(today)
+        monday.setDate(today.getDate() + mondayOffset)
+        startDate = monday.toISOString().split('T')[0]
+        endDate = today.toISOString().split('T')[0]
+        break
+      
+      case 'luna-curenta':
+        startDate = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
+        endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0]
+        break
+      
+      case 'luna-anterioara':
+        startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString().split('T')[0]
+        endDate = new Date(today.getFullYear(), today.getMonth(), 0).toISOString().split('T')[0]
+        break
+      
+      case 'anul-curent':
+        startDate = new Date(today.getFullYear(), 0, 1).toISOString().split('T')[0]
+        endDate = new Date(today.getFullYear(), 11, 31).toISOString().split('T')[0]
+        break
+      
+      case 'toate':
+        // All time - set very broad range
+        startDate = '2020-01-01'
+        endDate = new Date(today.getFullYear() + 1, 11, 31).toISOString().split('T')[0]
+        break
+      
+      default:
+        return
+    }
+    
+    setDateRange({ startDate, endDate })
+    setSelectedDateFilter(filterType)
+  }
   
   // Settings
   const [syncSettings, setSyncSettings] = useState({
@@ -327,33 +377,69 @@ const Expenditures = () => {
           </div>
           
           {showFilters && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {/* Date Range */}
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  <Calendar className="w-4 h-4 inline mr-1" />
-                  Data Început
+            <div className="space-y-4">
+              {/* Quick Date Filters */}
+              <div className="bg-slate-50 dark:bg-slate-900/40 rounded-lg p-3">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2 uppercase">
+                  Filtre Rapide Perioadă
                 </label>
-                <input
-                  type="date"
-                  value={dateRange.startDate}
-                  onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
-                  className="input-field"
-                />
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { value: 'azi', label: 'Azi' },
+                    { value: 'saptamana-curenta', label: 'Săptămâna Curentă' },
+                    { value: 'luna-curenta', label: 'Luna Curentă' },
+                    { value: 'luna-anterioara', label: 'Luna Anterioară' },
+                    { value: 'anul-curent', label: 'Anul Curent' },
+                    { value: 'toate', label: 'Toate' }
+                  ].map(filter => (
+                    <button
+                      key={filter.value}
+                      onClick={() => applyQuickDateFilter(filter.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                        selectedDateFilter === filter.value
+                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25'
+                          : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600'
+                      }`}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
               </div>
               
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  <Calendar className="w-4 h-4 inline mr-1" />
-                  Data Sfârșit
-                </label>
-                <input
-                  type="date"
-                  value={dateRange.endDate}
-                  onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
-                  className="input-field"
-                />
-              </div>
+              {/* Custom Date Range */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    <Calendar className="w-4 h-4 inline mr-1" />
+                    Data Început
+                  </label>
+                  <input
+                    type="date"
+                    value={dateRange.startDate}
+                    onChange={(e) => {
+                      setDateRange({ ...dateRange, startDate: e.target.value })
+                      setSelectedDateFilter('custom')
+                    }}
+                    className="input-field"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    <Calendar className="w-4 h-4 inline mr-1" />
+                    Data Sfârșit
+                  </label>
+                  <input
+                    type="date"
+                    value={dateRange.endDate}
+                    onChange={(e) => {
+                      setDateRange({ ...dateRange, endDate: e.target.value })
+                      setSelectedDateFilter('custom')
+                    }}
+                    className="input-field"
+                  />
+                </div>
               
               {/* Department Filter */}
               <div className="space-y-2">
