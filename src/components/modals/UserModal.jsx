@@ -44,7 +44,21 @@ const UserModal = ({ item, onClose, onSave }) => {
       
       // Auto-load default permissions when role changes
       if (name === 'role') {
-        updated.permissions = getDefaultPermissionsForRole(value)
+        if (value === 'admin') {
+          // Admin vede TOTUL automat - toate permissions TRUE!
+          const allPermissions = {}
+          Object.keys(MODULE_CONFIG).forEach(module => {
+            const moduleConfig = MODULE_CONFIG[module]
+            allPermissions[module] = moduleConfig.actions.reduce((acc, action) => {
+              acc[action] = true
+              return acc
+            }, {})
+          })
+          updated.permissions = allPermissions
+        } else {
+          // Alte roluri folosesc default permissions
+          updated.permissions = getDefaultPermissionsForRole(value)
+        }
       }
       
       return updated
@@ -75,6 +89,23 @@ const UserModal = ({ item, onClose, onSave }) => {
           return acc
         }, {})
       }
+    }))
+  }
+  
+  // Toggle ALL permissions at once (pentru butonul "Selectează Tot")
+  const toggleAllPermissions = (enable) => {
+    const allPermissions = {}
+    Object.keys(MODULE_CONFIG).forEach(module => {
+      const moduleConfig = MODULE_CONFIG[module]
+      allPermissions[module] = moduleConfig.actions.reduce((acc, action) => {
+        acc[action] = enable
+        return acc
+      }, {})
+    })
+    
+    setFormData(prev => ({
+      ...prev,
+      permissions: allPermissions
     }))
   }
 
@@ -240,9 +271,27 @@ const UserModal = ({ item, onClose, onSave }) => {
             
             {showPermissions && (
               <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 space-y-4 max-h-96 overflow-y-auto">
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                  Bifează permisiunile pentru fiecare modul. Permisiunile se actualizează automat când schimbi rolul.
-                </p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Bifează permisiunile pentru fiecare modul. Permisiunile se actualizează automat când schimbi rolul.
+                  </p>
+                  <div className="flex space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleAllPermissions(true)}
+                      className="text-xs px-3 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors font-semibold"
+                    >
+                      ✓ Selectează Tot
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleAllPermissions(false)}
+                      className="text-xs px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors font-semibold"
+                    >
+                      ✗ Deselectează Tot
+                    </button>
+                  </div>
+                </div>
                 
                 <div className="grid grid-cols-1 gap-4">
                   {Object.keys(MODULE_CONFIG).map(module => {
