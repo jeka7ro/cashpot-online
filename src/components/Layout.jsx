@@ -31,7 +31,8 @@ import {
   History,
   TrendingUp,
   CheckSquare,
-  MessageSquare
+  MessageSquare,
+  DollarSign
 } from 'lucide-react'
 
 const Layout = ({ children }) => {
@@ -248,6 +249,14 @@ const Layout = ({ children }) => {
       path: '/invoices',
       count: invoices.length,
       module: MODULES.INVOICES
+    },
+    { 
+      id: 'expenditures', 
+      label: 'Cheltuieli', 
+      icon: DollarSign, 
+      path: '/expenditures',
+      count: null,
+      module: MODULES.EXPENDITURES
     },
     { 
       id: 'onjn-reports', 

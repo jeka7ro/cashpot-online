@@ -44,6 +44,7 @@ import cyberRoutes from './routes/cyber.js'
 import tasksRoutes from './routes/tasks.js'
 import messagesRoutes from './routes/messages.js'
 import notificationsRoutes from './routes/notifications.js'
+import expendituresRoutes from './routes/expenditures.js'
 import { scheduleBackups } from './backup.js'
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
@@ -1117,6 +1118,43 @@ const initializeDatabase = async () => {
       console.log('⚠️ Global settings table may already exist:', error.message)
     }
 
+    // Expenditures sync table
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS expenditures_sync (
+          id SERIAL PRIMARY KEY,
+          location_name VARCHAR(255),
+          department_name VARCHAR(255),
+          expenditure_type VARCHAR(255),
+          amount DECIMAL(15,2),
+          operational_date DATE,
+          synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          original_location_id INTEGER,
+          mapped_location_id INTEGER REFERENCES locations(id),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+      console.log('✅ Expenditures sync table created')
+    } catch (error) {
+      console.log('⚠️ Expenditures sync table may already exist:', error.message)
+    }
+
+    // Expenditure location mapping table
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS expenditure_location_mapping (
+          id SERIAL PRIMARY KEY,
+          external_location_name VARCHAR(255) UNIQUE NOT NULL,
+          local_location_id INTEGER REFERENCES locations(id),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+      console.log('✅ Expenditure location mapping table created')
+    } catch (error) {
+      console.log('⚠️ Expenditure location mapping table may already exist:', error.message)
+    }
+
     // Migrate existing promotions to new prizes format
     try {
       // Check if old columns exist
@@ -1282,6 +1320,8 @@ try {
   app.use('/api/messages', authenticateUser, messagesRoutes)
   console.log('📋 Registering /api/notifications IMMEDIATELY...')
   app.use('/api/notifications', authenticateUser, notificationsRoutes)
+  console.log('📋 Registering /api/expenditures IMMEDIATELY...')
+  app.use('/api/expenditures', authenticateUser, expendituresRoutes)
   console.log('✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅')
 } catch (error) {
   console.error('❌❌❌ IMMEDIATE ERROR during route registration:', error)
