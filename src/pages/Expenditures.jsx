@@ -6,6 +6,7 @@ import axios from 'axios'
 import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import ExpendituresMappingModal from '../components/modals/ExpendituresMappingModal'
+import ExpendituresSettingsModal from '../components/modals/ExpendituresSettingsModal'
 
 const Expenditures = () => {
   const { user } = useAuth()
@@ -230,6 +231,14 @@ const Expenditures = () => {
           </div>
           
           <div className="flex space-x-3">
+            <button
+              onClick={() => setShowSettingsModal(true)}
+              className="btn-secondary flex items-center space-x-2"
+            >
+              <Filter className="w-4 h-4" />
+              <span>Setări Filtrare</span>
+            </button>
+            
             <button
               onClick={() => setShowMappingModal(true)}
               className="btn-secondary flex items-center space-x-2"
@@ -523,6 +532,18 @@ const Expenditures = () => {
           onSave={() => {
             setShowMappingModal(false)
             loadExpendituresData()
+          }}
+        />
+      )}
+      
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <ExpendituresSettingsModal
+          onClose={() => setShowSettingsModal(false)}
+          onSave={() => {
+            setShowSettingsModal(false)
+            loadSettings()
+            toast.success('Setări actualizate! Sincronizează din nou pentru a aplica.')
           }}
         />
       )}

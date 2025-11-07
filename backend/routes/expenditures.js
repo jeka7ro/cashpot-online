@@ -107,10 +107,41 @@ router.post('/sync', async (req, res) => {
     
     console.log('🔄 Starting expenditures sync...', { startDate, endDate, filters })
     
+    // Load settings to get included items
+    const settingsResult = await localPool.query(`
+      SELECT setting_value 
+      FROM global_settings 
+      WHERE setting_key = 'expenditures_sync_config'
+    `)
+    
+    let syncSettings = {
+      includedExpenditureTypes: [],
+      includedDepartments: [],
+      includedLocations: [],
+      excludeDeleted: true,
+      showInExpenditures: null
+    }
+    
+    if (settingsResult.rows.length > 0) {
+      syncSettings = { ...syncSettings, ...JSON.parse(settingsResult.rows[0].setting_value) }
+    }
+    
+    console.log('📋 Sync settings:', syncSettings)
+    
     // Build WHERE clause based on filters
-    let whereConditions = ['p.is_deleted = false']
+    let whereConditions = []
     const queryParams = []
     let paramCounter = 1
+    
+    // is_deleted filter
+    if (syncSettings.excludeDeleted) {
+      whereConditions.push('p.is_deleted = false')
+    }
+    
+    // show_in_expenditures filter
+    if (syncSettings.showInExpenditures !== null) {
+      whereConditions.push(`p.show_in_expenditures = ${syncSettings.showInExpenditures}`)
+    }
     
     if (startDate) {
       whereConditions.push(`p.operational_date >= $${paramCounter}`)
@@ -124,10 +155,7 @@ router.post('/sync', async (req, res) => {
       paramCounter++
     }
     
-    // Add filter for show_in_expenditures if exists
-    // whereConditions.push('p.show_in_expenditures = true') // Uncomment if needed
-    
-    const whereClause = whereConditions.join(' AND ')
+    const whereClause = whereConditions.length > 0 ? whereConditions.join(' AND ') : '1=1'
     
     // Fetch data from external DB
     const query = `
@@ -150,6 +178,35 @@ router.post('/sync', async (req, res) => {
     const result = await externalPool.query(query, queryParams)
     console.log(`✅ Fetched ${result.rows.length} expenditure records from external DB`)
     
+    // Filter data based on included items
+    let filteredRows = result.rows
+    
+    // Filter by expenditure types (only if list is not empty)
+    if (syncSettings.includedExpenditureTypes && syncSettings.includedExpenditureTypes.length > 0) {
+      filteredRows = filteredRows.filter(row => 
+        syncSettings.includedExpenditureTypes.includes(row.expenditure_type)
+      )
+      console.log(`📊 Filtered by expenditure types: ${filteredRows.length} records remaining`)
+    }
+    
+    // Filter by departments (only if list is not empty)
+    if (syncSettings.includedDepartments && syncSettings.includedDepartments.length > 0) {
+      filteredRows = filteredRows.filter(row => 
+        syncSettings.includedDepartments.includes(row.department_name)
+      )
+      console.log(`📊 Filtered by departments: ${filteredRows.length} records remaining`)
+    }
+    
+    // Filter by locations (only if list is not empty)
+    if (syncSettings.includedLocations && syncSettings.includedLocations.length > 0) {
+      filteredRows = filteredRows.filter(row => 
+        syncSettings.includedLocations.includes(row.location_name)
+      )
+      console.log(`📊 Filtered by locations: ${filteredRows.length} records remaining`)
+    }
+    
+    console.log(`✅ Final filtered data: ${filteredRows.length} records`)
+    
     // Clear existing sync data
     await localPool.query('DELETE FROM expenditures_sync')
     
@@ -162,7 +219,7 @@ router.post('/sync', async (req, res) => {
     
     // Insert synced data
     let inserted = 0
-    for (const row of result.rows) {
+    for (const row of filteredRows) {
       const mappedLocationId = mapping[row.location_name] || null
       
       await localPool.query(`
