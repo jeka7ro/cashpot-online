@@ -4,12 +4,12 @@ import { useData } from '../contexts/DataContext'
 import Layout from '../components/Layout'
 import { ArrowLeft, MapPin, Building2, FileText, Package, Calendar, DollarSign, Ruler, Users, Edit, Trash2, Download, Eye } from 'lucide-react'
 import LocationContracts from '../components/LocationContracts'
-import LocationSlots from '../components/LocationSlots'
 // import LocationCabinets from '../components/LocationCabinets' // REMOVED - user doesn't need it!
 import MultiPDFViewer from '../components/MultiPDFViewer'
 import LocationMap from '../components/LocationMap'
 import ManagerCard from '../components/ManagerCard'
 import LocationStats from '../components/LocationStats'
+import { formatGameMixName } from '../utils/gameMixFormatter'
 import 'leaflet/dist/leaflet.css'
 
 const LocationDetail = () => {
@@ -246,7 +246,47 @@ const LocationDetail = () => {
             <Package className="w-6 h-6 mr-3 text-blue-500" />
             Sloturi ({totalSlots} distinct)
           </h2>
-          <LocationSlots locationId={location.id} locationName={location.name} />
+
+          {locationSlots.length === 0 ? (
+            <div className="p-6 border border-dashed border-slate-300 dark:border-slate-600 rounded-2xl text-center">
+              <p className="text-slate-500 dark:text-slate-400">Nu există sloturi asociate acestei locații.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-900/40">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">#</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Serial</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Cabinet</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Game Mix</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Producător</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Adresă</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">An fabricație</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                  {locationSlots.map((slot, index) => (
+                    <tr key={slot.id || `${slot.serial_number}-${index}`} className="hover:bg-slate-50 dark:hover:bg-slate-900/40">
+                      <td className="px-4 py-3 text-sm text-slate-500">{index + 1}</td>
+                      <td className="px-4 py-3 text-sm font-semibold text-slate-900 dark:text-slate-100">{slot.serial_number || 'N/A'}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">{slot.cabinet || 'N/A'}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">{formatGameMixName(slot.game_mix_name || slot.game_mix) || 'N/A'}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">{slot.provider || 'N/A'}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300 max-w-xs truncate" title={slot.address || 'N/A'}>{slot.address || 'N/A'}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">{slot.manufacture_year || 'N/A'}</td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${slot.status === 'Active' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : slot.status === 'Service' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-slate-200 text-slate-700 dark:bg-slate-900/40 dark:text-slate-300'}`}>
+                          {slot.status || 'N/A'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* CABINETE - REMOVED! User doesn't need it! */}
