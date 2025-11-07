@@ -155,15 +155,14 @@ router.post('/upload', async (req, res) => {
       await localPool.query(`
         INSERT INTO expenditures_sync (
           location_name, department_name, expenditure_type, amount, 
-          operational_date, original_location_id, synced_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+          operational_date, synced_at
+        ) VALUES ($1, $2, $3, $4, $5, NOW())
       `, [
         record.location_name,
         record.department_name,
         record.expenditure_type,
         parseFloat(record.amount || 0),
-        record.operational_date,
-        record.original_location_id || null
+        record.operational_date
       ])
       inserted++
     }
