@@ -119,3 +119,4 @@ function App() {
 }
 
 export default App
+// Force Vercel rebuild - Fri Nov  7 16:56:12 EET 2025
