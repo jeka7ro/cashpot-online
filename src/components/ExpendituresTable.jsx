@@ -1,8 +1,9 @@
-import React, { useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { ChevronDown, ChevronRight, Maximize2, Minimize2 } from 'lucide-react'
 
 const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, expendituresData }) => {
   const [expandedDepartments, setExpandedDepartments] = useState(new Set())
+  const [allExpanded, setAllExpanded] = useState(false)
   
   // Group categories by department
   const groupByDepartment = () => {
@@ -60,12 +61,49 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
     setExpandedDepartments(newExpanded)
   }
   
+  const toggleAllDepartments = () => {
+    if (allExpanded) {
+      // Collapse all
+      setExpandedDepartments(new Set())
+      setAllExpanded(false)
+    } else {
+      // Expand all
+      const allDepts = new Set(departments.map(d => d.name))
+      setExpandedDepartments(allDepts)
+      setAllExpanded(true)
+    }
+  }
+  
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)
   }
   
   return (
-    <div className="overflow-x-auto">
+    <div>
+      {/* Expand/Collapse All Button */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="text-sm text-slate-600 dark:text-slate-400">
+          📊 <strong>{departments.length}</strong> departamente • Click pentru a expanda categoriile
+        </div>
+        <button
+          onClick={toggleAllDepartments}
+          className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white rounded-lg text-sm font-semibold transition-all shadow-lg hover:shadow-xl"
+        >
+          {allExpanded ? (
+            <>
+              <Minimize2 className="w-4 h-4" />
+              <span>Collapse All</span>
+            </>
+          ) : (
+            <>
+              <Maximize2 className="w-4 h-4" />
+              <span>Expand All</span>
+            </>
+          )}
+        </button>
+      </div>
+      
+      <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
         <thead className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 sticky top-0 z-10">
           <tr>
@@ -156,6 +194,7 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
           </tr>
         </tbody>
       </table>
+      </div>
     </div>
   )
 }
