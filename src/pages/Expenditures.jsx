@@ -156,11 +156,21 @@ const Expenditures = () => {
   // Process data into matrix format (expenditure_types × locations)
   const processDataToMatrix = () => {
     if (!expendituresData || expendituresData.length === 0) {
-      return { matrix: [], locations: [], expenditureTypes: [] }
+      return { matrix: [], locations: [], expenditureTypes: [], filteredCount: 0 }
     }
     
     // Apply filters
     let filteredData = expendituresData
+    
+    // DATE RANGE FILTER (FIX!)
+    if (dateRange.startDate && dateRange.endDate) {
+      filteredData = filteredData.filter(item => {
+        const itemDate = new Date(item.operational_date)
+        const startDate = new Date(dateRange.startDate)
+        const endDate = new Date(dateRange.endDate)
+        return itemDate >= startDate && itemDate <= endDate
+      })
+    }
     
     if (departmentFilter !== 'all') {
       filteredData = filteredData.filter(item => item.department_name === departmentFilter)
@@ -212,10 +222,13 @@ const Expenditures = () => {
     
     totalsRow.total = grandTotal
     
-    return { matrix, locations, expenditureTypes, totalsRow }
+    return { matrix, locations, expenditureTypes, totalsRow, filteredCount: filteredData.length }
   }
   
-  const { matrix, locations, totalsRow } = processDataToMatrix()
+  // Re-calculate matrix when filters change
+  const { matrix, locations, totalsRow, filteredCount, expenditureTypes } = React.useMemo(() => {
+    return processDataToMatrix()
+  }, [expendituresData, dateRange, departmentFilter, expenditureTypeFilter])
   
   // Export to Excel
   const handleExportExcel = () => {
@@ -352,7 +365,7 @@ const Expenditures = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Înregistrări</p>
-                <p className="text-3xl font-bold text-orange-600 dark:text-orange-400 mt-2">{expendituresData.length}</p>
+                <p className="text-3xl font-bold text-orange-600 dark:text-orange-400 mt-2">{filteredCount}</p>
               </div>
               <div className="p-4 bg-orange-500/10 rounded-2xl">
                 <FileText className="w-8 h-8 text-orange-600 dark:text-orange-400" />
