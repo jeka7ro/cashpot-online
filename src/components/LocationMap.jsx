@@ -44,6 +44,19 @@ function ChangeMapView({ center }) {
   return null
 }
 
+const getFullAddress = (location) => {
+  if (!location) return ''
+  return (
+    location.full_address ||
+    location.fullAddress ||
+    location.address_full ||
+    location.addressComplete ||
+    location.complete_address ||
+    location.address ||
+    ''
+  )
+}
+
 const LocationMap = ({ location }) => {
   const [mainLocationCoords, setMainLocationCoords] = useState(null)
   const [competitors, setCompetitors] = useState([])
@@ -65,8 +78,14 @@ const LocationMap = ({ location }) => {
         }
         
         // If no coordinates, geocode the address
-        if (!coords && location.address) {
-          coords = await geocodeAddress(location.address)
+        const fullAddress = getFullAddress(location)
+
+        if (!coords && fullAddress) {
+          // Append country to improve geocoding accuracy
+          const addressWithCountry = fullAddress.toLowerCase().includes('romania') || fullAddress.toLowerCase().includes('românia')
+            ? fullAddress
+            : `${fullAddress}, România`
+          coords = await geocodeAddress(addressWithCountry)
         }
         
         if (!coords) {
@@ -78,7 +97,11 @@ const LocationMap = ({ location }) => {
         setMainLocationCoords(coords)
 
         // 2. Extract city from address
-        const city = extractCityFromAddress(location.address)
+        const addressForCity = fullAddress || location.address || ''
+        const citySource = [addressForCity, location.city, location.county, location.judet]
+          .filter(Boolean)
+          .join(', ')
+        const city = extractCityFromAddress(citySource)
         
         if (!city) {
           console.warn('Could not extract city from address')
@@ -103,7 +126,10 @@ const LocationMap = ({ location }) => {
             const geocodedCompetitors = []
             for (let i = 0; i < Math.min(competitorLocations.length, 10); i++) {
               const comp = competitorLocations[i]
-              const compCoords = await geocodeAddress(comp.address)
+              const compAddress = comp.address?.toLowerCase().includes('romania') || comp.address?.toLowerCase().includes('românia')
+                ? comp.address
+                : `${comp.address}, România`
+              const compCoords = await geocodeAddress(compAddress)
               
               if (compCoords) {
                 geocodedCompetitors.push({
