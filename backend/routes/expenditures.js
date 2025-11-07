@@ -158,9 +158,9 @@ router.post('/upload', async (req, res) => {
           operational_date, synced_at
         ) VALUES ($1, $2, $3, $4, $5, NOW())
       `, [
-        record.location_name,
-        record.department_name,
-        record.expenditure_type,
+        record.location_name || 'Unknown',
+        record.department_name || 'Unknown',
+        record.expenditure_type || 'Unknown',
         parseFloat(record.amount || 0),
         record.operational_date
       ])
