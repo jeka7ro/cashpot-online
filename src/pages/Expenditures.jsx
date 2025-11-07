@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
-import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase } from 'lucide-react'
+import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import ExpendituresMappingModal from '../components/modals/ExpendituresMappingModal'
 import ExpendituresSettingsModal from '../components/modals/ExpendituresSettingsModal'
+import AdvancedAnalyticsModal from '../components/modals/AdvancedAnalyticsModal'
+import ExpendituresCharts from '../components/ExpendituresCharts'
+import ExpendituresTable from '../components/ExpendituresTable'
 
 const Expenditures = () => {
   const { user } = useAuth()
@@ -25,6 +28,7 @@ const Expenditures = () => {
   const [syncing, setSyncing] = useState(false)
   const [showMappingModal, setShowMappingModal] = useState(false)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false)
   
   // Filters
   const [dateRange, setDateRange] = useState({
@@ -311,6 +315,14 @@ const Expenditures = () => {
             </button>
             
             <button
+              onClick={() => setShowAnalyticsModal(true)}
+              className="btn-secondary flex items-center space-x-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 hover:from-purple-500/20 hover:to-pink-500/20 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300"
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>📊 Analiză Avansată</span>
+            </button>
+            
+            <button
               onClick={handleSync}
               disabled={syncing}
               className="btn-primary flex items-center space-x-2"
@@ -373,6 +385,14 @@ const Expenditures = () => {
             </div>
           </div>
         </div>
+        
+        {/* Charts Section */}
+        {expendituresData.length > 0 && (
+          <ExpendituresCharts 
+            expendituresData={expendituresData}
+            dateRange={dateRange}
+          />
+        )}
         
         {/* Filters */}
         <div className="card p-6">
@@ -519,9 +539,13 @@ const Expenditures = () => {
         
         {/* Matrix Table */}
         <div className="card p-6">
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">
-            Cheltuieli per Locație
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center">
+            <DollarSign className="w-6 h-6 mr-2 text-blue-500" />
+            Cheltuieli per Departament / Categorie / Locație
           </h2>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+            💡 <strong>Click pe departament</strong> pentru a expanda categoriile
+          </p>
           
           {matrix.length === 0 ? (
             <div className="text-center py-12 text-slate-500 dark:text-slate-400">
@@ -537,68 +561,13 @@ const Expenditures = () => {
               </button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-                <thead className="bg-slate-50 dark:bg-slate-900/40">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider sticky left-0 bg-slate-50 dark:bg-slate-900/40 z-10">
-                      Categorie Cheltuială
-                    </th>
-                    {locations.map(loc => (
-                      <th
-                        key={loc}
-                        className="px-4 py-3 text-right text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider"
-                      >
-                        {loc}
-                      </th>
-                    ))}
-                    <th className="px-4 py-3 text-right text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider bg-blue-50 dark:bg-blue-900/20">
-                      Total
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-                  {matrix.map((row, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors">
-                      <td className="px-4 py-3 text-sm font-semibold text-slate-900 dark:text-slate-100 sticky left-0 bg-white dark:bg-slate-800">
-                        {row.expenditure_type}
-                      </td>
-                      {locations.map(loc => (
-                        <td
-                          key={loc}
-                          className="px-4 py-3 text-sm text-right text-slate-700 dark:text-slate-300"
-                        >
-                          {formatCurrency(row[loc])}
-                        </td>
-                      ))}
-                      <td className="px-4 py-3 text-sm text-right font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20">
-                        {formatCurrency(row.total)}
-                      </td>
-                    </tr>
-                  ))}
-                  
-                  {/* Totals Row */}
-                  {totalsRow && (
-                    <tr className="bg-slate-100 dark:bg-slate-900/60 font-bold">
-                      <td className="px-4 py-4 text-sm text-slate-900 dark:text-slate-100 sticky left-0 bg-slate-100 dark:bg-slate-900/60">
-                        TOTAL
-                      </td>
-                      {locations.map(loc => (
-                        <td
-                          key={loc}
-                          className="px-4 py-4 text-sm text-right text-slate-900 dark:text-slate-100"
-                        >
-                          {formatCurrency(totalsRow[loc])}
-                        </td>
-                      ))}
-                      <td className="px-4 py-4 text-sm text-right font-bold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20">
-                        {formatCurrency(totalsRow.total)}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <ExpendituresTable 
+              matrix={matrix}
+              locations={locations}
+              expenditureTypes={expenditureTypes}
+              totalsRow={totalsRow}
+              expendituresData={expendituresData}
+            />
           )}
         </div>
         
@@ -645,6 +614,13 @@ const Expenditures = () => {
             loadSettings()
             toast.success('Setări actualizate! Sincronizează din nou pentru a aplica.')
           }}
+        />
+      )}
+      
+      {showAnalyticsModal && (
+        <AdvancedAnalyticsModal
+          onClose={() => setShowAnalyticsModal(false)}
+          expendituresData={expendituresData}
         />
       )}
     </Layout>
