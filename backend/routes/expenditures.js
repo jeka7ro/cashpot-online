@@ -51,6 +51,10 @@ router.get('/test-connection', async (req, res) => {
 router.get('/external-locations', async (req, res) => {
   try {
     const pool = getExternalPool()
+    
+    // Test connection first
+    await pool.query('SELECT 1')
+    
     const result = await pool.query(`
       SELECT DISTINCT id, name, address
       FROM public.casino_locations
@@ -59,8 +63,24 @@ router.get('/external-locations', async (req, res) => {
     `)
     res.json(result.rows)
   } catch (error) {
-    console.error('Error fetching external locations:', error)
-    res.status(500).json({ success: false, error: error.message })
+    console.error('❌ Error fetching external locations:', error)
+    console.error('🔍 Error details:', error.message)
+    console.error('🔍 Error code:', error.code)
+    
+    // Return helpful error message
+    if (error.code === 'ECONNREFUSED') {
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Nu se poate conecta la DB extern. Verifică că serverul 192.168.1.39:26257 este accesibil.',
+        hint: 'Adaugă variabilele EXPENDITURES_DB_* în Environment Variables pe Render.com'
+      })
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      hint: 'Verifică variabilele de mediu EXPENDITURES_DB_* pe Render.com'
+    })
   }
 })
 
@@ -68,6 +88,7 @@ router.get('/external-locations', async (req, res) => {
 router.get('/expenditure-types', async (req, res) => {
   try {
     const pool = getExternalPool()
+    
     const result = await pool.query(`
       SELECT DISTINCT id, name
       FROM public.casino_expenditure_types
@@ -76,8 +97,13 @@ router.get('/expenditure-types', async (req, res) => {
     `)
     res.json(result.rows)
   } catch (error) {
-    console.error('Error fetching expenditure types:', error)
-    res.status(500).json({ success: false, error: error.message })
+    console.error('❌ Error fetching expenditure types:', error)
+    console.error('🔍 Hint: Adaugă EXPENDITURES_DB_* în Render Environment Variables')
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      hint: 'Verifică conexiunea la DB extern (192.168.1.39:26257)'
+    })
   }
 })
 
@@ -85,6 +111,7 @@ router.get('/expenditure-types', async (req, res) => {
 router.get('/departments', async (req, res) => {
   try {
     const pool = getExternalPool()
+    
     const result = await pool.query(`
       SELECT DISTINCT id, name
       FROM public.casino_departments
@@ -93,8 +120,13 @@ router.get('/departments', async (req, res) => {
     `)
     res.json(result.rows)
   } catch (error) {
-    console.error('Error fetching departments:', error)
-    res.status(500).json({ success: false, error: error.message })
+    console.error('❌ Error fetching departments:', error)
+    console.error('🔍 Hint: Adaugă EXPENDITURES_DB_* în Render Environment Variables')
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      hint: 'Verifică conexiunea la DB extern (192.168.1.39:26257)'
+    })
   }
 })
 
