@@ -83,12 +83,15 @@ const LocationMap = ({ location }) => {
         console.log('📍 Adresă completă:', fullAddress)
 
         if (!coords && fullAddress) {
-          // Append country to improve geocoding accuracy
-          const addressWithCountry = fullAddress.toLowerCase().includes('romania') || fullAddress.toLowerCase().includes('românia')
-            ? fullAddress
-            : `${fullAddress}, România`
+          // Clean address: remove spaces before commas
+          let cleanAddress = fullAddress.replace(/\s+,/g, ',').replace(/,\s+/g, ', ')
           
-          console.log('🌍 Geocoding cu:', addressWithCountry)
+          // Append country to improve geocoding accuracy
+          const addressWithCountry = cleanAddress.toLowerCase().includes('romania') || cleanAddress.toLowerCase().includes('românia')
+            ? cleanAddress
+            : `${cleanAddress}, România`
+          
+          console.log('🌍 Geocoding cu (curățat):', addressWithCountry)
           coords = await geocodeAddress(addressWithCountry)
           console.log('✅ Coordonate găsite:', coords)
           
