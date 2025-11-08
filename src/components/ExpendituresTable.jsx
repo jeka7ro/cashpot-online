@@ -156,12 +156,13 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
               {expandedDepartments.has(dept.name) && Object.values(dept.categories).map((category, catIdx) => (
                 <tr 
                   key={`${dept.name}-${category.name}`}
-                  className="bg-slate-100 dark:bg-slate-900/50"
+                  className="bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors"
                 >
-                  <td className="px-6 py-3 whitespace-nowrap">
-                    <div className="flex items-center space-x-2 ml-8">
-                      <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
-                        └─ {category.name}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center space-x-3 ml-12">
+                      <div className="w-2 h-2 rounded-full bg-purple-400 dark:bg-purple-500"></div>
+                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                        {category.name}
                       </span>
                     </div>
                   </td>

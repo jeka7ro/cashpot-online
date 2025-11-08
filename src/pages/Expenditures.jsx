@@ -3,14 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
-import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3 } from 'lucide-react'
+import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import ExpendituresMappingModal from '../components/modals/ExpendituresMappingModal'
 import ExpendituresSettingsModal from '../components/modals/ExpendituresSettingsModal'
 import AdvancedAnalyticsModal from '../components/modals/AdvancedAnalyticsModal'
 import ExpendituresCharts from '../components/ExpendituresCharts'
 import ExpendituresTable from '../components/ExpendituresTable'
-import AIInsightsPanel from '../components/AIInsightsPanel'
 import { generateAIInsights } from '../utils/aiInsights'
 
 const Expenditures = () => {
@@ -263,10 +262,22 @@ const Expenditures = () => {
     return processDataToMatrix()
   }, [expendituresData, dateRange, departmentFilter, expenditureTypeFilter])
   
-  // Generate AI Insights
-  const aiInsights = React.useMemo(() => {
-    return generateAIInsights(expendituresData, dateRange)
+  // Filter data by date range for charts and cards
+  const filteredExpendituresForCharts = React.useMemo(() => {
+    if (!dateRange.startDate || !dateRange.endDate) return expendituresData
+    
+    return expendituresData.filter(item => {
+      const itemDate = new Date(item.operational_date)
+      const startDate = new Date(dateRange.startDate)
+      const endDate = new Date(dateRange.endDate)
+      return itemDate >= startDate && itemDate <= endDate
+    })
   }, [expendituresData, dateRange])
+  
+  // Generate AI Insights (using filtered data)
+  const aiInsights = React.useMemo(() => {
+    return generateAIInsights(filteredExpendituresForCharts, dateRange)
+  }, [filteredExpendituresForCharts, dateRange])
   
   // Export to Excel
   const handleExportExcel = () => {
@@ -378,7 +389,7 @@ const Expenditures = () => {
                 </p>
               </div>
               <div className="p-4 bg-blue-500/10 rounded-2xl">
-                <DollarSign className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                <TrendingUp className="w-8 h-8 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
           </div>
@@ -421,16 +432,40 @@ const Expenditures = () => {
         </div>
         
         {/* Charts Section */}
-        {expendituresData.length > 0 && (
+        {filteredExpendituresForCharts.length > 0 && (
           <ExpendituresCharts 
-            expendituresData={expendituresData}
+            expendituresData={filteredExpendituresForCharts}
             dateRange={dateRange}
           />
         )}
         
-        {/* AI Insights Panel */}
-        {expendituresData.length > 0 && (
-          <AIInsightsPanel insights={aiInsights} />
+        {/* AI Insights Button */}
+        {expendituresData.length > 0 && aiInsights.length > 0 && (
+          <div className="card p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-2 border-purple-200 dark:border-purple-800">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="p-4 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl animate-pulse">
+                  <Brain className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                    🤖 AI Insights Disponibile
+                  </h3>
+                  <p className="text-slate-600 dark:text-slate-400 mt-1">
+                    {aiInsights.length} insight{aiInsights.length > 1 ? 's' : ''} generat{aiInsights.length > 1 ? 'e' : ''} automat • 
+                    {' '}{aiInsights.filter(i => i.severity === 'error' || i.severity === 'warning').length} alerte urgente
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => navigate('/ai-insights')}
+                className="btn-primary flex items-center space-x-3 px-6 py-4 text-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all"
+              >
+                <Brain className="w-6 h-6" />
+                <span>Vezi AI Insights</span>
+              </button>
+            </div>
+          </div>
         )}
         
         {/* Filters */}

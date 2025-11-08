@@ -253,7 +253,7 @@ const Layout = ({ children }) => {
     { 
       id: 'expenditures', 
       label: 'Cheltuieli', 
-      icon: DollarSign, 
+      icon: BarChart3, 
       path: '/expenditures',
       count: null,
       module: MODULES.EXPENDITURES
