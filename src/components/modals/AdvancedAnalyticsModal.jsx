@@ -4,26 +4,44 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { generateAIInsights } from '../../utils/aiInsights'
 
 const AdvancedAnalyticsModal = ({ onClose, expendituresData }) => {
+  const [selectedDepartment, setSelectedDepartment] = useState('all')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [selectedLocation, setSelectedLocation] = useState('all')
   const [analysisType, setAnalysisType] = useState('trends') // trends, comparison, distribution
   
-  // Get unique categories and locations
-  const categories = useMemo(() => {
-    return [...new Set(expendituresData.map(item => item.expenditure_type))].filter(Boolean).sort()
+  // Get unique departments
+  const departments = useMemo(() => {
+    return [...new Set(expendituresData.map(item => item.department_name))].filter(Boolean).sort()
   }, [expendituresData])
+  
+  // Get categories filtered by selected department (CASCADE)
+  const categories = useMemo(() => {
+    let filteredData = expendituresData
+    
+    // Filter by department if selected
+    if (selectedDepartment !== 'all') {
+      filteredData = filteredData.filter(item => item.department_name === selectedDepartment)
+    }
+    
+    return [...new Set(filteredData.map(item => item.expenditure_type))].filter(Boolean).sort()
+  }, [expendituresData, selectedDepartment])
   
   const locations = useMemo(() => {
     return [...new Set(expendituresData.map(item => item.location_name))].filter(Boolean).sort()
   }, [expendituresData])
   
-  const departments = useMemo(() => {
-    return [...new Set(expendituresData.map(item => item.department_name))].filter(Boolean).sort()
-  }, [expendituresData])
+  // Reset category when department changes
+  React.useEffect(() => {
+    setSelectedCategory('all')
+  }, [selectedDepartment])
   
   // Calculate comparative analysis
   const getComparativeData = () => {
     let filtered = expendituresData
+    
+    if (selectedDepartment !== 'all') {
+      filtered = filtered.filter(item => item.department_name === selectedDepartment)
+    }
     
     if (selectedCategory !== 'all') {
       filtered = filtered.filter(item => item.expenditure_type === selectedCategory)
@@ -54,6 +72,11 @@ const AdvancedAnalyticsModal = ({ onClose, expendituresData }) => {
     const locMap = {}
     
     let filtered = expendituresData
+    
+    if (selectedDepartment !== 'all') {
+      filtered = filtered.filter(item => item.department_name === selectedDepartment)
+    }
+    
     if (selectedCategory !== 'all') {
       filtered = filtered.filter(item => item.expenditure_type === selectedCategory)
     }
@@ -104,6 +127,10 @@ const AdvancedAnalyticsModal = ({ onClose, expendituresData }) => {
   const filteredInsights = useMemo(() => {
     let filtered = expendituresData
     
+    if (selectedDepartment !== 'all') {
+      filtered = filtered.filter(item => item.department_name === selectedDepartment)
+    }
+    
     if (selectedCategory !== 'all') {
       filtered = filtered.filter(item => item.expenditure_type === selectedCategory)
     }
@@ -113,7 +140,7 @@ const AdvancedAnalyticsModal = ({ onClose, expendituresData }) => {
     }
     
     return generateAIInsights(filtered, { startDate: '', endDate: '' })
-  }, [expendituresData, selectedCategory, selectedLocation])
+  }, [expendituresData, selectedDepartment, selectedCategory, selectedLocation])
   
   const COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899']
   
@@ -150,21 +177,50 @@ const AdvancedAnalyticsModal = ({ onClose, expendituresData }) => {
         {/* Content */}
         <div className="p-8 overflow-y-auto max-h-[calc(90vh-120px)]">
           {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {/* Departament Filter (PRIMUL - CASCADE) */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                Categorie Cheltuială
+                🏢 Departament
+              </label>
+              <select
+                value={selectedDepartment}
+                onChange={(e) => setSelectedDepartment(e.target.value)}
+                className="w-full px-4 py-3 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 border-2 border-purple-300 dark:border-purple-700 rounded-xl text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent font-semibold"
+              >
+                <option value="all">✓ Toate Departamentele</option>
+                {departments.map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+              {selectedDepartment !== 'all' && (
+                <p className="text-xs text-purple-600 dark:text-purple-400 mt-1 font-semibold">
+                  → Categorii filtrate automat
+                </p>
+              )}
+            </div>
+            
+            {/* Categorie Filter (FILTRAT CASCADE) */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                💰 Categorie Cheltuială
               </label>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={categories.length === 0}
               >
-                <option value="all">Toate Categoriile</option>
+                <option value="all">✓ Toate Categoriile</option>
                 {categories.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
+              {selectedDepartment !== 'all' && (
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  {categories.length} categor{categories.length === 1 ? 'ie' : 'ii'} în {selectedDepartment}
+                </p>
+              )}
             </div>
             
             <div>
