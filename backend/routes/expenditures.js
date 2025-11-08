@@ -471,18 +471,23 @@ router.get('/settings', async (req, res) => {
     `)
     
     if (result.rows.length > 0) {
-      res.json(JSON.parse(result.rows[0].setting_value))
+      const settings = JSON.parse(result.rows[0].setting_value)
+      console.log('✅ Loaded expenditures settings from DB:', settings)
+      res.json(settings)
     } else {
-      // Default settings
-      res.json({
+      // Default settings WITH EMPTY ARRAYS (user poate selecta tot)
+      const defaultSettings = {
         autoSync: false,
-        syncInterval: 24, // hours
-        syncTime: '02:00', // time of day
-        filters: {
-          show_in_expenditures: true,
-          exclude_deleted: true
-        }
-      })
+        syncInterval: 24,
+        syncTime: '02:00',
+        excludeDeleted: true,
+        showInExpenditures: true,
+        includedExpenditureTypes: [], // EMPTY = toate sunt incluse
+        includedDepartments: [], // EMPTY = toate sunt incluse
+        includedLocations: [] // EMPTY = toate sunt incluse
+      }
+      console.log('⚠️ No settings found, returning defaults')
+      res.json(defaultSettings)
     }
   } catch (error) {
     console.error('Error fetching sync settings:', error)
@@ -490,7 +495,11 @@ router.get('/settings', async (req, res) => {
       autoSync: false,
       syncInterval: 24,
       syncTime: '02:00',
-      filters: { show_in_expenditures: true, exclude_deleted: true }
+      excludeDeleted: true,
+      showInExpenditures: true,
+      includedExpenditureTypes: [],
+      includedDepartments: [],
+      includedLocations: []
     })
   }
 })

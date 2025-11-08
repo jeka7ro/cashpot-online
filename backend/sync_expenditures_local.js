@@ -56,6 +56,25 @@ console.log(`🌐 Render Backend: ${RENDER_BACKEND}`)
 
 async function syncExpenditures() {
   try {
+    // STEP 1: Load settings from Render (ce a debifat user-ul)
+    console.log('\n⚙️ Loading filter settings from Render...')
+    let filterSettings = {
+      includedDepartments: [],
+      includedExpenditureTypes: [],
+      includedLocations: []
+    }
+    
+    try {
+      const settingsResponse = await axios.get(`${RENDER_BACKEND}/api/expenditures/settings`)
+      filterSettings = settingsResponse.data
+      console.log('✅ Filter settings loaded:')
+      console.log(`   - Departments: ${filterSettings.includedDepartments?.length || 0} included`)
+      console.log(`   - Categories: ${filterSettings.includedExpenditureTypes?.length || 0} included`)
+      console.log(`   - Locations: ${filterSettings.includedLocations?.length || 0} included`)
+    } catch (settingsError) {
+      console.warn('⚠️ Could not load settings, will sync ALL data')
+    }
+    
     // Test external DB connection
     console.log('\n🔍 Testing external DB connection...')
     const testResult = await externalPool.query('SELECT NOW() as current_time')
@@ -92,7 +111,7 @@ async function syncExpenditures() {
     }
     
     // Transform data
-    const records = result.rows.map(row => ({
+    let records = result.rows.map(row => ({
       location_name: row.location_name,
       department_name: row.department_name,
       expenditure_type: row.expenditure_type,
@@ -100,6 +119,36 @@ async function syncExpenditures() {
       operational_date: row.operational_date,
       original_location_id: row.location_id
     }))
+    
+    // STEP 2: Apply user filter settings (ce a DEBIFAT user-ul se EXCLUDE!)
+    const beforeFilterCount = records.length
+    
+    // Filter by INCLUDED departments (dacă lista NU e goală)
+    if (filterSettings.includedDepartments && filterSettings.includedDepartments.length > 0) {
+      records = records.filter(r => filterSettings.includedDepartments.includes(r.department_name))
+      console.log(`🔧 Department filter: ${beforeFilterCount} → ${records.length} records (excluded ${beforeFilterCount - records.length})`)
+    }
+    
+    // Filter by INCLUDED expenditure types (dacă lista NU e goală)
+    if (filterSettings.includedExpenditureTypes && filterSettings.includedExpenditureTypes.length > 0) {
+      const beforeCategoryFilter = records.length
+      records = records.filter(r => filterSettings.includedExpenditureTypes.includes(r.expenditure_type))
+      console.log(`🔧 Category filter: ${beforeCategoryFilter} → ${records.length} records (excluded ${beforeCategoryFilter - records.length})`)
+    }
+    
+    // Filter by INCLUDED locations (dacă lista NU e goală)
+    if (filterSettings.includedLocations && filterSettings.includedLocations.length > 0) {
+      const beforeLocationFilter = records.length
+      records = records.filter(r => filterSettings.includedLocations.includes(r.location_name))
+      console.log(`🔧 Location filter: ${beforeLocationFilter} → ${records.length} records (excluded ${beforeLocationFilter - records.length})`)
+    }
+    
+    console.log(`\n✅ After filtering: ${records.length} records (excluded ${beforeFilterCount - records.length} total)`)
+    
+    if (records.length === 0) {
+      console.log('⚠️ No records left after filtering! Check your settings.')
+      process.exit(0)
+    }
     
     console.log('\n📤 Uploading to Render backend...')
     console.log(`🔗 POST ${RENDER_BACKEND}/api/expenditures/upload`)
