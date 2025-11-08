@@ -516,8 +516,26 @@ router.put('/settings', async (req, res) => {
     console.log('   - includedLocations:', settings.includedLocations?.length, 'items')
     console.log('   - Full departments array:', settings.includedDepartments)
     
-    const settingsJson = JSON.stringify(settings)
-    console.log('📦 JSON pentru salvare (primii 200 chars):', settingsJson.substring(0, 200))
+    // Clean settings object (remove undefined/null/circular refs)
+    const cleanSettings = {
+      autoSync: settings.autoSync || false,
+      syncInterval: settings.syncInterval || 24,
+      syncTime: settings.syncTime || '02:00',
+      excludeDeleted: settings.excludeDeleted !== undefined ? settings.excludeDeleted : true,
+      showInExpenditures: settings.showInExpenditures !== undefined ? settings.showInExpenditures : true,
+      includedExpenditureTypes: Array.isArray(settings.includedExpenditureTypes) ? settings.includedExpenditureTypes : [],
+      includedDepartments: Array.isArray(settings.includedDepartments) ? settings.includedDepartments : [],
+      includedLocations: Array.isArray(settings.includedLocations) ? settings.includedLocations : []
+    }
+    
+    let settingsJson
+    try {
+      settingsJson = JSON.stringify(cleanSettings)
+      console.log('📦 JSON pentru salvare (primii 200 chars):', settingsJson.substring(0, 200))
+    } catch (jsonError) {
+      console.error('❌ JSON.stringify FAILED:', jsonError)
+      throw new Error('Cannot serialize settings: ' + jsonError.message)
+    }
     
     await pool.query(`
       INSERT INTO global_settings (setting_key, setting_value)

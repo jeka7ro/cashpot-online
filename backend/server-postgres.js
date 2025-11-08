@@ -1215,12 +1215,24 @@ const allowedOrigins = [
   'http://localhost:5173'
 ]
 
-app.use(cors({
-  origin: true, // Allow all origins temporarily for debugging
+// CORS Configuration - PERMISIV pentru Render + Vercel
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow NO origin (mobile apps, curl, etc.) sau orice origin
+    callback(null, true)
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}))
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Content-Length', 'X-Request-Id'],
+  maxAge: 86400, // 24 hours
+  optionsSuccessStatus: 200
+}
+
+app.use(cors(corsOptions))
+
+// Handle preflight requests explicitly
+app.options('*', cors(corsOptions))
 
 app.use(express.json({ limit: '50mb' }))
 app.use(express.urlencoded({ extended: true, limit: '50mb' }))
