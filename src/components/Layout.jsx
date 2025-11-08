@@ -32,7 +32,8 @@ import {
   TrendingUp,
   CheckSquare,
   MessageSquare,
-  DollarSign
+  DollarSign,
+  Dices
 } from 'lucide-react'
 
 const Layout = ({ children }) => {
@@ -213,7 +214,7 @@ const Layout = ({ children }) => {
     { 
       id: 'slots', 
       label: 'Sloturi', 
-      icon: BarChart3, 
+      icon: Dices, 
       path: '/slots',
       count: slots.length,
       module: MODULES.SLOTS
