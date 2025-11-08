@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react'
 
 const DateRangeSelector = ({ startDate, endDate, onChange }) => {
   const [granularity, setGranularity] = useState('month') // year, quarter, month, day
@@ -125,94 +125,148 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
       
       {/* Expanded Selector (Dropdown) */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 w-[600px] bg-slate-800 dark:bg-slate-900 rounded-2xl shadow-2xl border-2 border-blue-500 dark:border-blue-600 p-6 z-50">
-          {/* Granularity Selector */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex space-x-2">
-              {[
-                { id: 'year', label: 'An', key: 'Y' },
-                { id: 'quarter', label: 'Trim', key: 'Q' },
-                { id: 'month', label: 'Lună', key: 'M' },
-                { id: 'day', label: 'Zi', key: 'D' }
-              ].map((option) => (
-                <button
-                  key={option.id}
-                  onClick={() => handleQuickSelect(option.id)}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                    granularity === option.id
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-slate-700 dark:bg-slate-800 text-slate-300 hover:bg-slate-600'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
+            onClick={() => setIsOpen(false)}
+          />
+          
+          {/* Modal */}
+          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-4xl bg-gradient-to-br from-slate-800 to-slate-900 dark:from-slate-900 dark:to-black rounded-3xl shadow-2xl border-2 border-blue-500 dark:border-blue-600 p-8 z-50">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-2xl font-bold text-white mb-2">📅 Selectează Perioada</h3>
+              <p className="text-blue-300 text-sm">
+                Perioadă curentă: <span className="font-bold">{formatRange()}</span>
+              </p>
             </div>
-            
             <button
               onClick={() => setIsOpen(false)}
-              className="text-slate-400 hover:text-white text-sm font-semibold"
+              className="p-3 hover:bg-slate-700 rounded-full transition-colors"
             >
-              Închide
+              <X className="w-6 h-6 text-slate-400 hover:text-white" />
             </button>
           </div>
           
-          {/* Month Slider */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between text-sm text-slate-300 mb-2">
-              <span>Selectează perioada</span>
-              <span className="font-semibold text-blue-400">{formatRange()}</span>
+          {/* Granularity Selector */}
+          <div className="flex items-center justify-center space-x-3 mb-8">
+            {[
+              { id: 'year', label: 'An', key: 'Y' },
+              { id: 'quarter', label: 'Trim', key: 'Q' },
+              { id: 'month', label: 'Lună', key: 'M' },
+              { id: 'day', label: 'Zi', key: 'D' }
+            ].map((option) => (
+              <button
+                key={option.id}
+                onClick={() => handleQuickSelect(option.id)}
+                className={`px-6 py-3 rounded-xl text-base font-bold transition-all ${
+                  granularity === option.id
+                    ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg scale-110'
+                    : 'bg-slate-700 dark:bg-slate-800 text-slate-300 hover:bg-slate-600'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          
+          {/* Month Slider - Elegant Design */}
+          <div className="space-y-6 bg-slate-900/50 rounded-2xl p-6 border border-blue-500/30">
+            {/* Year & Quarter Info */}
+            <div className="flex items-center justify-between">
+              <div className="text-white">
+                <div className="text-3xl font-bold">{currentYear}</div>
+                <div className="text-sm text-slate-400 mt-1">
+                  Q{Math.floor(start.getMonth() / 3) + 1} • {months[start.getMonth()].label}
+                </div>
+              </div>
+              <div className="text-right text-blue-300 text-sm">
+                <div className="font-semibold">{formatRange()}</div>
+                <div className="text-slate-400 text-xs mt-1">Interval selectat</div>
+              </div>
             </div>
             
-            <div className="relative h-12 bg-slate-700 dark:bg-slate-800 rounded-full overflow-hidden">
-              {/* Month Labels */}
-              <div className="absolute inset-0 flex items-center justify-around px-4">
-                {months.map((month, idx) => (
-                  <div
-                    key={idx}
-                    className={`text-xs text-center ${
-                      idx >= start.getMonth() && idx <= end.getMonth()
-                        ? 'text-white font-bold'
-                        : 'text-slate-500'
-                    }`}
-                  >
-                    <div>{month.label}</div>
-                    {idx % 3 === 0 && (
-                      <div className="text-[10px] text-slate-400">Q{month.quarter}</div>
-                    )}
+            {/* Visual Slider */}
+            <div className="relative">
+              {/* Quarter Labels */}
+              <div className="flex justify-between mb-2 px-2">
+                {[1, 2, 3, 4].map(q => (
+                  <div key={q} className="text-xs text-slate-400 font-semibold">
+                    Q{q}
                   </div>
                 ))}
               </div>
               
-              {/* Selected Range Overlay */}
-              <div
-                className="absolute top-0 bottom-0 bg-gradient-to-r from-blue-500 to-cyan-500 opacity-30"
-                style={{
-                  left: `${(start.getMonth() / 12) * 100}%`,
-                  right: `${((11 - end.getMonth()) / 12) * 100}%`
-                }}
-              />
+              {/* Month Labels */}
+              <div className="flex justify-around mb-3">
+                {months.map((month, idx) => (
+                  <div
+                    key={idx}
+                    className={`text-xs text-center transition-all ${
+                      idx >= start.getMonth() && idx <= end.getMonth()
+                        ? 'text-white font-bold scale-110'
+                        : 'text-slate-500'
+                    }`}
+                  >
+                    {month.label}
+                  </div>
+                ))}
+              </div>
+              
+              {/* Slider Track */}
+              <div className="relative h-3 bg-slate-700 rounded-full overflow-hidden shadow-inner">
+                {/* Selected Range */}
+                <div
+                  className="absolute top-0 bottom-0 bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-500 shadow-lg"
+                  style={{
+                    left: `${(start.getMonth() / 12) * 100}%`,
+                    right: `${((11 - end.getMonth()) / 12) * 100}%`
+                  }}
+                >
+                  {/* Left Handle */}
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-6 h-6 bg-white rounded-full shadow-xl border-2 border-blue-500 cursor-grab hover:scale-110 transition-transform" />
+                  
+                  {/* Right Handle */}
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-6 h-6 bg-white rounded-full shadow-xl border-2 border-cyan-500 cursor-grab hover:scale-110 transition-transform" />
+                </div>
+              </div>
             </div>
           </div>
           
           {/* Quick Actions */}
-          <div className="mt-4 flex items-center justify-between">
-            <div className="flex space-x-2">
-              <button
-                onClick={() => handleQuickSelect('month')}
-                className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors"
-              >
-                Luna curentă
-              </button>
-              <button
-                onClick={() => handleQuickSelect('year')}
-                className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors"
-              >
-                Anul curent
-              </button>
-            </div>
+          <div className="mt-8 pt-6 border-t border-slate-700 flex items-center justify-center space-x-4">
+            <button
+              onClick={() => {
+                handleQuickSelect('month')
+                setIsOpen(false)
+              }}
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-xl transition-all text-base font-bold shadow-lg hover:shadow-xl"
+            >
+              🗓️ Luna curentă
+            </button>
+            <button
+              onClick={() => {
+                handleQuickSelect('quarter')
+                setIsOpen(false)
+              }}
+              className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl transition-all text-base font-bold shadow-lg hover:shadow-xl"
+            >
+              📊 Trimestrul curent
+            </button>
+            <button
+              onClick={() => {
+                handleQuickSelect('year')
+                setIsOpen(false)
+              }}
+              className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl transition-all text-base font-bold shadow-lg hover:shadow-xl"
+            >
+              📅 Anul curent
+            </button>
           </div>
         </div>
+        </>
       )}
     </div>
   )
