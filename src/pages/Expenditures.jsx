@@ -10,6 +10,7 @@ import ExpendituresSettingsModal from '../components/modals/ExpendituresSettings
 import AdvancedAnalyticsModal from '../components/modals/AdvancedAnalyticsModal'
 import ExpendituresCharts from '../components/ExpendituresCharts'
 import ExpendituresTable from '../components/ExpendituresTable'
+import DateRangeSelector from '../components/DateRangeSelector'
 import { generateAIInsights } from '../utils/aiInsights'
 
 const Expenditures = () => {
@@ -367,6 +368,22 @@ const Expenditures = () => {
               <span>📊 Analiză Avansată</span>
             </button>
             
+            {aiInsights.length > 0 && (
+              <button
+                onClick={() => navigate('/ai-insights')}
+                className="btn-secondary flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white border-purple-600 dark:border-pink-600 relative"
+                title={`${aiInsights.length} insights • ${aiInsights.filter(i => i.severity === 'error' || i.severity === 'warning').length} alerte`}
+              >
+                <Brain className="w-4 h-4 animate-pulse" />
+                <span>🤖 AI Insights</span>
+                {aiInsights.filter(i => i.severity === 'error' || i.severity === 'warning').length > 0 && (
+                  <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full text-xs font-bold flex items-center justify-center">
+                    {aiInsights.filter(i => i.severity === 'error' || i.severity === 'warning').length}
+                  </span>
+                )}
+              </button>
+            )}
+            
             <button
               onClick={handleSync}
               disabled={syncing}
@@ -436,37 +453,21 @@ const Expenditures = () => {
           <ExpendituresCharts 
             expendituresData={filteredExpendituresForCharts}
             dateRange={dateRange}
+            onDepartmentClick={(deptName) => {
+              setDepartmentFilter(deptName)
+              toast.success(`Filtrat: ${deptName}`, { id: 'dept-filter' })
+              // Scroll to table
+              setTimeout(() => {
+                document.getElementById('matrix-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }, 300)
+            }}
+            onLocationClick={(locName) => {
+              // For location, we can scroll to show details or just show toast
+              toast.success(`Click pe: ${locName}`, { id: 'loc-click' })
+            }}
           />
         )}
         
-        {/* AI Insights Button */}
-        {expendituresData.length > 0 && aiInsights.length > 0 && (
-          <div className="card p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-2 border-purple-200 dark:border-purple-800">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="p-4 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl animate-pulse">
-                  <Brain className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                    🤖 AI Insights Disponibile
-                  </h3>
-                  <p className="text-slate-600 dark:text-slate-400 mt-1">
-                    {aiInsights.length} insight{aiInsights.length > 1 ? 's' : ''} generat{aiInsights.length > 1 ? 'e' : ''} automat • 
-                    {' '}{aiInsights.filter(i => i.severity === 'error' || i.severity === 'warning').length} alerte urgente
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => navigate('/ai-insights')}
-                className="btn-primary flex items-center space-x-3 px-6 py-4 text-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all"
-              >
-                <Brain className="w-6 h-6" />
-                <span>Vezi AI Insights</span>
-              </button>
-            </div>
-          </div>
-        )}
         
         {/* Filters */}
         <div className="card p-6">
@@ -481,68 +482,22 @@ const Expenditures = () => {
           </div>
           
           <div className="space-y-4">
-              {/* Quick Date Filters */}
-              <div className="bg-slate-50 dark:bg-slate-900/40 rounded-lg p-3">
-                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2 uppercase">
-                  Filtre Rapide Perioadă
+              {/* Filters Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Date Range Selector */}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  📅 Perioadă
                 </label>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { value: 'azi', label: 'Azi' },
-                    { value: 'saptamana-curenta', label: 'Săptămâna Curentă' },
-                    { value: 'luna-curenta', label: 'Luna Curentă' },
-                    { value: 'luna-anterioara', label: 'Luna Anterioară' },
-                    { value: 'anul-curent', label: 'Anul Curent' },
-                    { value: 'toate', label: 'Toate' }
-                  ].map(filter => (
-                    <button
-                      key={filter.value}
-                      onClick={() => applyQuickDateFilter(filter.value)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                        selectedDateFilter === filter.value
-                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25'
-                          : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600'
-                      }`}
-                    >
-                      {filter.label}
-                    </button>
-                  ))}
-                </div>
+                <DateRangeSelector
+                  startDate={dateRange.startDate}
+                  endDate={dateRange.endDate}
+                  onChange={(newRange) => {
+                    setDateRange(newRange)
+                    setSelectedDateFilter('custom')
+                  }}
+                />
               </div>
-              
-              {/* Custom Date Range */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    <Calendar className="w-4 h-4 inline mr-1" />
-                    Data Început
-                  </label>
-                  <input
-                    type="date"
-                    value={dateRange.startDate}
-                    onChange={(e) => {
-                      setDateRange({ ...dateRange, startDate: e.target.value })
-                      setSelectedDateFilter('custom')
-                    }}
-                    className="input-field"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    <Calendar className="w-4 h-4 inline mr-1" />
-                    Data Sfârșit
-                  </label>
-                  <input
-                    type="date"
-                    value={dateRange.endDate}
-                    onChange={(e) => {
-                      setDateRange({ ...dateRange, endDate: e.target.value })
-                      setSelectedDateFilter('custom')
-                    }}
-                    className="input-field"
-                  />
-                </div>
               
               {/* Department Filter */}
               <div className="space-y-2">
@@ -607,7 +562,7 @@ const Expenditures = () => {
         </div>
         
         {/* Matrix Table */}
-        <div className="card p-6">
+        <div id="matrix-table" className="card p-6">
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center">
             <DollarSign className="w-6 h-6 mr-2 text-blue-500" />
             Cheltuieli per Departament / Categorie / Locație

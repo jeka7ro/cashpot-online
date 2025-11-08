@@ -2,7 +2,7 @@ import React from 'react'
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { TrendingUp, TrendingDown, DollarSign, Building2, Briefcase } from 'lucide-react'
 
-const ExpendituresCharts = ({ expendituresData, dateRange }) => {
+const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, onLocationClick }) => {
   // Process data for charts
   const processDepartmentData = () => {
     const deptMap = {}
@@ -154,7 +154,16 @@ const ExpendituresCharts = ({ expendituresData, dateRange }) => {
               }}
               formatter={(value) => [`${formatCurrency(value)} RON`, 'Cheltuieli']}
             />
-            <Bar dataKey="value" radius={[0, 8, 8, 0]}>
+            <Bar 
+              dataKey="value" 
+              radius={[0, 8, 8, 0]}
+              onClick={(data) => {
+                if (onDepartmentClick && data && data.name) {
+                  onDepartmentClick(data.name)
+                }
+              }}
+              cursor="pointer"
+            >
               {departmentData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
@@ -181,6 +190,12 @@ const ExpendituresCharts = ({ expendituresData, dateRange }) => {
               dataKey="value"
               label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
               labelLine={false}
+              onClick={(data) => {
+                if (onLocationClick && data && data.name) {
+                  onLocationClick(data.name)
+                }
+              }}
+              cursor="pointer"
             >
               {locationData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
