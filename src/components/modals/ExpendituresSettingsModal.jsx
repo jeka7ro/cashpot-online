@@ -93,9 +93,24 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
     try {
       setSaving(true)
       
-      await axios.put('/api/expenditures/settings', { settings })
+      console.log('💾 SALVARE SETĂRI - Ce trimit la backend:', {
+        includedDepartments: settings.includedDepartments,
+        includedExpenditureTypes: settings.includedExpenditureTypes,
+        includedLocations: settings.includedLocations,
+        departmentsCount: settings.includedDepartments?.length,
+        typesCount: settings.includedExpenditureTypes?.length,
+        locationsCount: settings.includedLocations?.length
+      })
+      
+      const response = await axios.put('/api/expenditures/settings', { settings })
+      
+      console.log('✅ RĂSPUNS de la backend:', response.data)
       
       toast.success('Setări salvate cu succes!')
+      
+      // RELOAD settings pentru a verifica persistența
+      await loadData()
+      
       onSave()
     } catch (error) {
       console.error('Error saving settings:', error)

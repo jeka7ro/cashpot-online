@@ -510,14 +510,38 @@ router.put('/settings', async (req, res) => {
     const { settings } = req.body
     const pool = req.app.get('pool')
     
+    console.log('💾 BACKEND - Primesc setări de salvat:')
+    console.log('   - includedDepartments:', settings.includedDepartments?.length, 'items')
+    console.log('   - includedExpenditureTypes:', settings.includedExpenditureTypes?.length, 'items')
+    console.log('   - includedLocations:', settings.includedLocations?.length, 'items')
+    console.log('   - Full departments array:', settings.includedDepartments)
+    
+    const settingsJson = JSON.stringify(settings)
+    console.log('📦 JSON pentru salvare (primii 200 chars):', settingsJson.substring(0, 200))
+    
     await pool.query(`
       INSERT INTO global_settings (setting_key, setting_value)
       VALUES ('expenditures_sync_config', $1)
       ON CONFLICT (setting_key) 
       DO UPDATE SET setting_value = $1, updated_at = CURRENT_TIMESTAMP
-    `, [JSON.stringify(settings)])
+    `, [settingsJson])
     
-    res.json({ success: true, message: 'Settings updated successfully' })
+    console.log('✅ BACKEND - Setări salvate în DB cu succes!')
+    
+    // Verifică ce s-a salvat (re-citește)
+    const verifyResult = await pool.query(`
+      SELECT setting_value 
+      FROM global_settings 
+      WHERE setting_key = 'expenditures_sync_config'
+    `)
+    const savedSettings = JSON.parse(verifyResult.rows[0].setting_value)
+    console.log('🔍 BACKEND - Verificare: Ce e în DB acum:', {
+      departments: savedSettings.includedDepartments?.length,
+      types: savedSettings.includedExpenditureTypes?.length,
+      locations: savedSettings.includedLocations?.length
+    })
+    
+    res.json({ success: true, message: 'Settings updated successfully', settings: savedSettings })
   } catch (error) {
     console.error('Error updating sync settings:', error)
     res.status(500).json({ success: false, error: error.message })
