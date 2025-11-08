@@ -47,79 +47,143 @@ router.get('/test-connection', async (req, res) => {
   }
 })
 
-// Get external locations FROM LOCAL SYNC DATA
+// Get external locations - HYBRID: Hardcoded + Local Sync Data
 router.get('/external-locations', async (req, res) => {
   try {
     const localPool = req.app.get('pool')
     
-    const result = await localPool.query(`
-      SELECT DISTINCT 
-        ROW_NUMBER() OVER (ORDER BY location_name) as id,
-        location_name as name,
-        COUNT(*) as record_count,
-        SUM(amount) as total_amount
-      FROM expenditures_sync
-      WHERE location_name IS NOT NULL AND location_name != ''
-      GROUP BY location_name
-      ORDER BY location_name
-    `)
+    // HARDCODED locations (din Power BI + datele user-ului)
+    const hardcodedLocations = [
+      { id: 1, name: 'Pitesti', record_count: 0, total_amount: 0 },
+      { id: 2, name: 'Craiova', record_count: 0, total_amount: 0 },
+      { id: 3, name: 'Ploiesti (nord)', record_count: 0, total_amount: 0 },
+      { id: 4, name: 'Ploiesti (centru)', record_count: 0, total_amount: 0 },
+      { id: 5, name: 'Valcea', record_count: 0, total_amount: 0 }
+    ]
     
-    console.log(`✅ Found ${result.rows.length} locations in local sync data`)
-    res.json(result.rows)
+    // Try to get from local sync data (dacă există)
+    try {
+      const result = await localPool.query(`
+        SELECT DISTINCT 
+          ROW_NUMBER() OVER (ORDER BY location_name) as id,
+          location_name as name,
+          COUNT(*) as record_count,
+          SUM(amount) as total_amount
+        FROM expenditures_sync
+        WHERE location_name IS NOT NULL AND location_name != ''
+        GROUP BY location_name
+        ORDER BY location_name
+      `)
+      
+      if (result.rows.length > 0) {
+        console.log(`✅ Found ${result.rows.length} locations in local sync data`)
+        return res.json(result.rows)
+      }
+    } catch (dbError) {
+      console.log('⚠️ No sync data yet, returning hardcoded locations')
+    }
+    
+    // Fallback: Return hardcoded list
+    console.log(`✅ Returning ${hardcodedLocations.length} hardcoded locations`)
+    res.json(hardcodedLocations)
   } catch (error) {
-    console.error('❌ Error fetching locations from local sync:', error)
+    console.error('❌ Error fetching locations:', error)
     res.json([])
   }
 })
 
-// Get expenditure types FROM LOCAL SYNC DATA
+// Get expenditure types - HYBRID: Hardcoded + Local Sync Data
 router.get('/expenditure-types', async (req, res) => {
   try {
     const localPool = req.app.get('pool')
     
-    const result = await localPool.query(`
-      SELECT DISTINCT 
-        ROW_NUMBER() OVER (ORDER BY expenditure_type) as id,
-        expenditure_type as name,
-        COUNT(*) as record_count,
-        SUM(amount) as total_amount
-      FROM expenditures_sync
-      WHERE expenditure_type IS NOT NULL AND expenditure_type != ''
-      GROUP BY expenditure_type
-      ORDER BY expenditure_type
-    `)
+    // HARDCODED categories (comune) - user poate configura ÎNAINTE de sync
+    const hardcodedTypes = [
+      { id: 1, name: 'Chirie locație lunară', record_count: 0, total_amount: 0 },
+      { id: 2, name: 'Chirie Spațiu', record_count: 0, total_amount: 0 },
+      { id: 3, name: 'Utilități (Gaze)', record_count: 0, total_amount: 0 },
+      { id: 4, name: 'Utilități (Curent Electric)', record_count: 0, total_amount: 0 },
+      { id: 5, name: 'Utilități (Apă)', record_count: 0, total_amount: 0 },
+      { id: 6, name: 'Salarii Personal', record_count: 0, total_amount: 0 },
+      { id: 7, name: 'Întreținere Echipamente', record_count: 0, total_amount: 0 },
+      { id: 8, name: 'Consumabile', record_count: 0, total_amount: 0 },
+      { id: 9, name: 'Reparații', record_count: 0, total_amount: 0 },
+      { id: 10, name: 'Marketing', record_count: 0, total_amount: 0 }
+    ]
     
-    console.log(`✅ Found ${result.rows.length} expenditure types in local sync data`)
-    res.json(result.rows)
+    // Try to get from local sync data (dacă există)
+    try {
+      const result = await localPool.query(`
+        SELECT DISTINCT 
+          ROW_NUMBER() OVER (ORDER BY expenditure_type) as id,
+          expenditure_type as name,
+          COUNT(*) as record_count,
+          SUM(amount) as total_amount
+        FROM expenditures_sync
+        WHERE expenditure_type IS NOT NULL AND expenditure_type != ''
+        GROUP BY expenditure_type
+        ORDER BY expenditure_type
+      `)
+      
+      if (result.rows.length > 0) {
+        console.log(`✅ Found ${result.rows.length} expenditure types in local sync data`)
+        return res.json(result.rows)
+      }
+    } catch (dbError) {
+      console.log('⚠️ No sync data yet, returning hardcoded categories')
+    }
+    
+    // Fallback: Return hardcoded list
+    console.log(`✅ Returning ${hardcodedTypes.length} hardcoded categories`)
+    res.json(hardcodedTypes)
   } catch (error) {
-    console.error('❌ Error fetching expenditure types from local sync:', error)
+    console.error('❌ Error fetching expenditure types:', error)
     res.json([])
   }
 })
 
-// Get departments FROM LOCAL SYNC DATA (nu din DB extern!)
+// Get departments - HYBRID: Hardcoded + Local Sync Data
 router.get('/departments', async (req, res) => {
   try {
     const localPool = req.app.get('pool')
     
-    // Citește din expenditures_sync (date locale după sync)
-    const result = await localPool.query(`
-      SELECT DISTINCT 
-        ROW_NUMBER() OVER (ORDER BY department_name) as id,
-        department_name as name,
-        COUNT(*) as record_count,
-        SUM(amount) as total_amount
-      FROM expenditures_sync
-      WHERE department_name IS NOT NULL AND department_name != ''
-      GROUP BY department_name
-      ORDER BY department_name
-    `)
+    // HARDCODED departments from Power BI (user poate configura ÎNAINTE de sync!)
+    const hardcodedDepartments = [
+      { id: 1, name: 'Unknown', record_count: 0, total_amount: 0 },
+      { id: 2, name: 'Bancă', record_count: 0, total_amount: 0 },
+      { id: 3, name: 'POS', record_count: 0, total_amount: 0 },
+      { id: 4, name: 'Registru de Casă', record_count: 0, total_amount: 0 },
+      { id: 5, name: 'Alte Cheltuieli', record_count: 0, total_amount: 0 },
+      { id: 6, name: 'Salarii', record_count: 0, total_amount: 0 }
+    ]
     
-    console.log(`✅ Found ${result.rows.length} departments in local sync data`)
-    res.json(result.rows)
+    // Try to get from local sync data (dacă există)
+    try {
+      const result = await localPool.query(`
+        SELECT DISTINCT 
+          ROW_NUMBER() OVER (ORDER BY department_name) as id,
+          department_name as name,
+          COUNT(*) as record_count,
+          SUM(amount) as total_amount
+        FROM expenditures_sync
+        WHERE department_name IS NOT NULL AND department_name != ''
+        GROUP BY department_name
+        ORDER BY department_name
+      `)
+      
+      if (result.rows.length > 0) {
+        console.log(`✅ Found ${result.rows.length} departments in local sync data`)
+        return res.json(result.rows)
+      }
+    } catch (dbError) {
+      console.log('⚠️ No sync data yet, returning hardcoded departments')
+    }
+    
+    // Fallback: Return hardcoded list
+    console.log(`✅ Returning ${hardcodedDepartments.length} hardcoded departments (user poate configura ÎNAINTE de sync)`)
+    res.json(hardcodedDepartments)
   } catch (error) {
-    console.error('❌ Error fetching departments from local sync:', error)
-    // Return empty array instead of error (graceful)
+    console.error('❌ Error fetching departments:', error)
     res.json([])
   }
 })
