@@ -58,18 +58,26 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
       // Load existing settings
       const loadedSettings = settingsRes.data
       
-      // If no included items, default to ALL
+      // Load settings - respect empty arrays (user a debifat tot!)
       setSettings({
         ...loadedSettings,
-        includedExpenditureTypes: loadedSettings.includedExpenditureTypes?.length > 0 
+        // DACĂ array EXISTĂ (chiar dacă e gol) → folosește-l
+        // DOAR dacă e undefined/null → default la toate
+        includedExpenditureTypes: loadedSettings.includedExpenditureTypes !== undefined
           ? loadedSettings.includedExpenditureTypes 
-          : typesRes.data.map(t => t.name),
-        includedDepartments: loadedSettings.includedDepartments?.length > 0 
+          : typesRes.data.map(t => t.name), // Default: toate bifate
+        includedDepartments: loadedSettings.includedDepartments !== undefined
           ? loadedSettings.includedDepartments 
-          : deptsRes.data.map(d => d.name),
-        includedLocations: loadedSettings.includedLocations?.length > 0 
+          : deptsRes.data.map(d => d.name), // Default: toate bifate
+        includedLocations: loadedSettings.includedLocations !== undefined
           ? loadedSettings.includedLocations 
-          : locsRes.data.map(l => l.name)
+          : locsRes.data.map(l => l.name) // Default: toate bifate
+      })
+      
+      console.log('✅ Loaded settings with arrays:', {
+        departments: loadedSettings.includedDepartments,
+        types: loadedSettings.includedExpenditureTypes,
+        locations: loadedSettings.includedLocations
       })
       
       console.log('✅ Loaded expenditures settings:', loadedSettings)
