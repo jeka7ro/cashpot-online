@@ -47,86 +47,80 @@ router.get('/test-connection', async (req, res) => {
   }
 })
 
-// Get external locations list
+// Get external locations FROM LOCAL SYNC DATA
 router.get('/external-locations', async (req, res) => {
   try {
-    const pool = getExternalPool()
+    const localPool = req.app.get('pool')
     
-    // Test connection first
-    await pool.query('SELECT 1')
-    
-    const result = await pool.query(`
-      SELECT DISTINCT id, name, address
-      FROM public.casino_locations
-      WHERE is_deleted = false
-      ORDER BY name
+    const result = await localPool.query(`
+      SELECT DISTINCT 
+        ROW_NUMBER() OVER (ORDER BY location_name) as id,
+        location_name as name,
+        COUNT(*) as record_count,
+        SUM(amount) as total_amount
+      FROM expenditures_sync
+      WHERE location_name IS NOT NULL AND location_name != ''
+      GROUP BY location_name
+      ORDER BY location_name
     `)
+    
+    console.log(`✅ Found ${result.rows.length} locations in local sync data`)
     res.json(result.rows)
   } catch (error) {
-    console.error('❌ Error fetching external locations:', error)
-    console.error('🔍 Error details:', error.message)
-    console.error('🔍 Error code:', error.code)
-    
-    // Return helpful error message
-    if (error.code === 'ECONNREFUSED') {
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Nu se poate conecta la DB extern. Verifică că serverul 192.168.1.39:26257 este accesibil.',
-        hint: 'Adaugă variabilele EXPENDITURES_DB_* în Environment Variables pe Render.com'
-      })
-    }
-    
-    res.status(500).json({ 
-      success: false, 
-      error: error.message,
-      hint: 'Verifică variabilele de mediu EXPENDITURES_DB_* pe Render.com'
-    })
+    console.error('❌ Error fetching locations from local sync:', error)
+    res.json([])
   }
 })
 
-// Get expenditure types
+// Get expenditure types FROM LOCAL SYNC DATA
 router.get('/expenditure-types', async (req, res) => {
   try {
-    const pool = getExternalPool()
+    const localPool = req.app.get('pool')
     
-    const result = await pool.query(`
-      SELECT DISTINCT id, name
-      FROM public.casino_expenditure_types
-      WHERE is_deleted = false
-      ORDER BY name
+    const result = await localPool.query(`
+      SELECT DISTINCT 
+        ROW_NUMBER() OVER (ORDER BY expenditure_type) as id,
+        expenditure_type as name,
+        COUNT(*) as record_count,
+        SUM(amount) as total_amount
+      FROM expenditures_sync
+      WHERE expenditure_type IS NOT NULL AND expenditure_type != ''
+      GROUP BY expenditure_type
+      ORDER BY expenditure_type
     `)
+    
+    console.log(`✅ Found ${result.rows.length} expenditure types in local sync data`)
     res.json(result.rows)
   } catch (error) {
-    console.error('❌ Error fetching expenditure types:', error)
-    console.error('🔍 Hint: Adaugă EXPENDITURES_DB_* în Render Environment Variables')
-    res.status(500).json({ 
-      success: false, 
-      error: error.message,
-      hint: 'Verifică conexiunea la DB extern (192.168.1.39:26257)'
-    })
+    console.error('❌ Error fetching expenditure types from local sync:', error)
+    res.json([])
   }
 })
 
-// Get departments
+// Get departments FROM LOCAL SYNC DATA (nu din DB extern!)
 router.get('/departments', async (req, res) => {
   try {
-    const pool = getExternalPool()
+    const localPool = req.app.get('pool')
     
-    const result = await pool.query(`
-      SELECT DISTINCT id, name
-      FROM public.casino_departments
-      WHERE is_deleted = false
-      ORDER BY name
+    // Citește din expenditures_sync (date locale după sync)
+    const result = await localPool.query(`
+      SELECT DISTINCT 
+        ROW_NUMBER() OVER (ORDER BY department_name) as id,
+        department_name as name,
+        COUNT(*) as record_count,
+        SUM(amount) as total_amount
+      FROM expenditures_sync
+      WHERE department_name IS NOT NULL AND department_name != ''
+      GROUP BY department_name
+      ORDER BY department_name
     `)
+    
+    console.log(`✅ Found ${result.rows.length} departments in local sync data`)
     res.json(result.rows)
   } catch (error) {
-    console.error('❌ Error fetching departments:', error)
-    console.error('🔍 Hint: Adaugă EXPENDITURES_DB_* în Render Environment Variables')
-    res.status(500).json({ 
-      success: false, 
-      error: error.message,
-      hint: 'Verifică conexiunea la DB extern (192.168.1.39:26257)'
-    })
+    console.error('❌ Error fetching departments from local sync:', error)
+    // Return empty array instead of error (graceful)
+    res.json([])
   }
 })
 
