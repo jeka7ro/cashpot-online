@@ -9,6 +9,12 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
     
     expendituresData.forEach(item => {
       const dept = item.department_name || 'Unknown'
+      
+      // SKIP "Unknown" (user NU vrea să-l vadă!)
+      if (dept.toLowerCase().trim() === 'unknown' || dept.trim() === '') {
+        return
+      }
+      
       if (!deptMap[dept]) {
         deptMap[dept] = 0
       }

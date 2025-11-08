@@ -11,6 +11,12 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
     
     expendituresData.forEach(item => {
       const dept = item.department_name || 'Unknown'
+      
+      // SKIP "Unknown" department (user NU vrea să-l vadă!)
+      if (dept.toLowerCase().trim() === 'unknown' || dept.trim() === '') {
+        return
+      }
+      
       const category = item.expenditure_type || 'Unknown'
       const location = item.location_name || 'Unknown'
       const amount = parseFloat(item.amount || 0)

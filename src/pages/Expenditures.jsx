@@ -195,7 +195,13 @@ const Expenditures = () => {
     // Apply filters
     let filteredData = expendituresData
     
-    // DATE RANGE FILTER (FIX!)
+    // EXCLUDE "Unknown" FORȚAT (user NU vrea să-l vadă NICIODATĂ!)
+    filteredData = filteredData.filter(item => {
+      const dept = (item.department_name || '').toLowerCase().trim()
+      return dept !== 'unknown' && dept !== '' && dept !== 'null'
+    })
+    
+    // DATE RANGE FILTER
     if (dateRange.startDate && dateRange.endDate) {
       filteredData = filteredData.filter(item => {
         const itemDate = new Date(item.operational_date)
@@ -265,14 +271,25 @@ const Expenditures = () => {
   
   // Filter data by date range for charts and cards
   const filteredExpendituresForCharts = React.useMemo(() => {
-    if (!dateRange.startDate || !dateRange.endDate) return expendituresData
+    let filtered = expendituresData
     
-    return expendituresData.filter(item => {
-      const itemDate = new Date(item.operational_date)
-      const startDate = new Date(dateRange.startDate)
-      const endDate = new Date(dateRange.endDate)
-      return itemDate >= startDate && itemDate <= endDate
+    // EXCLUDE "Unknown" FORȚAT (user nu vrea să-l vadă NICIODATĂ!)
+    filtered = filtered.filter(item => {
+      const dept = (item.department_name || '').toLowerCase().trim()
+      return dept !== 'unknown' && dept !== '' && dept !== 'null'
     })
+    
+    // Filter by date range
+    if (dateRange.startDate && dateRange.endDate) {
+      filtered = filtered.filter(item => {
+        const itemDate = new Date(item.operational_date)
+        const startDate = new Date(dateRange.startDate)
+        const endDate = new Date(dateRange.endDate)
+        return itemDate >= startDate && itemDate <= endDate
+      })
+    }
+    
+    return filtered
   }, [expendituresData, dateRange])
   
   // Generate AI Insights (using filtered data)
