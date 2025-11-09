@@ -53,17 +53,28 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
     })
   }
   
-  // Apply range selection INSTANT (automat!)
+  // Debounced auto-update (așteaptă 500ms după ultima schimbare)
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return
+    
+    const timeout = setTimeout(() => {
       const newStart = new Date(currentYear, rangeStart, 1)
       const newEnd = new Date(currentYear, rangeEnd + 1, 0)
-      onChange({
-        startDate: newStart.toISOString().split('T')[0],
-        endDate: newEnd.toISOString().split('T')[0]
-      })
-    }
-  }, [rangeStart, rangeEnd, isOpen])
+      
+      const newStartStr = newStart.toISOString().split('T')[0]
+      const newEndStr = newEnd.toISOString().split('T')[0]
+      
+      // NU apela onChange dacă valorile sunt DEJA la fel (PREVENT LOOP!)
+      if (newStartStr !== startDate || newEndStr !== endDate) {
+        onChange({
+          startDate: newStartStr,
+          endDate: newEndStr
+        })
+      }
+    }, 500) // 500ms debounce (user termină de mutat handles)
+    
+    return () => clearTimeout(timeout)
+  }, [rangeStart, rangeEnd]) // Doar [rangeStart, rangeEnd], NU isOpen!
   
   // Quick select actions
   const handleQuickSelect = (type) => {
@@ -117,11 +128,13 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
     setIsOpen(false)
   }
   
-  // Sync with props
+  // Sync with props DOAR când modal se deschide (PREVENT LOOP!)
   useEffect(() => {
-    setRangeStart(start.getMonth())
-    setRangeEnd(end.getMonth())
-  }, [startDate, endDate])
+    if (isOpen) {
+      setRangeStart(start.getMonth())
+      setRangeEnd(end.getMonth())
+    }
+  }, [isOpen]) // NU mai [startDate, endDate] → PREVINE LOOP!
   
   return (
     <div className="relative">
@@ -157,14 +170,14 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
       {/* Modal Selector */}
       {isOpen && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop - Z-INDEX MAXIM! */}
           <div 
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-black/70 backdrop-blur-md z-[9998]"
             onClick={() => setIsOpen(false)}
           />
           
-          {/* Modal - SLIDER CU HANDLES (ca în screenshot!) */}
-          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-5xl bg-gradient-to-br from-slate-800 via-blue-900 to-slate-800 rounded-3xl shadow-2xl border-4 border-cyan-400 p-8 z-50">
+          {/* Modal - DEASUPRA TUTUROR! z-[9999] */}
+          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-5xl bg-gradient-to-br from-blue-700 via-blue-800 to-slate-900 rounded-3xl shadow-2xl border-4 border-cyan-400 p-8 z-[9999]">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div>
