@@ -53,16 +53,17 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
     })
   }
   
-  // Apply range selection
-  const applyRange = () => {
-    const newStart = new Date(currentYear, rangeStart, 1)
-    const newEnd = new Date(currentYear, rangeEnd + 1, 0) // Last day of rangeEnd month
-    onChange({
-      startDate: newStart.toISOString().split('T')[0],
-      endDate: newEnd.toISOString().split('T')[0]
-    })
-    setIsOpen(false)
-  }
+  // Apply range selection INSTANT (automat!)
+  useEffect(() => {
+    if (isOpen) {
+      const newStart = new Date(currentYear, rangeStart, 1)
+      const newEnd = new Date(currentYear, rangeEnd + 1, 0)
+      onChange({
+        startDate: newStart.toISOString().split('T')[0],
+        endDate: newEnd.toISOString().split('T')[0]
+      })
+    }
+  }, [rangeStart, rangeEnd, isOpen])
   
   // Quick select actions
   const handleQuickSelect = (type) => {
@@ -312,7 +313,7 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
                   </div>
                 </div>
                 
-                {/* Quick Actions */}
+                {/* Quick Actions + Close Button */}
                 <div className="flex items-center justify-between">
                   <div className="flex space-x-3">
                     <button
@@ -347,12 +348,9 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
                     </button>
                   </div>
                   
-                  <button
-                    onClick={applyRange}
-                    className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-bold text-lg transition-all shadow-lg"
-                  >
-                    ✓ Aplică Selecția
-                  </button>
+                  <div className="text-cyan-300 text-sm">
+                    💡 Datele se actualizează automat • Click pe X pentru a închide
+                  </div>
                 </div>
               </div>
             )}

@@ -483,16 +483,26 @@ const Expenditures = () => {
             expendituresData={filteredExpendituresForCharts}
             dateRange={dateRange}
             onDepartmentClick={(deptName) => {
-              setDepartmentFilter(deptName)
-              toast.success(`Filtrat: ${deptName}`, { id: 'dept-filter' })
-              // Scroll to table
+              // Toggle filter (click din nou = reset)
+              if (departmentFilter === deptName) {
+                setDepartmentFilter('all')
+                toast.success('Filtru resetat - toate departamentele', { id: 'dept-filter' })
+              } else {
+                setDepartmentFilter(deptName)
+                toast.success(`📊 Filtrat: ${deptName}`, { id: 'dept-filter' })
+              }
+              // Scroll to table (INSTANT!)
               setTimeout(() => {
                 document.getElementById('matrix-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              }, 300)
+              }, 100)
             }}
             onLocationClick={(locName) => {
-              // For location, we can scroll to show details or just show toast
-              toast.success(`Click pe: ${locName}`, { id: 'loc-click' })
+              // Highlight location in table
+              toast.success(`📍 Locația: ${locName}`, { id: 'loc-click', duration: 2000 })
+              // Scroll to show location column
+              setTimeout(() => {
+                document.getElementById('matrix-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }, 100)
             }}
           />
         )}
