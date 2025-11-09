@@ -32,52 +32,62 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
     return `${monthNames[start.getMonth()]}. ${start.getFullYear()} - ${monthNames[end.getMonth()]}. ${end.getFullYear()}`
   }
   
-  // Multi-select months with toggle
-  const [selectedMonths, setSelectedMonths] = useState(new Set())
-  
-  React.useEffect(() => {
-    // Initialize selected months from props
+  // Local selection state (NU se sincronizează cu props până la Apply)
+  const [tempSelectedMonths, setTempSelectedMonths] = useState(() => {
     const months = new Set()
     for (let i = start.getMonth(); i <= end.getMonth(); i++) {
       months.add(i)
     }
-    setSelectedMonths(months)
-  }, [startDate, endDate])
+    return months
+  })
   
   const handleMonthClick = (monthIndex) => {
-    const newSelected = new Set(selectedMonths)
-    
-    if (newSelected.has(monthIndex)) {
-      // Toggle OFF (deselect)
-      newSelected.delete(monthIndex)
-    } else {
-      // Toggle ON (select)
-      newSelected.add(monthIndex)
-    }
-    
-    if (newSelected.size === 0) {
-      // Nu permite 0 luni selectate
-      return
-    }
-    
-    setSelectedMonths(newSelected)
-    
-    // Calculate range from selected months
-    const monthsArray = Array.from(newSelected).sort((a, b) => a - b)
-    const minMonth = monthsArray[0]
-    const maxMonth = monthsArray[monthsArray.length - 1]
-    
-    const newStart = new Date(currentYear, minMonth, 1)
-    const newEnd = new Date(currentYear, maxMonth + 1, 0)
-    
-    onChange({
-      startDate: newStart.toISOString().split('T')[0],
-      endDate: newEnd.toISOString().split('T')[0]
+    setTempSelectedMonths(prev => {
+      const newSelected = new Set(prev)
+      
+      if (newSelected.has(monthIndex)) {
+        // Toggle OFF
+        newSelected.delete(monthIndex)
+      } else {
+        // Toggle ON
+        newSelected.add(monthIndex)
+      }
+      
+      // Nu permite 0 luni
+      if (newSelected.size === 0) {
+        return prev
+      }
+      
+      return newSelected
     })
   }
   
   const applyAndClose = () => {
+    // Apply selection
+    if (tempSelectedMonths.size > 0) {
+      const monthsArray = Array.from(tempSelectedMonths).sort((a, b) => a - b)
+      const minMonth = monthsArray[0]
+      const maxMonth = monthsArray[monthsArray.length - 1]
+      
+      const newStart = new Date(currentYear, minMonth, 1)
+      const newEnd = new Date(currentYear, maxMonth + 1, 0)
+      
+      onChange({
+        startDate: newStart.toISOString().split('T')[0],
+        endDate: newEnd.toISOString().split('T')[0]
+      })
+    }
+    
     setIsOpen(false)
+  }
+  
+  const handleReset = () => {
+    // Reset to current selection from props
+    const months = new Set()
+    for (let i = start.getMonth(); i <= end.getMonth(); i++) {
+      months.add(i)
+    }
+    setTempSelectedMonths(months)
   }
   
   // Quick select
@@ -186,8 +196,8 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
             onClick={() => setIsOpen(false)}
           />
           
-          {/* Modal */}
-          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-4xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-slate-800 to-slate-900 dark:from-slate-900 dark:to-black rounded-3xl shadow-2xl border-2 border-blue-500 dark:border-blue-600 p-8 z-50">
+          {/* Modal - MARE + SCROLLABLE */}
+          <div className="fixed inset-4 md:inset-8 lg:inset-12 overflow-y-auto bg-gradient-to-br from-slate-800 to-slate-900 dark:from-slate-900 dark:to-black rounded-3xl shadow-2xl border-2 border-blue-500 dark:border-blue-600 p-8 z-50">
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
               <div>
@@ -246,7 +256,7 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
                 {/* Month Grid (MULTI-SELECT cu TOGGLE) */}
                 <div className="grid grid-cols-4 gap-3 mb-4">
                   {months.map((month, idx) => {
-                    const isSelected = selectedMonths.has(idx)
+                    const isSelected = tempSelectedMonths.has(idx)
                     return (
                       <button
                         key={idx}
@@ -270,14 +280,22 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
                 {/* Info + Apply Button */}
                 <div className="flex items-center justify-between pt-4 border-t border-slate-700">
                   <div className="text-sm text-slate-400">
-                    💡 Click pe luni pentru a le selecta/deselecta • {selectedMonths.size} {selectedMonths.size === 1 ? 'lună' : 'luni'} selectat{selectedMonths.size === 1 ? 'ă' : 'e'}
+                    💡 Click pe luni pentru a le selecta/deselecta • {tempSelectedMonths.size} {tempSelectedMonths.size === 1 ? 'lună' : 'luni'} selectat{tempSelectedMonths.size === 1 ? 'ă' : 'e'}
                   </div>
-                  <button
-                    onClick={applyAndClose}
-                    className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors"
-                  >
-                    ✓ Aplică
-                  </button>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={handleReset}
+                      className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-colors text-sm"
+                    >
+                      ↺ Reset
+                    </button>
+                    <button
+                      onClick={applyAndClose}
+                      className="px-6 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg font-semibold transition-colors"
+                    >
+                      ✓ Aplică
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
