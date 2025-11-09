@@ -200,7 +200,11 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
               outerRadius={90}
               paddingAngle={2}
               dataKey="value"
-              label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+              label={({ name, percent, value }) => {
+                // Afișează PROCENT + SUMĂ RON
+                const sumRON = formatCurrency(value)
+                return `${name} (${(percent * 100).toFixed(0)}%) - ${sumRON} RON`
+              }}
               labelLine={false}
               onClick={(data) => {
                 if (onLocationClick && data && data.name) {

@@ -56,6 +56,7 @@ const Expenditures = () => {
   )
   const [departmentFilter, setDepartmentFilter] = useState(savedPrefs?.departmentFilter || 'all')
   const [expenditureTypeFilter, setExpenditureTypeFilter] = useState(savedPrefs?.expenditureTypeFilter || 'all')
+  const [locationFilter, setLocationFilter] = useState(savedPrefs?.locationFilter || 'all') // NEW!
   const [selectedDateFilter, setSelectedDateFilter] = useState(savedPrefs?.selectedDateFilter || 'anul-curent')
   
   // Save preferences whenever filters change
@@ -64,10 +65,11 @@ const Expenditures = () => {
       dateRange,
       departmentFilter,
       expenditureTypeFilter,
+      locationFilter,
       selectedDateFilter
     }
     localStorage.setItem('expenditures_preferences', JSON.stringify(preferences))
-  }, [dateRange, departmentFilter, expenditureTypeFilter, selectedDateFilter])
+  }, [dateRange, departmentFilter, expenditureTypeFilter, locationFilter, selectedDateFilter])
   
   // Quick date filters
   const applyQuickDateFilter = (filterType) => {
@@ -217,12 +219,19 @@ const Expenditures = () => {
       })
     }
     
+    // DEPARTMENT FILTER
     if (departmentFilter !== 'all') {
       filteredData = filteredData.filter(item => item.department_name === departmentFilter)
     }
     
+    // EXPENDITURE TYPE FILTER
     if (expenditureTypeFilter !== 'all') {
       filteredData = filteredData.filter(item => item.expenditure_type === expenditureTypeFilter)
+    }
+    
+    // LOCATION FILTER (NEW!)
+    if (locationFilter !== 'all') {
+      filteredData = filteredData.filter(item => item.location_name === locationFilter)
     }
     
     // Get unique locations and expenditure types
@@ -270,12 +279,12 @@ const Expenditures = () => {
     return { matrix, locations, expenditureTypes, totalsRow, filteredCount: filteredData.length }
   }
   
-  // Re-calculate matrix when filters change
+  // Re-calculate matrix when filters change (INCLUDING locationFilter!)
   const { matrix, locations, totalsRow, filteredCount, expenditureTypes } = React.useMemo(() => {
     return processDataToMatrix()
-  }, [expendituresData, dateRange, departmentFilter, expenditureTypeFilter])
+  }, [expendituresData, dateRange, departmentFilter, expenditureTypeFilter, locationFilter])
   
-  // Filter data by date range for charts and cards
+  // Filter data by date range for charts and cards (SAME FILTERS as matrix!)
   const filteredExpendituresForCharts = React.useMemo(() => {
     let filtered = expendituresData
     
@@ -301,8 +310,18 @@ const Expenditures = () => {
       })
     }
     
+    // DEPARTMENT FILTER (pentru charts!)
+    if (departmentFilter !== 'all') {
+      filtered = filtered.filter(item => item.department_name === departmentFilter)
+    }
+    
+    // LOCATION FILTER (pentru charts!)
+    if (locationFilter !== 'all') {
+      filtered = filtered.filter(item => item.location_name === locationFilter)
+    }
+    
     return filtered
-  }, [expendituresData, dateRange])
+  }, [expendituresData, dateRange, departmentFilter, locationFilter])
   
   // Generate AI Insights (using filtered data)
   const aiInsights = React.useMemo(() => {
@@ -497,9 +516,15 @@ const Expenditures = () => {
               }, 100)
             }}
             onLocationClick={(locName) => {
-              // Highlight location in table
-              toast.success(`📍 Locația: ${locName}`, { id: 'loc-click', duration: 2000 })
-              // Scroll to show location column
+              // Toggle filter (click din nou = reset)
+              if (locationFilter === locName) {
+                setLocationFilter('all')
+                toast.success('Filtru locație resetat - toate locațiile', { id: 'loc-filter' })
+              } else {
+                setLocationFilter(locName)
+                toast.success(`📍 Filtrat: ${locName}`, { id: 'loc-filter' })
+              }
+              // Scroll to table (INSTANT!)
               setTimeout(() => {
                 document.getElementById('matrix-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
               }, 100)
