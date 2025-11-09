@@ -201,6 +201,12 @@ const Expenditures = () => {
       return dept !== 'unknown' && dept !== '' && dept !== 'null'
     })
     
+    // EXCLUDE 4 DEPARTAMENTE DEBIFATE (POS, Registru de Casă, Bancă, Alte Cheltuieli)
+    const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
+    filteredData = filteredData.filter(item => {
+      return !excludedDepartments.includes(item.department_name)
+    })
+    
     // DATE RANGE FILTER
     if (dateRange.startDate && dateRange.endDate) {
       filteredData = filteredData.filter(item => {
@@ -277,6 +283,12 @@ const Expenditures = () => {
     filtered = filtered.filter(item => {
       const dept = (item.department_name || '').toLowerCase().trim()
       return dept !== 'unknown' && dept !== '' && dept !== 'null'
+    })
+    
+    // EXCLUDE 4 DEPARTAMENTE DEBIFATE (POS, Registru de Casă, Bancă, Alte Cheltuieli)
+    const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
+    filtered = filtered.filter(item => {
+      return !excludedDepartments.includes(item.department_name)
     })
     
     // Filter by date range

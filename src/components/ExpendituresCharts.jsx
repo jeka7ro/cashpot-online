@@ -15,6 +15,12 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
         return
       }
       
+      // SKIP 4 DEPARTAMENTE DEBIFATE (POS, Registru de Casă, Bancă, Alte Cheltuieli)
+      const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
+      if (excludedDepartments.includes(dept)) {
+        return
+      }
+      
       if (!deptMap[dept]) {
         deptMap[dept] = 0
       }

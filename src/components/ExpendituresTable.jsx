@@ -17,6 +17,12 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
         return
       }
       
+      // SKIP 4 DEPARTAMENTE DEBIFATE (POS, Registru de Casă, Bancă, Alte Cheltuieli)
+      const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
+      if (excludedDepartments.includes(dept)) {
+        return
+      }
+      
       const category = item.expenditure_type || 'Unknown'
       const location = item.location_name || 'Unknown'
       const amount = parseFloat(item.amount || 0)

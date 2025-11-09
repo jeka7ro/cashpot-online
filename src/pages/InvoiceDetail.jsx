@@ -212,10 +212,10 @@ const InvoiceDetail = () => {
                       : location?.name || location?.city || JSON.stringify(location)
                     
                     return (
-                      <div key={index} className="flex items-center space-x-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <div key={index} className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                         <span className="text-slate-700 dark:text-slate-300">{locationName}</span>
-                      </div>
+                    </div>
                     )
                   })
                 ) : (
