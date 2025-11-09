@@ -475,18 +475,38 @@ router.get('/settings', async (req, res) => {
       console.log('✅ Loaded expenditures settings from DB:', settings)
       res.json(settings)
     } else {
-      // Default settings WITH EMPTY ARRAYS (user poate selecta tot)
+      // Default settings - EXCLUDE 4 departamente
       const defaultSettings = {
         autoSync: false,
         syncInterval: 24,
         syncTime: '02:00',
         excludeDeleted: true,
         showInExpenditures: true,
-        includedExpenditureTypes: [], // EMPTY = toate sunt incluse
-        includedDepartments: [], // EMPTY = toate sunt incluse
-        includedLocations: [] // EMPTY = toate sunt incluse
+        includedExpenditureTypes: [], // EMPTY = TOATE tipurile sunt incluse (71/71)
+        includedDepartments: [
+          'Achiziții Sloturi și accesorii',
+          'Asociația pentru drepturi de autor',
+          'Bar',
+          'Birou',
+          'Cheltuieli Administrative',
+          'Chirie',
+          'Comisioane',
+          'Electricitate',
+          'Logistica',
+          'Marketing',
+          'Mentenanța',
+          'Metrologie',
+          'Pază și Intervenție',
+          'Plată utilități',
+          'Prestări servicii',
+          'Protocol',
+          'Salarii',
+          'Servicii de Curățenie'
+          // EXCLUDE (debifate): Alte Cheltuieli, Bancă, POS, Registru de Casă
+        ],
+        includedLocations: [] // EMPTY = TOATE locațiile sunt incluse (5/5)
       }
-      console.log('⚠️ No settings found, returning defaults')
+      console.log('⚠️ No settings found, returning defaults (18/22 departments, all types, all locations)')
       res.json(defaultSettings)
     }
   } catch (error) {
@@ -497,9 +517,28 @@ router.get('/settings', async (req, res) => {
       syncTime: '02:00',
       excludeDeleted: true,
       showInExpenditures: true,
-      includedExpenditureTypes: [],
-      includedDepartments: [],
-      includedLocations: []
+      includedExpenditureTypes: [], // TOATE tipurile (71/71)
+      includedDepartments: [
+        'Achiziții Sloturi și accesorii',
+        'Asociația pentru drepturi de autor',
+        'Bar',
+        'Birou',
+        'Cheltuieli Administrative',
+        'Chirie',
+        'Comisioane',
+        'Electricitate',
+        'Logistica',
+        'Marketing',
+        'Mentenanța',
+        'Metrologie',
+        'Pază și Intervenție',
+        'Plată utilități',
+        'Prestări servicii',
+        'Protocol',
+        'Salarii',
+        'Servicii de Curățenie'
+      ], // 18/22 (exclude: Alte Cheltuieli, Bancă, POS, Registru de Casă)
+      includedLocations: [] // TOATE locațiile (5/5)
     })
   }
 })
