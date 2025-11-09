@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }) => {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         // NU mai trezesc backend-ul - pierdere de timp!
-        const response = await axios.get('/api/auth/verify', { timeout: 10000 }) // Redus la 10s
+        const response = await axios.get('/api/auth/verify', { timeout: 30000 }) // Crescut la 30s (Render slow start)
         backendFailures.current = 0 // Reset failures on success
         return response
       } catch (error) {
