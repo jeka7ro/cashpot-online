@@ -32,16 +32,51 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
     return `${monthNames[start.getMonth()]}. ${start.getFullYear()} - ${monthNames[end.getMonth()]}. ${end.getFullYear()}`
   }
   
-  // Click pe o lună specifică → selectează DOAR acea lună
+  // Multi-select months with toggle
+  const [selectedMonths, setSelectedMonths] = useState(new Set())
+  
+  React.useEffect(() => {
+    // Initialize selected months from props
+    const months = new Set()
+    for (let i = start.getMonth(); i <= end.getMonth(); i++) {
+      months.add(i)
+    }
+    setSelectedMonths(months)
+  }, [startDate, endDate])
+  
   const handleMonthClick = (monthIndex) => {
-    const newStart = new Date(currentYear, monthIndex, 1)
-    const newEnd = new Date(currentYear, monthIndex + 1, 0) // Last day of month
+    const newSelected = new Set(selectedMonths)
+    
+    if (newSelected.has(monthIndex)) {
+      // Toggle OFF (deselect)
+      newSelected.delete(monthIndex)
+    } else {
+      // Toggle ON (select)
+      newSelected.add(monthIndex)
+    }
+    
+    if (newSelected.size === 0) {
+      // Nu permite 0 luni selectate
+      return
+    }
+    
+    setSelectedMonths(newSelected)
+    
+    // Calculate range from selected months
+    const monthsArray = Array.from(newSelected).sort((a, b) => a - b)
+    const minMonth = monthsArray[0]
+    const maxMonth = monthsArray[monthsArray.length - 1]
+    
+    const newStart = new Date(currentYear, minMonth, 1)
+    const newEnd = new Date(currentYear, maxMonth + 1, 0)
     
     onChange({
       startDate: newStart.toISOString().split('T')[0],
       endDate: newEnd.toISOString().split('T')[0]
     })
-    
+  }
+  
+  const applyAndClose = () => {
     setIsOpen(false)
   }
   
@@ -152,7 +187,7 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
           />
           
           {/* Modal */}
-          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-4xl bg-gradient-to-br from-slate-800 to-slate-900 dark:from-slate-900 dark:to-black rounded-3xl shadow-2xl border-2 border-blue-500 dark:border-blue-600 p-8 z-50">
+          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-4xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-slate-800 to-slate-900 dark:from-slate-900 dark:to-black rounded-3xl shadow-2xl border-2 border-blue-500 dark:border-blue-600 p-8 z-50">
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
               <div>
@@ -208,15 +243,15 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
                   </div>
                 </div>
                 
-                {/* Month Grid (CLICKABLE) */}
-                <div className="grid grid-cols-4 gap-3">
+                {/* Month Grid (MULTI-SELECT cu TOGGLE) */}
+                <div className="grid grid-cols-4 gap-3 mb-4">
                   {months.map((month, idx) => {
-                    const isSelected = idx >= start.getMonth() && idx <= end.getMonth()
+                    const isSelected = selectedMonths.has(idx)
                     return (
                       <button
                         key={idx}
                         onClick={() => handleMonthClick(idx)}
-                        className={`px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
+                        className={`px-4 py-3 rounded-xl text-sm font-semibold transition-all relative ${
                           isSelected
                             ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg scale-105'
                             : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:scale-105'
@@ -224,9 +259,25 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
                       >
                         <div>{month.label}</div>
                         <div className="text-xs opacity-70">Q{month.quarter}</div>
+                        {isSelected && (
+                          <div className="absolute top-1 right-1 w-2 h-2 bg-green-400 rounded-full"></div>
+                        )}
                       </button>
                     )
                   })}
+                </div>
+                
+                {/* Info + Apply Button */}
+                <div className="flex items-center justify-between pt-4 border-t border-slate-700">
+                  <div className="text-sm text-slate-400">
+                    💡 Click pe luni pentru a le selecta/deselecta • {selectedMonths.size} {selectedMonths.size === 1 ? 'lună' : 'luni'} selectat{selectedMonths.size === 1 ? 'ă' : 'e'}
+                  </div>
+                  <button
+                    onClick={applyAndClose}
+                    className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors"
+                  >
+                    ✓ Aplică
+                  </button>
                 </div>
               </div>
             )}
@@ -373,34 +424,44 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
             )}
             
             {/* Quick Actions Footer */}
-            <div className="mt-8 pt-6 border-t border-slate-700 flex items-center justify-center space-x-4">
-              <button
-                onClick={() => {
-                  handleQuickSelect('month')
-                  setIsOpen(false)
-                }}
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-xl transition-all text-base font-bold shadow-lg hover:shadow-xl"
-              >
-                🗓️ Luna curentă
-              </button>
-              <button
-                onClick={() => {
-                  handleQuickSelect('quarter')
-                  setIsOpen(false)
-                }}
-                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl transition-all text-base font-bold shadow-lg hover:shadow-xl"
-              >
-                📊 Trimestrul curent
-              </button>
-              <button
-                onClick={() => {
-                  handleQuickSelect('year')
-                  setIsOpen(false)
-                }}
-                className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl transition-all text-base font-bold shadow-lg hover:shadow-xl"
-              >
-                📅 Anul curent
-              </button>
+            <div className="mt-8 pt-6 border-t border-slate-700">
+              <div className="flex items-center justify-center space-x-4 mb-4">
+                <button
+                  onClick={() => {
+                    handleQuickSelect('month')
+                    setIsOpen(false)
+                  }}
+                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-xl transition-all text-base font-bold shadow-lg hover:shadow-xl"
+                >
+                  🗓️ Luna curentă
+                </button>
+                <button
+                  onClick={() => {
+                    handleQuickSelect('quarter')
+                    setIsOpen(false)
+                  }}
+                  className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl transition-all text-base font-bold shadow-lg hover:shadow-xl"
+                >
+                  📊 Trimestrul curent
+                </button>
+                <button
+                  onClick={() => {
+                    handleQuickSelect('year')
+                    setIsOpen(false)
+                  }}
+                  className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl transition-all text-base font-bold shadow-lg hover:shadow-xl"
+                >
+                  📅 Anul curent
+                </button>
+              </div>
+              <div className="text-center">
+                <button
+                  onClick={applyAndClose}
+                  className="px-8 py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white rounded-xl transition-all text-base font-bold shadow-lg hover:shadow-xl"
+                >
+                  ✓ Închide și Aplică
+                </button>
+              </div>
             </div>
           </div>
         </>
