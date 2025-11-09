@@ -66,9 +66,18 @@ const app = express()
 const PORT = process.env.PORT || 3001
 
   // CRITICAL FIX - 2025-10-19 11:43 - FORCE RENDER REBUILD FOR ROUTES
-  const BUILD_NUMBER = '999'
-  const BUILD_DATE = new Date().toISOString()
-  console.log(`🚀 CRITICAL BUILD ${BUILD_NUMBER} - ${BUILD_DATE}`)
+  // BUILD DINAMIC - generează automat la fiecare restart
+  const now = new Date()
+  const BUILD_NUMBER = Math.floor(now.getTime() / 1000).toString().slice(-6) // Ultimele 6 cifre din timestamp
+  const BUILD_DATE = now.toLocaleString('ro-RO', { 
+    day: '2-digit', 
+    month: '2-digit', 
+    year: 'numeric', 
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: false 
+  })
+  console.log(`🚀 BUILD #${BUILD_NUMBER} - ${BUILD_DATE}`)
   console.log('🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK')
   console.log('📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!')
 

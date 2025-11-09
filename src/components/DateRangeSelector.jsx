@@ -196,8 +196,8 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
             onClick={() => setIsOpen(false)}
           />
           
-          {/* Modal - MARE + SCROLLABLE */}
-          <div className="fixed inset-4 md:inset-8 lg:inset-12 overflow-y-auto bg-gradient-to-br from-slate-800 to-slate-900 dark:from-slate-900 dark:to-black rounded-3xl shadow-2xl border-2 border-blue-500 dark:border-blue-600 p-8 z-50">
+          {/* Modal - MARE + VIZIBIL (fundal mai luminos!) */}
+          <div className="fixed inset-4 md:inset-8 lg:inset-12 overflow-y-auto bg-gradient-to-br from-blue-900 via-slate-800 to-slate-900 rounded-3xl shadow-2xl border-2 border-blue-400 p-8 z-50">
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
               <div>

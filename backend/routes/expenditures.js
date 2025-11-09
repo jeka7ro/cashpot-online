@@ -528,21 +528,15 @@ router.put('/settings', async (req, res) => {
       includedLocations: Array.isArray(settings.includedLocations) ? settings.includedLocations : []
     }
     
-    let settingsJson
-    try {
-      settingsJson = JSON.stringify(cleanSettings)
-      console.log('📦 JSON pentru salvare (primii 200 chars):', settingsJson.substring(0, 200))
-    } catch (jsonError) {
-      console.error('❌ JSON.stringify FAILED:', jsonError)
-      throw new Error('Cannot serialize settings: ' + jsonError.message)
-    }
+    // SALVARE directă ca JSONB (NU string!)
+    console.log('📦 Salvez direct ca JSONB:', JSON.stringify(cleanSettings).substring(0, 200))
     
     await pool.query(`
       INSERT INTO global_settings (setting_key, setting_value)
-      VALUES ('expenditures_sync_config', $1)
+      VALUES ('expenditures_sync_config', $1::jsonb)
       ON CONFLICT (setting_key) 
-      DO UPDATE SET setting_value = $1, updated_at = CURRENT_TIMESTAMP
-    `, [settingsJson])
+      DO UPDATE SET setting_value = $1::jsonb, updated_at = CURRENT_TIMESTAMP
+    `, [JSON.stringify(cleanSettings)])
     
     console.log('✅ BACKEND - Setări salvate în DB cu succes!')
     
