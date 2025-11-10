@@ -42,6 +42,56 @@ const Competitors = () => {
     toast.success('✅ Competitori reîncărcați!', { id: 'refresh' })
   }
 
+  const handleSyncAll = async () => {
+    try {
+      toast.loading('Sincronizare competitori pentru TOATE locațiile...', { id: 'sync-all' })
+      
+      // Fetch all locations first
+      const locationsResponse = await axios.get('/api/locations')
+      const locations = locationsResponse.data
+      
+      console.log(`🔄 Syncing competitors pentru ${locations.length} locații...`)
+      
+      let successCount = 0
+      let failCount = 0
+      
+      // Sync each location (sequential to avoid rate limiting)
+      for (let i = 0; i < locations.length; i++) {
+        const loc = locations[i]
+        
+        try {
+          console.log(`   ${i+1}/${locations.length}: Syncing ${loc.name}...`)
+          await axios.post(`/api/locations/${loc.id}/sync-competitors`)
+          successCount++
+          toast.loading(`Sincronizare: ${successCount}/${locations.length} locații...`, { id: 'sync-all' })
+        } catch (error) {
+          console.error(`   ❌ Failed for ${loc.name}:`, error.message)
+          failCount++
+        }
+        
+        // Small delay between requests (avoid overwhelming server)
+        if (i < locations.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 2000))
+        }
+      }
+      
+      console.log(`✅ Sync complete: ${successCount} success, ${failCount} failed`)
+      
+      if (successCount > 0) {
+        toast.success(`✅ Sincronizat ${successCount} locații! Reîncărcare...`, { id: 'sync-all' })
+        // Reload competitors after sync
+        setTimeout(() => {
+          loadCompetitors()
+        }, 1500)
+      } else {
+        toast.error(`❌ Sincronizare eșuată pentru toate locațiile!`, { id: 'sync-all' })
+      }
+    } catch (error) {
+      console.error('Error syncing all:', error)
+      toast.error(`❌ ${error.message}`, { id: 'sync-all' })
+    }
+  }
+
   // Filter competitors
   const filteredCompetitors = competitors.filter(comp => {
     const matchCity = filters.city === 'all' || comp.city === filters.city
@@ -72,13 +122,24 @@ const Competitors = () => {
               Toate sălile concurente din România
             </p>
           </div>
-          <button
-            onClick={handleRefresh}
-            className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-purple-500/25 transition-all duration-200 flex items-center space-x-2"
-          >
-            <RefreshCw className="w-5 h-5" />
-            <span>Reîncarcă</span>
-          </button>
+          <div className="flex items-center space-x-3">
+            {competitors.length === 0 && (
+              <button
+                onClick={handleSyncAll}
+                className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-emerald-500/25 transition-all duration-200 flex items-center space-x-2"
+              >
+                <RefreshCw className="w-5 h-5" />
+                <span>Sincronizează Tot</span>
+              </button>
+            )}
+            <button
+              onClick={handleRefresh}
+              className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-purple-500/25 transition-all duration-200 flex items-center space-x-2"
+            >
+              <RefreshCw className="w-5 h-5" />
+              <span>Reîncarcă</span>
+            </button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -215,12 +276,30 @@ const Competitors = () => {
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
               <p className="mt-4 text-slate-600 dark:text-slate-400">Se încarcă competitorii...</p>
             </div>
-          ) : filteredCompetitors.length === 0 ? (
+          ) : filteredCompetitors.length === 0 && competitors.length === 0 ? (
             <div className="p-12 text-center">
               <Users className="w-16 h-16 mx-auto text-slate-300 dark:text-slate-600 mb-4" />
-              <p className="text-slate-600 dark:text-slate-400 text-lg">Nu există competitori</p>
+              <p className="text-slate-600 dark:text-slate-400 text-lg font-bold">Nu există competitori sincronizați</p>
+              <p className="text-sm text-slate-500 mt-2 mb-6">
+                Click pe butonul verde "Sincronizează Tot" pentru a aduce competitorii din ONJN
+              </p>
+              <button
+                onClick={handleSyncAll}
+                className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-emerald-500/25 transition-all duration-200 flex items-center space-x-2 mx-auto"
+              >
+                <RefreshCw className="w-5 h-5" />
+                <span>Sincronizează Tot (5 locații)</span>
+              </button>
+              <p className="text-xs text-slate-400 mt-4">
+                ⏱️ Timp estimat: ~30-60 secunde (5 locații × 5-10s fiecare)
+              </p>
+            </div>
+          ) : filteredCompetitors.length === 0 ? (
+            <div className="p-12 text-center">
+              <Filter className="w-16 h-16 mx-auto text-slate-300 dark:text-slate-600 mb-4" />
+              <p className="text-slate-600 dark:text-slate-400 text-lg">Niciun competitor nu corespunde filtrelor</p>
               <p className="text-sm text-slate-500 mt-2">
-                Sincronizează competitorii din paginile de locații
+                Încearcă să modifici filtrele sau să ștergi căutarea
               </p>
             </div>
           ) : (
