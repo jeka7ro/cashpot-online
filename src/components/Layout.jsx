@@ -411,6 +411,9 @@ const Layout = ({ children }) => {
                   : '☁️ Online'
                 }
               </div>
+              <div className="text-white/50 text-xs mt-1">
+                v{getVersion()} Build #{getBuild()}
+              </div>
             </div>
             
             {/* Dark Mode Toggle */}
