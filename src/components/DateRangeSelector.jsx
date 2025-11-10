@@ -92,7 +92,11 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
                 <input
                   type="date"
                   value={startDate}
-                  onChange={(e) => onChange({ startDate: e.target.value, endDate })}
+                  onChange={(e) => {
+                    const newStartDate = e.target.value
+                    console.log('📅 Date Selector - START changed to:', newStartDate)
+                    onChange({ startDate: newStartDate, endDate })
+                  }}
                   className="w-full px-4 py-3 bg-white dark:bg-slate-700 border-2 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white rounded-xl text-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -104,7 +108,12 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
                 <input
                   type="date"
                   value={endDate}
-                  onChange={(e) => onChange({ startDate, endDate: e.target.value })}
+                  onChange={(e) => {
+                    const newEndDate = e.target.value
+                    console.log('📅 Date Selector - END changed to:', newEndDate)
+                    console.log('📅 Full range will be:', startDate, '-', newEndDate)
+                    onChange({ startDate, endDate: newEndDate })
+                  }}
                   className="w-full px-4 py-3 bg-white dark:bg-slate-700 border-2 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white rounded-xl text-lg font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
