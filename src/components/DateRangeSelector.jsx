@@ -12,6 +12,14 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
   
   const months = ['Ian', 'Feb', 'Mar', 'Apr', 'Mai', 'Iun', 'Iul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   
+  // FIX TIMEZONE BUG! Format date fără timezone issues
+  const formatDateLocal = (date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+  
   const formatRange = () => {
     return `${start.toLocaleDateString('ro-RO')} - ${end.toLocaleDateString('ro-RO')}`
   }
@@ -21,8 +29,8 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
     const newStart = new Date(start.getFullYear(), start.getMonth() - diffMonths - 1, 1)
     const newEnd = new Date(end.getFullYear(), end.getMonth() - diffMonths - 1, 0)
     onChange({
-      startDate: newStart.toISOString().split('T')[0],
-      endDate: newEnd.toISOString().split('T')[0]
+      startDate: formatDateLocal(newStart),
+      endDate: formatDateLocal(newEnd)
     })
   }
   
@@ -31,8 +39,8 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
     const newStart = new Date(start.getFullYear(), start.getMonth() + diffMonths + 1, 1)
     const newEnd = new Date(end.getFullYear(), end.getMonth() + diffMonths + 1, 0)
     onChange({
-      startDate: newStart.toISOString().split('T')[0],
-      endDate: newEnd.toISOString().split('T')[0]
+      startDate: formatDateLocal(newStart),
+      endDate: formatDateLocal(newEnd)
     })
   }
   
@@ -77,8 +85,8 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
     }
     
     onChange({
-      startDate: newStart.toISOString().split('T')[0],
-      endDate: newEnd.toISOString().split('T')[0]
+      startDate: formatDateLocal(newStart),
+      endDate: formatDateLocal(newEnd)
     })
     setIsOpen(false)
   }
@@ -111,12 +119,12 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
       const newEnd = tempDate
       
       console.log(`📅 SELECTARE LUNĂ: ${firstMonth} (${months[firstMonth]}) → ${lastMonth} (${months[lastMonth]})`)
-      console.log(`   Start: ${newStart.toISOString().split('T')[0]}`)
-      console.log(`   End: ${newEnd.toISOString().split('T')[0]}`)
+      console.log(`   Start: ${formatDateLocal(newStart)}`)
+      console.log(`   End: ${formatDateLocal(newEnd)}`)
       
       onChange({
-        startDate: newStart.toISOString().split('T')[0],
-        endDate: newEnd.toISOString().split('T')[0]
+        startDate: formatDateLocal(newStart),
+        endDate: formatDateLocal(newEnd)
       })
     }
   }
@@ -125,9 +133,14 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
   const handleQuarterClick = (quarterIndex) => {
     const newStart = new Date(selectedYear, quarterIndex * 3, 1)
     const newEnd = new Date(selectedYear, quarterIndex * 3 + 3, 0)
+    
+    console.log(`📅 SELECTARE TRIMESTRU Q${quarterIndex + 1}:`)
+    console.log(`   Start: ${formatDateLocal(newStart)}`)
+    console.log(`   End: ${formatDateLocal(newEnd)}`)
+    
     onChange({
-      startDate: newStart.toISOString().split('T')[0],
-      endDate: newEnd.toISOString().split('T')[0]
+      startDate: formatDateLocal(newStart),
+      endDate: formatDateLocal(newEnd)
     })
     setIsOpen(false)
   }
@@ -137,8 +150,8 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
     const newStart = new Date(year, 0, 1)
     const newEnd = new Date(year, 11, 31)
     onChange({
-      startDate: newStart.toISOString().split('T')[0],
-      endDate: newEnd.toISOString().split('T')[0]
+      startDate: formatDateLocal(newStart),
+      endDate: formatDateLocal(newEnd)
     })
     setIsOpen(false)
   }
