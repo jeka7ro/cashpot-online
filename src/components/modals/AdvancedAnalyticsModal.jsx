@@ -9,9 +9,12 @@ const AdvancedAnalyticsModal = ({ onClose, expendituresData }) => {
   const [selectedLocation, setSelectedLocation] = useState('all')
   const [analysisType, setAnalysisType] = useState('trends') // trends, comparison, distribution
   
-  // Get unique departments
+  // Get unique departments (EXCLUDE Unknown, POS, Bancă, Registru, Alte Cheltuieli)
   const departments = useMemo(() => {
-    return [...new Set(expendituresData.map(item => item.department_name))].filter(Boolean).sort()
+    const EXCLUDED_DEPTS = ['Unknown', 'POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
+    return [...new Set(expendituresData.map(item => item.department_name))]
+      .filter(dept => dept && !EXCLUDED_DEPTS.includes(dept))
+      .sort()
   }, [expendituresData])
   
   // Get categories filtered by selected department (CASCADE)
@@ -59,12 +62,13 @@ const AdvancedAnalyticsModal = ({ onClose, expendituresData }) => {
       const monthName = date.toLocaleDateString('ro-RO', { year: 'numeric', month: 'short' })
       
       if (!monthlyData[monthKey]) {
-        monthlyData[monthKey] = { month: monthName, amount: 0 }
+        monthlyData[monthKey] = { month: monthName, amount: 0, sortKey: monthKey }
       }
       monthlyData[monthKey].amount += parseFloat(item.amount || 0)
     })
     
-    return Object.values(monthlyData).sort((a, b) => a.month.localeCompare(b.month))
+    // Sortare CRONOLOGICĂ după monthKey (YYYY-MM), NU după monthName (text)!
+    return Object.values(monthlyData).sort((a, b) => a.sortKey.localeCompare(b.sortKey))
   }
   
   // Location comparison
