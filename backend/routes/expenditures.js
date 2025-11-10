@@ -591,23 +591,44 @@ router.put('/settings', async (req, res) => {
     const { settings } = req.body
     const pool = req.app.get('pool')
     
+    // VERIFICARE POOL (Render poate să returneze undefined/null)
+    if (!pool) {
+      console.error('❌ POOL is NULL/undefined - Render connection failed!')
+      return res.status(503).json({ 
+        success: false, 
+        error: 'Database connection not available. Try again in 30 seconds.' 
+      })
+    }
+    
     console.log('💾 BACKEND - Primesc setări de salvat:')
     console.log('   - includedDepartments:', settings.includedDepartments?.length, 'items')
     console.log('   - includedExpenditureTypes:', settings.includedExpenditureTypes?.length, 'items')
     console.log('   - includedLocations:', settings.includedLocations?.length, 'items')
     console.log('   - Full departments array:', settings.includedDepartments)
     
-    // Clean settings object (remove undefined/null/circular refs)
+    // Clean settings object (remove undefined/null/circular refs + DUPLICATES!)
     const cleanSettings = {
       autoSync: settings.autoSync || false,
       syncInterval: settings.syncInterval || 24,
       syncTime: settings.syncTime || '02:00',
       excludeDeleted: settings.excludeDeleted !== undefined ? settings.excludeDeleted : true,
       showInExpenditures: settings.showInExpenditures !== undefined ? settings.showInExpenditures : true,
-      includedExpenditureTypes: Array.isArray(settings.includedExpenditureTypes) ? settings.includedExpenditureTypes : [],
-      includedDepartments: Array.isArray(settings.includedDepartments) ? settings.includedDepartments : [],
-      includedLocations: Array.isArray(settings.includedLocations) ? settings.includedLocations : []
+      // REMOVE DUPLICATES! (Set -> Array)
+      includedExpenditureTypes: Array.isArray(settings.includedExpenditureTypes) 
+        ? [...new Set(settings.includedExpenditureTypes)] 
+        : [],
+      includedDepartments: Array.isArray(settings.includedDepartments) 
+        ? [...new Set(settings.includedDepartments)] 
+        : [],
+      includedLocations: Array.isArray(settings.includedLocations) 
+        ? [...new Set(settings.includedLocations)] 
+        : []
     }
+    
+    console.log('🧹 CLEANED arrays (duplicates removed):')
+    console.log('   - Departments:', cleanSettings.includedDepartments.length, 'unique')
+    console.log('   - Types:', cleanSettings.includedExpenditureTypes.length, 'unique')
+    console.log('   - Locations:', cleanSettings.includedLocations.length, 'unique')
     
     // SALVARE ca JSONB - TRY/CATCH robust!
     console.log('📦 Salvez setări (primii 200 chars):', JSON.stringify(cleanSettings).substring(0, 200))

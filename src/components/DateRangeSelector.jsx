@@ -171,11 +171,18 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
       {isOpen && (
         <>
           <div 
-            className="fixed inset-0 bg-black/70 backdrop-blur-md z-[99998]"
+            className="fixed inset-0 bg-black/70 backdrop-blur-md"
+            style={{ zIndex: 999998 }}
             onClick={() => setIsOpen(false)}
           />
           
-          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[900px] max-h-[90vh] overflow-y-auto bg-gradient-to-br from-blue-800 via-blue-900 to-indigo-900 rounded-3xl shadow-2xl border-4 border-blue-400 p-8 z-[99999]">
+          <div 
+            className="fixed top-1/2 left-1/2 w-[900px] max-h-[90vh] overflow-y-auto bg-gradient-to-br from-blue-800 via-blue-900 to-indigo-900 rounded-3xl shadow-2xl border-4 border-blue-400 p-8"
+            style={{ 
+              transform: 'translate(-50%, -50%)', 
+              zIndex: 999999 
+            }}
+          >
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div>
