@@ -491,6 +491,14 @@ const Expenditures = () => {
               <span>📊 Analiză Avansată</span>
             </button>
             
+            <button
+              onClick={() => navigate('/expenditures/pos-banca')}
+              className="btn-secondary flex items-center space-x-2 bg-gradient-to-r from-emerald-500/10 to-green-500/10 hover:from-emerald-500/20 hover:to-green-500/20 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300"
+            >
+              <Building2 className="w-4 h-4" />
+              <span>🏦 POS & Bancă</span>
+            </button>
+            
             {aiInsights.length > 0 && (
               <button
                 onClick={() => navigate('/ai-insights')}
@@ -527,24 +535,37 @@ const Expenditures = () => {
                 <p className="text-3xl font-bold text-blue-600 dark:text-blue-400 mt-2">
                   {formatCurrency(totalsRow?.total || 0)} RON
                 </p>
-                {/* Dinamica vs luna precedentă */}
+              </div>
+              {/* Iconița dinamică cu procentaj */}
+              <div className="flex flex-col items-center">
+                <div className={`p-4 rounded-2xl ${
+                  previousMonthData.isPositive 
+                    ? 'bg-green-500/10' 
+                    : 'bg-red-500/10'
+                }`}>
+                  {previousMonthData.isPositive ? (
+                    <TrendingUp className={`w-8 h-8 ${
+                      previousMonthData.isPositive 
+                        ? 'text-green-600 dark:text-green-400' 
+                        : 'text-red-600 dark:text-red-400'
+                    }`} />
+                  ) : (
+                    <TrendingDown className={`w-8 h-8 ${
+                      previousMonthData.isPositive 
+                        ? 'text-green-600 dark:text-green-400' 
+                        : 'text-red-600 dark:text-red-400'
+                    }`} />
+                  )}
+                </div>
                 {previousMonthData.percentage > 0 && (
-                  <div className={`flex items-center mt-2 text-sm font-semibold ${
+                  <div className={`text-xs font-bold mt-1 ${
                     previousMonthData.isPositive 
                       ? 'text-green-600 dark:text-green-400' 
                       : 'text-red-600 dark:text-red-400'
                   }`}>
-                    {previousMonthData.isPositive ? (
-                      <TrendingUp className="w-4 h-4 mr-1" />
-                    ) : (
-                      <TrendingDown className="w-4 h-4 mr-1" />
-                    )}
-                    {previousMonthData.isPositive ? '+' : '-'}{previousMonthData.percentage.toFixed(1)}% vs luna precedentă
+                    {previousMonthData.isPositive ? '+' : '-'}{previousMonthData.percentage.toFixed(1)}%
                   </div>
                 )}
-              </div>
-              <div className="p-4 bg-blue-500/10 rounded-2xl">
-                <TrendingUp className="w-8 h-8 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
           </div>
