@@ -187,16 +187,13 @@ const Locations = () => {
       label: 'Nume Locație',
       sortable: true,
       render: (item) => (
-        <div className="space-y-1">
+        <div>
           <button
             onClick={() => navigate(`/locations/${item.id}`)}
             className="text-slate-900 dark:text-slate-100 hover:text-green-700 dark:hover:text-green-400 transition-colors text-left font-medium"
           >
             {item.name}
           </button>
-          <div className="text-slate-600 dark:text-slate-400">
-            {item.address}
-          </div>
         </div>
       )
     },
@@ -485,8 +482,28 @@ const Locations = () => {
 
   const handleViewDocument = (location) => {
     if (location.plan_file) {
-      setSelectedDocument(location.plan_file)
-      setShowDocumentViewer(true)
+      // Convertește Base64 → Blob → Object URL → deschide în tab nou
+      try {
+        // Extrage Base64 data (fără "data:application/pdf;base64,")
+        const base64Data = location.plan_file.split(',')[1] || location.plan_file
+        const byteCharacters = atob(base64Data)
+        const byteNumbers = new Array(byteCharacters.length)
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i)
+        }
+        const byteArray = new Uint8Array(byteNumbers)
+        const blob = new Blob([byteArray], { type: 'application/pdf' })
+        const blobUrl = URL.createObjectURL(blob)
+        
+        // Deschide în tab nou
+        window.open(blobUrl, '_blank')
+        
+        // Cleanup după 1 minut (pentru a nu leak memory)
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
+      } catch (error) {
+        console.error('Error opening plan:', error)
+        toast.error('❌ Eroare la deschiderea planului')
+      }
     }
   }
 

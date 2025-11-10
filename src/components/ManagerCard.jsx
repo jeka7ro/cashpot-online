@@ -69,11 +69,11 @@ const ManagerCard = ({ locationId, contactPersonUsername, locationName }) => {
             <img
               src={manager.avatar}
               alt={manager.full_name || manager.username}
-              className="w-16 h-16 rounded-full border-2 border-indigo-300 dark:border-indigo-700"
+              className="w-32 h-32 rounded-full border-4 border-indigo-300 dark:border-indigo-700 shadow-xl"
             />
           ) : (
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center border-2 border-indigo-300 dark:border-indigo-700 shadow-lg">
-              <span className="text-white font-bold text-2xl">
+            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center border-4 border-indigo-300 dark:border-indigo-700 shadow-xl">
+              <span className="text-white font-bold text-4xl">
                 {(manager.full_name || manager.username).charAt(0).toUpperCase()}
               </span>
             </div>

@@ -448,6 +448,22 @@ const initializeDatabase = async () => {
       console.log('⚠️ Locations competitors column update skipped:', error.message)
     }
 
+    // Add phone to users table (for contact info)
+    try {
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20)')
+      console.log('✅ Users table: Added phone VARCHAR(20) column')
+    } catch (error) {
+      console.log('⚠️ Users phone column update skipped:', error.message)
+    }
+
+    // Add gallery JSONB to locations (for room photos)
+    try {
+      await pool.query('ALTER TABLE locations ADD COLUMN IF NOT EXISTS gallery JSONB DEFAULT NULL')
+      console.log('✅ Locations table: Added gallery JSONB column')
+    } catch (error) {
+      console.log('⚠️ Locations gallery column update skipped:', error.message)
+    }
+
     // Add missing columns to existing platforms table
     try {
       await pool.query('ALTER TABLE platforms ADD COLUMN IF NOT EXISTS provider_id INTEGER REFERENCES providers(id)')

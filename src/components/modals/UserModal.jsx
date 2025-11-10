@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { X, Save, User, Mail, Shield, UserCheck, Upload, Image, ChevronDown, ChevronUp, MapPin } from 'lucide-react'
+import { X, Save, User, Mail, Shield, UserCheck, Upload, Image, ChevronDown, ChevronUp, MapPin, Phone } from 'lucide-react'
 import { MODULE_CONFIG, ACTION_LABELS, getDefaultPermissionsForRole } from '../../utils/permissions'
 import { useData } from '../../contexts/DataContext'
 
@@ -10,6 +10,7 @@ const UserModal = ({ item, onClose, onSave }) => {
     username: '',
     full_name: '',
     email: '',
+    phone: '',
     password: '',
     role: 'user',
     status: 'active',
@@ -28,6 +29,7 @@ const UserModal = ({ item, onClose, onSave }) => {
         username: item.username || '',
         full_name: item.full_name || '',
         email: item.email || '',
+        phone: item.phone || '',
         role: item.role || 'user',
         status: item.status || 'active',
         location_id: item.location_id || null, // Locația gestionată (pentru manageri)
@@ -222,6 +224,23 @@ const UserModal = ({ item, onClose, onSave }) => {
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-slate-700">Email *</label>
               <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent" placeholder="Adresa de email" required />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-700 flex items-center">
+                <Phone className="w-4 h-4 mr-2 text-emerald-500" />
+                Telefon
+              </label>
+              <input 
+                type="tel" 
+                name="phone" 
+                value={formData.phone || ''} 
+                onChange={handleChange} 
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent" 
+                placeholder="+40 712 345 678"
+              />
+              <p className="text-xs text-slate-500">
+                💡 Număr de telefon pentru contact (opțional)
+              </p>
             </div>
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-slate-700">Parolă {!item && '*'}</label>

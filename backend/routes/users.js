@@ -18,11 +18,12 @@ const pool = new Pool({
 // GET /api/users
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, username, full_name, email, role, avatar, permissions, notes, status, location_id, created_at, updated_at FROM users ORDER BY created_at DESC')
+    const result = await pool.query('SELECT id, username, full_name, email, phone, role, avatar, permissions, notes, status, location_id, created_at, updated_at FROM users ORDER BY created_at DESC')
     console.log('✅ GET /api/users - Returned', result.rows.length, 'users')
     console.log('   Managers with location_id:', result.rows.filter(u => u.role === 'manager' && u.location_id).map(u => ({
       name: u.full_name,
-      location_id: u.location_id
+      location_id: u.location_id,
+      phone: u.phone
     })))
     res.json(result.rows)
   } catch (error) {
@@ -84,9 +85,9 @@ router.post('/', [
       return res.status(400).json({ success: false, errors: errors.array() })
     }
 
-    const { username, password, full_name, email, role, avatar, permissions, notes, status, location_id } = req.body
+    const { username, password, full_name, email, phone, role, avatar, permissions, notes, status, location_id } = req.body
 
-    console.log('📝 POST /api/users - Creating user:', { username, role, location_id })
+    console.log('📝 POST /api/users - Creating user:', { username, role, location_id, phone })
 
     // Check if username already exists
     const existingUser = await pool.query('SELECT id FROM users WHERE username = $1', [username])
@@ -101,11 +102,11 @@ router.post('/', [
     const defaultAvatar = avatar || '/assets/default-avatar.svg'
     
     const result = await pool.query(
-      'INSERT INTO users (username, password, full_name, email, role, avatar, permissions, notes, status, location_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, username, full_name, email, role, avatar, permissions, notes, status, location_id, created_at',
-      [username, hashedPassword, full_name, email, role || 'user', defaultAvatar, JSON.stringify(permissions || {}), notes, status || 'active', location_id || null]
+      'INSERT INTO users (username, password, full_name, email, phone, role, avatar, permissions, notes, status, location_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, username, full_name, email, phone, role, avatar, permissions, notes, status, location_id, created_at',
+      [username, hashedPassword, full_name, email, phone || null, role || 'user', defaultAvatar, JSON.stringify(permissions || {}), notes, status || 'active', location_id || null]
     )
     
-    console.log('✅ User created with location_id:', result.rows[0].location_id)
+    console.log('✅ User created with location_id:', result.rows[0].location_id, 'phone:', result.rows[0].phone)
 
     res.status(201).json(result.rows[0])
   } catch (error) {
@@ -125,14 +126,14 @@ router.put('/:id', [
     }
 
     const { id } = req.params
-    const { username, password, full_name, email, role, avatar, permissions, notes, status, location_id } = req.body
+    const { username, password, full_name, email, phone, role, avatar, permissions, notes, status, location_id } = req.body
 
-    console.log('📝 PUT /api/users/:id - Updating user:', { id, role, location_id })
+    console.log('📝 PUT /api/users/:id - Updating user:', { id, role, location_id, phone })
 
     // Build update query dynamically
-    let query = 'UPDATE users SET full_name = $1, email = $2, role = $3, avatar = $4, permissions = $5, notes = $6, status = $7, location_id = $8, updated_at = CURRENT_TIMESTAMP'
-    let params = [full_name, email, role, avatar, JSON.stringify(permissions || {}), notes, status, location_id || null]
-    let paramIndex = 9
+    let query = 'UPDATE users SET full_name = $1, email = $2, phone = $3, role = $4, avatar = $5, permissions = $6, notes = $7, status = $8, location_id = $9, updated_at = CURRENT_TIMESTAMP'
+    let params = [full_name, email, phone || null, role, avatar, JSON.stringify(permissions || {}), notes, status, location_id || null]
+    let paramIndex = 10
 
     // If password is provided, hash it and include in update
     if (password && password.length >= 6) {
@@ -142,7 +143,7 @@ router.put('/:id', [
       paramIndex++
     }
 
-    query += ` WHERE id = $${paramIndex} RETURNING id, username, full_name, email, role, avatar, permissions, notes, status, location_id, created_at, updated_at`
+    query += ` WHERE id = $${paramIndex} RETURNING id, username, full_name, email, phone, role, avatar, permissions, notes, status, location_id, created_at, updated_at`
     params.push(id)
     
     console.log('   Query:', query)
