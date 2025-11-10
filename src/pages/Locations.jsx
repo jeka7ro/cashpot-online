@@ -398,7 +398,14 @@ const Locations = () => {
       delete jsonData.planFile
       delete jsonData.planFileName
       
-      console.log('💾 Saving location:', jsonData)
+      console.log('💾 Saving location:')
+      console.log('   Name:', jsonData.name)
+      console.log('   plan_file type:', typeof jsonData.plan_file)
+      console.log('   plan_file is Base64?', jsonData.plan_file?.startsWith('data:'))
+      console.log('   plan_file length:', jsonData.plan_file?.length || 0, 'chars')
+      if (jsonData.plan_file) {
+        console.log('   plan_file preview:', jsonData.plan_file.substring(0, 100) + '...')
+      }
       
       if (editingItem) {
         const response = await fetch(`/api/locations/${editingItem.id}`, {

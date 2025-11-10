@@ -2042,13 +2042,29 @@ app.get('/api/locations', async (req, res) => {
 app.post('/api/locations', async (req, res) => {
   try {
     const { name, address, company, surface, status, coordinates, contact_person, notes, plan_file } = req.body
+    
+    console.log('📍 POST /api/locations - Creating new location:')
+    console.log('   Name:', name)
+    console.log('   plan_file received?', !!plan_file)
+    console.log('   plan_file type:', typeof plan_file)
+    console.log('   plan_file is Base64?', plan_file?.startsWith('data:'))
+    if (plan_file) {
+      console.log('   plan_file length:', plan_file.length, 'chars')
+      console.log('   plan_file preview:', plan_file.substring(0, 100) + '...')
+    }
+    
     const result = await pool.query(
       'INSERT INTO locations (name, address, company, surface, status, coordinates, contact_person, plan_file, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
       [name, address, company, surface, status || 'Active', coordinates, contact_person, plan_file || null, notes]
     )
+    
+    console.log('✅ Location created with ID:', result.rows[0].id)
+    console.log('   plan_file saved:', !!result.rows[0].plan_file)
+    
     const newLocation = { ...result.rows[0], capacity: 0 }
     res.json(newLocation)
   } catch (error) {
+    console.error('❌ POST /api/locations error:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })
@@ -2056,16 +2072,27 @@ app.post('/api/locations', async (req, res) => {
 app.put('/api/locations/:id', async (req, res) => {
   try {
     const { id } = req.params
-    console.log('PUT /api/locations/:id - req.body:', req.body)
     const { name, address, company, surface, status, coordinates, contact_person, notes, plan_file } = req.body
+    
+    console.log('📍 PUT /api/locations/:id - Updating location:', id)
+    console.log('   Name:', name)
+    console.log('   plan_file in request?', plan_file !== undefined)
+    console.log('   plan_file type:', typeof plan_file)
+    console.log('   plan_file is Base64?', plan_file?.startsWith('data:'))
+    if (plan_file) {
+      console.log('   plan_file length:', plan_file.length, 'chars')
+      console.log('   plan_file preview:', plan_file.substring(0, 100) + '...')
+    }
     
     // If plan_file is provided, update it; otherwise keep existing
     let updateQuery
     let queryParams
     if (plan_file !== undefined) {
+      console.log('   → Will UPDATE plan_file in DB')
       updateQuery = 'UPDATE locations SET name = $1, address = $2, company = $3, surface = $4, status = $5, coordinates = $6, contact_person = $7, plan_file = $8, notes = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10 RETURNING *'
       queryParams = [name, address, company, surface, status, coordinates, contact_person, plan_file, notes, id]
     } else {
+      console.log('   → Will KEEP existing plan_file (not updating)')
       updateQuery = 'UPDATE locations SET name = $1, address = $2, company = $3, surface = $4, status = $5, coordinates = $6, contact_person = $7, notes = $8, updated_at = CURRENT_TIMESTAMP WHERE id = $9 RETURNING *'
       queryParams = [name, address, company, surface, status, coordinates, contact_person, notes, id]
     }
@@ -2074,8 +2101,13 @@ app.put('/api/locations/:id', async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Location not found' })
     }
+    
+    console.log('✅ Location updated successfully')
+    console.log('   plan_file in DB now:', !!result.rows[0].plan_file)
+    
     res.json(result.rows[0])
   } catch (error) {
+    console.error('❌ PUT /api/locations/:id error:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })

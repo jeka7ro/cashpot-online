@@ -25,7 +25,8 @@ const LocationModal = ({ item, onClose, onSave }) => {
         company: item.company || '',
         capacity: item.capacity || '',
         surface: item.surface || '',
-        planFile: item.planFile || null,
+        planFile: item.plan_file || item.planFile || null, // DB folosește plan_file (underscore)!
+        planFileName: item.plan_file ? 'Plan locație existent' : null,
         status: item.status || 'Activ',
         coordinates: item.coordinates || '',
         contact_person: item.contact_person || '',
@@ -50,10 +51,14 @@ const LocationModal = ({ item, onClose, onSave }) => {
       return
     }
     
+    console.log('📄 Upload plan locație:', file.name, `(${(file.size / 1024).toFixed(2)} KB)`)
+    
     // Convert file to Base64 (same as ContractModal)
     const reader = new FileReader()
     reader.onload = (e) => {
       const base64String = e.target.result
+      console.log('✅ Plan convertit în Base64 (primii 100 chars):', base64String.substring(0, 100) + '...')
+      console.log('   Total length:', base64String.length, 'chars')
       setFormData({
         ...formData,
         planFile: base64String,
