@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react'
+import ReactDOM from 'react-dom'
 import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react'
 
 const DateRangeSelector = ({ startDate, endDate, onChange }) => {
@@ -74,15 +75,16 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
         break
       case 'thisMonth':
         newStart = new Date(now.getFullYear(), now.getMonth(), 1)
-        newEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+        newEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate()) // PÂNĂ AZI, nu până la 31!
         break
       case 'lastMonth':
         newStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-        newEnd = new Date(now.getFullYear(), now.getMonth(), 0)
+        const lastDayOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0)
+        newEnd = lastDayOfPrevMonth // Ultima zi a lunii precedente
         break
       case 'thisYear':
         newStart = new Date(now.getFullYear(), 0, 1)
-        newEnd = new Date(now.getFullYear(), 11, 31)
+        newEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate()) // PÂNĂ AZI, nu până la 31 decembrie!
         break
       default:
         return
@@ -167,8 +169,8 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
         </div>
       </button>
       
-      {/* Modal - CA ÎN SCREENSHOT + QUICK ACTIONS! */}
-      {isOpen && (
+      {/* Modal - PORTAL (deasupra TUTUROR!) */}
+      {isOpen && ReactDOM.createPortal(
         <>
           <div 
             className="fixed inset-0 bg-black/70 backdrop-blur-md"
@@ -354,20 +356,20 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
                     />
                   </div>
                   
-                  {/* Month click areas */}
-                  <div className="flex justify-between">
+                  {/* Month click areas - DEASUPRA HANDLES! */}
+                  <div className="flex justify-between relative z-20">
                     {months.map((month, idx) => (
                       <button
                         key={idx}
                         onClick={() => handleMonthClick(idx)}
-                        className={`flex-1 h-8 text-xs transition-all rounded ${
+                        className={`flex-1 h-10 text-sm transition-all rounded-lg font-semibold ${
                           idx >= startMonth && idx <= endMonth
-                            ? 'text-cyan-300 font-bold bg-blue-700/50'
-                            : 'text-blue-400 hover:text-blue-200 hover:bg-blue-700/30'
+                            ? 'text-white bg-cyan-600 hover:bg-cyan-500 shadow-lg'
+                            : 'text-blue-300 hover:text-white hover:bg-blue-600 bg-blue-800/50'
                         }`}
-                        title={`Selectează ${month}`}
+                        title={`Selectează ${months[idx]}`}
                       >
-                        {idx >= startMonth && idx <= endMonth && '●'}
+                        {months[idx]}
                       </button>
                     ))}
                   </div>
@@ -409,7 +411,8 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
               
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   )
