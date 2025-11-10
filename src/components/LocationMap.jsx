@@ -18,9 +18,53 @@ L.Icon.Default.mergeOptions({
 const createCustomIcon = (brandName, isOwn = false) => {
   const color = isOwn ? '#10b981' : '#ef4444' // verde/roșu
   const bgColor = isOwn ? '#d1fae5' : '#fee2e2'
-  const emoji = isOwn ? '🏆' : '🏢'
   
-  // Emoji pentru brand-uri cunoscute
+  // CASHPOT/SMARTFLIX = FAVICON SVG!
+  const brandUpper = (brandName || '').toUpperCase()
+  const isCashpot = brandUpper.includes('CASHPOT') || brandUpper.includes('SMARTFLIX')
+  
+  if (isCashpot) {
+    // FAVICON CASHPOT (SVG cu litera "C" + gradient albastru-violet)
+    return L.divIcon({
+      html: `
+        <div style="
+          background: linear-gradient(135deg, #2563eb 0%, #8b5cf6 100%);
+          border: 3px solid ${color};
+          border-radius: 12px;
+          width: 50px;
+          height: 50px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-family: Inter, Arial, sans-serif;
+          font-size: 28px;
+          font-weight: 800;
+          color: white;
+          box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+          position: relative;
+        ">
+          C
+          <div style="
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 8px solid ${color};
+          "></div>
+        </div>
+      `,
+      className: 'custom-map-marker-cashpot',
+      iconSize: [50, 58],
+      iconAnchor: [25, 58],
+      popupAnchor: [0, -58]
+    })
+  }
+  
+  // COMPETITORI - Emoji pentru brand-uri cunoscute
   const brandEmojis = {
     'ADMIRAL': '⚓',
     'ADMIRAL CASINO': '⚓',
@@ -33,13 +77,10 @@ const createCustomIcon = (brandName, isOwn = false) => {
     'MONTE CARLO': '🎲',
     'ROYAL': '👑',
     'ELDORADO': '💰',
-    'JOKER': '🃏',
-    'CASHPOT': '🏆',
-    'SMARTFLIX': '🏆'
+    'JOKER': '🃏'
   }
   
-  const brandUpper = (brandName || '').toUpperCase()
-  let brandEmoji = emoji
+  let brandEmoji = '🏢' // default
   for (const [key, emoji] of Object.entries(brandEmojis)) {
     if (brandUpper.includes(key)) {
       brandEmoji = emoji
@@ -208,17 +249,27 @@ const LocationMap = ({ location }) => {
               console.log(`🔍 Geocoding competitor ${i+1}/${Math.min(competitorLocations.length, 10)}: ${comp.operator}`)
               console.log(`   Address: ${compAddress}`)
               
-              const compCoords = await geocodeAddress(compAddress)
+              let compCoords = await geocodeAddress(compAddress)
               
-              if (compCoords) {
-                console.log(`   ✅ Coords found: [${compCoords.lat}, ${compCoords.lng}]`)
-                geocodedCompetitors.push({
-                  ...comp,
-                  coords: compCoords
-                })
+              // FALLBACK: Dacă geocoding eșuează, folosește coords MAIN location cu offset mic
+              if (!compCoords) {
+                console.log(`   ⚠️ Geocoding failed, using main location coords with offset`)
+                // Offset aleatoriu mic (±0.005 lat/lng ≈ ±500m)
+                const offsetLat = (Math.random() - 0.5) * 0.01
+                const offsetLng = (Math.random() - 0.5) * 0.01
+                compCoords = {
+                  lat: mainLocationCoords.lat + offsetLat,
+                  lng: mainLocationCoords.lng + offsetLng
+                }
+                console.log(`   🎯 Fallback coords: [${compCoords.lat.toFixed(4)}, ${compCoords.lng.toFixed(4)}]`)
               } else {
-                console.log(`   ❌ Geocoding failed for ${comp.operator}`)
+                console.log(`   ✅ Coords found: [${compCoords.lat}, ${compCoords.lng}]`)
               }
+              
+              geocodedCompetitors.push({
+                ...comp,
+                coords: compCoords
+              })
               
               // Rate limiting: wait 1 second between requests (Nominatim requirement)
               if (i < Math.min(competitorLocations.length, 10) - 1) {
