@@ -14,24 +14,74 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 })
 
-// Custom icons
-const greenIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-})
-
-const redIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-})
+// CUSTOM ICONS cu LOGO-uri!
+const createCustomIcon = (brandName, isOwn = false) => {
+  const color = isOwn ? '#10b981' : '#ef4444' // verde/roșu
+  const bgColor = isOwn ? '#d1fae5' : '#fee2e2'
+  const emoji = isOwn ? '🏆' : '🏢'
+  
+  // Emoji pentru brand-uri cunoscute
+  const brandEmojis = {
+    'ADMIRAL': '⚓',
+    'ADMIRAL CASINO': '⚓',
+    'WINBET': '🎰',
+    'WINBET CASINO': '🎰',
+    'FORTUNA': '🍀',
+    'PRINCESS': '👑',
+    'VLAD CAZINO': '🦇',
+    'VEGAS': '💎',
+    'MONTE CARLO': '🎲',
+    'ROYAL': '👑',
+    'ELDORADO': '💰',
+    'JOKER': '🃏',
+    'CASHPOT': '🏆',
+    'SMARTFLIX': '🏆'
+  }
+  
+  const brandUpper = (brandName || '').toUpperCase()
+  let brandEmoji = emoji
+  for (const [key, emoji] of Object.entries(brandEmojis)) {
+    if (brandUpper.includes(key)) {
+      brandEmoji = emoji
+      break
+    }
+  }
+  
+  return L.divIcon({
+    html: `
+      <div style="
+        background: ${bgColor};
+        border: 3px solid ${color};
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        position: relative;
+      ">
+        ${brandEmoji}
+        <div style="
+          position: absolute;
+          bottom: -8px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 0;
+          height: 0;
+          border-left: 8px solid transparent;
+          border-right: 8px solid transparent;
+          border-top: 8px solid ${color};
+        "></div>
+      </div>
+    `,
+    className: 'custom-map-marker',
+    iconSize: [50, 58],
+    iconAnchor: [25, 58],
+    popupAnchor: [0, -58]
+  })
+}
 
 // Component to recenter map when coordinates change
 function ChangeMapView({ center }) {
@@ -147,18 +197,27 @@ const LocationMap = ({ location }) => {
             
             // Geocode competitor addresses (limit to first 10 to avoid rate limiting)
             const geocodedCompetitors = []
+            console.log(`🏢 Found ${competitorLocations.length} competitors in ${city}`)
+            
             for (let i = 0; i < Math.min(competitorLocations.length, 10); i++) {
               const comp = competitorLocations[i]
               const compAddress = comp.address?.toLowerCase().includes('romania') || comp.address?.toLowerCase().includes('românia')
                 ? comp.address
                 : `${comp.address}, România`
+              
+              console.log(`🔍 Geocoding competitor ${i+1}/${Math.min(competitorLocations.length, 10)}: ${comp.operator}`)
+              console.log(`   Address: ${compAddress}`)
+              
               const compCoords = await geocodeAddress(compAddress)
               
               if (compCoords) {
+                console.log(`   ✅ Coords found: [${compCoords.lat}, ${compCoords.lng}]`)
                 geocodedCompetitors.push({
                   ...comp,
                   coords: compCoords
                 })
+              } else {
+                console.log(`   ❌ Geocoding failed for ${comp.operator}`)
               }
               
               // Rate limiting: wait 1 second between requests (Nominatim requirement)
@@ -167,6 +226,7 @@ const LocationMap = ({ location }) => {
               }
             }
             
+            console.log(`✅ Geocoded ${geocodedCompetitors.length} competitors successfully`)
             setCompetitors(geocodedCompetitors)
           }
         } catch (err) {
@@ -240,11 +300,11 @@ const LocationMap = ({ location }) => {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           
-          {/* Main Location (CASHPOT - GREEN) */}
-          <Marker position={mainLocationCoords} icon={greenIcon}>
+          {/* Main Location (CASHPOT - GREEN cu LOGO!) */}
+          <Marker position={mainLocationCoords} icon={createCustomIcon(location.company || 'CASHPOT', true)}>
             <Popup>
               <div className="p-2">
-                <h4 className="font-bold text-green-700 mb-1">📍 {location.name}</h4>
+                <h4 className="font-bold text-green-700 mb-1">🏆 {location.name}</h4>
                 <p className="text-sm text-slate-600">{location.address}</p>
                 <p className="text-sm text-slate-600 mt-1">
                   <strong>Companie:</strong> {location.company}
@@ -256,12 +316,14 @@ const LocationMap = ({ location }) => {
             </Popup>
           </Marker>
           
-          {/* Competitors (RED) */}
+          {/* Competitors (RED cu LOGO BRAND!) */}
           {competitors.map((comp, index) => (
-            <Marker key={index} position={comp.coords} icon={redIcon}>
+            <Marker key={index} position={comp.coords} icon={createCustomIcon(comp.operator, false)}>
               <Popup>
                 <div className="p-2">
-                  <h4 className="font-bold text-red-700 mb-1">🏢 {comp.operator}</h4>
+                  <h4 className="font-bold text-red-700 mb-1 flex items-center">
+                    {comp.operator}
+                  </h4>
                   <p className="text-sm text-slate-600">{comp.address}</p>
                   <p className="text-sm text-slate-600 mt-1">
                     <strong>Sloturi:</strong> {comp.slot_count || 'N/A'} aparate
