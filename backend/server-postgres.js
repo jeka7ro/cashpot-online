@@ -2172,19 +2172,89 @@ app.post('/api/locations/:id/sync-competitors', async (req, res) => {
     
     console.log(`   City: ${city}, County: ${county}`)
     
-    // Fetch ONJN data (direct query, NU axios self-request!)
-    const onjnResult = await pool.query(`
-      SELECT * FROM onjn_operators
-      WHERE LOWER(city) = LOWER($1)
-      ORDER BY operator ASC
-    `, [city])
+    // Fetch ONJN data (scraping LIVE din site ONJN!)
+    console.log(`   Scraping LIVE ONJN pentru ${city}...`)
     
-    console.log(`   ONJN query result: ${onjnResult.rows.length} rows`)
+    const https = require('https')
+    const { load } = require('cheerio')
     
-    if (onjnResult.rows.length === 0) {
+    const BASE_URL = 'https://onjn.gov.ro'
+    const LIST_PATH = '/ro/equipments'
+    
+    let onjnData = []
+    
+    try {
+      // Scrape ONJN Class 1 pentru orașul respectiv
+      const params = new URLSearchParams()
+      params.set('city', city)
+      params.set('page', '1')
+      
+      const url = `${BASE_URL}${LIST_PATH}?${params}`
+      console.log(`   URL: ${url}`)
+      
+      const response = await new Promise((resolve, reject) => {
+        https.get(url, (res) => {
+          let data = ''
+          res.on('data', chunk => data += chunk)
+          res.on('end', () => resolve({ data }))
+        }).on('error', reject)
+      })
+      
+      const $ = load(response.data)
+      
+      // Parse table rows (group by address pentru unique locations)
+      const locations = new Map()
+      
+      $('table tbody tr').each((_, row) => {
+        const cells = $(row).find('td')
+        if (cells.length < 6) return
+        
+        const operator = $(cells[3]).text().trim()
+        const address = $(cells[5]).text().trim()
+        const cityFromTable = $(cells[6]).text().trim()
+        const countyFromTable = $(cells[7]).text().trim()
+        
+        // Group by address (1 location poate avea multiple sloturi)
+        const key = `${operator}_${address}`
+        
+        if (!locations.has(key)) {
+          locations.set(key, {
+            location_name: `${operator} ${cityFromTable}`,
+            operator: operator,
+            address: address,
+            city: cityFromTable,
+            county: countyFromTable,
+            slot_count: 1
+          })
+        } else {
+          locations.get(key).slot_count++
+        }
+      })
+      
+      onjnData = Array.from(locations.values())
+      console.log(`   Scraped ${onjnData.length} unique locations din ONJN`)
+    } catch (scrapeError) {
+      console.error(`   ❌ ONJN scraping failed: ${scrapeError.message}`)
+      console.log(`   Returnez empty (NU crapă cu 500!)`)
+      
       return res.json({
         success: true,
-        message: `Nu există date ONJN pentru ${city}`,
+        message: `Nu s-au putut încărca date ONJN pentru ${city}`,
+        data: {
+          updated_at: new Date().toISOString(),
+          city: city,
+          county: county,
+          total: 0,
+          competitors: []
+        }
+      })
+    }
+    
+    if (onjnData.length === 0) {
+      console.log(`   ⚠️ NU există competitori în ${city}`)
+      return res.json({
+        success: true,
+        message: `Nu există competitori în ${city}`,
         data: {
           updated_at: new Date().toISOString(),
           city: city,
@@ -2198,19 +2268,8 @@ app.post('/api/locations/:id/sync-competitors', async (req, res) => {
     const onjnResponse = {
       data: {
         success: true,
-        locations: onjnResult.rows.map(row => ({
-          location_name: row.location_name,
-          operator: row.operator,
-          address: row.address,
-          city: row.city,
-          county: row.county,
-          slot_count: row.slot_count
-        }))
+        locations: onjnData
       }
-    }
-    
-    if (!onjnResponse.data || !onjnResponse.data.success) {
-      return res.status(500).json({ success: false, error: 'Failed to fetch ONJN data' })
     }
     
     // Filter out CASHPOT/SMARTFLIX locations + DOAR același oraș!
