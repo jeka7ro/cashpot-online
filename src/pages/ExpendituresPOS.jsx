@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
-import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp, Table2, MapPin } from 'lucide-react'
+import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp, Table2, MapPin, ArrowLeft } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import ExpendituresMappingModal from '../components/modals/ExpendituresMappingModal'
 import ExpendituresSettingsModal from '../components/modals/ExpendituresSettingsModal'
@@ -13,6 +13,7 @@ import ExpendituresAdvancedCharts from '../components/ExpendituresAdvancedCharts
 import ExpendituresTable from '../components/ExpendituresTable'
 import DateRangeSelector from '../components/DateRangeSelector'
 import { generateAIInsights } from '../utils/aiInsights'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 const Expenditures = () => {
   const { user } = useAuth()
@@ -226,8 +227,8 @@ const Expenditures = () => {
       return dept !== 'unknown' && dept !== '' && dept !== 'null'
     })
     
-    // INCLUDE DOAR POS, Bancă, Registru de Casă (invers față de Cheltuieli!)
-    const includedDepartments = ['POS', 'Registru de Casă', 'Bancă']
+    // INCLUDE DOAR POS și Bancă (DOAR ACESTEA 2!)
+    const includedDepartments = ['POS', 'Bancă']
     filteredData = filteredData.filter(item => {
       return includedDepartments.includes(item.department_name)
     })
@@ -317,8 +318,8 @@ const Expenditures = () => {
       return dept !== 'unknown' && dept !== '' && dept !== 'null'
     })
     
-    // INCLUDE DOAR POS, Bancă, Registru de Casă (invers față de Cheltuieli!)
-    const includedDepartments = ['POS', 'Registru de Casă', 'Bancă']
+    // INCLUDE DOAR POS și Bancă (DOAR ACESTEA 2!)
+    const includedDepartments = ['POS', 'Bancă']
     filtered = filtered.filter(item => {
       return includedDepartments.includes(item.department_name)
     })
@@ -409,14 +410,23 @@ const Expenditures = () => {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center">
-          <Building2 className="w-8 h-8 mr-3 text-emerald-500" />
-          POS & Bancă - Încasări
-        </h1>
-            <p className="text-slate-600 dark:text-slate-400 mt-2">
-              Încasări POS și depuneri la bancă din casieriile de locații
-            </p>
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => navigate('/expenditures')}
+              className="p-3 bg-gradient-to-r from-slate-100 to-slate-200 hover:from-slate-200 hover:to-slate-300 dark:from-slate-700 dark:to-slate-800 dark:hover:from-slate-600 dark:hover:to-slate-700 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center space-x-2 text-slate-700 dark:text-slate-300"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span className="font-semibold">Înapoi la Cheltuieli</span>
+            </button>
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center">
+                <Building2 className="w-8 h-8 mr-3 text-emerald-500" />
+                POS & Bancă - Încasări
+              </h1>
+              <p className="text-slate-600 dark:text-slate-400 mt-2">
+                Încasări POS și depuneri la bancă din casieriile de locații
+              </p>
+            </div>
           </div>
           
           <div className="flex space-x-3">
@@ -552,9 +562,59 @@ const Expenditures = () => {
                 </p>
               </div>
             </div>
-            <div className="h-64 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center">
-              <p className="text-slate-500 dark:text-slate-400">📊 Grafic evoluție încasări (în dezvoltare)</p>
-            </div>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={(() => {
+                // Process trend data pentru POS & Bancă
+                const monthMap = {}
+                filteredExpendituresForCharts.forEach(item => {
+                  const dateObj = new Date(item.operational_date)
+                  const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`
+                  if (!monthMap[monthKey]) {
+                    monthMap[monthKey] = 0
+                  }
+                  monthMap[monthKey] += parseFloat(item.amount || 0)
+                })
+                return Object.entries(monthMap)
+                  .sort((a, b) => a[0].localeCompare(b[0]))
+                  .map(([monthKey, value]) => {
+                    const [year, month] = monthKey.split('-')
+                    const dateObj = new Date(parseInt(year), parseInt(month) - 1, 1)
+                    return {
+                      date: dateObj.toLocaleDateString('ro-RO', { month: 'short', year: 'numeric' }),
+                      value: Math.round(value)
+                    }
+                  })
+              })()}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
+                <XAxis 
+                  dataKey="date" 
+                  stroke="#64748b" 
+                  style={{ fontSize: '12px' }}
+                />
+                <YAxis 
+                  stroke="#64748b" 
+                  style={{ fontSize: '12px' }}
+                  tickFormatter={(value) => formatCurrency(value)}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#1e293b', 
+                    border: 'none', 
+                    borderRadius: '12px',
+                    color: '#fff'
+                  }}
+                  formatter={(value) => [`${formatCurrency(value)} RON`, 'Încasări']}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="value" 
+                  stroke="#10b981" 
+                  strokeWidth={3}
+                  dot={{ fill: '#10b981', strokeWidth: 2, r: 6 }}
+                  activeDot={{ r: 8, stroke: '#10b981', strokeWidth: 2 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         )}
         
