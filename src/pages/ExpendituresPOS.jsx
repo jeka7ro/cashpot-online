@@ -382,8 +382,12 @@ const Expenditures = () => {
     .filter(dept => !excludedDepartments.includes(dept))
     .sort()
   
-  // Get unique expenditure types for filter
-  const uniqueExpenditureTypes = [...new Set(expendituresData.map(item => item.expenditure_type))].filter(Boolean).sort()
+  // Get unique expenditure types for filter (DOAR pentru POS și Bancă!)
+  const uniqueExpenditureTypes = [...new Set(
+    expendituresData
+      .filter(item => ['POS', 'Bancă'].includes(item.department_name))
+      .map(item => item.expenditure_type)
+  )].filter(Boolean).sort()
   
   // Format currency
   const formatCurrency = (amount) => {
@@ -522,10 +526,9 @@ const Expenditures = () => {
                   onChange={(e) => setDepartmentFilter(e.target.value)}
                   className="input-field"
                 >
-                  <option value="all">Toate Departamentele</option>
-                  {uniqueDepartments.map(dept => (
-                    <option key={dept} value={dept}>{dept}</option>
-                  ))}
+                  <option value="all">POS & Bancă</option>
+                  <option value="POS">POS</option>
+                  <option value="Bancă">Bancă</option>
                 </select>
               </div>
               
