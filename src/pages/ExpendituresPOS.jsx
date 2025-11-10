@@ -821,88 +821,184 @@ const Expenditures = () => {
           </div>
         </div>
         
-        {/* Grafic Evoluție Încasări (DOAR acesta!) */}
-        {filteredExpendituresForCharts.length > 0 && (
-          <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">📈 Evoluție Încasări POS & Bancă</h3>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                  Depuneri la bancă și încasări POS din casieriile de locații
-                </p>
+        {/* 2 GRAFICE SEPARATE: POS și Bancă */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Grafic 1: Evoluție POS */}
+          {filteredExpendituresForCharts.filter(item => item.department_name === 'POS').length > 0 && (
+            <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center">
+                    <Coins className="w-6 h-6 mr-2 text-green-600" />
+                    Evoluție Încasări POS
+                  </h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                    Încasări POS din casieriile de locații
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                    {formatCurrency(filteredExpendituresForCharts.filter(item => item.department_name === 'POS').reduce((sum, item) => sum + parseFloat(item.amount || 0), 0))} RON
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-end mt-1">
+                    <TrendingUp className="w-3 h-3 mr-1 text-green-500" />
+                    Total POS
+                  </p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
-                  {formatCurrency(filteredExpendituresForCharts.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0))} RON
-                </p>
-                <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center justify-end mt-1">
-                  <TrendingUp className="w-4 h-4 mr-1 text-green-500" />
-                  Total încasări
-                </p>
-              </div>
-            </div>
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={(() => {
-                // Process trend data pentru POS & Bancă
-                const monthMap = {}
-                filteredExpendituresForCharts.forEach(item => {
-                  const dateObj = new Date(item.operational_date)
-                  const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`
-                  if (!monthMap[monthKey]) {
-                    monthMap[monthKey] = 0
-                  }
-                  monthMap[monthKey] += parseFloat(item.amount || 0)
-                })
-                return Object.entries(monthMap)
-                  .sort((a, b) => a[0].localeCompare(b[0]))
-                  .map(([monthKey, value]) => {
-                    const [year, month] = monthKey.split('-')
-                    const dateObj = new Date(parseInt(year), parseInt(month) - 1, 1)
-                    return {
-                      date: dateObj.toLocaleDateString('ro-RO', { month: 'short', year: 'numeric' }),
-                      value: Math.round(value)
-                    }
-                  })
-              })()}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
-                <XAxis 
-                  dataKey="date" 
-                  stroke="#64748b" 
-                  style={{ fontSize: '12px' }}
-                />
-                <YAxis 
-                  stroke="#64748b" 
-                  style={{ fontSize: '12px' }}
-                  tickFormatter={(value) => formatCurrency(value)}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#1e293b', 
-                    border: 'none', 
-                    borderRadius: '12px',
-                    color: '#fff'
-                  }}
-                  formatter={(value) => [`${formatCurrency(value)} RON`, 'Încasări']}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke="#10b981" 
-                  strokeWidth={3}
-                  dot={{ fill: '#10b981', strokeWidth: 2, r: 6 }}
-                  activeDot={{ r: 8, stroke: '#10b981', strokeWidth: 2 }}
-                >
-                  <LabelList 
-                    dataKey="value" 
-                    position="top" 
-                    formatter={(value) => formatCurrency(value)}
-                    style={{ fontSize: '11px', fontWeight: 'bold', fill: '#059669' }}
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={(() => {
+                  // Process trend data DOAR pentru POS
+                  const monthMap = {}
+                  filteredExpendituresForCharts
+                    .filter(item => item.department_name === 'POS')
+                    .forEach(item => {
+                      const dateObj = new Date(item.operational_date)
+                      const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`
+                      if (!monthMap[monthKey]) {
+                        monthMap[monthKey] = 0
+                      }
+                      monthMap[monthKey] += parseFloat(item.amount || 0)
+                    })
+                  return Object.entries(monthMap)
+                    .sort((a, b) => a[0].localeCompare(b[0]))
+                    .map(([monthKey, value]) => {
+                      const [year, month] = monthKey.split('-')
+                      const dateObj = new Date(parseInt(year), parseInt(month) - 1, 1)
+                      return {
+                        date: dateObj.toLocaleDateString('ro-RO', { month: 'short', year: 'numeric' }),
+                        value: Math.round(value)
+                      }
+                    })
+                })()}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="#64748b" 
+                    style={{ fontSize: '11px' }}
                   />
-                </Line>
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
+                  <YAxis 
+                    stroke="#64748b" 
+                    style={{ fontSize: '11px' }}
+                    tickFormatter={(value) => formatCurrency(value)}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#1e293b', 
+                      border: 'none', 
+                      borderRadius: '12px',
+                      color: '#fff'
+                    }}
+                    formatter={(value) => [`${formatCurrency(value)} RON`, 'POS']}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke="#10b981" 
+                    strokeWidth={3}
+                    dot={{ fill: '#10b981', strokeWidth: 2, r: 6 }}
+                    activeDot={{ r: 8, stroke: '#10b981', strokeWidth: 2 }}
+                  >
+                    <LabelList 
+                      dataKey="value" 
+                      position="top" 
+                      formatter={(value) => formatCurrency(value)}
+                      style={{ fontSize: '10px', fontWeight: 'bold', fill: '#059669' }}
+                    />
+                  </Line>
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+          
+          {/* Grafic 2: Evoluție Bancă */}
+          {filteredExpendituresForCharts.filter(item => item.department_name === 'Bancă').length > 0 && (
+            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center">
+                    <Building2 className="w-6 h-6 mr-2 text-blue-600" />
+                    Evoluție Depuneri Bancă
+                  </h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                    Depuneri la bancă din casieriile de locații
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    {formatCurrency(filteredExpendituresForCharts.filter(item => item.department_name === 'Bancă').reduce((sum, item) => sum + parseFloat(item.amount || 0), 0))} RON
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-end mt-1">
+                    <TrendingUp className="w-3 h-3 mr-1 text-blue-500" />
+                    Total Bancă
+                  </p>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={(() => {
+                  // Process trend data DOAR pentru Bancă
+                  const monthMap = {}
+                  filteredExpendituresForCharts
+                    .filter(item => item.department_name === 'Bancă')
+                    .forEach(item => {
+                      const dateObj = new Date(item.operational_date)
+                      const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`
+                      if (!monthMap[monthKey]) {
+                        monthMap[monthKey] = 0
+                      }
+                      monthMap[monthKey] += parseFloat(item.amount || 0)
+                    })
+                  return Object.entries(monthMap)
+                    .sort((a, b) => a[0].localeCompare(b[0]))
+                    .map(([monthKey, value]) => {
+                      const [year, month] = monthKey.split('-')
+                      const dateObj = new Date(parseInt(year), parseInt(month) - 1, 1)
+                      return {
+                        date: dateObj.toLocaleDateString('ro-RO', { month: 'short', year: 'numeric' }),
+                        value: Math.round(value)
+                      }
+                    })
+                })()}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="#64748b" 
+                    style={{ fontSize: '11px' }}
+                  />
+                  <YAxis 
+                    stroke="#64748b" 
+                    style={{ fontSize: '11px' }}
+                    tickFormatter={(value) => formatCurrency(value)}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#1e293b', 
+                      border: 'none', 
+                      borderRadius: '12px',
+                      color: '#fff'
+                    }}
+                    formatter={(value) => [`${formatCurrency(value)} RON`, 'Bancă']}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke="#3b82f6" 
+                    strokeWidth={3}
+                    dot={{ fill: '#3b82f6', strokeWidth: 2, r: 6 }}
+                    activeDot={{ r: 8, stroke: '#3b82f6', strokeWidth: 2 }}
+                  >
+                    <LabelList 
+                      dataKey="value" 
+                      position="top" 
+                      formatter={(value) => formatCurrency(value)}
+                      style={{ fontSize: '10px', fontWeight: 'bold', fill: '#1e40af' }}
+                    />
+                  </Line>
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
         
         {/* Grafic per LOCAȚIE (POS & Bancă) */}
         {filteredExpendituresForCharts.length > 0 && (
