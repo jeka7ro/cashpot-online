@@ -61,10 +61,11 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
     })
     
     return Object.entries(dateMap)
-      .sort((a, b) => a[0].localeCompare(b[0]))
+      .sort((a, b) => new Date(a[0]) - new Date(b[0])) // SORTARE după DATĂ (nu alfabetic!)
       .map(([date, value]) => ({ 
         date: new Date(date).toLocaleDateString('ro-RO', { day: 'numeric', month: 'short' }), 
-        value: Math.round(value) 
+        value: Math.round(value),
+        originalDate: date // păstrează data originală pentru debug
       }))
   }
   

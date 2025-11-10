@@ -351,7 +351,12 @@ const Expenditures = () => {
   }
   
   // Get unique departments for filter
-  const uniqueDepartments = [...new Set(expendituresData.map(item => item.department_name))].filter(Boolean).sort()
+  // EXCLUDE 4 departamente debifate din dropdown!
+  const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli', 'Unknown']
+  const uniqueDepartments = [...new Set(expendituresData.map(item => item.department_name))]
+    .filter(Boolean)
+    .filter(dept => !excludedDepartments.includes(dept))
+    .sort()
   
   // Get unique expenditure types for filter
   const uniqueExpenditureTypes = [...new Set(expendituresData.map(item => item.expenditure_type))].filter(Boolean).sort()
