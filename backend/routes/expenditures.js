@@ -591,6 +591,10 @@ router.put('/settings', async (req, res) => {
     const { settings } = req.body
     const pool = req.app.get('pool')
     
+    console.log('🔧 PUT /settings - Received request')
+    console.log('   Settings:', settings ? 'YES' : 'NO')
+    console.log('   Pool:', pool ? 'YES' : 'NO')
+    
     // VERIFICARE POOL (Render poate să returneze undefined/null)
     if (!pool) {
       console.error('❌ POOL is NULL/undefined - Render connection failed!')
