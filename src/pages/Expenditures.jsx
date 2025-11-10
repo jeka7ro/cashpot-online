@@ -311,28 +311,31 @@ const Expenditures = () => {
   const previousMonthData = React.useMemo(() => {
     if (!expendituresData || expendituresData.length === 0) return { total: 0, percentage: 0, isPositive: true }
     
-    const now = new Date()
-    const currentMonth = now.getMonth()
-    const currentYear = now.getFullYear()
+    const today = new Date()
+    const currentDay = today.getDate()
+    const currentMonth = today.getMonth()
+    const currentYear = today.getFullYear()
     
-    // Previous month calculation
-    let prevMonth = currentMonth - 1
-    let prevYear = currentYear
-    if (prevMonth < 0) {
-      prevMonth = 11
-      prevYear = currentYear - 1
-    }
+    // Current month (up to current day)
+    const currentMonthStart = new Date(currentYear, currentMonth, 1)
+    const currentMonthEnd = new Date(currentYear, currentMonth, currentDay, 23, 59, 59)
     
-    // Filter for current month
+    // Previous month (same days: 1 to current day)
+    const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1
+    const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear
+    const prevMonthStart = new Date(prevYear, prevMonth, 1)
+    const prevMonthEnd = new Date(prevYear, prevMonth, currentDay, 23, 59, 59)
+    
+    // Filter for current month (up to current day)
     const currentMonthData = expendituresData.filter(item => {
       const itemDate = new Date(item.operational_date)
-      return itemDate.getMonth() === currentMonth && itemDate.getFullYear() === currentYear
+      return itemDate >= currentMonthStart && itemDate <= currentMonthEnd
     })
     
-    // Filter for previous month
+    // Filter for previous month (same days)
     const prevMonthData = expendituresData.filter(item => {
       const itemDate = new Date(item.operational_date)
-      return itemDate.getMonth() === prevMonth && itemDate.getFullYear() === prevYear
+      return itemDate >= prevMonthStart && itemDate <= prevMonthEnd
     })
     
     const currentTotal = currentMonthData.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
@@ -676,6 +679,9 @@ const Expenditures = () => {
                     : 'text-red-600 dark:text-red-400'
                 }`}>
                   {previousMonthData.isPositive ? '+' : '-'}{previousMonthData.percentage.toFixed(1)}%
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Primele {new Date().getDate()} zile vs luna trecută
                 </p>
               </div>
               {/* Iconița dinamică cu procentaj */}
