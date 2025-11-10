@@ -136,7 +136,7 @@ const AIInsights = () => {
               </p>
               <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1 list-disc list-inside">
                 <li><strong>Trend Analysis</strong> - Compară luna curentă vs anterioară</li>
-                <li><strong>Anomaly Detection</strong> - Detectează valori neobișnuite (>2σ)</li>
+                <li><strong>Anomaly Detection</strong> - Detectează valori neobișnuite (&gt;2σ)</li>
                 <li><strong>Department Analysis</strong> - Identifică cei mai mari spenderi</li>
                 <li><strong>Location Growth</strong> - Monitorizează creșteri/scăderi</li>
                 <li><strong>Prediction</strong> - Estimează cheltuielile lunii următoare</li>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { 
   ChevronDown, ChevronRight, Maximize2, Minimize2,
-  Users, Coffee, Home, Broom, ShieldCheck, Box, Music, Briefcase,
+  Users, Coffee, Home, Sparkles, ShieldCheck, Box, Music, Briefcase,
   DollarSign, Coins, Zap, Truck, Megaphone, Wrench, Scale,
   FileText, Settings, Wine, Banknote, Building2, Factory
 } from 'lucide-react'
@@ -16,7 +16,7 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
       'Salarii': Users,
       'Bar': Coffee,
       'Chirie': Home,
-      'Servicii de Curățenie': Broom,
+      'Servicii de Curățenie': Sparkles,
       'Pază și Intervenție': ShieldCheck,
       'Achiziții Sloturi și accesorii': Box,
       'Asociația pentru drepturi de autor': Music,
