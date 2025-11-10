@@ -479,11 +479,19 @@ const Expenditures = () => {
           <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-purple-900/20 dark:to-pink-900/20 p-6 rounded-2xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Categorii</p>
-                <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-2">{matrix.length}</p>
+                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Zile Selectate</p>
+                <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-2">
+                  {(() => {
+                    const start = new Date(dateRange.startDate)
+                    const end = new Date(dateRange.endDate)
+                    const diffTime = Math.abs(end - start)
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
+                    return diffDays
+                  })()}
+                </p>
               </div>
               <div className="p-4 bg-purple-500/10 rounded-2xl">
-                <Briefcase className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+                <Calendar className="w-8 h-8 text-purple-600 dark:text-purple-400" />
               </div>
             </div>
           </div>

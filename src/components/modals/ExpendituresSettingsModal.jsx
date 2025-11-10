@@ -93,16 +93,36 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
     try {
       setSaving(true)
       
-      console.log('💾 SALVARE SETĂRI - Ce trimit la backend:', {
-        includedDepartments: settings.includedDepartments,
-        includedExpenditureTypes: settings.includedExpenditureTypes,
-        includedLocations: settings.includedLocations,
-        departmentsCount: settings.includedDepartments?.length,
-        typesCount: settings.includedExpenditureTypes?.length,
-        locationsCount: settings.includedLocations?.length
+      // REMOVE DUPLICATES! (72 → 71)
+      const cleanedSettings = {
+        ...settings,
+        includedExpenditureTypes: [...new Set(settings.includedExpenditureTypes)],
+        includedDepartments: [...new Set(settings.includedDepartments)],
+        includedLocations: [...new Set(settings.includedLocations)]
+      }
+      
+      console.log('💾 SALVARE SETĂRI - ÎNAINTE de cleanup:', {
+        types: settings.includedExpenditureTypes?.length,
+        departments: settings.includedDepartments?.length,
+        locations: settings.includedLocations?.length
       })
       
-      const response = await axios.put('/api/expenditures/settings', { settings })
+      console.log('🧹 DUPĂ cleanup (duplicates removed):', {
+        types: cleanedSettings.includedExpenditureTypes?.length,
+        departments: cleanedSettings.includedDepartments?.length,
+        locations: cleanedSettings.includedLocations?.length
+      })
+      
+      console.log('💾 SALVARE SETĂRI - Ce trimit la backend:', {
+        includedDepartments: cleanedSettings.includedDepartments,
+        includedExpenditureTypes: cleanedSettings.includedExpenditureTypes,
+        includedLocations: cleanedSettings.includedLocations,
+        departmentsCount: cleanedSettings.includedDepartments?.length,
+        typesCount: cleanedSettings.includedExpenditureTypes?.length,
+        locationsCount: cleanedSettings.includedLocations?.length
+      })
+      
+      const response = await axios.put('/api/expenditures/settings', { settings: cleanedSettings })
       
       console.log('✅ RĂSPUNS de la backend:', response.data)
       
@@ -230,7 +250,12 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
               
               <div className="bg-slate-50 dark:bg-slate-900/40 rounded-lg p-4">
                 <div className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-                  <strong>{settings.includedExpenditureTypes.length}</strong> / <strong>{expenditureTypes.length}</strong> tipuri selectate
+                  <strong>{[...new Set(settings.includedExpenditureTypes)].length}</strong> / <strong>{expenditureTypes.length}</strong> tipuri selectate
+                  {settings.includedExpenditureTypes.length !== [...new Set(settings.includedExpenditureTypes)].length && (
+                    <span className="ml-2 text-xs text-orange-600 dark:text-orange-400">
+                      (⚠️ {settings.includedExpenditureTypes.length - [...new Set(settings.includedExpenditureTypes)].length} duplicate)
+                    </span>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-96 overflow-y-auto">
                   {expenditureTypes.map(type => (
@@ -292,7 +317,12 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
               
               <div className="bg-slate-50 dark:bg-slate-900/40 rounded-lg p-4">
                 <div className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-                  <strong>{settings.includedDepartments.length}</strong> / <strong>{departments.length}</strong> departamente selectate
+                  <strong>{[...new Set(settings.includedDepartments)].length}</strong> / <strong>{departments.length}</strong> departamente selectate
+                  {settings.includedDepartments.length !== [...new Set(settings.includedDepartments)].length && (
+                    <span className="ml-2 text-xs text-orange-600 dark:text-orange-400">
+                      (⚠️ {settings.includedDepartments.length - [...new Set(settings.includedDepartments)].length} duplicate)
+                    </span>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-96 overflow-y-auto">
                   {departments.map(dept => (
