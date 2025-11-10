@@ -2172,10 +2172,42 @@ app.post('/api/locations/:id/sync-competitors', async (req, res) => {
     
     console.log(`   City: ${city}, County: ${county}`)
     
-    // Fetch ONJN data
-    const onjnResponse = await axios.get(`${req.protocol}://${req.get('host')}/api/onjn/class1/by-city/${encodeURIComponent(city)}`, {
-      timeout: 30000
-    })
+    // Fetch ONJN data (direct query, NU axios self-request!)
+    const onjnResult = await pool.query(`
+      SELECT * FROM onjn_operators
+      WHERE LOWER(city) = LOWER($1)
+      ORDER BY operator ASC
+    `, [city])
+    
+    console.log(`   ONJN query result: ${onjnResult.rows.length} rows`)
+    
+    if (onjnResult.rows.length === 0) {
+      return res.json({
+        success: true,
+        message: `Nu există date ONJN pentru ${city}`,
+        data: {
+          updated_at: new Date().toISOString(),
+          city: city,
+          county: county,
+          total: 0,
+          competitors: []
+        }
+      })
+    }
+    
+    const onjnResponse = {
+      data: {
+        success: true,
+        locations: onjnResult.rows.map(row => ({
+          location_name: row.location_name,
+          operator: row.operator,
+          address: row.address,
+          city: row.city,
+          county: row.county,
+          slot_count: row.slot_count
+        }))
+      }
+    }
     
     if (!onjnResponse.data || !onjnResponse.data.success) {
       return res.status(500).json({ success: false, error: 'Failed to fetch ONJN data' })

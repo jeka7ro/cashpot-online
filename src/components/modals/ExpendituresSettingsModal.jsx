@@ -220,6 +220,7 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
               { id: 'departments', label: 'Departamente', count: departments.length }, // PRIMUL! (user vrea asta)
               { id: 'types', label: 'Tipuri Cheltuieli', count: expenditureTypes.length },
               { id: 'locations', label: 'Locații', count: locations.length },
+              { id: 'charts', label: '📊 Grafice', count: 8 }, // Charts visibility + size
               { id: 'general', label: 'Setări Generale' }
             ].map(tab => (
               <button
@@ -443,6 +444,101 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                     </label>
                   ))}
                 </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Charts Settings Tab */}
+          {activeTab === 'charts' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Setări Grafice</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Configurează vizibilitatea și dimensiunea graficelor
+                </p>
+              </div>
+
+              {/* Charts Visibility */}
+              <div className="bg-white dark:bg-slate-900/40 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+                <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4">
+                  ✅ Vizibilitate Grafice (ON/OFF)
+                </h4>
+                <div className="space-y-3">
+                  {[
+                    { id: 'evolution', label: '📈 Evoluție Lunară', description: 'Line chart cu trend cheltuieli' },
+                    { id: 'departments', label: '📊 Top Departamente', description: 'Bar chart cu cele mai mari cheltuieli' },
+                    { id: 'locations', label: '🥧 Distribuție Locații', description: 'Pie chart cu procente pe locații' },
+                    { id: 'comparison', label: '📊 Comparație Luna vs Luna', description: 'Bar chart luna curentă vs anterioară' },
+                    { id: 'heatmap', label: '🔥 Heatmap Categorii × Locații', description: 'Matrix cu intensitate culoare' },
+                    { id: 'topCategories', label: '🥧 Top 10 Categorii', description: 'Pie chart cu cele mai mari categorii' },
+                    { id: 'stackedArea', label: '📊 Evoluție Departamente', description: 'Stacked area chart' },
+                    { id: 'aiTrend', label: '🤖 Predicție AI', description: 'Trend prediction cu AI (3 luni)' }
+                  ].map(chart => (
+                    <label key={chart.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/50 cursor-pointer transition-colors">
+                      <div className="flex-1">
+                        <div className="font-medium text-slate-900 dark:text-slate-100">{chart.label}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{chart.description}</div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={(() => {
+                          const saved = localStorage.getItem('expenditures_charts_visibility')
+                          const visibility = saved ? JSON.parse(saved) : {}
+                          return visibility[chart.id] !== false // Default: true
+                        })()}
+                        onChange={(e) => {
+                          const saved = localStorage.getItem('expenditures_charts_visibility')
+                          const visibility = saved ? JSON.parse(saved) : {}
+                          visibility[chart.id] = e.target.checked
+                          localStorage.setItem('expenditures_charts_visibility', JSON.stringify(visibility))
+                        }}
+                        className="w-5 h-5 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Charts Size */}
+              <div className="bg-white dark:bg-slate-900/40 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+                <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4">
+                  📐 Dimensiune Grafice
+                </h4>
+                <div className="space-y-3">
+                  {[
+                    { id: 'M', label: 'Medium (M)', description: '2 grafice pe rând (grid 2×N)', width: 'col-span-6' },
+                    { id: 'L', label: 'Large (L)', description: '1 grafic pe rând (grid 1×N)', width: 'col-span-12' },
+                    { id: 'XL', label: 'Extra Large (XL)', description: 'Full width (aspect ratio mai mare)', width: 'col-span-12 h-96' }
+                  ].map(size => (
+                    <label key={size.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/50 cursor-pointer transition-colors">
+                      <div className="flex-1">
+                        <div className="font-medium text-slate-900 dark:text-slate-100">{size.label}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{size.description}</div>
+                        <div className="text-xs text-purple-600 dark:text-purple-400 mt-1 font-mono">{size.width}</div>
+                      </div>
+                      <input
+                        type="radio"
+                        name="chart-size"
+                        value={size.id}
+                        checked={(() => {
+                          const saved = localStorage.getItem('expenditures_charts_size')
+                          return (saved || 'L') === size.id
+                        })()}
+                        onChange={(e) => {
+                          localStorage.setItem('expenditures_charts_size', e.target.value)
+                        }}
+                        className="w-5 h-5 text-purple-600 focus:ring-2 focus:ring-purple-500"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                <p className="text-sm text-blue-800 dark:text-blue-300">
+                  💡 <strong>Notă:</strong> Setările graficelor se salvează automat în browser (localStorage). 
+                  Nu necesită sincronizare cu server-ul.
+                </p>
               </div>
             </div>
           )}
