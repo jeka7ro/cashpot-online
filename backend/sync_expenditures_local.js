@@ -124,10 +124,12 @@ async function syncExpenditures() {
     const beforeFilterCount = records.length
     
     // Filter by INCLUDED departments (dacă lista NU e goală)
-    if (filterSettings.includedDepartments && filterSettings.includedDepartments.length > 0) {
-      records = records.filter(r => filterSettings.includedDepartments.includes(r.department_name))
-      console.log(`🔧 Department filter: ${beforeFilterCount} → ${records.length} records (excluded ${beforeFilterCount - records.length})`)
-    }
+    // TEMPORAR DEZACTIVAT pentru a vedea TOATE departamentele noi!
+    // if (filterSettings.includedDepartments && filterSettings.includedDepartments.length > 0) {
+    //   records = records.filter(r => filterSettings.includedDepartments.includes(r.department_name))
+    //   console.log(`🔧 Department filter: ${beforeFilterCount} → ${records.length} records (excluded ${beforeFilterCount - records.length})`)
+    // }
+    console.log(`✅ Department filter: DISABLED - syncing ALL departments (${records.length} records)`)
     
     // Filter by INCLUDED expenditure types (dacă lista NU e goală)
     if (filterSettings.includedExpenditureTypes && filterSettings.includedExpenditureTypes.length > 0) {
