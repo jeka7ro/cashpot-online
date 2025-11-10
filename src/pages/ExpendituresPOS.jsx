@@ -13,7 +13,7 @@ import ExpendituresAdvancedCharts from '../components/ExpendituresAdvancedCharts
 import ExpendituresTable from '../components/ExpendituresTable'
 import DateRangeSelector from '../components/DateRangeSelector'
 import { generateAIInsights } from '../utils/aiInsights'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 
 const Expenditures = () => {
   const { user } = useAuth()
@@ -232,6 +232,8 @@ const Expenditures = () => {
     filteredData = filteredData.filter(item => {
       return includedDepartments.includes(item.department_name)
     })
+    
+    console.log(`🔍 POS & Bancă: Filtrat ${filteredData.length} înregistrări din ${expendituresData.length} total`)
     
     // DATE RANGE FILTER
     if (dateRange.startDate && dateRange.endDate) {
@@ -627,11 +629,151 @@ const Expenditures = () => {
           <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-orange-900/20 dark:to-amber-900/20 p-6 rounded-2xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Înregistrări</p>
-                <p className="text-3xl font-bold text-orange-600 dark:text-orange-400 mt-2">{filteredCount}</p>
+                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Evoluție vs Luna Trecută</p>
+                <p className={`text-3xl font-bold mt-2 ${
+                  (() => {
+                    // Calculate current month vs previous month (same days)
+                    const today = new Date()
+                    const currentDay = today.getDate()
+                    const currentMonth = today.getMonth()
+                    const currentYear = today.getFullYear()
+                    
+                    // Current month (up to current day)
+                    const currentMonthStart = new Date(currentYear, currentMonth, 1)
+                    const currentMonthEnd = new Date(currentYear, currentMonth, currentDay, 23, 59, 59)
+                    
+                    // Previous month (same days: 1 to current day)
+                    const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1
+                    const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear
+                    const prevMonthStart = new Date(prevYear, prevMonth, 1)
+                    const prevMonthEnd = new Date(prevYear, prevMonth, currentDay, 23, 59, 59)
+                    
+                    // Filter data for current month (up to current day)
+                    const currentMonthData = filteredExpendituresForCharts.filter(item => {
+                      const itemDate = new Date(item.operational_date)
+                      return itemDate >= currentMonthStart && itemDate <= currentMonthEnd
+                    })
+                    
+                    // Filter data for previous month (same days)
+                    const prevMonthData = filteredExpendituresForCharts.filter(item => {
+                      const itemDate = new Date(item.operational_date)
+                      return itemDate >= prevMonthStart && itemDate <= prevMonthEnd
+                    })
+                    
+                    const currentTotal = currentMonthData.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
+                    const prevTotal = prevMonthData.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
+                    
+                    const diff = currentTotal - prevTotal
+                    const percentage = prevTotal > 0 ? ((diff / prevTotal) * 100) : 0
+                    
+                    return diff >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                  })()
+                }`}>
+                  {(() => {
+                    const today = new Date()
+                    const currentDay = today.getDate()
+                    const currentMonth = today.getMonth()
+                    const currentYear = today.getFullYear()
+                    
+                    const currentMonthStart = new Date(currentYear, currentMonth, 1)
+                    const currentMonthEnd = new Date(currentYear, currentMonth, currentDay, 23, 59, 59)
+                    
+                    const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1
+                    const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear
+                    const prevMonthStart = new Date(prevYear, prevMonth, 1)
+                    const prevMonthEnd = new Date(prevYear, prevMonth, currentDay, 23, 59, 59)
+                    
+                    const currentMonthData = filteredExpendituresForCharts.filter(item => {
+                      const itemDate = new Date(item.operational_date)
+                      return itemDate >= currentMonthStart && itemDate <= currentMonthEnd
+                    })
+                    
+                    const prevMonthData = filteredExpendituresForCharts.filter(item => {
+                      const itemDate = new Date(item.operational_date)
+                      return itemDate >= prevMonthStart && itemDate <= prevMonthEnd
+                    })
+                    
+                    const currentTotal = currentMonthData.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
+                    const prevTotal = prevMonthData.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
+                    
+                    const diff = currentTotal - prevTotal
+                    const percentage = prevTotal > 0 ? ((diff / prevTotal) * 100) : 0
+                    
+                    return `${diff >= 0 ? '+' : ''}${percentage.toFixed(1)}%`
+                  })()}
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Primele {new Date().getDate()} zile vs luna trecută
+                </p>
               </div>
-              <div className="p-4 bg-orange-500/10 rounded-2xl">
-                <FileText className="w-8 h-8 text-orange-600 dark:text-orange-400" />
+              <div className={`p-4 rounded-2xl ${
+                (() => {
+                  const today = new Date()
+                  const currentDay = today.getDate()
+                  const currentMonth = today.getMonth()
+                  const currentYear = today.getFullYear()
+                  
+                  const currentMonthStart = new Date(currentYear, currentMonth, 1)
+                  const currentMonthEnd = new Date(currentYear, currentMonth, currentDay, 23, 59, 59)
+                  
+                  const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1
+                  const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear
+                  const prevMonthStart = new Date(prevYear, prevMonth, 1)
+                  const prevMonthEnd = new Date(prevYear, prevMonth, currentDay, 23, 59, 59)
+                  
+                  const currentMonthData = filteredExpendituresForCharts.filter(item => {
+                    const itemDate = new Date(item.operational_date)
+                    return itemDate >= currentMonthStart && itemDate <= currentMonthEnd
+                  })
+                  
+                  const prevMonthData = filteredExpendituresForCharts.filter(item => {
+                    const itemDate = new Date(item.operational_date)
+                    return itemDate >= prevMonthStart && itemDate <= prevMonthEnd
+                  })
+                  
+                  const currentTotal = currentMonthData.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
+                  const prevTotal = prevMonthData.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
+                  
+                  const diff = currentTotal - prevTotal
+                  
+                  return diff >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'
+                })()
+              }`}>
+                {(() => {
+                  const today = new Date()
+                  const currentDay = today.getDate()
+                  const currentMonth = today.getMonth()
+                  const currentYear = today.getFullYear()
+                  
+                  const currentMonthStart = new Date(currentYear, currentMonth, 1)
+                  const currentMonthEnd = new Date(currentYear, currentMonth, currentDay, 23, 59, 59)
+                  
+                  const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1
+                  const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear
+                  const prevMonthStart = new Date(prevYear, prevMonth, 1)
+                  const prevMonthEnd = new Date(prevYear, prevMonth, currentDay, 23, 59, 59)
+                  
+                  const currentMonthData = filteredExpendituresForCharts.filter(item => {
+                    const itemDate = new Date(item.operational_date)
+                    return itemDate >= currentMonthStart && itemDate <= currentMonthEnd
+                  })
+                  
+                  const prevMonthData = filteredExpendituresForCharts.filter(item => {
+                    const itemDate = new Date(item.operational_date)
+                    return itemDate >= prevMonthStart && itemDate <= prevMonthEnd
+                  })
+                  
+                  const currentTotal = currentMonthData.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
+                  const prevTotal = prevMonthData.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
+                  
+                  const diff = currentTotal - prevTotal
+                  
+                  return diff >= 0 ? (
+                    <TrendingUp className="w-8 h-8 text-green-600 dark:text-green-400" />
+                  ) : (
+                    <TrendingDown className="w-8 h-8 text-red-600 dark:text-red-400" />
+                  )
+                })()}
               </div>
             </div>
           </div>
@@ -709,6 +851,66 @@ const Expenditures = () => {
                   activeDot={{ r: 8, stroke: '#10b981', strokeWidth: 2 }}
                 />
               </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        
+        {/* Grafic per LOCAȚIE (POS & Bancă) */}
+        {filteredExpendituresForCharts.length > 0 && (
+          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">🏢 Încasări POS & Bancă per Locație</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                  Comparație încasări între locații
+                </p>
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={(() => {
+                // Group by location
+                const locationMap = {}
+                filteredExpendituresForCharts.forEach(item => {
+                  const loc = item.location_name || 'Unknown'
+                  if (!locationMap[loc]) {
+                    locationMap[loc] = { location: loc, POS: 0, Bancă: 0 }
+                  }
+                  const dept = item.department_name
+                  if (dept === 'POS') {
+                    locationMap[loc].POS += parseFloat(item.amount || 0)
+                  } else if (dept === 'Bancă') {
+                    locationMap[loc].Bancă += parseFloat(item.amount || 0)
+                  }
+                })
+                return Object.values(locationMap).sort((a, b) => (b.POS + b.Bancă) - (a.POS + a.Bancă))
+              })()}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
+                <XAxis 
+                  dataKey="location" 
+                  stroke="#64748b" 
+                  style={{ fontSize: '12px' }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                />
+                <YAxis 
+                  stroke="#64748b" 
+                  style={{ fontSize: '12px' }}
+                  tickFormatter={(value) => formatCurrency(value)}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#1e293b', 
+                    border: 'none', 
+                    borderRadius: '12px',
+                    color: '#fff'
+                  }}
+                  formatter={(value) => [`${formatCurrency(value)} RON`, '']}
+                />
+                <Legend />
+                <Bar dataKey="POS" fill="#10b981" name="POS" />
+                <Bar dataKey="Bancă" fill="#3b82f6" name="Bancă" />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         )}
