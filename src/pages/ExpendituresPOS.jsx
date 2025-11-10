@@ -306,8 +306,50 @@ const Expenditures = () => {
   }
   
   // Re-calculate matrix when filters change (INCLUDING locationFilter!)
-  const { matrix, locations, totalsRow, filteredCount, expenditureTypes } = React.useMemo(() => {
-    return processDataToMatrix()
+  const { matrix, locations, totalsRow, filteredCount, expenditureTypes, filteredData } = React.useMemo(() => {
+    const result = processDataToMatrix()
+    
+    // RETURN filteredData pentru ExpendituresTable!
+    let filteredData = expendituresData
+    
+    // EXCLUDE "Unknown" FORȚAT
+    filteredData = filteredData.filter(item => {
+      const dept = (item.department_name || '').toLowerCase().trim()
+      return dept !== 'unknown' && dept !== '' && dept !== 'null'
+    })
+    
+    // INCLUDE DOAR POS și Bancă (DOAR ACESTEA 2!)
+    const includedDepartments = ['POS', 'Bancă']
+    filteredData = filteredData.filter(item => {
+      return includedDepartments.includes(item.department_name)
+    })
+    
+    // DATE RANGE FILTER
+    if (dateRange.startDate && dateRange.endDate) {
+      filteredData = filteredData.filter(item => {
+        const itemDate = new Date(item.operational_date)
+        const startDate = new Date(dateRange.startDate)
+        const endDate = new Date(dateRange.endDate)
+        return itemDate >= startDate && itemDate <= endDate
+      })
+    }
+    
+    // DEPARTMENT FILTER
+    if (departmentFilter !== 'all') {
+      filteredData = filteredData.filter(item => item.department_name === departmentFilter)
+    }
+    
+    // EXPENDITURE TYPE FILTER
+    if (expenditureTypeFilter !== 'all') {
+      filteredData = filteredData.filter(item => item.expenditure_type === expenditureTypeFilter)
+    }
+    
+    // LOCATION FILTER
+    if (locationFilter !== 'all') {
+      filteredData = filteredData.filter(item => item.location_name === locationFilter)
+    }
+    
+    return { ...result, filteredData }
   }, [expendituresData, dateRange, departmentFilter, expenditureTypeFilter, locationFilter])
   
   // Filter data by date range for charts and cards (SAME FILTERS as matrix!)
@@ -944,7 +986,7 @@ const Expenditures = () => {
               locations={locations}
               expenditureTypes={expenditureTypes}
               totalsRow={totalsRow}
-              expendituresData={expendituresData}
+              expendituresData={filteredData}
             />
           )}
         </div>
