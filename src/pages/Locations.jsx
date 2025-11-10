@@ -303,21 +303,30 @@ const Locations = () => {
           {item.plan_file ? (
             <>
               <button
-                onClick={() => handleViewDocument(item)}
+                onClick={(e) => {
+                  e.stopPropagation() // NU deschide pagina detalii!
+                  handleViewDocument(item)
+                }}
                 className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
                 title="Vizualizează planul"
               >
                 <Eye className="w-4 h-4" />
               </button>
               <button
-                onClick={() => handleDownloadDocument(item)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleDownloadDocument(item)
+                }}
                 className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
                 title="Descarcă planul"
               >
                 <Download className="w-4 h-4" />
               </button>
               <button
-                onClick={() => handleDeleteDocument(item)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleDeleteDocument(item)
+                }}
                 className="p-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
                 title="Șterge planul"
               >
