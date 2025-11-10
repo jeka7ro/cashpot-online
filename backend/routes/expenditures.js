@@ -475,14 +475,35 @@ router.get('/settings', async (req, res) => {
       console.log('✅ Loaded expenditures settings from DB:', settings)
       res.json(settings)
     } else {
-      // Default settings - EXCLUDE 4 departamente
+      // Default settings - TOATE BIFATE!
       const defaultSettings = {
         autoSync: false,
         syncInterval: 24,
         syncTime: '02:00',
         excludeDeleted: true,
         showInExpenditures: true,
-        includedExpenditureTypes: [], // EMPTY = TOATE tipurile sunt incluse (71/71)
+        // TOATE tipurile cheltuieli bifate (71/71)
+        includedExpenditureTypes: [
+          'Acte Metrologice', 'Alcool', 'Altele', 'Amenajare Sală', 'Amenzi / Taxe / Impozite',
+          'Analiza de risc la securitatea fizica', 'Asociație proprietari', 'Bere', 'Bomboane',
+          'Cafea', 'Catering', 'Cazare', 'Cheltuieli locale', 'Cheltuieli Marketing',
+          'Chirie locatie lunara (factura integrala)', 'Chirie Spațiu', 'Combustibil',
+          'Comisioane bancare', 'Comision OMV', 'Comision POS', 'Curățenie birou',
+          'Dezinsecție', 'Diurna', 'EGT', 'Electrica (factura integrala)',
+          'Factura paza (intergrala)', 'Fise medicale', 'Intervenția', 'Jackpoturi Neînregistrate',
+          'Management', 'Mentenanta DVR', 'Mentenanța mașina de numărat bani', 'Muzică Ambientală',
+          'Novomatic', 'Pepsi', 'Plăți aparate', 'Plați POS', 'Produse Birotică',
+          'Produse Curățenie', 'Produse de întreținere', 'PSI/SSM', 'Reparații sală',
+          'Revizie AC', 'Revizie stingătoare', 'Revizii Auto', 'Role imprimantă',
+          'Salarii agenți paza', 'Salarii angajați', 'Salariile agenților paza',
+          'Salariile angajaților fără agenți', 'Salarii personal curățenie', 'Salubritate',
+          'Service Sloturi', 'Servicii Cleaning', 'Servicii curierat', 'Servicii HR',
+          'Spălare mochetă', 'Suplimentare Bar', 'Ținuta personal', 'Tombola',
+          'Transfer către Sediu', 'Transfer la altă sală', 'Transfer la bancă',
+          'Transfer Salarii', 'Transport Marketing', 'Transport Sloturi',
+          'TV / INTERNET / TELEFON', 'UCMR ADA / UPFR', 'Unicredit', 'Utilități birou',
+          'Utilități spațiu comercial'
+        ],
         includedDepartments: [
           'Achiziții Sloturi și accesorii',
           'Asociația pentru drepturi de autor',
@@ -517,7 +538,28 @@ router.get('/settings', async (req, res) => {
       syncTime: '02:00',
       excludeDeleted: true,
       showInExpenditures: true,
-      includedExpenditureTypes: [], // TOATE tipurile (71/71)
+      // TOATE tipurile cheltuieli bifate (71/71) - ACELAȘI CA MAI SUS!
+      includedExpenditureTypes: [
+        'Acte Metrologice', 'Alcool', 'Altele', 'Amenajare Sală', 'Amenzi / Taxe / Impozite',
+        'Analiza de risc la securitatea fizica', 'Asociație proprietari', 'Bere', 'Bomboane',
+        'Cafea', 'Catering', 'Cazare', 'Cheltuieli locale', 'Cheltuieli Marketing',
+        'Chirie locatie lunara (factura integrala)', 'Chirie Spațiu', 'Combustibil',
+        'Comisioane bancare', 'Comision OMV', 'Comision POS', 'Curățenie birou',
+        'Dezinsecție', 'Diurna', 'EGT', 'Electrica (factura integrala)',
+        'Factura paza (intergrala)', 'Fise medicale', 'Intervenția', 'Jackpoturi Neînregistrate',
+        'Management', 'Mentenanta DVR', 'Mentenanța mașina de numărat bani', 'Muzică Ambientală',
+        'Novomatic', 'Pepsi', 'Plăți aparate', 'Plați POS', 'Produse Birotică',
+        'Produse Curățenie', 'Produse de întreținere', 'PSI/SSM', 'Reparații sală',
+        'Revizie AC', 'Revizie stingătoare', 'Revizii Auto', 'Role imprimantă',
+        'Salarii agenți paza', 'Salarii angajați', 'Salariile agenților paza',
+        'Salariile angajaților fără agenți', 'Salarii personal curățenie', 'Salubritate',
+        'Service Sloturi', 'Servicii Cleaning', 'Servicii curierat', 'Servicii HR',
+        'Spălare mochetă', 'Suplimentare Bar', 'Ținuta personal', 'Tombola',
+        'Transfer către Sediu', 'Transfer la altă sală', 'Transfer la bancă',
+        'Transfer Salarii', 'Transport Marketing', 'Transport Sloturi',
+        'TV / INTERNET / TELEFON', 'UCMR ADA / UPFR', 'Unicredit', 'Utilități birou',
+        'Utilități spațiu comercial'
+      ],
       includedDepartments: [
         'Achiziții Sloturi și accesorii',
         'Asociația pentru drepturi de autor',

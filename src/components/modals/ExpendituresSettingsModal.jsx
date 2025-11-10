@@ -33,7 +33,7 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
     defaultEndDate: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0]
   })
   
-  const [activeTab, setActiveTab] = useState('types') // 'types', 'departments', 'locations', 'general'
+  const [activeTab, setActiveTab] = useState('departments') // 'departments' PRIMUL! (user vrea departamente prima)
   
   useEffect(() => {
     loadData()
@@ -173,8 +173,8 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
         <div className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 px-6">
           <div className="flex space-x-1">
             {[
+              { id: 'departments', label: 'Departamente', count: departments.length }, // PRIMUL! (user vrea asta)
               { id: 'types', label: 'Tipuri Cheltuieli', count: expenditureTypes.length },
-              { id: 'departments', label: 'Departamente', count: departments.length },
               { id: 'locations', label: 'Locații', count: locations.length },
               { id: 'general', label: 'Setări Generale' }
             ].map(tab => (
