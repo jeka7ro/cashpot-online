@@ -3,14 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
-import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp, Table2 } from 'lucide-react'
+import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp, Table2, MapPin } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import ExpendituresMappingModal from '../components/modals/ExpendituresMappingModal'
 import ExpendituresSettingsModal from '../components/modals/ExpendituresSettingsModal'
 import AdvancedAnalyticsModal from '../components/modals/AdvancedAnalyticsModal'
 import ExpendituresCharts from '../components/ExpendituresCharts'
 import ExpendituresAdvancedCharts from '../components/ExpendituresAdvancedCharts'
-import ChartsSettingsModal from '../components/modals/ChartsSettingsModal'
 import ExpendituresTable from '../components/ExpendituresTable'
 import DateRangeSelector from '../components/DateRangeSelector'
 import { generateAIInsights } from '../utils/aiInsights'
@@ -33,16 +32,27 @@ const Expenditures = () => {
   const [showMappingModal, setShowMappingModal] = useState(false)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false)
-  const [showChartsSettingsModal, setShowChartsSettingsModal] = useState(false)
-  const [visibleCharts, setVisibleCharts] = useState({
-    evolutionChart: true,
-    departmentsChart: true,
-    locationsChart: true,
-    monthComparison: true,
-    heatmap: true,
-    pieTop10: true,
-    stackedArea: true,
-    trendPrediction: true
+  const [visibleCharts, setVisibleCharts] = useState(() => {
+    // Load from localStorage
+    try {
+      const saved = localStorage.getItem('charts_preferences')
+      if (saved) {
+        return JSON.parse(saved)
+      }
+    } catch (error) {
+      console.log('No saved chart preferences')
+    }
+    // Default: TOATE graficele afișate
+    return {
+      evolutionChart: true,
+      departmentsChart: true,
+      locationsChart: true,
+      monthComparison: true,
+      heatmap: true,
+      pieTop10: true,
+      stackedArea: true,
+      trendPrediction: true
+    }
   })
   
   // Load saved preferences from localStorage
@@ -414,23 +424,15 @@ const Expenditures = () => {
               onClick={() => setShowSettingsModal(true)}
               className="btn-secondary flex items-center space-x-2"
             >
-              <Filter className="w-4 h-4" />
-              <span>Setări Filtrare</span>
-            </button>
-            
-            <button
-              onClick={() => setShowChartsSettingsModal(true)}
-              className="btn-secondary flex items-center space-x-2 bg-gradient-to-r from-pink-500/10 to-purple-500/10 hover:from-pink-500/20 hover:to-purple-500/20 border-pink-300 dark:border-pink-700 text-pink-700 dark:text-pink-300"
-            >
-              <BarChart3 className="w-4 h-4" />
-              <span>Setări Grafice</span>
+              <Settings className="w-4 h-4" />
+              <span>Setări</span>
             </button>
             
             <button
               onClick={() => setShowMappingModal(true)}
               className="btn-secondary flex items-center space-x-2"
             >
-              <Settings className="w-4 h-4" />
+              <MapPin className="w-4 h-4" />
               <span>Mapping Locații</span>
             </button>
             
@@ -745,18 +747,6 @@ const Expenditures = () => {
         <AdvancedAnalyticsModal
           onClose={() => setShowAnalyticsModal(false)}
           expendituresData={expendituresData}
-        />
-      )}
-      
-      {/* Charts Settings Modal */}
-      {showChartsSettingsModal && (
-        <ChartsSettingsModal
-          isOpen={showChartsSettingsModal}
-          onClose={() => setShowChartsSettingsModal(false)}
-          onSave={(newSettings) => {
-            setVisibleCharts(newSettings)
-            setShowChartsSettingsModal(false)
-          }}
         />
       )}
     </Layout>

@@ -97,7 +97,10 @@ const LocationDetail = () => {
           </div>
           <div className="flex space-x-3">
             <button
-              onClick={() => navigate(`/locations/${id}/edit`)}
+              onClick={() => {
+                // Navighează la pagina Locations cu modal deschis pentru această locație
+                navigate(`/locations?edit=${id}`)
+              }}
               className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-emerald-500/25 transition-all duration-200 flex items-center space-x-2"
             >
               <Edit className="w-5 h-5" />

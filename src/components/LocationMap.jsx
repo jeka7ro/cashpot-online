@@ -252,7 +252,7 @@ const LocationMap = ({ location }) => {
               let compCoords = await geocodeAddress(compAddress)
               
               // FALLBACK: Dacă geocoding eșuează, folosește coords MAIN location cu offset
-              if (!compCoords) {
+              if (!compCoords && mainLocationCoords) {
                 console.log(`   ⚠️ Geocoding failed, using main location coords with offset`)
                 // Offset aleatoriu CIRCULAR în jurul CASHPOT (radius 500m-1500m)
                 const angle = Math.random() * 2 * Math.PI // Unghi aleatoriu
@@ -264,14 +264,19 @@ const LocationMap = ({ location }) => {
                   lng: mainLocationCoords.lng + offsetLng
                 }
                 console.log(`   🎯 Fallback coords (${Math.round(radius * 111)}km radius): [${compCoords.lat.toFixed(4)}, ${compCoords.lng.toFixed(4)}]`)
-              } else {
+              } else if (compCoords) {
                 console.log(`   ✅ Coords found: [${compCoords.lat}, ${compCoords.lng}]`)
+              } else {
+                console.log(`   ❌ SKIP competitor (no mainLocationCoords available)`)
               }
               
-              geocodedCompetitors.push({
-                ...comp,
-                coords: compCoords
-              })
+              // PUSH doar dacă există coords!
+              if (compCoords) {
+                geocodedCompetitors.push({
+                  ...comp,
+                  coords: compCoords
+                })
+              }
               
               // Rate limiting: wait 1 second between requests (Nominatim requirement)
               if (i < Math.min(competitorLocations.length, 10) - 1) {

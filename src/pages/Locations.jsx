@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import Layout from '../components/Layout'
 import ExportButtons from '../components/ExportButtons'
@@ -14,6 +14,7 @@ import { toast } from 'react-hot-toast'
 
 const Locations = () => {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { locations, contracts, slots, createItem, updateItem, deleteItem, exportToExcel, exportToPDF, loading } = useData()
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
@@ -23,6 +24,21 @@ const Locations = () => {
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
   // const [viewingItem, setViewingItem] = useState(null)  // REMOVED - use navigate instead!
   // const [showDetailModal, setShowDetailModal] = useState(false)  // REMOVED!
+
+  // Auto-open modal dacă există parametrul ?edit=ID
+  useEffect(() => {
+    const editId = searchParams.get('edit')
+    if (editId && locations && locations.length > 0) {
+      const locationToEdit = locations.find(l => l.id === parseInt(editId))
+      if (locationToEdit) {
+        console.log('🔧 Auto-opening edit modal for location:', locationToEdit.name)
+        setEditingItem(locationToEdit)
+        setShowModal(true)
+        // Șterge parametrul din URL după ce deschidem modalul
+        setSearchParams({})
+      }
+    }
+  }, [searchParams, locations, setSearchParams])
 
   // Update showBulkActions based on selectedItems
   useEffect(() => {
