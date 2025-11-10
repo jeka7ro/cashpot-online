@@ -10,7 +10,7 @@ import ExpendituresSettingsModal from '../components/modals/ExpendituresSettings
 import AdvancedAnalyticsModal from '../components/modals/AdvancedAnalyticsModal'
 import ExpendituresCharts from '../components/ExpendituresCharts'
 import ExpendituresAdvancedCharts from '../components/ExpendituresAdvancedCharts'
-import ExpendituresTable from '../components/ExpendituresTable'
+import ExpendituresTableSimple from '../components/ExpendituresTableSimple'
 import DateRangeSelector from '../components/DateRangeSelector'
 import { generateAIInsights } from '../utils/aiInsights'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Label, LabelList } from 'recharts'
@@ -466,14 +466,14 @@ const Expenditures = () => {
               <ArrowLeft className="w-5 h-5" />
               <span className="font-semibold">Înapoi la Cheltuieli</span>
             </button>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center">
                 <Building2 className="w-8 h-8 mr-3 text-emerald-500" />
                 POS & Bancă - Încasări
-              </h1>
-              <p className="text-slate-600 dark:text-slate-400 mt-2">
+            </h1>
+            <p className="text-slate-600 dark:text-slate-400 mt-2">
                 Încasări POS și depuneri la bancă din casieriile de locații
-              </p>
+            </p>
             </div>
           </div>
           
@@ -978,14 +978,14 @@ const Expenditures = () => {
           </div>
         )}
         
-        {/* Matrix Table */}
-        <div id="matrix-table" className="card p-6">
+        {/* POS & Bancă Table */}
+        <div id="pos-banca-table" className="card p-6">
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center">
-            <Table2 className="w-6 h-6 mr-2 text-blue-500" />
-            Cheltuieli per Departament / Categorie / Locație
+            <Table2 className="w-6 h-6 mr-2 text-emerald-500" />
+            Încasări POS & Bancă per Locație
           </h2>
           <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-            💡 <strong>Click pe departament</strong> pentru a expanda categoriile
+            💡 <strong>Click pe departament</strong> pentru a vedea detalii pe luni
           </p>
           
           {matrix.length === 0 ? (
@@ -1002,12 +1002,9 @@ const Expenditures = () => {
               </button>
             </div>
           ) : (
-            <ExpendituresTable 
-              matrix={matrix}
-              locations={locations}
-              expenditureTypes={expenditureTypes}
-              totalsRow={totalsRow}
+            <ExpendituresTableSimple 
               expendituresData={filteredData}
+              dateRange={dateRange}
             />
           )}
         </div>
