@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import Layout from '../components/Layout'
-import { ArrowLeft, MapPin, Building2, FileText, Package, Calendar, DollarSign, Ruler, Users, Edit, Trash2, Download, Eye } from 'lucide-react'
+import { ArrowLeft, MapPin, Building2, FileText, Package, Calendar, DollarSign, Ruler, Users, Edit, Trash2, Download, Eye, RefreshCw, Clock } from 'lucide-react'
+import axios from 'axios'
+import toast from 'react-hot-toast'
 import LocationContracts from '../components/LocationContracts'
 // import LocationCabinets from '../components/LocationCabinets' // REMOVED - user doesn't need it!
 import MultiPDFViewer from '../components/MultiPDFViewer'
@@ -204,7 +206,62 @@ const LocationDetail = () => {
         </div>
 
         {/* HARTĂ GEOGRAFICĂ */}
-        <LocationMap location={location} />
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center">
+              <MapPin className="w-6 h-6 mr-2 text-blue-500" />
+              Hartă Locație și Concurență
+            </h2>
+            <button
+              onClick={async () => {
+                try {
+                  toast.loading('Sincronizare concurență...', { id: 'sync-competitors' })
+                  const response = await axios.post(`/api/locations/${location.id}/sync-competitors`)
+                  if (response.data.success) {
+                    toast.success(`✅ ${response.data.message}`, { id: 'sync-competitors' })
+                    // Reload page pentru a afișa noul cache
+                    setTimeout(() => window.location.reload(), 1500)
+                  } else {
+                    toast.error('❌ Eroare la sincronizare', { id: 'sync-competitors' })
+                  }
+                } catch (error) {
+                  console.error('Sync competitors error:', error)
+                  toast.error(`❌ ${error.response?.data?.error || error.message}`, { id: 'sync-competitors' })
+                }
+              }}
+              className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-purple-500/25 transition-all duration-200 flex items-center space-x-2"
+            >
+              <RefreshCw className="w-5 h-5" />
+              <span>Actualizează Concurență</span>
+            </button>
+          </div>
+          
+          {location.competitors && location.competitors.updated_at && (
+            <div className="mb-4 text-sm text-slate-600 dark:text-slate-400 flex items-center">
+              <Clock className="w-4 h-4 mr-2" />
+              Ultima actualizare: {new Date(location.competitors.updated_at).toLocaleString('ro-RO')}
+              {' '}
+              ({(() => {
+                const diff = Date.now() - new Date(location.competitors.updated_at).getTime()
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+                if (days === 0) return 'astăzi'
+                if (days === 1) return 'ieri'
+                if (days < 7) return `acum ${days} zile`
+                return `acum ${Math.floor(days / 7)} săptămâni`
+              })()})
+              {(() => {
+                const diff = Date.now() - new Date(location.competitors.updated_at).getTime()
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+                if (days > 7) {
+                  return <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 rounded-lg text-xs font-semibold">⚠️ Date învechite</span>
+                }
+                return null
+              })()}
+            </div>
+          )}
+          
+          <LocationMap location={location} />
+        </div>
 
         {/* STATISTICI DETALIATE */}
         <LocationStats 
