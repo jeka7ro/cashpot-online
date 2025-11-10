@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
-import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp } from 'lucide-react'
+import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp, Table2 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import ExpendituresMappingModal from '../components/modals/ExpendituresMappingModal'
 import ExpendituresSettingsModal from '../components/modals/ExpendituresSettingsModal'
@@ -388,7 +388,7 @@ const Expenditures = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center">
-              <DollarSign className="w-8 h-8 mr-3 text-green-500" />
+              <BarChart3 className="w-8 h-8 mr-3 text-blue-500" />
               Cheltuieli
             </h1>
             <p className="text-slate-600 dark:text-slate-400 mt-2">
@@ -591,7 +591,7 @@ const Expenditures = () => {
               {/* Expenditure Type Filter */}
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  <DollarSign className="w-4 h-4 inline mr-1" />
+                  <Filter className="w-4 h-4 inline mr-1" />
                   Tip Cheltuială
                 </label>
                 <select
@@ -635,7 +635,7 @@ const Expenditures = () => {
         {/* Matrix Table */}
         <div id="matrix-table" className="card p-6">
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center">
-            <DollarSign className="w-6 h-6 mr-2 text-blue-500" />
+            <Table2 className="w-6 h-6 mr-2 text-blue-500" />
             Cheltuieli per Departament / Categorie / Locație
           </h2>
           <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
@@ -644,7 +644,7 @@ const Expenditures = () => {
           
           {matrix.length === 0 ? (
             <div className="text-center py-12 text-slate-500 dark:text-slate-400">
-              <DollarSign className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <BarChart3 className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p className="text-lg font-semibold">Nu există date disponibile</p>
               <p className="text-sm mt-2">Sincronizați datele pentru a vedea cheltuielile</p>
               <button
