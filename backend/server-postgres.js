@@ -440,6 +440,14 @@ const initializeDatabase = async () => {
       console.log('⚠️ Providers table update skipped:', error.message)
     }
 
+    // Add competitors JSONB column to locations (for map caching + logo editing)
+    try {
+      await pool.query('ALTER TABLE locations ADD COLUMN IF NOT EXISTS competitors JSONB DEFAULT NULL')
+      console.log('✅ Locations table: Added competitors JSONB column')
+    } catch (error) {
+      console.log('⚠️ Locations competitors column update skipped:', error.message)
+    }
+
     // Add missing columns to existing platforms table
     try {
       await pool.query('ALTER TABLE platforms ADD COLUMN IF NOT EXISTS provider_id INTEGER REFERENCES providers(id)')
@@ -2122,6 +2130,203 @@ app.delete('/api/locations/:id', async (req, res) => {
     }
     res.json({ success: true, message: 'Location deleted successfully' })
   } catch (error) {
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// POST /api/locations/:id/sync-competitors - Sync competitors from ONJN + auto-geocode + auto-logo
+app.post('/api/locations/:id/sync-competitors', async (req, res) => {
+  try {
+    const { id } = req.params
+    
+    console.log(`🔄 Syncing competitors for location ${id}...`)
+    
+    // Get location details
+    const locationResult = await pool.query('SELECT * FROM locations WHERE id = $1', [id])
+    if (locationResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Location not found' })
+    }
+    
+    const location = locationResult.rows[0]
+    
+    // Extract city from address (assume format: "Strada X, Oraș, Județ")
+    const addressParts = (location.address || '').split(',').map(p => p.trim())
+    const city = addressParts[addressParts.length - 2] || addressParts[0]
+    const county = addressParts[addressParts.length - 1] || ''
+    
+    console.log(`   City: ${city}, County: ${county}`)
+    
+    // Fetch ONJN data
+    const onjnResponse = await axios.get(`${req.protocol}://${req.get('host')}/api/onjn/class1/by-city/${encodeURIComponent(city)}`, {
+      timeout: 30000
+    })
+    
+    if (!onjnResponse.data || !onjnResponse.data.success) {
+      return res.status(500).json({ success: false, error: 'Failed to fetch ONJN data' })
+    }
+    
+    // Filter out CASHPOT/SMARTFLIX locations
+    const competitorLocations = onjnResponse.data.locations.filter(loc => {
+      const operator = (loc.operator || '').toLowerCase()
+      return !operator.includes('cashpot') && !operator.includes('smartflix')
+    })
+    
+    console.log(`   Found ${competitorLocations.length} competitors`)
+    
+    // Brand logo mapping
+    const BRAND_LOGOS = {
+      'MILLION': { emoji: '💎', color: '#FFD700' },
+      'MAXBET': { emoji: '🎲', color: '#E31E24' },
+      'ADMIRAL': { emoji: '⚓', color: '#003D7A' },
+      'WINBET': { emoji: '🎰', color: '#00A651' },
+      'VLAD': { emoji: '🦇', color: '#8B0000' },
+      'VLAD CAZINO': { emoji: '🦇', color: '#8B0000' },
+      'FORTUNA': { emoji: '🍀', color: '#228B22' },
+      'PRINCESS': { emoji: '👑', color: '#FF69B4' },
+      'VEGAS': { emoji: '💎', color: '#FFD700' },
+      'MONTE CARLO': { emoji: '🎲', color: '#1E90FF' },
+      'ROYAL': { emoji: '👑', color: '#4B0082' },
+      'ELDORADO': { emoji: '💰', color: '#DAA520' },
+      'JOKER': { emoji: '🃏', color: '#FF4500' },
+      'BET': { emoji: '🎯', color: '#FF6347' },
+      'CASINO': { emoji: '🏢', color: '#696969' }
+    }
+    
+    // Geocode function (simplified - uses Nominatim)
+    const geocodeAddress = async (address) => {
+      try {
+        const cleanAddress = address.replace(/\s+,/g, ',').replace(/,\s+/g, ', ')
+        const addressWithCountry = cleanAddress.toLowerCase().includes('romania') || cleanAddress.toLowerCase().includes('românia')
+          ? cleanAddress
+          : `${cleanAddress}, Romania`
+        
+        const response = await axios.get(`https://nominatim.openstreetmap.org/search`, {
+          params: {
+            q: addressWithCountry,
+            format: 'json',
+            limit: 1
+          },
+          headers: { 'User-Agent': 'CASHPOT/1.0' },
+          timeout: 5000
+        })
+        
+        if (response.data && response.data.length > 0) {
+          return {
+            lat: parseFloat(response.data[0].lat),
+            lng: parseFloat(response.data[0].lon)
+          }
+        }
+        return null
+      } catch (error) {
+        console.error(`   Geocoding failed for ${address}:`, error.message)
+        return null
+      }
+    }
+    
+    // Process competitors (limit to 15 for performance)
+    const competitors = []
+    const mainCoords = location.coordinates ? JSON.parse(location.coordinates) : null
+    
+    for (let i = 0; i < Math.min(competitorLocations.length, 15); i++) {
+      const comp = competitorLocations[i]
+      
+      // Auto-detect logo
+      const brandUpper = (comp.operator || '').toUpperCase()
+      let logo = '🏢' // default
+      let logoColor = '#696969'
+      
+      for (const [key, value] of Object.entries(BRAND_LOGOS)) {
+        if (brandUpper.includes(key)) {
+          logo = value.emoji
+          logoColor = value.color
+          break
+        }
+      }
+      
+      // Geocode address
+      let coords = await geocodeAddress(comp.address || `${comp.city}, ${comp.county}`)
+      
+      // If geocoding fails and we have main location coords, use random offset
+      if (!coords && mainCoords) {
+        const angle = Math.random() * 2 * Math.PI
+        const radius = 0.005 + Math.random() * 0.015 // 500m-2km
+        coords = {
+          lat: mainCoords.lat + Math.cos(angle) * radius,
+          lng: mainCoords.lng + Math.sin(angle) * radius
+        }
+      }
+      
+      if (coords) {
+        competitors.push({
+          name: comp.location_name || comp.operator,
+          brand: comp.operator,
+          operator: comp.operator,
+          city: comp.city,
+          county: comp.county,
+          address: comp.address,
+          coords: coords,
+          logo: logo,
+          logo_type: 'emoji',
+          logo_url: null,
+          logo_color: logoColor
+        })
+      }
+      
+      // Rate limiting for Nominatim (1 req/sec)
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+    
+    console.log(`   Successfully processed ${competitors.length} competitors`)
+    
+    // Save to database
+    const competitorsData = {
+      updated_at: new Date().toISOString(),
+      city: city,
+      county: county,
+      total: competitors.length,
+      competitors: competitors
+    }
+    
+    await pool.query(
+      'UPDATE locations SET competitors = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [JSON.stringify(competitorsData), id]
+    )
+    
+    console.log(`✅ Competitors synced for location ${id}`)
+    
+    res.json({
+      success: true,
+      message: `Successfully synced ${competitors.length} competitors`,
+      data: competitorsData
+    })
+  } catch (error) {
+    console.error('❌ Error syncing competitors:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// PUT /api/locations/:id/competitors - Update competitors manually (edit logo, coords, etc)
+app.put('/api/locations/:id/competitors', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { competitors } = req.body // Full competitors JSONB object
+    
+    console.log(`📝 Updating competitors for location ${id}...`)
+    
+    await pool.query(
+      'UPDATE locations SET competitors = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [JSON.stringify(competitors), id]
+    )
+    
+    console.log(`✅ Competitors updated for location ${id}`)
+    
+    res.json({
+      success: true,
+      message: 'Competitors updated successfully',
+      data: competitors
+    })
+  } catch (error) {
+    console.error('❌ Error updating competitors:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })

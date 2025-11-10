@@ -14,9 +14,9 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 })
 
-// CUSTOM ICONS cu LOGO-uri!
-const createCustomIcon = (brandName, isOwn = false) => {
-  const color = isOwn ? '#10b981' : '#ef4444' // verde/roșu
+// CUSTOM ICONS cu LOGO-uri! (acceptă logo custom din DB)
+const createCustomIcon = (brandName, isOwn = false, customLogo = null, logoType = 'emoji', logoColor = null) => {
+  const color = isOwn ? '#10b981' : (logoColor || '#ef4444') // verde/roșu (sau custom color)
   const bgColor = isOwn ? '#d1fae5' : '#fee2e2'
   
   // CASHPOT/SMARTFLIX = FAVICON SVG!
@@ -65,34 +65,38 @@ const createCustomIcon = (brandName, isOwn = false) => {
     })
   }
   
-  // COMPETITORI - Emoji pentru brand-uri cunoscute
-  const brandEmojis = {
-    'ADMIRAL': '⚓',
-    'ADMIRAL CASINO': '⚓',
-    'WINBET': '🎰',
-    'WINBET CASINO': '🎰',
-    'MILLION': '💎',
-    'MILLION CASINO': '💎',
-    'MAXBET': '🎲',
-    'MAXBET CASINO': '🎲',
-    'FORTUNA': '🍀',
-    'PRINCESS': '👑',
-    'VLAD CAZINO': '🦇',
-    'VLAD': '🦇',
-    'VEGAS': '💎',
-    'MONTE CARLO': '🎲',
-    'ROYAL': '👑',
-    'ELDORADO': '💰',
-    'JOKER': '🃏',
-    'BET': '🎯',
-    'CASINO': '🏢'
-  }
+  // COMPETITORI - Folosește logo custom din DB SAU auto-detect
+  let brandEmoji = customLogo || '🏢' // Prioritate la custom logo din DB!
   
-  let brandEmoji = '🏢' // default
-  for (const [key, emoji] of Object.entries(brandEmojis)) {
-    if (brandUpper.includes(key)) {
-      brandEmoji = emoji
-      break
+  // Dacă NU e furnizat logo custom, AUTO-DETECT din brandName
+  if (!customLogo) {
+    const brandEmojis = {
+      'ADMIRAL': '⚓',
+      'ADMIRAL CASINO': '⚓',
+      'WINBET': '🎰',
+      'WINBET CASINO': '🎰',
+      'MILLION': '💎',
+      'MILLION CASINO': '💎',
+      'MAXBET': '🎲',
+      'MAXBET CASINO': '🎲',
+      'FORTUNA': '🍀',
+      'PRINCESS': '👑',
+      'VLAD CAZINO': '🦇',
+      'VLAD': '🦇',
+      'VEGAS': '💎',
+      'MONTE CARLO': '🎲',
+      'ROYAL': '👑',
+      'ELDORADO': '💰',
+      'JOKER': '🃏',
+      'BET': '🎯',
+      'CASINO': '🏢'
+    }
+    
+    for (const [key, emoji] of Object.entries(brandEmojis)) {
+      if (brandUpper.includes(key)) {
+        brandEmoji = emoji
+        break
+      }
     }
   }
   
@@ -218,7 +222,20 @@ const LocationMap = ({ location }) => {
         
         setMainLocationCoords(coords)
 
-        // 2. Extract city from address
+        // 2. Check if location has pre-cached competitors (INSTANT!)
+        if (location.competitors && location.competitors.competitors) {
+          console.log('⚡ INSTANT LOAD: Using cached competitors from DB!')
+          console.log(`   Total: ${location.competitors.total} competitors`)
+          console.log(`   Last updated: ${location.competitors.updated_at}`)
+          
+          setCompetitors(location.competitors.competitors)
+          setLoading(false)
+          return
+        }
+        
+        console.log('🐌 SLOW MODE: Fetching competitors from ONJN API...')
+
+        // 3. Extract city from address (for ONJN API fallback)
         const addressForCity = fullAddress || location.address || ''
         const citySource = [addressForCity, location.city, location.county, location.judet]
           .filter(Boolean)
@@ -231,7 +248,7 @@ const LocationMap = ({ location }) => {
           return
         }
 
-        // 3. Fetch ONJN Class 1 competitors in the same city
+        // 4. Fetch ONJN Class 1 competitors in the same city (FALLBACK)
         try {
           const response = await axios.get(`/api/onjn/class1/by-city/${encodeURIComponent(city)}`, {
             timeout: 30000
@@ -388,13 +405,23 @@ const LocationMap = ({ location }) => {
             </Popup>
           </Marker>
           
-          {/* Competitors (RED cu LOGO BRAND!) */}
+          {/* Competitors (RED cu LOGO BRAND sau CUSTOM!) */}
           {competitors.map((comp, index) => (
-            <Marker key={index} position={comp.coords} icon={createCustomIcon(comp.operator, false)}>
+            <Marker 
+              key={index} 
+              position={comp.coords} 
+              icon={createCustomIcon(
+                comp.operator || comp.brand, 
+                false, 
+                comp.logo,        // Custom logo din DB (emoji sau URL)
+                comp.logo_type,   // 'emoji' sau 'url'
+                comp.logo_color   // Custom color (ex: '#FFD700')
+              )}
+            >
               <Popup>
                 <div className="p-2">
                   <h4 className="font-bold text-red-700 mb-1 flex items-center">
-                    {comp.operator}
+                    {comp.logo || '🏢'} {comp.operator || comp.name}
                   </h4>
                   <p className="text-sm text-slate-600">{comp.address}</p>
                   <p className="text-sm text-slate-600 mt-1">
