@@ -2386,6 +2386,56 @@ app.put('/api/locations/:id/competitors', async (req, res) => {
   }
 })
 
+// GET /api/competitors - Get all competitors from all locations (centralized)
+app.get('/api/competitors', async (req, res) => {
+  try {
+    console.log('📊 GET /api/competitors - Fetching all competitors...')
+    
+    // Fetch all locations with competitors data
+    const result = await pool.query(`
+      SELECT 
+        id,
+        name,
+        address,
+        company,
+        competitors
+      FROM locations
+      WHERE competitors IS NOT NULL
+      ORDER BY name ASC
+    `)
+    
+    // Flatten competitors from all locations
+    const allCompetitors = []
+    
+    result.rows.forEach(location => {
+      if (location.competitors && location.competitors.competitors) {
+        location.competitors.competitors.forEach(comp => {
+          allCompetitors.push({
+            ...comp,
+            location_id: location.id,
+            location_name: location.name,
+            location_address: location.address,
+            location_company: location.company,
+            last_updated: location.competitors.updated_at
+          })
+        })
+      }
+    })
+    
+    console.log(`✅ Found ${allCompetitors.length} total competitors from ${result.rows.length} locations`)
+    
+    res.json({
+      success: true,
+      total: allCompetitors.length,
+      locations_count: result.rows.length,
+      competitors: allCompetitors
+    })
+  } catch (error) {
+    console.error('❌ Error fetching competitors:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 // Providers routes
 app.get('/api/providers', async (req, res) => {
   try {

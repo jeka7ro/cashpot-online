@@ -188,6 +188,13 @@ const Layout = ({ children }) => {
       module: MODULES.LOCATIONS
     },
     { 
+      id: 'competitors', 
+      label: 'Concurență', 
+      icon: Users, 
+      path: '/competitors',
+      module: MODULES.LOCATIONS // Același permision ca Locații
+    },
+    { 
       id: 'providers', 
       label: 'Furnizori', 
       icon: Users, 

@@ -263,6 +263,91 @@ const LocationDetail = () => {
           <LocationMap location={location} />
         </div>
 
+        {/* CONCURENȚĂ LOCALĂ */}
+        {location.competitors && location.competitors.competitors && location.competitors.competitors.length > 0 && (
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center">
+                <Users className="w-6 h-6 mr-2 text-red-500" />
+                Concurență Locală ({location.competitors.competitors.length})
+              </h2>
+              <button
+                onClick={() => navigate('/competitors')}
+                className="px-4 py-2 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-red-500/25 transition-all duration-200 flex items-center space-x-2"
+              >
+                <Eye className="w-5 h-5" />
+                <span>Vezi Toate</span>
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50 dark:bg-slate-700/50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">#</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Logo / Nume</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Brand</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Adresă</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase">Distanță</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                  {location.competitors.competitors.map((comp, index) => {
+                    // Calculate distance from main location (simplified Haversine)
+                    const mainCoords = location.coordinates ? JSON.parse(location.coordinates) : null
+                    let distance = 'N/A'
+                    
+                    if (mainCoords && comp.coords) {
+                      const R = 6371 // Earth radius in km
+                      const dLat = (comp.coords.lat - mainCoords.lat) * Math.PI / 180
+                      const dLon = (comp.coords.lng - mainCoords.lng) * Math.PI / 180
+                      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                               Math.cos(mainCoords.lat * Math.PI / 180) * Math.cos(comp.coords.lat * Math.PI / 180) *
+                               Math.sin(dLon/2) * Math.sin(dLon/2)
+                      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+                      const distanceKm = R * c
+                      distance = distanceKm < 1 ? `${Math.round(distanceKm * 1000)}m` : `${distanceKm.toFixed(1)}km`
+                    }
+
+                    return (
+                      <tr key={index} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                        <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{index + 1}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center space-x-3">
+                            <div className="text-2xl" style={{ color: comp.logo_color }}>
+                              {comp.logo || '🏢'}
+                            </div>
+                            <div>
+                              <div className="font-medium text-slate-900 dark:text-slate-100">{comp.name}</div>
+                              <div className="text-xs text-slate-500">{comp.operator}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-900 dark:text-slate-100">{comp.brand}</td>
+                        <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
+                          <div className="max-w-xs truncate" title={comp.address}>
+                            {comp.address}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-semibold">
+                            {distance}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-4 text-sm text-slate-500 dark:text-slate-400 flex items-center">
+              <Clock className="w-4 h-4 mr-2" />
+              Ultima actualizare: {new Date(location.competitors.updated_at).toLocaleString('ro-RO')}
+            </div>
+          </div>
+        )}
+
         {/* STATISTICI DETALIATE */}
         <LocationStats 
           location={location} 
