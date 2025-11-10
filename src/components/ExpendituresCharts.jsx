@@ -84,7 +84,7 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
       {/* Trend Chart - Card mare */}
-      <div className="lg:col-span-2 bg-white dark:from-slate-800 dark:to-slate-900 dark:bg-gradient-to-br rounded-2xl shadow-lg p-6">
+      <div className="lg:col-span-2 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Evoluție Cheltuieli</h3>
@@ -137,7 +137,7 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
       </div>
       
       {/* Department Chart */}
-      <div className="bg-white dark:from-slate-800 dark:to-slate-900 dark:bg-gradient-to-br rounded-2xl shadow-lg p-6">
+      <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
         <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center">
           <Briefcase className="w-5 h-5 mr-2 text-purple-500" />
           Top Departamente
@@ -186,7 +186,7 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
       </div>
       
       {/* Location Distribution Chart */}
-      <div className="bg-white dark:from-slate-800 dark:to-slate-900 dark:bg-gradient-to-br rounded-2xl shadow-lg p-6">
+      <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
         <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center">
           <Building2 className="w-5 h-5 mr-2 text-green-500" />
           Distribuție pe Locații
