@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { BarChart, Bar, PieChart, Pie, AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts'
+import { BarChart, Bar, PieChart, Pie, AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, LabelList, Label } from 'recharts'
 import { TrendingUp, PieChart as PieChartIcon, AreaChart as AreaChartIcon, Brain, Calendar } from 'lucide-react'
 
 const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts = {} }) => {
@@ -201,8 +201,22 @@ const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts
                 contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px' }}
               />
               <Legend />
-              <Bar dataKey="current" name="Luna Curentă" fill="#3b82f6" radius={[8, 8, 0, 0]} />
-              <Bar dataKey="previous" name="Luna Precedentă" fill="#10b981" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="current" name="Luna Curentă" fill="#3b82f6" radius={[8, 8, 0, 0]}>
+                <LabelList 
+                  dataKey="current" 
+                  position="top" 
+                  formatter={(value) => formatCurrency(value)}
+                  style={{ fontSize: '9px', fontWeight: 'bold', fill: '#1e40af' }}
+                />
+              </Bar>
+              <Bar dataKey="previous" name="Luna Precedentă" fill="#10b981" radius={[8, 8, 0, 0]}>
+                <LabelList 
+                  dataKey="previous" 
+                  position="top" 
+                  formatter={(value) => formatCurrency(value)}
+                  style={{ fontSize: '9px', fontWeight: 'bold', fill: '#059669' }}
+                />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -338,7 +352,14 @@ const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts
                 strokeWidth={3}
                 dot={{ r: 5 }}
                 connectNulls={false}
-              />
+              >
+                <LabelList 
+                  dataKey="actual" 
+                  position="top" 
+                  formatter={(value) => value ? formatCurrency(value) : ''}
+                  style={{ fontSize: '9px', fontWeight: 'bold', fill: '#1e40af' }}
+                />
+              </Line>
               <Line 
                 type="monotone" 
                 dataKey="predicted" 
@@ -348,7 +369,14 @@ const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts
                 strokeDasharray="5 5"
                 dot={{ r: 5, fill: '#ec4899' }}
                 connectNulls={false}
-              />
+              >
+                <LabelList 
+                  dataKey="predicted" 
+                  position="top" 
+                  formatter={(value) => value ? formatCurrency(value) : ''}
+                  style={{ fontSize: '9px', fontWeight: 'bold', fill: '#be185d' }}
+                />
+              </Line>
             </LineChart>
           </ResponsiveContainer>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">

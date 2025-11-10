@@ -13,7 +13,7 @@ import ExpendituresAdvancedCharts from '../components/ExpendituresAdvancedCharts
 import ExpendituresTable from '../components/ExpendituresTable'
 import DateRangeSelector from '../components/DateRangeSelector'
 import { generateAIInsights } from '../utils/aiInsights'
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Label, LabelList } from 'recharts'
 
 const Expenditures = () => {
   const { user } = useAuth()
@@ -891,7 +891,14 @@ const Expenditures = () => {
                   strokeWidth={3}
                   dot={{ fill: '#10b981', strokeWidth: 2, r: 6 }}
                   activeDot={{ r: 8, stroke: '#10b981', strokeWidth: 2 }}
-                />
+                >
+                  <LabelList 
+                    dataKey="value" 
+                    position="top" 
+                    formatter={(value) => formatCurrency(value)}
+                    style={{ fontSize: '11px', fontWeight: 'bold', fill: '#059669' }}
+                  />
+                </Line>
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -950,8 +957,22 @@ const Expenditures = () => {
                   formatter={(value) => [`${formatCurrency(value)} RON`, '']}
                 />
                 <Legend />
-                <Bar dataKey="POS" fill="#10b981" name="POS" />
-                <Bar dataKey="Bancă" fill="#3b82f6" name="Bancă" />
+                <Bar dataKey="POS" fill="#10b981" name="POS">
+                  <LabelList 
+                    dataKey="POS" 
+                    position="top" 
+                    formatter={(value) => formatCurrency(value)}
+                    style={{ fontSize: '10px', fontWeight: 'bold', fill: '#059669' }}
+                  />
+                </Bar>
+                <Bar dataKey="Bancă" fill="#3b82f6" name="Bancă">
+                  <LabelList 
+                    dataKey="Bancă" 
+                    position="top" 
+                    formatter={(value) => formatCurrency(value)}
+                    style={{ fontSize: '10px', fontWeight: 'bold', fill: '#1e40af' }}
+                  />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>

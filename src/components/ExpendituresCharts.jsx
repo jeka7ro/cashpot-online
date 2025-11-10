@@ -1,5 +1,5 @@
 import React from 'react'
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, Label } from 'recharts'
 import { TrendingUp, TrendingDown, DollarSign, Building2, Briefcase } from 'lucide-react'
 
 const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, onLocationClick }) => {
@@ -139,7 +139,14 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
               strokeWidth={3}
               dot={{ fill: '#3b82f6', r: 4 }}
               activeDot={{ r: 6 }}
-            />
+            >
+              <LabelList 
+                dataKey="value" 
+                position="top" 
+                formatter={(value) => formatCurrency(value)}
+                style={{ fontSize: '10px', fontWeight: 'bold', fill: '#1e40af' }}
+              />
+            </Line>
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -188,6 +195,12 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
               {departmentData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
+              <LabelList 
+                dataKey="value" 
+                position="right" 
+                formatter={(value) => formatCurrency(value)}
+                style={{ fontSize: '10px', fontWeight: 'bold', fill: '#1e293b' }}
+              />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
