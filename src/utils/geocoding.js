@@ -4,6 +4,31 @@
 
 const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org'
 
+// HARDCODED COORDONATE pentru orașe comune (FALLBACK!)
+const CITY_COORDS = {
+  'BUCUREȘTI': [44.4268, 26.1025],
+  'BUCHAREST': [44.4268, 26.1025],
+  'PITEȘTI': [44.8606, 24.8678],
+  'PITESTI': [44.8606, 24.8678],
+  'CRAIOVA': [44.3302, 23.7949],
+  'PLOIEȘTI': [44.9536, 26.0225],
+  'PLOIESTI': [44.9536, 26.0225],
+  'RÂMNICU VÂLCEA': [45.1000, 24.3667],
+  'RAMNICU VALCEA': [45.1000, 24.3667],
+  'VÂLCEA': [45.1000, 24.3667],
+  'VALCEA': [45.1000, 24.3667],
+  'IAȘI': [47.1585, 27.6014],
+  'IASI': [47.1585, 27.6014],
+  'CLUJ-NAPOCA': [46.7712, 23.6236],
+  'CLUJ': [46.7712, 23.6236],
+  'TIMIȘOARA': [45.7489, 21.2087],
+  'TIMISOARA': [45.7489, 21.2087],
+  'CONSTANȚA': [44.1598, 28.6348],
+  'CONSTANTA': [44.1598, 28.6348],
+  'BRAȘOV': [45.6427, 25.5887],
+  'BRASOV': [45.6427, 25.5887]
+}
+
 /**
  * Convert address to coordinates (lat, lng)
  * @param {string} address - Full address to geocode
@@ -12,18 +37,28 @@ const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org'
 export const geocodeAddress = async (address) => {
   if (!address) return null
   
+  // FALLBACK 1: Caută oraș în HARDCODED coords
+  const addressUpper = address.toUpperCase()
+  for (const [city, coords] of Object.entries(CITY_COORDS)) {
+    if (addressUpper.includes(city)) {
+      console.log(`✅ HARDCODED coords pentru ${city}:`, coords)
+      return { lat: coords[0], lng: coords[1] }
+    }
+  }
+  
+  // FALLBACK 2: Încearcă geocoding cu adresa COMPLETĂ
   try {
     const response = await fetch(
       `${NOMINATIM_BASE_URL}/search?` + new URLSearchParams({
         q: address,
         format: 'json',
         limit: '1',
-        countrycodes: 'ro', // Restrict to Romania
+        countrycodes: 'ro',
         addressdetails: '1'
       }),
       {
         headers: {
-          'User-Agent': 'CashpotApp/1.0' // Required by Nominatim
+          'User-Agent': 'CashpotApp/1.0'
         }
       }
     )
@@ -31,9 +66,38 @@ export const geocodeAddress = async (address) => {
     const data = await response.json()
     
     if (data && data.length > 0) {
+      console.log('✅ Nominatim găsit pentru adresa completă:', data[0])
       return {
         lat: parseFloat(data[0].lat),
         lng: parseFloat(data[0].lon)
+      }
+    }
+    
+    // FALLBACK 3: Încearcă doar cu ORAȘUL (fără stradă/bloc)
+    const city = extractCityFromAddress(address)
+    if (city && city !== address) {
+      console.log(`🔄 Retry geocoding doar cu orașul: ${city}`)
+      const cityResponse = await fetch(
+        `${NOMINATIM_BASE_URL}/search?` + new URLSearchParams({
+          q: `${city}, Romania`,
+          format: 'json',
+          limit: '1',
+          countrycodes: 'ro'
+        }),
+        {
+          headers: {
+            'User-Agent': 'CashpotApp/1.0'
+          }
+        }
+      )
+      
+      const cityData = await cityResponse.json()
+      if (cityData && cityData.length > 0) {
+        console.log('✅ Nominatim găsit pentru oraș:', cityData[0])
+        return {
+          lat: parseFloat(cityData[0].lat),
+          lng: parseFloat(cityData[0].lon)
+        }
       }
     }
     
