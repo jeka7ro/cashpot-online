@@ -97,7 +97,6 @@ async function syncExpenditures() {
       LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
       WHERE p.operational_date >= $1 AND p.operational_date <= $2
         AND p.is_deleted = false
-        AND p.show_in_expenditures = true
         AND et.name NOT IN ('Alpha Bank', 'Casino Technology', 'Bambouane', 'Cafes', 'Catering')
       ORDER BY p.operational_date DESC, l.name, et.name
     `
