@@ -2,26 +2,33 @@ import React, { useState, useEffect } from 'react'
 import { User, Phone, Mail, MapPin, Briefcase } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 
-const ManagerCard = ({ contactPersonUsername, locationName }) => {
+const ManagerCard = ({ locationId, contactPersonUsername, locationName }) => {
   const { users } = useData()
   const [manager, setManager] = useState(null)
 
   useEffect(() => {
-    if (contactPersonUsername && users) {
-      // Find user by username
-      const user = users.find(u => u.username === contactPersonUsername)
+    if (users && users.length > 0) {
+      // PRIORITATE 1: Caută manager cu location_id == locationId
+      let user = users.find(u => u.role === 'manager' && u.location_id === locationId)
+      
+      // PRIORITATE 2: Fallback la contact_person (backward compatibility)
+      if (!user && contactPersonUsername) {
+        user = users.find(u => u.username === contactPersonUsername)
+      }
+      
+      console.log(`🔍 Manager search pentru locația ${locationId}:`, user ? user.full_name : 'NU GĂSIT')
       setManager(user)
     }
-  }, [contactPersonUsername, users])
+  }, [locationId, contactPersonUsername, users])
 
-  if (!contactPersonUsername) {
+  if (!manager) {
     return (
       <div className="bg-slate-100 dark:bg-slate-700/50 rounded-xl p-6 border-2 border-dashed border-slate-300 dark:border-slate-600">
         <div className="text-center text-slate-500 dark:text-slate-400">
           <User className="w-12 h-12 mx-auto mb-2 opacity-50" />
           <p className="text-sm font-medium">Manager Nesetat</p>
           <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-            Adaugă o persoană de contact pentru această locație
+            Asociază un manager cu rol "Manager" în pagina Utilizatori
           </p>
         </div>
       </div>

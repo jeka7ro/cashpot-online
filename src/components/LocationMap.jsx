@@ -251,17 +251,19 @@ const LocationMap = ({ location }) => {
               
               let compCoords = await geocodeAddress(compAddress)
               
-              // FALLBACK: Dacă geocoding eșuează, folosește coords MAIN location cu offset mic
+              // FALLBACK: Dacă geocoding eșuează, folosește coords MAIN location cu offset
               if (!compCoords) {
                 console.log(`   ⚠️ Geocoding failed, using main location coords with offset`)
-                // Offset aleatoriu mic (±0.005 lat/lng ≈ ±500m)
-                const offsetLat = (Math.random() - 0.5) * 0.01
-                const offsetLng = (Math.random() - 0.5) * 0.01
+                // Offset aleatoriu CIRCULAR în jurul CASHPOT (radius 500m-1500m)
+                const angle = Math.random() * 2 * Math.PI // Unghi aleatoriu
+                const radius = 0.005 + Math.random() * 0.015 // 0.005-0.02 lat/lng ≈ 500m-2km
+                const offsetLat = Math.cos(angle) * radius
+                const offsetLng = Math.sin(angle) * radius
                 compCoords = {
                   lat: mainLocationCoords.lat + offsetLat,
                   lng: mainLocationCoords.lng + offsetLng
                 }
-                console.log(`   🎯 Fallback coords: [${compCoords.lat.toFixed(4)}, ${compCoords.lng.toFixed(4)}]`)
+                console.log(`   🎯 Fallback coords (${Math.round(radius * 111)}km radius): [${compCoords.lat.toFixed(4)}, ${compCoords.lng.toFixed(4)}]`)
               } else {
                 console.log(`   ✅ Coords found: [${compCoords.lat}, ${compCoords.lng}]`)
               }

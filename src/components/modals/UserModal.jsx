@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react'
-import { X, Save, User, Mail, Shield, UserCheck, Upload, Image, ChevronDown, ChevronUp } from 'lucide-react'
+import { X, Save, User, Mail, Shield, UserCheck, Upload, Image, ChevronDown, ChevronUp, MapPin } from 'lucide-react'
 import { MODULE_CONFIG, ACTION_LABELS, getDefaultPermissionsForRole } from '../../utils/permissions'
+import { useData } from '../../contexts/DataContext'
 
 const UserModal = ({ item, onClose, onSave }) => {
+  const { locations } = useData() // Import locations pentru dropdown
+  
   const [formData, setFormData] = useState({
     username: '',
     full_name: '',
@@ -10,6 +13,7 @@ const UserModal = ({ item, onClose, onSave }) => {
     password: '',
     role: 'user',
     status: 'active',
+    location_id: null, // Pentru manageri - locația gestionată
     notes: '',
     avatar: null,
     avatarPreview: null,
@@ -26,6 +30,7 @@ const UserModal = ({ item, onClose, onSave }) => {
         email: item.email || '',
         role: item.role || 'user',
         status: item.status || 'active',
+        location_id: item.location_id || null, // Locația gestionată (pentru manageri)
         notes: item.notes || '',
         avatar: item.avatar || null,
         avatarPreview: item.avatar || null,
@@ -250,6 +255,33 @@ const UserModal = ({ item, onClose, onSave }) => {
                 <option value="suspended">Suspendat</option>
               </select>
             </div>
+            
+            {/* DROPDOWN LOCAȚIE (doar pentru MANAGER!) */}
+            {formData.role === 'manager' && (
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-700 flex items-center">
+                  <MapPin className="w-4 h-4 mr-2 text-blue-500" />
+                  Locație Gestionată *
+                </label>
+                <select 
+                  name="location_id" 
+                  value={formData.location_id || ''} 
+                  onChange={handleChange} 
+                  className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-blue-50" 
+                  required
+                >
+                  <option value="">Selectează locația...</option>
+                  {locations.map(loc => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-500">
+                  💡 Această locație va fi asociată managerului. Info managerului va apărea automat în pagina locației.
+                </p>
+              </div>
+            )}
           </div>
           
           {/* Permissions Section */}

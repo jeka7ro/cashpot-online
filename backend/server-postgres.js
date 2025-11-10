@@ -1039,7 +1039,8 @@ const initializeDatabase = async () => {
       await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS notes TEXT')
       await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT \'active\'')
       await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS created_by VARCHAR(100)')
-      console.log('✅ Users table updated with new fields including preferences')
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS location_id INTEGER REFERENCES locations(id) ON DELETE SET NULL')
+      console.log('✅ Users table updated with new fields including preferences and location_id')
     } catch (error) {
       console.log('⚠️ Users new fields may already exist:', error.message)
     }

@@ -195,7 +195,7 @@ const LocationDetail = () => {
             {/* Manager Card */}
             <div>
               <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-3">Manager Locație</h3>
-              <ManagerCard contactPersonUsername={location.contact_person} locationName={location.name} />
+              <ManagerCard locationId={location.id} contactPersonUsername={location.contact_person} locationName={location.name} />
             </div>
           </div>
         </div>
