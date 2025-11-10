@@ -2175,8 +2175,9 @@ app.post('/api/locations/:id/sync-competitors', async (req, res) => {
     // Fetch ONJN data (scraping LIVE din site ONJN!)
     console.log(`   Scraping LIVE ONJN pentru ${city}...`)
     
-    const https = require('https')
-    const { load } = require('cheerio')
+    const https = await import('https')
+    const cheerio = await import('cheerio')
+    const { load } = cheerio
     
     const BASE_URL = 'https://onjn.gov.ro'
     const LIST_PATH = '/ro/equipments'
@@ -2193,7 +2194,7 @@ app.post('/api/locations/:id/sync-competitors', async (req, res) => {
       console.log(`   URL: ${url}`)
       
       const response = await new Promise((resolve, reject) => {
-        https.get(url, (res) => {
+        https.default.get(url, (res) => {
           let data = ''
           res.on('data', chunk => data += chunk)
           res.on('end', () => resolve({ data }))
