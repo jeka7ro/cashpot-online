@@ -4523,3 +4523,4 @@ app.post('/api/restore-dashboard/:userId', authenticateUser, async (req, res) =>
 // Server already started at line 1271 - IMMEDIATELY after route registration!
 // This prevents timeout issues on Render.com
 console.log('✅ Server startup complete - all endpoints registered')
+// Force Render rebuild Mon Nov 10 10:44:55 EET 2025
