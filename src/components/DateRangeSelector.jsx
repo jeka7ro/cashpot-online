@@ -1,10 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef } from 'react'
 import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react'
 
 const DateRangeSelector = ({ startDate, endDate, onChange }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [granularity, setGranularity] = useState('M') // Y, Q, M, D
-  const [isDragging, setIsDragging] = useState(null) // 'start' or 'end'
   const sliderRef = useRef(null)
   
   const start = new Date(startDate)
@@ -21,7 +20,17 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
   }
   
   const formatShortRange = () => {
-    return `${months[startMonth]}. ${currentYear} - ${months[endMonth]}. ${currentYear}`
+    if (granularity === 'Y') {
+      return `${currentYear}`
+    } else if (granularity === 'Q') {
+      const startQ = Math.floor(startMonth / 3) + 1
+      const endQ = Math.floor(endMonth / 3) + 1
+      return `Q${startQ} ${currentYear} - Q${endQ} ${currentYear}`
+    } else if (granularity === 'M') {
+      return `${months[startMonth]}. ${currentYear} - ${months[endMonth]}. ${currentYear}`
+    } else {
+      return `${start.toLocaleDateString('ro-RO')} - ${end.toLocaleDateString('ro-RO')}`
+    }
   }
   
   const handlePrevPeriod = () => {
@@ -44,13 +53,86 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
     })
   }
   
-  const handleSliderClick = (monthIndex) => {
-    // Click pe o lună → setează range la acea lună
+  // QUICK ACTIONS (Azi, Săptămâna curentă, Luna curentă, Luna trecută, Anul curent)
+  const handleQuickAction = (action) => {
+    const now = new Date()
+    let newStart, newEnd
+    
+    switch (action) {
+      case 'today':
+        newStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        newEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        break
+      case 'thisWeek':
+        const dayOfWeek = now.getDay()
+        const startOfWeek = new Date(now)
+        startOfWeek.setDate(now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)) // Luni
+        const endOfWeek = new Date(startOfWeek)
+        endOfWeek.setDate(startOfWeek.getDate() + 6) // Duminică
+        newStart = startOfWeek
+        newEnd = endOfWeek
+        break
+      case 'thisMonth':
+        newStart = new Date(now.getFullYear(), now.getMonth(), 1)
+        newEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+        break
+      case 'lastMonth':
+        newStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+        newEnd = new Date(now.getFullYear(), now.getMonth(), 0)
+        break
+      case 'thisYear':
+        newStart = new Date(now.getFullYear(), 0, 1)
+        newEnd = new Date(now.getFullYear(), 11, 31)
+        break
+      default:
+        return
+    }
+    
+    onChange({
+      startDate: newStart.toISOString().split('T')[0],
+      endDate: newEnd.toISOString().split('T')[0]
+    })
+    setIsOpen(false)
+  }
+  
+  // MONTH MODE - Click pe lună
+  const handleMonthClick = (monthIndex) => {
     const newStart = new Date(currentYear, monthIndex, 1)
     const newEnd = new Date(currentYear, monthIndex + 1, 0)
     onChange({
       startDate: newStart.toISOString().split('T')[0],
       endDate: newEnd.toISOString().split('T')[0]
+    })
+  }
+  
+  // QUARTER MODE - Click pe trimestru
+  const handleQuarterClick = (quarterIndex) => {
+    const newStart = new Date(currentYear, quarterIndex * 3, 1)
+    const newEnd = new Date(currentYear, quarterIndex * 3 + 3, 0)
+    onChange({
+      startDate: newStart.toISOString().split('T')[0],
+      endDate: newEnd.toISOString().split('T')[0]
+    })
+  }
+  
+  // YEAR MODE - Selectare an
+  const handleYearClick = (year) => {
+    const newStart = new Date(year, 0, 1)
+    const newEnd = new Date(year, 11, 31)
+    onChange({
+      startDate: newStart.toISOString().split('T')[0],
+      endDate: newEnd.toISOString().split('T')[0]
+    })
+  }
+  
+  // DAY MODE - Calendar simplu (30 zile înainte/după)
+  const handleDayClick = (dayOffset) => {
+    const now = new Date()
+    const newDate = new Date(now)
+    newDate.setDate(now.getDate() + dayOffset)
+    onChange({
+      startDate: newDate.toISOString().split('T')[0],
+      endDate: newDate.toISOString().split('T')[0]
     })
   }
   
@@ -85,15 +167,15 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
         </div>
       </button>
       
-      {/* Modal - CA ÎN SCREENSHOT! */}
+      {/* Modal - CA ÎN SCREENSHOT + QUICK ACTIONS! */}
       {isOpen && (
         <>
           <div 
-            className="fixed inset-0 bg-black/70 backdrop-blur-md z-[9998]"
+            className="fixed inset-0 bg-black/70 backdrop-blur-md z-[99998]"
             onClick={() => setIsOpen(false)}
           />
           
-          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] bg-gradient-to-br from-blue-800 via-blue-900 to-indigo-900 rounded-3xl shadow-2xl border-4 border-blue-400 p-8 z-[9999]">
+          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[900px] max-h-[90vh] overflow-y-auto bg-gradient-to-br from-blue-800 via-blue-900 to-indigo-900 rounded-3xl shadow-2xl border-4 border-blue-400 p-8 z-[99999]">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div>
@@ -109,9 +191,9 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
                       <button
                         key={g.id}
                         onClick={() => setGranularity(g.id)}
-                        className={`w-8 h-8 rounded-lg font-bold text-sm transition-all ${
+                        className={`w-10 h-10 rounded-lg font-bold text-sm transition-all ${
                           granularity === g.id
-                            ? 'bg-white text-blue-900'
+                            ? 'bg-white text-blue-900 shadow-lg'
                             : 'bg-blue-700 text-white hover:bg-blue-600 border border-blue-500'
                         }`}
                       >
@@ -140,80 +222,184 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
               </button>
             </div>
             
+            {/* QUICK ACTIONS - PESTE TOT! */}
+            <div className="flex flex-wrap gap-2 mb-6">
+              {[
+                { id: 'today', label: '📅 Azi' },
+                { id: 'thisWeek', label: '📆 Săptămâna curentă' },
+                { id: 'thisMonth', label: '📊 Luna curentă' },
+                { id: 'lastMonth', label: '⏮️ Luna trecută' },
+                { id: 'thisYear', label: '🗓️ Anul curent' }
+              ].map(action => (
+                <button
+                  key={action.id}
+                  onClick={() => handleQuickAction(action.id)}
+                  className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-semibold text-sm transition-all shadow-lg"
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+            
             {/* Timeline - CA ÎN SCREENSHOT! */}
             <div className="bg-blue-900/50 rounded-2xl p-6 border-2 border-blue-500/50">
-              <div className="mb-4">
-                <div className="text-white text-3xl font-bold">{currentYear}</div>
-                <div className="text-blue-300 text-sm">Q{Math.floor(startMonth / 3) + 1}</div>
-                <div className="text-white text-lg">{months[startMonth]}.</div>
-              </div>
               
-              {/* Quarter markers */}
-              <div className="flex justify-between mb-2 px-2">
-                {['Q1', 'Q2', 'Q3', 'Q4'].map((q, idx) => (
-                  <div key={q} className="text-blue-300 text-xs font-bold" style={{ marginLeft: idx === 0 ? 0 : '12%' }}>
-                    {q}
+              {/* YEAR MODE */}
+              {granularity === 'Y' && (
+                <div className="space-y-4">
+                  <div className="text-white text-2xl font-bold mb-4">Selectează An</div>
+                  <div className="grid grid-cols-4 gap-3">
+                    {[2023, 2024, 2025, 2026, 2027].map(year => (
+                      <button
+                        key={year}
+                        onClick={() => handleYearClick(year)}
+                        className={`p-4 rounded-xl font-bold transition-all ${
+                          currentYear === year
+                            ? 'bg-white text-blue-900 shadow-lg'
+                            : 'bg-blue-700 text-white hover:bg-blue-600'
+                        }`}
+                      >
+                        {year}
+                      </button>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
               
-              {/* Month labels */}
-              <div className="flex justify-between mb-2 text-xs text-white font-semibold">
-                {months.map((m, idx) => (
-                  <div key={idx} className={idx >= startMonth && idx <= endMonth ? 'text-cyan-300' : 'text-blue-400'}>
-                    {m}
+              {/* QUARTER MODE */}
+              {granularity === 'Q' && (
+                <div className="space-y-4">
+                  <div className="text-white text-2xl font-bold mb-4">{currentYear}</div>
+                  <div className="grid grid-cols-4 gap-4">
+                    {['Q1', 'Q2', 'Q3', 'Q4'].map((q, idx) => {
+                      const isSelected = Math.floor(startMonth / 3) === idx || Math.floor(endMonth / 3) === idx
+                      return (
+                        <button
+                          key={q}
+                          onClick={() => handleQuarterClick(idx)}
+                          className={`p-6 rounded-xl font-bold text-lg transition-all ${
+                            isSelected
+                              ? 'bg-white text-blue-900 shadow-lg'
+                              : 'bg-blue-700 text-white hover:bg-blue-600'
+                          }`}
+                        >
+                          {q}
+                          <div className="text-xs mt-2 opacity-70">
+                            {months[idx * 3]} - {months[idx * 3 + 2]}
+                          </div>
+                        </button>
+                      )
+                    })}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
               
-              {/* Slider bar - CA ÎN SCREENSHOT! */}
-              <div ref={sliderRef} className="relative h-4 bg-blue-700 rounded-full mb-4">
-                {/* Selected range (WHITE!) */}
-                <div
-                  className="absolute h-full bg-white rounded-full"
-                  style={{
-                    left: `${(startMonth / 11) * 100}%`,
-                    width: `${((endMonth - startMonth) / 11) * 100}%`
-                  }}
-                />
-                
-                {/* START Handle (GRI!) */}
-                <div
-                  className="absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-gray-400 rounded-full border-2 border-white cursor-pointer shadow-lg z-10"
-                  style={{ left: `${(startMonth / 11) * 100}%`, transform: 'translate(-50%, -50%)' }}
-                  title="Start"
-                />
-                
-                {/* END Handle (GRI!) */}
-                <div
-                  className="absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-gray-400 rounded-full border-2 border-white cursor-pointer shadow-lg z-10"
-                  style={{ left: `${(endMonth / 11) * 100}%`, transform: 'translate(-50%, -50%)' }}
-                  title="End"
-                />
-              </div>
+              {/* MONTH MODE */}
+              {granularity === 'M' && (
+                <div className="space-y-4">
+                  <div className="mb-4">
+                    <div className="text-white text-3xl font-bold">{currentYear}</div>
+                    <div className="text-blue-300 text-sm">Q{Math.floor(startMonth / 3) + 1}</div>
+                    <div className="text-white text-lg">{months[startMonth]}.</div>
+                  </div>
+                  
+                  {/* Quarter markers */}
+                  <div className="flex justify-between mb-2 px-2">
+                    {['Q1', 'Q2', 'Q3', 'Q4'].map((q, idx) => (
+                      <div key={q} className="text-blue-300 text-xs font-bold" style={{ marginLeft: idx === 0 ? 0 : '12%' }}>
+                        {q}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Month labels */}
+                  <div className="flex justify-between mb-2 text-xs text-white font-semibold">
+                    {months.map((m, idx) => (
+                      <div key={idx} className={idx >= startMonth && idx <= endMonth ? 'text-cyan-300' : 'text-blue-400'}>
+                        {m}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Slider bar - CA ÎN SCREENSHOT! */}
+                  <div ref={sliderRef} className="relative h-4 bg-blue-700 rounded-full mb-4">
+                    {/* Selected range (WHITE!) */}
+                    <div
+                      className="absolute h-full bg-white rounded-full"
+                      style={{
+                        left: `${(startMonth / 11) * 100}%`,
+                        width: `${((endMonth - startMonth) / 11) * 100}%`
+                      }}
+                    />
+                    
+                    {/* START Handle (GRI!) */}
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-gray-400 rounded-full border-2 border-white cursor-pointer shadow-lg z-10"
+                      style={{ left: `${(startMonth / 11) * 100}%`, transform: 'translate(-50%, -50%)' }}
+                      title="Start"
+                    />
+                    
+                    {/* END Handle (GRI!) */}
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-gray-400 rounded-full border-2 border-white cursor-pointer shadow-lg z-10"
+                      style={{ left: `${(endMonth / 11) * 100}%`, transform: 'translate(-50%, -50%)' }}
+                      title="End"
+                    />
+                  </div>
+                  
+                  {/* Month click areas */}
+                  <div className="flex justify-between">
+                    {months.map((month, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleMonthClick(idx)}
+                        className={`flex-1 h-8 text-xs transition-all rounded ${
+                          idx >= startMonth && idx <= endMonth
+                            ? 'text-cyan-300 font-bold bg-blue-700/50'
+                            : 'text-blue-400 hover:text-blue-200 hover:bg-blue-700/30'
+                        }`}
+                        title={`Selectează ${month}`}
+                      >
+                        {idx >= startMonth && idx <= endMonth && '●'}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  <div className="mt-4 text-right">
+                    <div className="text-white text-sm font-semibold">{formatShortRange()}</div>
+                    <div className="text-blue-300 text-xs">Interval selectat</div>
+                  </div>
+                </div>
+              )}
               
-              {/* Month click areas */}
-              <div className="flex justify-between">
-                {months.map((month, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleSliderClick(idx)}
-                    className={`flex-1 h-6 text-xs transition-all ${
-                      idx >= startMonth && idx <= endMonth
-                        ? 'text-cyan-300 font-bold'
-                        : 'text-blue-400 hover:text-blue-200'
-                    }`}
-                    title={`Selectează ${month}`}
-                  >
-                    {idx >= startMonth && idx <= endMonth && '●'}
-                  </button>
-                ))}
-              </div>
+              {/* DAY MODE */}
+              {granularity === 'D' && (
+                <div className="space-y-4">
+                  <div className="text-white text-2xl font-bold mb-4">Selectează Zi</div>
+                  <div className="grid grid-cols-7 gap-2">
+                    {Array.from({ length: 30 }, (_, i) => i - 15).map(dayOffset => {
+                      const date = new Date()
+                      date.setDate(date.getDate() + dayOffset)
+                      const isToday = dayOffset === 0
+                      return (
+                        <button
+                          key={dayOffset}
+                          onClick={() => handleDayClick(dayOffset)}
+                          className={`p-3 rounded-lg text-sm transition-all ${
+                            isToday
+                              ? 'bg-cyan-500 text-white font-bold shadow-lg'
+                              : 'bg-blue-700 text-white hover:bg-blue-600'
+                          }`}
+                        >
+                          <div className="font-bold">{date.getDate()}</div>
+                          <div className="text-xs opacity-70">{months[date.getMonth()]}</div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
               
-              <div className="mt-4 text-right">
-                <div className="text-white text-sm font-semibold">{formatShortRange()}</div>
-                <div className="text-blue-300 text-xs">Interval selectat</div>
-              </div>
             </div>
           </div>
         </>

@@ -1,9 +1,45 @@
 import React, { useState, useEffect } from 'react'
-import { ChevronDown, ChevronRight, Maximize2, Minimize2 } from 'lucide-react'
+import { 
+  ChevronDown, ChevronRight, Maximize2, Minimize2,
+  Users, Coffee, Home, Broom, ShieldCheck, Box, Music, Briefcase,
+  DollarSign, Coins, Zap, Truck, Megaphone, Wrench, Scale,
+  FileText, Settings, Wine, Banknote, Building2, Factory
+} from 'lucide-react'
 
 const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, expendituresData }) => {
   const [expandedDepartments, setExpandedDepartments] = useState(new Set())
   const [allExpanded, setAllExpanded] = useState(false)
+  
+  // ICONIȚE PENTRU FIECARE DEPARTAMENT!
+  const getDepartmentIcon = (deptName) => {
+    const iconMap = {
+      'Salarii': Users,
+      'Bar': Coffee,
+      'Chirie': Home,
+      'Servicii de Curățenie': Broom,
+      'Pază și Intervenție': ShieldCheck,
+      'Achiziții Sloturi și accesorii': Box,
+      'Asociația pentru drepturi de autor': Music,
+      'Birou': Briefcase,
+      'Cheltuieli Administrative': FileText,
+      'Comisioane': DollarSign,
+      'Electricitate': Zap,
+      'Logistica': Truck,
+      'Marketing': Megaphone,
+      'Mentenanța': Wrench,
+      'Metrologie': Scale,
+      'Plată utilități': Banknote,
+      'Prestări servicii': Settings,
+      'Protocol': Wine,
+      'POS': Coins,
+      'Bancă': Building2,
+      'Registru de Casă': Coins,
+      'Alte Cheltuieli': Briefcase
+    }
+    
+    const IconComponent = iconMap[deptName] || Factory
+    return <IconComponent className="w-5 h-5" />
+  }
   
   // Group categories by department
   const groupByDepartment = () => {
@@ -149,8 +185,11 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
                     ) : (
                       <ChevronRight className="w-5 h-5 text-slate-400" />
                     )}
+                    <span className="text-blue-600 dark:text-blue-400">
+                      {getDepartmentIcon(dept.name)}
+                    </span>
                     <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                      🏢 {dept.name}
+                      {dept.name}
                     </span>
                   </div>
                 </td>

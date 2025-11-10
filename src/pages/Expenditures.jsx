@@ -515,10 +515,7 @@ const Expenditures = () => {
                 setDepartmentFilter(deptName)
                 toast.success(`📊 Filtrat: ${deptName}`, { id: 'dept-filter' })
               }
-              // Scroll to table (INSTANT!)
-              setTimeout(() => {
-                document.getElementById('matrix-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              }, 100)
+              // NU MAI SCROLL! (user nu vrea)
             }}
             onLocationClick={(locName) => {
               // Toggle filter (click din nou = reset)
@@ -529,10 +526,7 @@ const Expenditures = () => {
                 setLocationFilter(locName)
                 toast.success(`📍 Filtrat: ${locName}`, { id: 'loc-filter' })
               }
-              // Scroll to table (INSTANT!)
-              setTimeout(() => {
-                document.getElementById('matrix-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              }, 100)
+              // NU MAI SCROLL! (user nu vrea)
             }}
           />
         )}
