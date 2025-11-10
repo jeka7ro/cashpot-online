@@ -255,18 +255,39 @@ const LocationMap = ({ location }) => {
           })
           
           if (response.data && response.data.success) {
-            // Filter out CASHPOT locations (DOAR acestea, NU Million/Maxbet!)
+            // Filter out CASHPOT locations + DOAR același oraș!
             const competitorLocations = response.data.locations.filter(loc => {
               const operator = (loc.operator || '').toLowerCase()
+              const locCity = (loc.city || '').toLowerCase().trim()
+              const targetCity = city.toLowerCase().trim()
+              
               // Exclude DOAR CASHPOT/SMARTFLIX
-              return !operator.includes('cashpot') && !operator.includes('smartflix')
+              if (operator.includes('cashpot') || operator.includes('smartflix')) {
+                return false
+              }
+              
+              // Include DOAR competitori din ACELAȘI ORAȘ
+              const cityMatch = locCity === targetCity || 
+                               locCity.includes(targetCity) || 
+                               targetCity.includes(locCity) ||
+                               locCity.replace(/[^a-z0-9]/g, '') === targetCity.replace(/[^a-z0-9]/g, '')
+              
+              return cityMatch
             })
             
-            console.log('🏢 ALL competitors found:', competitorLocations.map(c => c.operator))
+            console.log(`🏢 Competitors în ${city}: ${competitorLocations.length} (filtrat din ${response.data.locations.length} total)`)
+            console.log('   Operatori:', competitorLocations.map(c => c.operator))
+            
+            if (competitorLocations.length === 0) {
+              console.log(`   ⚠️ NU există competitori în ${city}!`)
+              setCompetitors([])
+              setLoading(false)
+              return
+            }
             
             // Geocode competitor addresses (limit to first 10 to avoid rate limiting)
             const geocodedCompetitors = []
-            console.log(`🏢 Found ${competitorLocations.length} competitors in ${city}`)
+            console.log(`🔍 Geocoding ${Math.min(competitorLocations.length, 10)} competitori din ${city}...`)
             
             for (let i = 0; i < Math.min(competitorLocations.length, 10); i++) {
               const comp = competitorLocations[i]
