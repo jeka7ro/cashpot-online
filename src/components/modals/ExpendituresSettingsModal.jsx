@@ -146,6 +146,7 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
         locationsCount: cleanedSettings.includedLocations?.length
       })
       
+      // SALVARE PE SERVER (nu localStorage!)
       const response = await axios.put('/api/expenditures/settings', { settings: cleanedSettings })
       
       console.log('✅ RĂSPUNS de la backend:', response.data)
@@ -529,8 +530,7 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
 
               <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
                 <p className="text-sm text-blue-800 dark:text-blue-300">
-                  💡 <strong>Notă:</strong> Setările graficelor se salvează automat în browser (localStorage). 
-                  Nu necesită sincronizare cu server-ul.
+                  💡 <strong>Notă:</strong> Setările graficelor se aplică instant la schimbare (preview live).
                 </p>
               </div>
             </div>
