@@ -172,7 +172,16 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
       // FALLBACK: Salvare în localStorage dacă serverul nu răspunde (500 ERROR)
       if (error.response?.status === 500) {
         console.log('🔄 FALLBACK: Salvez în localStorage până se repară serverul')
-        localStorage.setItem('expenditures_settings_fallback', JSON.stringify(cleanedSettings))
+        
+        // Recreate cleanedSettings pentru fallback
+        const fallbackSettings = {
+          ...settings,
+          includedExpenditureTypes: removeDuplicatesWithNormalization(settings.includedExpenditureTypes || []),
+          includedDepartments: removeDuplicatesWithNormalization(settings.includedDepartments || []),
+          includedLocations: removeDuplicatesWithNormalization(settings.includedLocations || [])
+        }
+        
+        localStorage.setItem('expenditures_settings_fallback', JSON.stringify(fallbackSettings))
         toast.success('⚠️ Setări salvate local (server indisponibil - fă manual deploy pe Render!)')
         
         // RELOAD settings pentru a verifica persistența
