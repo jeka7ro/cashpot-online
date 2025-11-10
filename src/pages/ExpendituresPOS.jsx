@@ -481,6 +481,98 @@ const Expenditures = () => {
           </div>
         </div>
         
+        {/* Filters - MUTAT ÎN VÂRFUL PAGINII! */}
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center">
+              <Filter className="w-5 h-5 mr-2 text-blue-500" />
+              Filtre
+            </h2>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              💾 Preferințele tale sunt salvate automat
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+              {/* Filters Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Date Range Selector */}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  📅 Perioadă
+                </label>
+                <DateRangeSelector
+                  startDate={dateRange.startDate}
+                  endDate={dateRange.endDate}
+                  onChange={(newRange) => {
+                    setDateRange(newRange)
+                    setSelectedDateFilter('custom')
+                  }}
+                />
+              </div>
+              
+              {/* Department Filter */}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  <Briefcase className="w-4 h-4 inline mr-1" />
+                  Departament
+                </label>
+                <select
+                  value={departmentFilter}
+                  onChange={(e) => setDepartmentFilter(e.target.value)}
+                  className="input-field"
+                >
+                  <option value="all">Toate Departamentele</option>
+                  {uniqueDepartments.map(dept => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Expenditure Type Filter */}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  <Filter className="w-4 h-4 inline mr-1" />
+                  Tip Cheltuială
+                </label>
+                <select
+                  value={expenditureTypeFilter}
+                  onChange={(e) => setExpenditureTypeFilter(e.target.value)}
+                  className="input-field"
+                >
+                  <option value="all">Toate Tipurile</option>
+                  {uniqueExpenditureTypes.map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          {/* Quick Actions */}
+          <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+            <div className="text-sm text-slate-600 dark:text-slate-400">
+              Perioadă: <span className="font-semibold">{dateRange.startDate}</span> - <span className="font-semibold">{dateRange.endDate}</span>
+            </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={handleExportExcel}
+                className="btn-secondary flex items-center space-x-2 text-sm"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Excel</span>
+              </button>
+              <button
+                onClick={handleExportPDF}
+                className="btn-secondary flex items-center space-x-2 text-sm"
+              >
+                <FileText className="w-4 h-4" />
+                <span>PDF</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-6 rounded-2xl shadow-lg">
@@ -617,98 +709,6 @@ const Expenditures = () => {
             </ResponsiveContainer>
           </div>
         )}
-        
-        {/* Filters */}
-        <div className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center">
-              <Filter className="w-5 h-5 mr-2 text-blue-500" />
-              Filtre
-            </h2>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
-              💾 Preferințele tale sunt salvate automat
-            </div>
-          </div>
-          
-          <div className="space-y-4">
-              {/* Filters Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Date Range Selector */}
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  📅 Perioadă
-                </label>
-                <DateRangeSelector
-                  startDate={dateRange.startDate}
-                  endDate={dateRange.endDate}
-                  onChange={(newRange) => {
-                    setDateRange(newRange)
-                    setSelectedDateFilter('custom')
-                  }}
-                />
-              </div>
-              
-              {/* Department Filter */}
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  <Briefcase className="w-4 h-4 inline mr-1" />
-                  Departament
-                </label>
-                <select
-                  value={departmentFilter}
-                  onChange={(e) => setDepartmentFilter(e.target.value)}
-                  className="input-field"
-                >
-                  <option value="all">Toate Departamentele</option>
-                  {uniqueDepartments.map(dept => (
-                    <option key={dept} value={dept}>{dept}</option>
-                  ))}
-                </select>
-              </div>
-              
-              {/* Expenditure Type Filter */}
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  <Filter className="w-4 h-4 inline mr-1" />
-                  Tip Cheltuială
-                </label>
-                <select
-                  value={expenditureTypeFilter}
-                  onChange={(e) => setExpenditureTypeFilter(e.target.value)}
-                  className="input-field"
-                >
-                  <option value="all">Toate Tipurile</option>
-                  {uniqueExpenditureTypes.map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-          
-          {/* Quick Actions */}
-          <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-            <div className="text-sm text-slate-600 dark:text-slate-400">
-              Perioadă: <span className="font-semibold">{dateRange.startDate}</span> - <span className="font-semibold">{dateRange.endDate}</span>
-            </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={handleExportExcel}
-                className="btn-secondary flex items-center space-x-2 text-sm"
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                <span>Excel</span>
-              </button>
-              <button
-                onClick={handleExportPDF}
-                className="btn-secondary flex items-center space-x-2 text-sm"
-              >
-                <FileText className="w-4 h-4" />
-                <span>PDF</span>
-              </button>
-            </div>
-          </div>
-        </div>
         
         {/* Matrix Table */}
         <div id="matrix-table" className="card p-6">
