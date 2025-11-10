@@ -567,15 +567,27 @@ router.put('/settings', async (req, res) => {
       includedLocations: Array.isArray(settings.includedLocations) ? settings.includedLocations : []
     }
     
-    // SALVARE directă ca JSONB (NU string!)
-    console.log('📦 Salvez direct ca JSONB:', JSON.stringify(cleanSettings).substring(0, 200))
+    // SALVARE ca JSONB - TRY/CATCH robust!
+    console.log('📦 Salvez setări (primii 200 chars):', JSON.stringify(cleanSettings).substring(0, 200))
     
-    await pool.query(`
-      INSERT INTO global_settings (setting_key, setting_value)
-      VALUES ('expenditures_sync_config', $1::jsonb)
-      ON CONFLICT (setting_key) 
-      DO UPDATE SET setting_value = $1::jsonb, updated_at = CURRENT_TIMESTAMP
-    `, [JSON.stringify(cleanSettings)])
+    try {
+      await pool.query(`
+        INSERT INTO global_settings (setting_key, setting_value)
+        VALUES ('expenditures_sync_config', $1::jsonb)
+        ON CONFLICT (setting_key) 
+        DO UPDATE SET setting_value = $1::jsonb, updated_at = CURRENT_TIMESTAMP
+      `, [JSON.stringify(cleanSettings)])
+    } catch (dbError) {
+      console.error('❌ JSONB insert FAILED:', dbError.message)
+      // Fallback: Încearcă fără ::jsonb cast
+      await pool.query(`
+        INSERT INTO global_settings (setting_key, setting_value)
+        VALUES ('expenditures_sync_config', $1)
+        ON CONFLICT (setting_key) 
+        DO UPDATE SET setting_value = $1, updated_at = CURRENT_TIMESTAMP
+      `, [JSON.stringify(cleanSettings)])
+      console.log('✅ Salvat cu fallback (fără JSONB cast)')
+    }
     
     console.log('✅ BACKEND - Setări salvate în DB cu succes!')
     
