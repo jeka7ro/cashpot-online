@@ -2181,13 +2181,43 @@ app.post('/api/locations/:id/sync-competitors', async (req, res) => {
       return res.status(500).json({ success: false, error: 'Failed to fetch ONJN data' })
     }
     
-    // Filter out CASHPOT/SMARTFLIX locations
+    // Filter out CASHPOT/SMARTFLIX locations + DOAR același oraș!
     const competitorLocations = onjnResponse.data.locations.filter(loc => {
       const operator = (loc.operator || '').toLowerCase()
-      return !operator.includes('cashpot') && !operator.includes('smartflix')
+      const locCity = (loc.city || '').toLowerCase().trim()
+      const targetCity = city.toLowerCase().trim()
+      
+      // Exclude CASHPOT/SMARTFLIX
+      if (operator.includes('cashpot') || operator.includes('smartflix')) {
+        return false
+      }
+      
+      // Include DOAR competitori din ACELAȘI ORAȘ
+      // Match exact sau parțial (pentru "Râmnicu Vâlcea" vs "Ramnicu Valcea")
+      const cityMatch = locCity === targetCity || 
+                       locCity.includes(targetCity) || 
+                       targetCity.includes(locCity) ||
+                       locCity.replace(/[^a-z0-9]/g, '') === targetCity.replace(/[^a-z0-9]/g, '')
+      
+      return cityMatch
     })
     
-    console.log(`   Found ${competitorLocations.length} competitors`)
+    console.log(`   Found ${competitorLocations.length} competitors în ${city} (filtrat din ${onjnResponse.data.locations.length} total)`)
+    
+    if (competitorLocations.length === 0) {
+      console.log(`   ⚠️ NU există competitori în ${city}!`)
+      return res.json({
+        success: true,
+        message: `Nu există competitori în ${city}`,
+        data: {
+          updated_at: new Date().toISOString(),
+          city: city,
+          county: county,
+          total: 0,
+          competitors: []
+        }
+      })
+    }
     
     // Brand logo mapping
     const BRAND_LOGOS = {
@@ -2303,18 +2333,27 @@ app.post('/api/locations/:id/sync-competitors', async (req, res) => {
       competitors: competitors
     }
     
-    await pool.query(
-      'UPDATE locations SET competitors = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-      [JSON.stringify(competitorsData), id]
-    )
+    console.log(`💾 Salvare în DB pentru location ${id}...`)
+    console.log(`   Total competitori: ${competitors.length}`)
+    console.log(`   Mărime JSON: ${JSON.stringify(competitorsData).length} chars`)
     
-    console.log(`✅ Competitors synced for location ${id}`)
-    
-    res.json({
-      success: true,
-      message: `Successfully synced ${competitors.length} competitors`,
-      data: competitorsData
-    })
+    try {
+      await pool.query(
+        'UPDATE locations SET competitors = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+        [JSON.stringify(competitorsData), id]
+      )
+      
+      console.log(`✅ Competitors synced for location ${id}`)
+      
+      res.json({
+        success: true,
+        message: `Successfully synced ${competitors.length} competitors în ${city}`,
+        data: competitorsData
+      })
+    } catch (dbError) {
+      console.error(`❌ DB Error saving competitors for location ${id}:`, dbError)
+      throw dbError // Re-throw pentru catch-ul exterior
+    }
   } catch (error) {
     console.error('❌ Error syncing competitors:', error)
     res.status(500).json({ success: false, error: error.message })
