@@ -536,36 +536,8 @@ const Expenditures = () => {
                   {formatCurrency(totalsRow?.total || 0)} RON
                 </p>
               </div>
-              {/* Iconița dinamică cu procentaj */}
-              <div className="flex flex-col items-center">
-                <div className={`p-4 rounded-2xl ${
-                  previousMonthData.isPositive 
-                    ? 'bg-green-500/10' 
-                    : 'bg-red-500/10'
-                }`}>
-                  {previousMonthData.isPositive ? (
-                    <TrendingUp className={`w-8 h-8 ${
-                      previousMonthData.isPositive 
-                        ? 'text-green-600 dark:text-green-400' 
-                        : 'text-red-600 dark:text-red-400'
-                    }`} />
-                  ) : (
-                    <TrendingDown className={`w-8 h-8 ${
-                      previousMonthData.isPositive 
-                        ? 'text-green-600 dark:text-green-400' 
-                        : 'text-red-600 dark:text-red-400'
-                    }`} />
-                  )}
-                </div>
-                {previousMonthData.percentage > 0 && (
-                  <div className={`text-xs font-bold mt-1 ${
-                    previousMonthData.isPositive 
-                      ? 'text-green-600 dark:text-green-400' 
-                      : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {previousMonthData.isPositive ? '+' : '-'}{previousMonthData.percentage.toFixed(1)}%
-                  </div>
-                )}
+              <div className="p-4 bg-blue-500/10 rounded-2xl">
+                <TrendingUp className="w-8 h-8 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
           </div>
@@ -605,11 +577,26 @@ const Expenditures = () => {
           <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-orange-900/20 dark:to-amber-900/20 p-6 rounded-2xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Înregistrări</p>
-                <p className="text-3xl font-bold text-orange-600 dark:text-orange-400 mt-2">{filteredCount}</p>
+                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Diferența față de luna trecută</p>
+                <p className={`text-3xl font-bold mt-2 ${
+                  previousMonthData.isPositive 
+                    ? 'text-green-600 dark:text-green-400' 
+                    : 'text-red-600 dark:text-red-400'
+                }`}>
+                  {previousMonthData.isPositive ? '+' : '-'}{previousMonthData.percentage.toFixed(1)}%
+                </p>
               </div>
-              <div className="p-4 bg-orange-500/10 rounded-2xl">
-                <FileText className="w-8 h-8 text-orange-600 dark:text-orange-400" />
+              {/* Iconița dinamică cu procentaj */}
+              <div className={`p-4 rounded-2xl ${
+                previousMonthData.isPositive 
+                  ? 'bg-green-500/10' 
+                  : 'bg-red-500/10'
+              }`}>
+                {previousMonthData.isPositive ? (
+                  <TrendingUp className="w-8 h-8 text-green-600 dark:text-green-400" />
+                ) : (
+                  <TrendingDown className="w-8 h-8 text-red-600 dark:text-red-400" />
+                )}
               </div>
             </div>
           </div>

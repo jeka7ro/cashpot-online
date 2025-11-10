@@ -412,10 +412,10 @@ const Expenditures = () => {
           <div>
         <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center">
           <Building2 className="w-8 h-8 mr-3 text-emerald-500" />
-          POS & Bancă
+          POS & Bancă - Încasări
         </h1>
             <p className="text-slate-600 dark:text-slate-400 mt-2">
-              Monitorizare cheltuieli per locație din serverul extern
+              Încasări POS și depuneri la bancă din casieriile de locații
             </p>
           </div>
           
@@ -476,7 +476,7 @@ const Expenditures = () => {
           <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-6 rounded-2xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Total Cheltuieli</p>
+                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Total Încasări</p>
                 <p className="text-3xl font-bold text-blue-600 dark:text-blue-400 mt-2">
                   {formatCurrency(totalsRow?.total || 0)} RON
                 </p>
@@ -532,43 +532,30 @@ const Expenditures = () => {
           </div>
         </div>
         
-        {/* Charts Section */}
+        {/* Grafic Evoluție Încasări (DOAR acesta!) */}
         {filteredExpendituresForCharts.length > 0 && (
-          <ExpendituresCharts 
-            expendituresData={filteredExpendituresForCharts}
-            dateRange={dateRange}
-            onDepartmentClick={(deptName) => {
-              // Toggle filter (click din nou = reset)
-              if (departmentFilter === deptName) {
-                setDepartmentFilter('all')
-                toast.success('Filtru resetat - toate departamentele', { id: 'dept-filter' })
-              } else {
-                setDepartmentFilter(deptName)
-                toast.success(`📊 Filtrat: ${deptName}`, { id: 'dept-filter' })
-              }
-              // NU MAI SCROLL! (user nu vrea)
-            }}
-            onLocationClick={(locName) => {
-              // Toggle filter (click din nou = reset)
-              if (locationFilter === locName) {
-                setLocationFilter('all')
-                toast.success('Filtru locație resetat - toate locațiile', { id: 'loc-filter' })
-              } else {
-                setLocationFilter(locName)
-                toast.success(`📍 Filtrat: ${locName}`, { id: 'loc-filter' })
-              }
-              // NU MAI SCROLL! (user nu vrea)
-            }}
-          />
-        )}
-        
-        {/* GRAFICE AVANSATE (NOI!) */}
-        {filteredExpendituresForCharts.length > 0 && (
-          <ExpendituresAdvancedCharts 
-            expendituresData={filteredExpendituresForCharts}
-            dateRange={dateRange}
-            visibleCharts={visibleCharts}
-          />
+          <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">📈 Evoluție Încasări POS & Bancă</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                  Depuneri la bancă și încasări POS din casieriile de locații
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
+                  {formatCurrency(filteredExpendituresForCharts.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0))} RON
+                </p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center justify-end mt-1">
+                  <TrendingUp className="w-4 h-4 mr-1 text-green-500" />
+                  Total încasări
+                </p>
+              </div>
+            </div>
+            <div className="h-64 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center">
+              <p className="text-slate-500 dark:text-slate-400">📊 Grafic evoluție încasări (în dezvoltare)</p>
+            </div>
+          </div>
         )}
         
         {/* Filters */}
