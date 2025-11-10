@@ -8,15 +8,28 @@ const ManagerCard = ({ locationId, contactPersonUsername, locationName }) => {
 
   useEffect(() => {
     if (users && users.length > 0) {
+      console.log(`🔍 Manager search pentru locația ${locationId}:`)
+      console.log('   Total users:', users.length)
+      console.log('   Managers cu location_id:', users.filter(u => u.role === 'manager' && u.location_id).map(u => ({
+        name: u.full_name,
+        location_id: u.location_id
+      })))
+      
       // PRIORITATE 1: Caută manager cu location_id == locationId
-      let user = users.find(u => u.role === 'manager' && u.location_id === locationId)
+      let user = users.find(u => u.role === 'manager' && u.location_id === parseInt(locationId))
       
       // PRIORITATE 2: Fallback la contact_person (backward compatibility)
       if (!user && contactPersonUsername) {
+        console.log('   Fallback: Searching by username:', contactPersonUsername)
         user = users.find(u => u.username === contactPersonUsername)
       }
       
-      console.log(`🔍 Manager search pentru locația ${locationId}:`, user ? user.full_name : 'NU GĂSIT')
+      console.log('   ✅ Manager găsit:', user ? user.full_name : '❌ NU GĂSIT')
+      if (user) {
+        console.log('   Avatar:', user.avatar ? 'DA' : 'NU')
+        console.log('   Email:', user.email)
+      }
+      
       setManager(user)
     }
   }, [locationId, contactPersonUsername, users])

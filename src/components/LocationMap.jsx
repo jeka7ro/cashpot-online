@@ -24,43 +24,44 @@ const createCustomIcon = (brandName, isOwn = false) => {
   const isCashpot = brandUpper.includes('CASHPOT') || brandUpper.includes('SMARTFLIX')
   
   if (isCashpot) {
-    // FAVICON CASHPOT (SVG cu litera "C" + gradient albastru-violet)
+    // FAVICON CASHPOT (folosește SVG din /favicon.svg)
     return L.divIcon({
       html: `
         <div style="
-          background: linear-gradient(135deg, #2563eb 0%, #8b5cf6 100%);
-          border: 3px solid ${color};
-          border-radius: 12px;
-          width: 50px;
-          height: 50px;
+          border: 4px solid ${color};
+          border-radius: 50%;
+          width: 60px;
+          height: 60px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-family: Inter, Arial, sans-serif;
-          font-size: 28px;
-          font-weight: 800;
-          color: white;
-          box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+          box-shadow: 0 6px 12px rgba(0,0,0,0.4);
           position: relative;
+          overflow: hidden;
+          background: white;
         ">
-          C
+          <img 
+            src="/favicon.svg" 
+            alt="CASHPOT" 
+            style="width: 50px; height: 50px; object-fit: contain;"
+          />
           <div style="
             position: absolute;
-            bottom: -8px;
+            bottom: -10px;
             left: 50%;
             transform: translateX(-50%);
             width: 0;
             height: 0;
-            border-left: 8px solid transparent;
-            border-right: 8px solid transparent;
-            border-top: 8px solid ${color};
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 10px solid ${color};
           "></div>
         </div>
       `,
       className: 'custom-map-marker-cashpot',
-      iconSize: [50, 58],
-      iconAnchor: [25, 58],
-      popupAnchor: [0, -58]
+      iconSize: [60, 70],
+      iconAnchor: [30, 70],
+      popupAnchor: [0, -70]
     })
   }
   
@@ -70,14 +71,21 @@ const createCustomIcon = (brandName, isOwn = false) => {
     'ADMIRAL CASINO': '⚓',
     'WINBET': '🎰',
     'WINBET CASINO': '🎰',
+    'MILLION': '💎',
+    'MILLION CASINO': '💎',
+    'MAXBET': '🎲',
+    'MAXBET CASINO': '🎲',
     'FORTUNA': '🍀',
     'PRINCESS': '👑',
     'VLAD CAZINO': '🦇',
+    'VLAD': '🦇',
     'VEGAS': '💎',
     'MONTE CARLO': '🎲',
     'ROYAL': '👑',
     'ELDORADO': '💰',
-    'JOKER': '🃏'
+    'JOKER': '🃏',
+    'BET': '🎯',
+    'CASINO': '🏢'
   }
   
   let brandEmoji = '🏢' // default
@@ -230,11 +238,14 @@ const LocationMap = ({ location }) => {
           })
           
           if (response.data && response.data.success) {
-            // Filter out CASHPOT locations
-            const competitorLocations = response.data.locations.filter(loc => 
-              !loc.operator?.toLowerCase().includes('cashpot') &&
-              !loc.operator?.toLowerCase().includes('smartflix')
-            )
+            // Filter out CASHPOT locations (DOAR acestea, NU Million/Maxbet!)
+            const competitorLocations = response.data.locations.filter(loc => {
+              const operator = (loc.operator || '').toLowerCase()
+              // Exclude DOAR CASHPOT/SMARTFLIX
+              return !operator.includes('cashpot') && !operator.includes('smartflix')
+            })
+            
+            console.log('🏢 ALL competitors found:', competitorLocations.map(c => c.operator))
             
             // Geocode competitor addresses (limit to first 10 to avoid rate limiting)
             const geocodedCompetitors = []
@@ -363,9 +374,12 @@ const LocationMap = ({ location }) => {
             <Popup>
               <div className="p-2">
                 <h4 className="font-bold text-green-700 mb-1">🏆 {location.name}</h4>
-                <p className="text-sm text-slate-600">{location.address}</p>
+                <p className="text-sm text-slate-600">{getFullAddress(location) || location.address}</p>
                 <p className="text-sm text-slate-600 mt-1">
                   <strong>Companie:</strong> {location.company}
+                </p>
+                <p className="text-sm text-slate-600">
+                  <strong>Coordonate:</strong> [{mainLocationCoords.lat.toFixed(4)}, {mainLocationCoords.lng.toFixed(4)}]
                 </p>
                 <div className="mt-2 px-2 py-1 bg-green-100 rounded text-xs font-semibold text-green-800">
                   CASHPOT (Locația ta)
