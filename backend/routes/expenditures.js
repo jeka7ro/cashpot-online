@@ -606,6 +606,30 @@ router.put('/settings', async (req, res) => {
     console.log('   - includedLocations:', settings.includedLocations?.length, 'items')
     console.log('   - Full departments array:', settings.includedDepartments)
     
+    // NORMALIZE DIACRITICS (ț/ţ, ș/ş) pentru a detecta duplicate Unicode!
+    const normalizeDiacritics = (str) => {
+      return str
+        .replace(/ţ/g, 'ț')  // sedilă → virgulă
+        .replace(/ş/g, 'ș')  // sedilă → virgulă
+        .replace(/Ţ/g, 'Ț')
+        .replace(/Ş/g, 'Ș')
+    }
+    
+    const removeDuplicatesWithNormalization = (arr) => {
+      const seen = new Set()
+      const unique = []
+      
+      arr.forEach(item => {
+        const normalized = normalizeDiacritics(item)
+        if (!seen.has(normalized)) {
+          seen.add(normalized)
+          unique.push(normalized) // Salvează forma normalizată
+        }
+      })
+      
+      return unique
+    }
+    
     // Clean settings object (remove undefined/null/circular refs + DUPLICATES!)
     const cleanSettings = {
       autoSync: settings.autoSync || false,
@@ -613,22 +637,27 @@ router.put('/settings', async (req, res) => {
       syncTime: settings.syncTime || '02:00',
       excludeDeleted: settings.excludeDeleted !== undefined ? settings.excludeDeleted : true,
       showInExpenditures: settings.showInExpenditures !== undefined ? settings.showInExpenditures : true,
-      // REMOVE DUPLICATES! (Set -> Array)
+      // REMOVE DUPLICATES cu normalizare diacritice!
       includedExpenditureTypes: Array.isArray(settings.includedExpenditureTypes) 
-        ? [...new Set(settings.includedExpenditureTypes)] 
+        ? removeDuplicatesWithNormalization(settings.includedExpenditureTypes)
         : [],
       includedDepartments: Array.isArray(settings.includedDepartments) 
-        ? [...new Set(settings.includedDepartments)] 
+        ? removeDuplicatesWithNormalization(settings.includedDepartments)
         : [],
       includedLocations: Array.isArray(settings.includedLocations) 
-        ? [...new Set(settings.includedLocations)] 
+        ? removeDuplicatesWithNormalization(settings.includedLocations)
         : []
     }
     
-    console.log('🧹 CLEANED arrays (duplicates removed):')
+    console.log('🧹 CLEANED arrays (duplicates removed + diacritics normalized):')
     console.log('   - Departments:', cleanSettings.includedDepartments.length, 'unique')
     console.log('   - Types:', cleanSettings.includedExpenditureTypes.length, 'unique')
     console.log('   - Locations:', cleanSettings.includedLocations.length, 'unique')
+    console.log('   - Original types count:', settings.includedExpenditureTypes?.length)
+    if (settings.includedExpenditureTypes?.length !== cleanSettings.includedExpenditureTypes.length) {
+      console.log('   ⚠️ DUPLICATE GĂSIT ȘI ELIMINAT:', 
+        settings.includedExpenditureTypes.length - cleanSettings.includedExpenditureTypes.length, 'duplicates')
+    }
     
     // SALVARE ca JSONB - TRY/CATCH robust!
     console.log('📦 Salvez setări (primii 200 chars):', JSON.stringify(cleanSettings).substring(0, 200))

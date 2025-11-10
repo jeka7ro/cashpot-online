@@ -93,12 +93,36 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
     try {
       setSaving(true)
       
+      // NORMALIZE DIACRITICS (ţ→ț, ş→ș) pentru a elimina duplicate Unicode!
+      const normalizeDiacritics = (str) => {
+        return str
+          .replace(/ţ/g, 'ț')  // sedilă → virgulă
+          .replace(/ş/g, 'ș')  // sedilă → virgulă
+          .replace(/Ţ/g, 'Ț')
+          .replace(/Ş/g, 'Ș')
+      }
+      
+      const removeDuplicatesWithNormalization = (arr) => {
+        const seen = new Set()
+        const unique = []
+        
+        arr.forEach(item => {
+          const normalized = normalizeDiacritics(item)
+          if (!seen.has(normalized)) {
+            seen.add(normalized)
+            unique.push(normalized)
+          }
+        })
+        
+        return unique
+      }
+      
       // REMOVE DUPLICATES! (72 → 71)
       const cleanedSettings = {
         ...settings,
-        includedExpenditureTypes: [...new Set(settings.includedExpenditureTypes)],
-        includedDepartments: [...new Set(settings.includedDepartments)],
-        includedLocations: [...new Set(settings.includedLocations)]
+        includedExpenditureTypes: removeDuplicatesWithNormalization(settings.includedExpenditureTypes || []),
+        includedDepartments: removeDuplicatesWithNormalization(settings.includedDepartments || []),
+        includedLocations: removeDuplicatesWithNormalization(settings.includedLocations || [])
       }
       
       console.log('💾 SALVARE SETĂRI - ÎNAINTE de cleanup:', {
