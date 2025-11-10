@@ -57,16 +57,20 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
         break
       case 'thisMonth':
         newStart = new Date(now.getFullYear(), now.getMonth(), 1)
-        newEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        // TOATĂ luna curentă (1 nov - 30 nov), NU doar până azi!
+        const lastDayThisMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+        newEnd = lastDayThisMonth
         break
       case 'lastMonth':
         newStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+        // TOATĂ luna precedentă (1 oct - 31 oct)
         const lastDayOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0)
         newEnd = lastDayOfPrevMonth
         break
       case 'thisYear':
         newStart = new Date(now.getFullYear(), 0, 1)
-        newEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        // TOT anul curent (1 ian - 31 dec), NU doar până azi!
+        newEnd = new Date(now.getFullYear(), 11, 31)
         break
       default:
         return
@@ -96,8 +100,20 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
     if (newSelected.length > 0) {
       const firstMonth = Math.min(...newSelected)
       const lastMonth = Math.max(...newSelected)
+      
+      // PRIMA ZI a primei luni selectate
       const newStart = new Date(selectedYear, firstMonth, 1)
-      const newEnd = new Date(selectedYear, lastMonth + 1, 0)
+      
+      // ULTIMA ZI a ultimei luni selectate (nu ziua 0 a lunii următoare!)
+      // Pentru iulie (month=6): new Date(2025, 6+1, 0) = 31 iulie
+      const tempDate = new Date(selectedYear, lastMonth + 1, 1) // Prima zi a lunii următoare
+      tempDate.setDate(tempDate.getDate() - 1) // Minus 1 zi = ultima zi a lunii curente
+      const newEnd = tempDate
+      
+      console.log(`📅 SELECTARE LUNĂ: ${firstMonth} (${months[firstMonth]}) → ${lastMonth} (${months[lastMonth]})`)
+      console.log(`   Start: ${newStart.toISOString().split('T')[0]}`)
+      console.log(`   End: ${newEnd.toISOString().split('T')[0]}`)
+      
       onChange({
         startDate: newStart.toISOString().split('T')[0],
         endDate: newEnd.toISOString().split('T')[0]
