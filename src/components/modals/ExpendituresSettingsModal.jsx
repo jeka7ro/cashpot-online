@@ -55,8 +55,17 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
       setDepartments(deptsRes.data)
       setLocations(locsRes.data)
       
-      // Load existing settings
-      const loadedSettings = settingsRes.data
+      // Load existing settings (cu fallback din localStorage)
+      let loadedSettings = settingsRes.data
+      
+      // FALLBACK: Dacă serverul nu are setări, încearcă localStorage
+      if (!loadedSettings || Object.keys(loadedSettings).length === 0) {
+        const fallbackSettings = localStorage.getItem('expenditures_settings_fallback')
+        if (fallbackSettings) {
+          console.log('🔄 FOLOSESC setări din localStorage (server indisponibil)')
+          loadedSettings = JSON.parse(fallbackSettings)
+        }
+      }
       
       // Load settings - respect empty arrays (user a debifat tot!)
       setSettings({
@@ -159,7 +168,19 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
       onSave()
     } catch (error) {
       console.error('Error saving settings:', error)
-      toast.error('Eroare la salvarea setărilor')
+      
+      // FALLBACK: Salvare în localStorage dacă serverul nu răspunde (500 ERROR)
+      if (error.response?.status === 500) {
+        console.log('🔄 FALLBACK: Salvez în localStorage până se repară serverul')
+        localStorage.setItem('expenditures_settings_fallback', JSON.stringify(cleanedSettings))
+        toast.success('⚠️ Setări salvate local (server indisponibil - fă manual deploy pe Render!)')
+        
+        // RELOAD settings pentru a verifica persistența
+        await loadData()
+        onSave()
+      } else {
+        toast.error('Eroare la salvarea setărilor: ' + (error.response?.data?.error || error.message))
+      }
     } finally {
       setSaving(false)
     }
