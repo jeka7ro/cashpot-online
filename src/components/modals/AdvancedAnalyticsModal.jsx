@@ -320,7 +320,7 @@ const AdvancedAnalyticsModal = ({ onClose, expendituresData }) => {
                     <YAxis 
                       stroke="#64748b"
                       style={{ fontSize: '12px' }}
-                      tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
+                      tickFormatter={(value) => formatCurrency(value)}
                     />
                     <Tooltip 
                       contentStyle={{ 
@@ -363,7 +363,7 @@ const AdvancedAnalyticsModal = ({ onClose, expendituresData }) => {
                     <YAxis 
                       stroke="#64748b"
                       style={{ fontSize: '12px' }}
-                      tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
+                      tickFormatter={(value) => formatCurrency(value)}
                     />
                     <Tooltip 
                       contentStyle={{ 
@@ -400,7 +400,7 @@ const AdvancedAnalyticsModal = ({ onClose, expendituresData }) => {
                     <PolarRadiusAxis 
                       stroke="#64748b"
                       style={{ fontSize: '10px' }}
-                      tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
+                      tickFormatter={(value) => formatCurrency(value)}
                     />
                     <Radar 
                       name="Cheltuieli" 

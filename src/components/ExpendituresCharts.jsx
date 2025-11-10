@@ -121,7 +121,7 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
             <YAxis 
               stroke="#64748b" 
               style={{ fontSize: '12px' }}
-              tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
+              tickFormatter={(value) => formatCurrency(value)}
             />
             <Tooltip 
               contentStyle={{ 
@@ -157,7 +157,7 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
               type="number" 
               stroke="#64748b"
               style={{ fontSize: '11px' }}
-              tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
+              tickFormatter={(value) => formatCurrency(value)}
             />
             <YAxis 
               dataKey="name" 

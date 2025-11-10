@@ -164,7 +164,7 @@ const LocationExpenses = ({ locationId, locationName, expendituresData }) => {
             <YAxis 
               tick={{ fontSize: 11, fill: '#64748b' }}
               stroke="#cbd5e1"
-              tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
+              tickFormatter={(value) => formatCurrency(value)}
             />
             <Tooltip 
               formatter={(value) => `${formatCurrency(value)} RON`}

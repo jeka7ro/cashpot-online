@@ -195,7 +195,7 @@ const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts
             <BarChart data={monthComparisonData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
               <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-15} textAnchor="end" height={80} />
-              <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`} />
+              <YAxis tickFormatter={(value) => formatCurrency(value)} />
               <Tooltip 
                 formatter={(value) => `${formatCurrency(value)} RON`}
                 contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px' }}
@@ -239,7 +239,7 @@ const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts
                             className="px-2 py-1 rounded text-xs font-bold text-white"
                             style={{ backgroundColor: color }}
                           >
-                            {value > 0 ? `${(value / 1000).toFixed(0)}K` : '-'}
+                            {value > 0 ? formatCurrency(value) : '-'}
                           </div>
                         </td>
                       )
@@ -297,7 +297,7 @@ const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts
             <AreaChart data={stackedAreaData.data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
               <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-              <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`} />
+              <YAxis tickFormatter={(value) => formatCurrency(value)} />
               <Tooltip formatter={(value) => `${formatCurrency(value)} RON`} />
               <Legend />
               {stackedAreaData.departments.map((dept, idx) => (
@@ -327,7 +327,7 @@ const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts
             <LineChart data={trendPredictionData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
               <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-              <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`} />
+              <YAxis tickFormatter={(value) => formatCurrency(value)} />
               <Tooltip formatter={(value) => `${formatCurrency(value)} RON`} />
               <Legend />
               <Line 

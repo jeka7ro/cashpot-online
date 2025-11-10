@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
-import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp, TrendingDown, Table2, MapPin } from 'lucide-react'
+import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp, Table2, MapPin } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import ExpendituresMappingModal from '../components/modals/ExpendituresMappingModal'
 import ExpendituresSettingsModal from '../components/modals/ExpendituresSettingsModal'
@@ -307,53 +307,6 @@ const Expenditures = () => {
     return processDataToMatrix()
   }, [expendituresData, dateRange, departmentFilter, expenditureTypeFilter, locationFilter])
   
-  // Calculate previous month data for percentage comparison
-  const previousMonthData = React.useMemo(() => {
-    if (!expendituresData || expendituresData.length === 0) return { total: 0, percentage: 0, isPositive: true }
-    
-    const now = new Date()
-    const currentMonth = now.getMonth()
-    const currentYear = now.getFullYear()
-    
-    // Previous month calculation
-    let prevMonth = currentMonth - 1
-    let prevYear = currentYear
-    if (prevMonth < 0) {
-      prevMonth = 11
-      prevYear = currentYear - 1
-    }
-    
-    // Filter for current month
-    const currentMonthData = expendituresData.filter(item => {
-      const itemDate = new Date(item.operational_date)
-      return itemDate.getMonth() === currentMonth && itemDate.getFullYear() === currentYear
-    })
-    
-    // Filter for previous month
-    const prevMonthData = expendituresData.filter(item => {
-      const itemDate = new Date(item.operational_date)
-      return itemDate.getMonth() === prevMonth && itemDate.getFullYear() === prevYear
-    })
-    
-    const currentTotal = currentMonthData.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
-    const prevTotal = prevMonthData.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
-    
-    let percentage = 0
-    let isPositive = true
-    
-    if (prevTotal > 0) {
-      percentage = ((currentTotal - prevTotal) / prevTotal) * 100
-      isPositive = percentage >= 0
-    }
-    
-    return { 
-      current: currentTotal, 
-      previous: prevTotal, 
-      percentage: Math.abs(percentage), 
-      isPositive 
-    }
-  }, [expendituresData])
-
   // Filter data by date range for charts and cards (SAME FILTERS as matrix!)
   const filteredExpendituresForCharts = React.useMemo(() => {
     let filtered = expendituresData
@@ -457,10 +410,10 @@ const Expenditures = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center">
-              <BarChart3 className="w-8 h-8 mr-3 text-blue-500" />
-              Cheltuieli
-            </h1>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center">
+          <Building2 className="w-8 h-8 mr-3 text-emerald-500" />
+          POS & Bancă
+        </h1>
             <p className="text-slate-600 dark:text-slate-400 mt-2">
               Monitorizare cheltuieli per locație din serverul extern
             </p>
@@ -527,21 +480,6 @@ const Expenditures = () => {
                 <p className="text-3xl font-bold text-blue-600 dark:text-blue-400 mt-2">
                   {formatCurrency(totalsRow?.total || 0)} RON
                 </p>
-                {/* Dinamica vs luna precedentă */}
-                {previousMonthData.percentage > 0 && (
-                  <div className={`flex items-center mt-2 text-sm font-semibold ${
-                    previousMonthData.isPositive 
-                      ? 'text-green-600 dark:text-green-400' 
-                      : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {previousMonthData.isPositive ? (
-                      <TrendingUp className="w-4 h-4 mr-1" />
-                    ) : (
-                      <TrendingDown className="w-4 h-4 mr-1" />
-                    )}
-                    {previousMonthData.isPositive ? '+' : '-'}{previousMonthData.percentage.toFixed(1)}% vs luna precedentă
-                  </div>
-                )}
               </div>
               <div className="p-4 bg-blue-500/10 rounded-2xl">
                 <TrendingUp className="w-8 h-8 text-blue-600 dark:text-blue-400" />
