@@ -9,6 +9,7 @@ import MultiPDFViewer from '../components/MultiPDFViewer'
 import LocationMap from '../components/LocationMap'
 import ManagerCard from '../components/ManagerCard'
 import LocationStats from '../components/LocationStats'
+import LocationExpenses from '../components/LocationExpenses'
 import { formatGameMixName } from '../utils/gameMixFormatter'
 import 'leaflet/dist/leaflet.css'
 
@@ -16,7 +17,7 @@ const LocationDetail = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { locations, contracts, slots, cabinets, companies, users, loading } = useData()
+  const { locations, contracts, slots, cabinets, companies, users, expendituresData, loading } = useData()
   
   const [location, setLocation] = useState(null)
 
@@ -229,6 +230,15 @@ const LocationDetail = () => {
               placeholderSubtext="Adaugă plan pentru vizualizare"
             />
           </div>
+        )}
+
+        {/* CHELTUIELI LOCAȚIE */}
+        {expendituresData && expendituresData.length > 0 && (
+          <LocationExpenses 
+            locationId={location.id}
+            locationName={location.name}
+            expendituresData={expendituresData}
+          />
         )}
 
         {/* CONTRACTE */}
