@@ -202,7 +202,7 @@ const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts
               />
               <Legend />
               <Bar dataKey="current" name="Luna Curentă" fill="#3b82f6" radius={[8, 8, 0, 0]} />
-              <Bar dataKey="previous" name="Luna Precedentă" fill="#94a3b8" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="previous" name="Luna Precedentă" fill="#10b981" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
