@@ -722,6 +722,134 @@ router.put('/settings', authenticateToken, async (req, res) => {
 
 // ==================== GOOGLE SHEETS SYNC ====================
 
+// PREVIEW Google Sheets data (NO IMPORT)
+router.post('/preview-google-sheets', authenticateToken, async (req, res) => {
+  try {
+    const { sheetUrl } = req.body
+    
+    if (!sheetUrl) {
+      return res.status(400).json({ success: false, error: 'Sheet URL is required' })
+    }
+    
+    console.log('👀 PREVIEW Google Sheets data from:', sheetUrl)
+    
+    // Convert Google Sheets URL to CSV export URL
+    let csvUrl = sheetUrl
+    if (sheetUrl.includes('/edit')) {
+      const sheetId = sheetUrl.match(/\/d\/(.*?)\//)?.[1]
+      const gid = sheetUrl.match(/gid=(\d+)/)?.[1] || '0'
+      csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`
+    }
+    
+    // Fetch CSV data
+    const response = await fetch(csvUrl)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch CSV: ${response.statusText}`)
+    }
+    
+    const csvText = await response.text()
+    const lines = csvText.split('\n').filter(line => line.trim())
+    
+    if (lines.length < 2) {
+      return res.status(400).json({ success: false, error: 'CSV is empty or invalid' })
+    }
+    
+    // Parse CSV (skip header)
+    const rows = lines.slice(1)
+    
+    // PostgreSQL connection
+    const { Pool } = pg
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    })
+    
+    let newRows = []
+    let duplicates = []
+    let errors = 0
+    
+    for (const row of rows.slice(0, 100)) { // LIMIT 100 for preview
+      try {
+        const values = row.match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g)?.map(v => v.replace(/^"|"$/g, '').trim()) || []
+        
+        if (values.length < 8) {
+          errors++
+          continue
+        }
+        
+        const [dateStr, explanation, amountStr, location, department, expenditureType, createdBy, createdAt] = values
+        
+        // Parse date
+        const dateParts = dateStr.split('.')
+        if (dateParts.length !== 3) {
+          errors++
+          continue
+        }
+        const operationalDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`
+        
+        // Parse amount
+        const amount = parseFloat(amountStr.replace(/\./g, '').replace(',', '.'))
+        
+        if (isNaN(amount) || !location || !department) {
+          errors++
+          continue
+        }
+        
+        // Check if exists in DB
+        const existing = await pool.query(`
+          SELECT id FROM expenditures_sync 
+          WHERE operational_date = $1 
+            AND amount = $2 
+            AND location_name = $3 
+            AND department_name = $4
+            AND expenditure_type = $5
+          LIMIT 1
+        `, [operationalDate, amount, location, department, expenditureType])
+        
+        const rowData = {
+          date: operationalDate,
+          amount: amount,
+          location: location,
+          department: department,
+          type: expenditureType,
+          description: explanation
+        }
+        
+        if (existing.rows.length > 0) {
+          duplicates.push(rowData)
+        } else {
+          newRows.push(rowData)
+        }
+        
+      } catch (rowError) {
+        console.error('❌ Error processing row:', rowError.message)
+        errors++
+      }
+    }
+    
+    await pool.end()
+    
+    console.log(`👀 Preview: ${newRows.length} noi, ${duplicates.length} duplicate, ${errors} erori`)
+    
+    res.json({ 
+      success: true, 
+      totalRows: rows.length,
+      newRows: newRows,
+      duplicates: duplicates.slice(0, 10), // Sample de 10
+      newCount: newRows.length,
+      duplicateCount: duplicates.length,
+      errorCount: errors
+    })
+    
+  } catch (error) {
+    console.error('❌ Preview error:', error)
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    })
+  }
+})
+
 // Import CSV from Google Sheets
 router.post('/import-google-sheets', authenticateToken, async (req, res) => {
   try {

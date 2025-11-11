@@ -54,6 +54,8 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
   const [importProgress, setImportProgress] = useState(null)
   const [googleSheetsStatus, setGoogleSheetsStatus] = useState(null)
   const [forceImport, setForceImport] = useState(false) // Force import toggle
+  const [previewData, setPreviewData] = useState(null) // Preview data before import
+  const [loadingPreview, setLoadingPreview] = useState(false)
   
   useEffect(() => {
     loadData()
@@ -867,27 +869,137 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                 </div>
                 
                 {/* Import Button */}
-                {/* FORCE IMPORT CHECKBOX */}
-                <div className="mb-4 p-4 bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-300 dark:border-orange-700 rounded-lg">
-                  <label className="flex items-start space-x-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={forceImport}
-                      onChange={(e) => setForceImport(e.target.checked)}
-                      className="mt-1 w-5 h-5 text-orange-600 rounded focus:ring-orange-500"
-                    />
-                    <div>
-                      <p className="font-bold text-orange-800 dark:text-orange-300">
-                        🔥 FORCE IMPORT (Ignoră verificarea duplicate)
-                      </p>
-                      <p className="text-sm text-orange-700 dark:text-orange-400 mt-1">
-                        ⚠️ ATENȚIE: Va importa TOATE rândurile din Google Sheet, chiar dacă există deja în baza de date! Folosește doar dacă ești sigur că datele lipsesc.
-                      </p>
-                    </div>
-                  </label>
-                </div>
-                
+                {/* PREVIEW BUTTON - STEP 1 */}
                 <button
+                  onClick={async () => {
+                    if (!googleSheetsSettings.sheetUrl) {
+                      toast.error('Introdu URL-ul Google Sheet!')
+                      return
+                    }
+                    
+                    setLoadingPreview(true)
+                    setPreviewData(null)
+                    
+                    try {
+                      toast.loading('👀 Analizez date...', { id: 'preview' })
+                      
+                      const response = await axios.post('/api/expenditures/preview-google-sheets', {
+                        sheetUrl: googleSheetsSettings.sheetUrl
+                      })
+                      
+                      setPreviewData(response.data)
+                      
+                      toast.success(
+                        `✅ Analiză completă!\n🆕 ${response.data.newCount} date NOI\n⏭️ ${response.data.duplicateCount} duplicate`,
+                        { id: 'preview', duration: 5000 }
+                      )
+                      
+                    } catch (error) {
+                      console.error('Preview error:', error)
+                      toast.error(
+                        `❌ Eroare: ${error.response?.data?.error || error.message}`,
+                        { id: 'preview', duration: 5000 }
+                      )
+                    } finally {
+                      setLoadingPreview(false)
+                    }
+                  }}
+                  disabled={loadingPreview || !googleSheetsSettings.sheetUrl}
+                  className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all shadow-lg flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-lg mb-6"
+                >
+                  <Eye className="w-5 h-5" />
+                  <span>{loadingPreview ? 'Analizez...' : '👀 PREVIEW Date (fără import)'}</span>
+                </button>
+                
+                {/* PREVIEW RESULTS TABLE */}
+                {previewData && (
+                  <div className="mb-6 p-6 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl border-2 border-blue-300 dark:border-blue-700">
+                    <h4 className="text-lg font-bold text-blue-900 dark:text-blue-200 mb-4 flex items-center">
+                      📊 Rezultate Analiză (primele 100 rânduri)
+                    </h4>
+                    
+                    <div className="grid grid-cols-3 gap-4 mb-6">
+                      <div className="p-4 bg-green-100 dark:bg-green-900/30 rounded-lg text-center">
+                        <p className="text-3xl font-bold text-green-700 dark:text-green-300">{previewData.newCount}</p>
+                        <p className="text-sm text-green-600 dark:text-green-400">🆕 Date NOI</p>
+                      </div>
+                      <div className="p-4 bg-gray-100 dark:bg-gray-900/30 rounded-lg text-center">
+                        <p className="text-3xl font-bold text-gray-700 dark:text-gray-300">{previewData.duplicateCount}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">⏭️ Duplicate</p>
+                      </div>
+                      <div className="p-4 bg-red-100 dark:bg-red-900/30 rounded-lg text-center">
+                        <p className="text-3xl font-bold text-red-700 dark:text-red-300">{previewData.errorCount}</p>
+                        <p className="text-sm text-red-600 dark:text-red-400">❌ Erori</p>
+                      </div>
+                    </div>
+                    
+                    {previewData.newRows.length > 0 && (
+                      <div>
+                        <h5 className="font-bold text-green-800 dark:text-green-300 mb-2">🆕 Sample Date NOI (vor fi importate):</h5>
+                        <div className="overflow-x-auto max-h-60">
+                          <table className="w-full text-sm">
+                            <thead className="bg-green-200 dark:bg-green-900 sticky top-0">
+                              <tr>
+                                <th className="p-2 text-left">Data</th>
+                                <th className="p-2 text-right">Sumă (RON)</th>
+                                <th className="p-2 text-left">Locație</th>
+                                <th className="p-2 text-left">Departament</th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white dark:bg-slate-800">
+                              {previewData.newRows.slice(0, 20).map((row, idx) => (
+                                <tr key={idx} className="border-b dark:border-slate-700">
+                                  <td className="p-2">{row.date}</td>
+                                  <td className="p-2 text-right font-bold">{row.amount.toFixed(2)}</td>
+                                  <td className="p-2">{row.location}</td>
+                                  <td className="p-2">{row.department}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        {previewData.newRows.length > 20 && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">... și încă {previewData.newRows.length - 20} rânduri noi</p>
+                        )}
+                      </div>
+                    )}
+                    
+                    {previewData.newCount === 0 && (
+                      <div className="p-4 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg text-center">
+                        <p className="font-bold text-yellow-800 dark:text-yellow-300">⚠️ TOATE datele există deja în baza de date!</p>
+                        <p className="text-sm text-yellow-700 dark:text-yellow-400 mt-2">
+                          Dacă ești sigur că datele lipsesc, bifează "FORCE IMPORT" mai jos și apasă "Import cu FORȚĂ".
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* FORCE IMPORT CHECKBOX - STEP 2 (doar dacă previewData arată 0 noi) */}
+                {previewData && previewData.newCount === 0 && (
+                  <div className="mb-4 p-4 bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-300 dark:border-orange-700 rounded-lg">
+                    <label className="flex items-start space-x-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={forceImport}
+                        onChange={(e) => setForceImport(e.target.checked)}
+                        className="mt-1 w-5 h-5 text-orange-600 rounded focus:ring-orange-500"
+                      />
+                      <div>
+                        <p className="font-bold text-orange-800 dark:text-orange-300">
+                          🔥 FORCE IMPORT (Ignoră verificarea duplicate)
+                        </p>
+                        <p className="text-sm text-orange-700 dark:text-orange-400 mt-1">
+                          ⚠️ ATENȚIE: Va importa TOATE rândurile din Google Sheet, chiar dacă există deja în baza de date!
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                )}
+                
+                {/* IMPORT BUTTON - STEP 3 (doar dacă avem previewData ȘI (date noi SAU forceImport)) */}
+                {previewData && (previewData.newCount > 0 || forceImport) && (
+                  <button
                   onClick={async () => {
                     if (!googleSheetsSettings.sheetUrl) {
                       toast.error('Introdu URL-ul Google Sheet!')
@@ -916,6 +1028,10 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                       await loadData()
                       await loadGoogleSheetsStatus()
                       
+                      // Reset preview
+                      setPreviewData(null)
+                      setForceImport(false)
+                      
                     } catch (error) {
                       console.error('Google Sheets import error:', error)
                       toast.error(
@@ -930,8 +1046,9 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                   className="w-full px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-lg"
                 >
                   <Download className="w-5 h-5" />
-                  <span>{importingGoogleSheets ? 'Import în curs...' : '📥 Import Date din Google Sheets'}</span>
+                  <span>{importingGoogleSheets ? 'Import în curs...' : (forceImport ? '🔥 CONFIRMĂ IMPORT CU FORȚĂ' : '✅ CONFIRMĂ IMPORT DATE NOI')}</span>
                 </button>
+                )}
                 
                 {/* Progress Bar - LIVE IMPORT STATUS */}
                 {importingGoogleSheets && (
