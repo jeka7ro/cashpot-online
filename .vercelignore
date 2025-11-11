@@ -1,0 +1,4 @@
+# Don't ignore dist - we need it!
+!src/dist
+!src/dist/**/*
+
