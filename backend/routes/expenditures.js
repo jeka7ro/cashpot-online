@@ -770,27 +770,70 @@ router.post('/preview-google-sheets', authenticateToken, async (req, res) => {
     
     for (const row of rows.slice(0, 100)) { // LIMIT 100 for preview
       try {
-        const values = row.match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g)?.map(v => v.replace(/^"|"$/g, '').trim()) || []
+        // Parse CSV with better handling
+        const values = []
+        let current = ''
+        let inQuotes = false
         
-        if (values.length < 8) {
+        for (let i = 0; i < row.length; i++) {
+          const char = row[i]
+          
+          if (char === '"') {
+            inQuotes = !inQuotes
+          } else if (char === ',' && !inQuotes) {
+            values.push(current.trim())
+            current = ''
+          } else {
+            current += char
+          }
+        }
+        values.push(current.trim()) // Last value
+        
+        console.log(`📝 Row parsed: ${values.length} columns`, values.slice(0, 3))
+        
+        if (values.length < 5) { // Minim 5 coloane: Date, Amount, Location, Department, Type
+          console.log(`⚠️ Skipping row with only ${values.length} columns`)
           errors++
           continue
         }
         
         const [dateStr, explanation, amountStr, location, department, expenditureType, createdBy, createdAt] = values
         
-        // Parse date
-        const dateParts = dateStr.split('.')
-        if (dateParts.length !== 3) {
+        // Parse date - accept multiple formats
+        let operationalDate
+        if (dateStr.includes('.')) {
+          // DD.MM.YYYY
+          const dateParts = dateStr.split('.')
+          if (dateParts.length === 3) {
+            operationalDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`
+          }
+        } else if (dateStr.includes('/')) {
+          // MM/DD/YYYY or DD/MM/YYYY
+          const dateParts = dateStr.split('/')
+          if (dateParts.length === 3) {
+            operationalDate = `${dateParts[2]}-${dateParts[0].padStart(2, '0')}-${dateParts[1].padStart(2, '0')}`
+          }
+        } else if (dateStr.includes('-')) {
+          // YYYY-MM-DD (already correct)
+          operationalDate = dateStr
+        }
+        
+        if (!operationalDate) {
+          console.log(`⚠️ Invalid date format: "${dateStr}"`)
           errors++
           continue
         }
-        const operationalDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`
         
-        // Parse amount
-        const amount = parseFloat(amountStr.replace(/\./g, '').replace(',', '.'))
+        // Parse amount - handle multiple formats
+        let amount
+        if (amountStr) {
+          // Remove spaces, thousand separators (. or ,), then parse
+          const cleanAmount = amountStr.replace(/\s/g, '').replace(/\./g, '').replace(',', '.')
+          amount = parseFloat(cleanAmount)
+        }
         
-        if (isNaN(amount) || !location || !department) {
+        if (!amount || isNaN(amount) || !location || !department) {
+          console.log(`⚠️ Invalid data: amount=${amount}, location="${location}", department="${department}"`)
           errors++
           continue
         }
@@ -904,11 +947,27 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
     
     for (const row of rows) {
       try {
-        // Parse CSV row (handle quoted values)
-        const values = row.match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g)?.map(v => v.replace(/^"|"$/g, '').trim()) || []
+        // Parse CSV with proper quote handling
+        const values = []
+        let current = ''
+        let inQuotes = false
         
-        if (values.length < 8) {
-          console.log('⚠️ Skipping incomplete row:', values)
+        for (let i = 0; i < row.length; i++) {
+          const char = row[i]
+          
+          if (char === '"') {
+            inQuotes = !inQuotes
+          } else if (char === ',' && !inQuotes) {
+            values.push(current.trim())
+            current = ''
+          } else {
+            current += char
+          }
+        }
+        values.push(current.trim()) // Last value
+        
+        if (values.length < 5) { // Minim 5 coloane
+          console.log('⚠️ Skipping row with only', values.length, 'columns')
           skipped++
           continue
         }
@@ -916,19 +975,36 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
         // Map columns (A=0, B=1, C=2, D=3, E=4, F=5, G=6, H=7)
         const [dateStr, explanation, amountStr, location, department, expenditureType, createdBy, createdAt] = values
         
-        // Parse date (DD.MM.YYYY to YYYY-MM-DD)
-        const dateParts = dateStr.split('.')
-        if (dateParts.length !== 3) {
+        // Parse date - accept multiple formats
+        let operationalDate
+        if (dateStr.includes('.')) {
+          const dateParts = dateStr.split('.')
+          if (dateParts.length === 3) {
+            operationalDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`
+          }
+        } else if (dateStr.includes('/')) {
+          const dateParts = dateStr.split('/')
+          if (dateParts.length === 3) {
+            operationalDate = `${dateParts[2]}-${dateParts[0].padStart(2, '0')}-${dateParts[1].padStart(2, '0')}`
+          }
+        } else if (dateStr.includes('-')) {
+          operationalDate = dateStr
+        }
+        
+        if (!operationalDate) {
           console.log('⚠️ Invalid date format:', dateStr)
           skipped++
           continue
         }
-        const operationalDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`
         
-        // Parse amount (remove thousand separators, convert comma to dot)
-        const amount = parseFloat(amountStr.replace(/\./g, '').replace(',', '.'))
+        // Parse amount - handle multiple formats
+        let amount
+        if (amountStr) {
+          const cleanAmount = amountStr.replace(/\s/g, '').replace(/\./g, '').replace(',', '.')
+          amount = parseFloat(cleanAmount)
+        }
         
-        if (isNaN(amount) || !location || !department) {
+        if (!amount || isNaN(amount) || !location || !department) {
           console.log('⚠️ Invalid data:', { amount, location, department })
           skipped++
           continue
