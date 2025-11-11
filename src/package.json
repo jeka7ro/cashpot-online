@@ -1,7 +1,7 @@
 {
   "name": "cashpot-frontend",
-  "version": "1.0.0",
-  "description": "CASHPOT ERP Frontend - React + Vite",
+  "version": "2.0.0",
+  "description": "CASHPOT ERP Frontend - React + Vite + Google Sheets",
   "type": "module",
   "scripts": {
     "dev": "vite",
