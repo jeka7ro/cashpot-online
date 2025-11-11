@@ -768,7 +768,9 @@ router.post('/preview-google-sheets', authenticateToken, async (req, res) => {
     let duplicates = []
     let errors = 0
     
-    for (const row of rows.slice(0, 100)) { // LIMIT 100 for preview
+    console.log(`📊 Total rows in CSV: ${rows.length}`)
+    
+    for (const row of rows) { // Procesează TOATE rândurile pentru preview
       try {
         // Parse CSV with better handling
         const values = []
@@ -789,7 +791,10 @@ router.post('/preview-google-sheets', authenticateToken, async (req, res) => {
         }
         values.push(current.trim()) // Last value
         
-        console.log(`📝 Row parsed: ${values.length} columns`, values.slice(0, 3))
+        // Log doar la fiecare 100 rânduri
+        if (newRows.length % 100 === 0 && newRows.length > 0) {
+          console.log(`✅ Procesat ${newRows.length + duplicates.length + errors} rânduri...`)
+        }
         
         if (values.length < 5) { // Minim 5 coloane: Date, Amount, Location, Department, Type
           console.log(`⚠️ Skipping row with only ${values.length} columns`)
@@ -872,14 +877,14 @@ router.post('/preview-google-sheets', authenticateToken, async (req, res) => {
     
     await pool.end()
     
-    console.log(`👀 Preview: ${newRows.length} noi, ${duplicates.length} duplicate, ${errors} erori`)
+    console.log(`👀 Preview COMPLET: ${newRows.length} noi, ${duplicates.length} duplicate, ${errors} erori din ${rows.length} total`)
     
     res.json({ 
       success: true, 
       totalRows: rows.length,
-      newRows: newRows,
+      newRows: newRows.slice(0, 20), // Sample doar primele 20 pentru display
       duplicates: duplicates.slice(0, 10), // Sample de 10
-      newCount: newRows.length,
+      newCount: newRows.length, // Dar COUNT-ul total corect!
       duplicateCount: duplicates.length,
       errorCount: errors
     })

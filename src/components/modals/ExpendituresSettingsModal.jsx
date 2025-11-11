@@ -881,7 +881,7 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                     setPreviewData(null)
                     
                     try {
-                      toast.loading('👀 Analizez date...', { id: 'preview' })
+                      toast.loading('👀 Analizez TOATE datele... (poate dura 30-60 sec)', { id: 'preview' })
                       
                       const response = await axios.post('/api/expenditures/preview-google-sheets', {
                         sheetUrl: googleSheetsSettings.sheetUrl
@@ -915,7 +915,7 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                 {previewData && (
                   <div className="mb-6 p-6 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl border-2 border-blue-300 dark:border-blue-700">
                     <h4 className="text-lg font-bold text-blue-900 dark:text-blue-200 mb-4 flex items-center">
-                      📊 Rezultate Analiză (primele 100 rânduri)
+                      📊 Rezultate Analiză Completă ({previewData.totalRows} rânduri verificate)
                     </h4>
                     
                     <div className="grid grid-cols-3 gap-4 mb-6">
@@ -933,9 +933,11 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                       </div>
                     </div>
                     
-                    {previewData.newRows.length > 0 && (
+                    {previewData.newCount > 0 && (
                       <div>
-                        <h5 className="font-bold text-green-800 dark:text-green-300 mb-2">🆕 Sample Date NOI (vor fi importate):</h5>
+                        <h5 className="font-bold text-green-800 dark:text-green-300 mb-2">
+                          🆕 Sample Date NOI (total {previewData.newCount} vor fi importate):
+                        </h5>
                         <div className="overflow-x-auto max-h-60">
                           <table className="w-full text-sm">
                             <thead className="bg-green-200 dark:bg-green-900 sticky top-0">
@@ -947,7 +949,7 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                               </tr>
                             </thead>
                             <tbody className="bg-white dark:bg-slate-800">
-                              {previewData.newRows.slice(0, 20).map((row, idx) => (
+                              {previewData.newRows.map((row, idx) => (
                                 <tr key={idx} className="border-b dark:border-slate-700">
                                   <td className="p-2">{row.date}</td>
                                   <td className="p-2 text-right font-bold">{row.amount.toFixed(2)}</td>
@@ -958,8 +960,10 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                             </tbody>
                           </table>
                         </div>
-                        {previewData.newRows.length > 20 && (
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">... și încă {previewData.newRows.length - 20} rânduri noi</p>
+                        {previewData.newCount > previewData.newRows.length && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 font-bold">
+                            ... și încă {previewData.newCount - previewData.newRows.length} rânduri noi (afișez sample de {previewData.newRows.length})
+                          </p>
                         )}
                       </div>
                     )}
