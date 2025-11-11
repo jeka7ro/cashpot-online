@@ -156,15 +156,15 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears }) => 
       
       const newStart = new Date(selectedYear, firstQuarter * 3, 1)
       const newEnd = new Date(selectedYear, lastQuarter * 3 + 3, 0)
-      
+    
       console.log(`📅 MULTI-SELECT TRIMESTRE: Q${firstQuarter + 1} - Q${lastQuarter + 1}`)
-      console.log(`   Start: ${formatDateLocal(newStart)}`)
-      console.log(`   End: ${formatDateLocal(newEnd)}`)
-      
-      onChange({
-        startDate: formatDateLocal(newStart),
-        endDate: formatDateLocal(newEnd)
-      })
+    console.log(`   Start: ${formatDateLocal(newStart)}`)
+    console.log(`   End: ${formatDateLocal(newEnd)}`)
+    
+    onChange({
+      startDate: formatDateLocal(newStart),
+      endDate: formatDateLocal(newEnd)
+    })
     }
   }
   
@@ -193,10 +193,10 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears }) => 
       console.log(`   Start: ${formatDateLocal(newStart)}`)
       console.log(`   End: ${formatDateLocal(newEnd)}`)
       
-      onChange({
-        startDate: formatDateLocal(newStart),
-        endDate: formatDateLocal(newEnd)
-      })
+    onChange({
+      startDate: formatDateLocal(newStart),
+      endDate: formatDateLocal(newEnd)
+    })
     }
   }
   
@@ -293,20 +293,20 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears }) => 
                   {yearsToShow.map(year => {
                     const isSelected = selectedYears.includes(year)
                     return (
-                      <button
-                        key={year}
+                    <button
+                      key={year}
                         onClick={() => toggleYear(year)}
                         className={`p-4 rounded-xl font-bold transition-all border-2 ${
                           isSelected
                             ? 'bg-blue-600 text-white border-blue-600 shadow-lg'
                             : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700'
-                        }`}
-                      >
+                      }`}
+                    >
                         <div className="flex items-center justify-between">
                           <span>{year}</span>
                           {isSelected && <span className="text-xl">✓</span>}
                         </div>
-                      </button>
+                    </button>
                     )
                   })}
                 </div>
@@ -346,23 +346,23 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears }) => 
                   {['Q1', 'Q2', 'Q3', 'Q4'].map((q, idx) => {
                     const isSelected = selectedQuarters.includes(idx)
                     return (
-                      <button
-                        key={q}
+                    <button
+                      key={q}
                         onClick={() => toggleQuarter(idx)}
                         className={`p-6 rounded-xl font-bold text-lg transition-all border-2 ${
                           isSelected
                             ? 'bg-blue-600 text-white border-blue-600 shadow-lg'
                             : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700'
                         }`}
-                      >
+                    >
                         <div className="flex items-center justify-between mb-2">
                           <span>{q}</span>
                           {isSelected && <span className="text-2xl">✓</span>}
                         </div>
-                        <div className="text-xs mt-2 opacity-70">
-                          {months[idx * 3]} - {months[idx * 3 + 2]}
-                        </div>
-                      </button>
+                      <div className="text-xs mt-2 opacity-70">
+                        {months[idx * 3]} - {months[idx * 3 + 2]}
+                      </div>
+                    </button>
                     )
                   })}
                 </div>

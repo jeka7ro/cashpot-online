@@ -440,35 +440,35 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                   {expenditureTypes.map(type => {
                     const isNew = newItems.types.includes(type.name)
                     return (
-                      <label
-                        key={type.id}
+                    <label
+                      key={type.id}
                         className={`flex items-center space-x-2 px-3 py-2 rounded-lg cursor-pointer transition-all ${
                           isNew
                             ? 'bg-yellow-100 dark:bg-yellow-900/40 border-2 border-yellow-400 dark:border-yellow-600 animate-pulse'
                             : settings.includedExpenditureTypes.includes(type.name)
-                            ? 'bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700'
-                            : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={settings.includedExpenditureTypes.includes(type.name)}
-                          onChange={() => toggleItem(
-                            settings.includedExpenditureTypes,
-                            type.name,
-                            (list) => setSettings(prev => ({ ...prev, includedExpenditureTypes: list }))
-                          )}
-                          className="w-4 h-4 text-green-600 border-slate-300 rounded focus:ring-green-500"
-                        />
+                          ? 'bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700'
+                          : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={settings.includedExpenditureTypes.includes(type.name)}
+                        onChange={() => toggleItem(
+                          settings.includedExpenditureTypes,
+                          type.name,
+                          (list) => setSettings(prev => ({ ...prev, includedExpenditureTypes: list }))
+                        )}
+                        className="w-4 h-4 text-green-600 border-slate-300 rounded focus:ring-green-500"
+                      />
                         <span className="text-sm font-medium text-slate-900 dark:text-slate-100 flex-1">
-                          {type.name}
-                        </span>
+                        {type.name}
+                      </span>
                         {isNew && (
                           <span className="px-2 py-0.5 bg-yellow-500 text-white text-xs font-bold rounded-full animate-bounce">
                             NOU!
                           </span>
                         )}
-                      </label>
+                    </label>
                     )
                   })}
                 </div>
@@ -525,35 +525,35 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                   {departments.map(dept => {
                     const isNew = newItems.departments.includes(dept.name)
                     return (
-                      <label
-                        key={dept.id}
+                    <label
+                      key={dept.id}
                         className={`flex items-center space-x-2 px-3 py-2 rounded-lg cursor-pointer transition-all ${
                           isNew
                             ? 'bg-yellow-100 dark:bg-yellow-900/40 border-2 border-yellow-400 dark:border-yellow-600 animate-pulse'
                             : settings.includedDepartments.includes(dept.name)
-                            ? 'bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700'
-                            : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={settings.includedDepartments.includes(dept.name)}
-                          onChange={() => toggleItem(
-                            settings.includedDepartments,
-                            dept.name,
-                            (list) => setSettings(prev => ({ ...prev, includedDepartments: list }))
-                          )}
-                          className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-                        />
+                          ? 'bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700'
+                          : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={settings.includedDepartments.includes(dept.name)}
+                        onChange={() => toggleItem(
+                          settings.includedDepartments,
+                          dept.name,
+                          (list) => setSettings(prev => ({ ...prev, includedDepartments: list }))
+                        )}
+                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                      />
                         <span className="text-sm font-medium text-slate-900 dark:text-slate-100 flex-1">
-                          {dept.name}
-                        </span>
+                        {dept.name}
+                      </span>
                         {isNew && (
                           <span className="px-2 py-0.5 bg-yellow-500 text-white text-xs font-bold rounded-full animate-bounce">
                             NOU!
                           </span>
                         )}
-                      </label>
+                    </label>
                     )
                   })}
                 </div>
@@ -605,44 +605,44 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                   {locations.map(loc => {
                     const isNew = newItems.locations.includes(loc.name)
                     return (
-                      <label
-                        key={loc.id}
+                    <label
+                      key={loc.id}
                         className={`flex items-center space-x-2 px-3 py-2 rounded-lg cursor-pointer transition-all ${
                           isNew
                             ? 'bg-yellow-100 dark:bg-yellow-900/40 border-2 border-yellow-400 dark:border-yellow-600 animate-pulse'
                             : settings.includedLocations.includes(loc.name)
-                            ? 'bg-purple-100 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700'
-                            : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={settings.includedLocations.includes(loc.name)}
-                          onChange={() => toggleItem(
-                            settings.includedLocations,
-                            loc.name,
-                            (list) => setSettings(prev => ({ ...prev, includedLocations: list }))
-                          )}
-                          className="w-4 h-4 text-purple-600 border-slate-300 rounded focus:ring-purple-500"
-                        />
-                        <div className="flex-1">
+                          ? 'bg-purple-100 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700'
+                          : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={settings.includedLocations.includes(loc.name)}
+                        onChange={() => toggleItem(
+                          settings.includedLocations,
+                          loc.name,
+                          (list) => setSettings(prev => ({ ...prev, includedLocations: list }))
+                        )}
+                        className="w-4 h-4 text-purple-600 border-slate-300 rounded focus:ring-purple-500"
+                      />
+                      <div className="flex-1">
                           <div className="flex items-center space-x-2">
-                            <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                              {loc.name}
+                        <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                          {loc.name}
                             </div>
                             {isNew && (
                               <span className="px-2 py-0.5 bg-yellow-500 text-white text-xs font-bold rounded-full animate-bounce">
                                 NOU!
                               </span>
                             )}
-                          </div>
-                          {loc.address && (
-                            <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                              {loc.address}
-                            </div>
-                          )}
                         </div>
-                      </label>
+                        {loc.address && (
+                          <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                            {loc.address}
+                          </div>
+                        )}
+                      </div>
+                    </label>
                     )
                   })}
                 </div>
@@ -727,10 +727,10 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                           })()}
                           onChange={(e) => {
                             try {
-                              const saved = localStorage.getItem('expenditures_charts_visibility')
-                              const visibility = saved ? JSON.parse(saved) : {}
-                              visibility[chart.id] = e.target.checked
-                              localStorage.setItem('expenditures_charts_visibility', JSON.stringify(visibility))
+                            const saved = localStorage.getItem('expenditures_charts_visibility')
+                            const visibility = saved ? JSON.parse(saved) : {}
+                            visibility[chart.id] = e.target.checked
+                            localStorage.setItem('expenditures_charts_visibility', JSON.stringify(visibility))
                               
                               // Emit event for live update! (timeout pentru propagare)
                               setTimeout(() => {
