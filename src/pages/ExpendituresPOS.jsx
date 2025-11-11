@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
 import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp, TrendingDown, Table2, MapPin, ArrowLeft, Coins, Database, Cloud } from 'lucide-react'
 import { toast } from 'react-hot-toast'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
 import ExpendituresMappingModal from '../components/modals/ExpendituresMappingModal'
 import ExpendituresSettingsModal from '../components/modals/ExpendituresSettingsModal'
 import AdvancedAnalyticsModal from '../components/modals/AdvancedAnalyticsModal'
@@ -20,6 +22,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, R
 const Expenditures = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const exportRef = useRef(null) // Ref pentru zona de export PDF
   
   // Check permissions
   useEffect(() => {
@@ -481,13 +484,58 @@ const Expenditures = () => {
   }
   
   // Export to PDF
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     try {
-      // Will implement with ExportButtons component
-      toast.success('Export PDF în curs de implementare...')
+      toast.loading('📄 Generare PDF...', { id: 'pdf-export' })
+      
+      if (!exportRef.current) {
+        toast.error('Eroare: zona de export nu a fost găsită', { id: 'pdf-export' })
+        return
+      }
+      
+      // Capturează zona de export (fără filtre, sidebar, header)
+      const canvas = await html2canvas(exportRef.current, {
+        scale: 2, // Calitate mai bună
+        useCORS: true,
+        logging: false,
+        backgroundColor: document.documentElement.classList.contains('dark') ? '#0f172a' : '#ffffff'
+      })
+      
+      // Creează PDF
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      })
+      
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+      const imgWidth = pageWidth
+      const imgHeight = (canvas.height * pageWidth) / canvas.width
+      
+      let heightLeft = imgHeight
+      let position = 0
+      
+      // Dacă imaginea e mai mare decât o pagină, împarte pe mai multe pagini
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+      heightLeft -= pageHeight
+      
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight
+        pdf.addPage()
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+        heightLeft -= pageHeight
+      }
+      
+      // Salvează PDF
+      const fileName = `Cheltuieli_${dateRange.startDate}_${dateRange.endDate}.pdf`
+      pdf.save(fileName)
+      
+      toast.success('✅ PDF exportat cu succes!', { id: 'pdf-export' })
     } catch (error) {
       console.error('Error exporting to PDF:', error)
-      toast.error('Eroare la export PDF')
+      toast.error('❌ Eroare la export PDF: ' + error.message, { id: 'pdf-export' })
     }
   }
   
@@ -699,6 +747,9 @@ const Expenditures = () => {
             </div>
           </div>
         </div>
+        
+        {/* ZONA DE EXPORT PDF - FĂRĂ FILTRE! */}
+        <div ref={exportRef} className="space-y-6">
         
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1547,6 +1598,8 @@ const Expenditures = () => {
           </div>
         </div>
       </div>
+      
+      </div> {/* END ZONA DE EXPORT PDF */}
       
       {/* Mapping Modal */}
       {showMappingModal && (
