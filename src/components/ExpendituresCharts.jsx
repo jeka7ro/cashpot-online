@@ -86,30 +86,30 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
         })
     } else {
       // AGREGARE PE LUNĂ (când e selectat interval mai mare)
-      const monthMap = {}
+    const monthMap = {}
+    
+    expendituresData.forEach(item => {
+      const dateObj = new Date(item.operational_date)
+      const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`
       
-      expendituresData.forEach(item => {
-        const dateObj = new Date(item.operational_date)
-        const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`
-        
-        if (!monthMap[monthKey]) {
-          monthMap[monthKey] = 0
-        }
-        monthMap[monthKey] += parseFloat(item.amount || 0)
-      })
-      
+      if (!monthMap[monthKey]) {
+        monthMap[monthKey] = 0
+      }
+      monthMap[monthKey] += parseFloat(item.amount || 0)
+    })
+    
       // Sortare CRONOLOGICĂ
-      return Object.entries(monthMap)
+    return Object.entries(monthMap)
         .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([monthKey, value]) => {
-          const [year, month] = monthKey.split('-')
-          const dateObj = new Date(parseInt(year), parseInt(month) - 1, 1)
-          return {
-            date: dateObj.toLocaleDateString('ro-RO', { month: 'short', year: 'numeric' }),
-            value: Math.round(value),
-            originalDate: monthKey
-          }
-        })
+      .map(([monthKey, value]) => {
+        const [year, month] = monthKey.split('-')
+        const dateObj = new Date(parseInt(year), parseInt(month) - 1, 1)
+        return {
+          date: dateObj.toLocaleDateString('ro-RO', { month: 'short', year: 'numeric' }),
+          value: Math.round(value),
+          originalDate: monthKey
+        }
+      })
     }
   }
   

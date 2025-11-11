@@ -734,8 +734,8 @@ const Expenditures = () => {
         
         {/* ZONA EXPORTABILĂ PDF - START */}
         <div ref={exportRef} className="space-y-6">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-6 rounded-2xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>

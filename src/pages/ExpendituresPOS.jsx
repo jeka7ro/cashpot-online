@@ -12,6 +12,7 @@ import ExpendituresSettingsModal from '../components/modals/ExpendituresSettings
 import PowerBIConfigModal from '../components/modals/PowerBIConfigModal'
 import PowerBISyncModal from '../components/modals/PowerBISyncModal'
 import ExpendituresCharts from '../components/ExpendituresCharts'
+import ExpendituresAdvancedCharts from '../components/ExpendituresAdvancedCharts'
 import ExpendituresTableSimple from '../components/ExpendituresTableSimple'
 import DateRangeSelector from '../components/DateRangeSelector'
 import { generateAIInsights } from '../utils/aiInsights'
@@ -751,39 +752,39 @@ const Expenditures = () => {
         {/* ZONA DE EXPORT PDF - FĂRĂ FILTRE! */}
         <div ref={exportRef} className="space-y-6">
         
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-6 rounded-2xl shadow-lg">
+        {/* Stats Cards - COMPACT 4 COLOANE */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-4 rounded-xl shadow-md">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Total Încasări</p>
-                <p className="text-3xl font-bold text-blue-600 dark:text-blue-400 mt-2">
+                <p className="text-slate-600 dark:text-slate-400 text-xs font-medium">Total Încasări</p>
+                <p className="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">
                   {formatCurrency(totalsRow?.total || 0)} RON
                 </p>
               </div>
-              <div className="p-4 bg-blue-500/10 rounded-2xl">
-                <TrendingUp className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              <div className="p-2 bg-blue-500/10 rounded-lg">
+                <TrendingUp className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
           </div>
           
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-green-900/20 dark:to-emerald-900/20 p-6 rounded-2xl shadow-lg">
+          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-green-900/20 dark:to-emerald-900/20 p-4 rounded-xl shadow-md">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Locații</p>
-                <p className="text-3xl font-bold text-green-600 dark:text-green-400 mt-2">{locations.length}</p>
+                <p className="text-slate-600 dark:text-slate-400 text-xs font-medium">Locații</p>
+                <p className="text-xl font-bold text-green-600 dark:text-green-400 mt-1">{locations.length}</p>
               </div>
-              <div className="p-4 bg-green-500/10 rounded-2xl">
-                <Building2 className="w-8 h-8 text-green-600 dark:text-green-400" />
+              <div className="p-2 bg-green-500/10 rounded-lg">
+                <Building2 className="w-5 h-5 text-green-600 dark:text-green-400" />
               </div>
             </div>
           </div>
           
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-purple-900/20 dark:to-pink-900/20 p-6 rounded-2xl shadow-lg">
+          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-purple-900/20 dark:to-pink-900/20 p-4 rounded-xl shadow-md">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Zile Selectate</p>
-                <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-2">
+                <p className="text-slate-600 dark:text-slate-400 text-xs font-medium">Zile Selectate</p>
+                <p className="text-xl font-bold text-purple-600 dark:text-purple-400 mt-1">
                   {(() => {
                     const start = new Date(dateRange.startDate)
                     const end = new Date(dateRange.endDate)
@@ -793,50 +794,51 @@ const Expenditures = () => {
                   })()}
                 </p>
               </div>
-              <div className="p-4 bg-purple-500/10 rounded-2xl">
-                <Calendar className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+              <div className="p-2 bg-purple-500/10 rounded-lg">
+                <Calendar className="w-5 h-5 text-purple-600 dark:text-purple-400" />
               </div>
             </div>
           </div>
           
-          {/* CARD NOU: Surse Date */}
-          <div className="bg-gradient-to-br from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 p-6 rounded-2xl shadow-lg">
+          {/* CARD: Surse Date - COMPACT */}
+          <div className="bg-gradient-to-br from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 p-4 rounded-xl shadow-md">
             <div className="flex items-center justify-between">
               <div className="w-full">
-                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium mb-3">📊 Surse Date</p>
-                <div className="space-y-2">
+                <p className="text-slate-600 dark:text-slate-400 text-xs font-medium mb-2">📊 Surse</p>
+                <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-600 dark:text-slate-400">🔄 BAT Sync:</span>
-                    <span className="text-sm font-bold text-cyan-600 dark:text-cyan-400">
-                      {filteredData.filter(item => !item.data_source || item.data_source === 'local').length} rânduri
+                    <span className="text-[10px] text-slate-600 dark:text-slate-400">🔄 BAT:</span>
+                    <span className="text-xs font-bold text-cyan-600 dark:text-cyan-400">
+                      {filteredData.filter(item => !item.data_source || item.data_source === 'local').length}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-600 dark:text-slate-400">☁️ Google Sheets:</span>
-                    <span className="text-sm font-bold text-green-600 dark:text-green-400">
-                      {filteredData.filter(item => item.data_source === 'google_sheets').length} rânduri
+                    <span className="text-[10px] text-slate-600 dark:text-slate-400">☁️ Sheets:</span>
+                    <span className="text-xs font-bold text-green-600 dark:text-green-400">
+                      {filteredData.filter(item => item.data_source === 'google_sheets').length}
                     </span>
                   </div>
                   <div className="h-px bg-slate-300 dark:bg-slate-600"></div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">📌 Total:</span>
-                    <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                      {filteredData.length} rânduri
+                    <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">Total:</span>
+                    <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                      {filteredData.length}
                     </span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-          
-          {/* 3 CARDURI: General, POS, Bancă */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        </div>
+        
+        {/* 3 CARDURI EVOLUȚIE: General, POS, Bancă - COMPACT */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {/* Card 1: General */}
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-orange-900/20 dark:to-amber-900/20 p-6 rounded-2xl shadow-lg">
+          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-orange-900/20 dark:to-amber-900/20 p-4 rounded-xl shadow-md">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Evoluție vs Luna Trecută</p>
-                <p className={`text-3xl font-bold mt-2 ${
+                <p className="text-slate-600 dark:text-slate-400 text-xs font-medium">Evoluție vs Luna Trecută</p>
+                <p className={`text-2xl font-bold mt-1 ${
                   (() => {
                     // Calculate current month vs previous month (same days)
                     const today = new Date()
@@ -912,7 +914,7 @@ const Expenditures = () => {
                   Primele {new Date().getDate()} zile vs luna trecută
                 </p>
               </div>
-              <div className={`p-4 rounded-2xl ${
+              <div className={`p-3 rounded-xl ${
                 (() => {
                   const today = new Date()
                   const currentDay = today.getDate()
@@ -975,9 +977,9 @@ const Expenditures = () => {
                   const diff = currentTotal - prevTotal
                   
                   return diff >= 0 ? (
-                    <TrendingUp className="w-8 h-8 text-green-600 dark:text-green-400" />
+                    <TrendingUp className="w-6 h-6 text-green-600 dark:text-green-400" />
                   ) : (
-                    <TrendingDown className="w-8 h-8 text-red-600 dark:text-red-400" />
+                    <TrendingDown className="w-6 h-6 text-red-600 dark:text-red-400" />
                   )
                 })()}
               </div>
@@ -985,11 +987,11 @@ const Expenditures = () => {
           </div>
           
           {/* Card 2: POS */}
-          <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-green-900/20 dark:to-emerald-900/20 p-6 rounded-2xl shadow-lg">
+          <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-green-900/20 dark:to-emerald-900/20 p-4 rounded-xl shadow-md">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Evoluție POS vs Luna Trecută</p>
-                <p className={`text-3xl font-bold mt-2 ${
+                <p className="text-slate-600 dark:text-slate-400 text-xs font-medium">Evoluție POS vs Luna Trecută</p>
+                <p className={`text-2xl font-bold mt-1 ${
                   (() => {
                     const today = new Date()
                     const currentDay = today.getDate()
@@ -1060,18 +1062,18 @@ const Expenditures = () => {
                   Primele {new Date().getDate()} zile vs luna trecută
                 </p>
               </div>
-              <div className="p-4 bg-green-500/10 rounded-2xl">
-                <TrendingUp className="w-8 h-8 text-green-600 dark:text-green-400" />
+              <div className="p-3 bg-green-500/10 rounded-xl">
+                <TrendingUp className="w-6 h-6 text-green-600 dark:text-green-400" />
               </div>
             </div>
           </div>
           
           {/* Card 3: Bancă */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-6 rounded-2xl shadow-lg">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-xl shadow-md">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Evoluție Bancă vs Luna Trecută</p>
-                <p className={`text-3xl font-bold mt-2 ${
+                <p className="text-slate-600 dark:text-slate-400 text-xs font-medium">Evoluție Bancă vs Luna Trecută</p>
+                <p className={`text-2xl font-bold mt-1 ${
                   (() => {
                     const today = new Date()
                     const currentDay = today.getDate()
@@ -1142,12 +1144,10 @@ const Expenditures = () => {
                   Primele {new Date().getDate()} zile vs luna trecută
                 </p>
               </div>
-              <div className="p-4 bg-blue-500/10 rounded-2xl">
-                <TrendingUp className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              <div className="p-3 bg-blue-500/10 rounded-xl">
+                <TrendingUp className="w-6 h-6 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
-          </div>
-          
           </div>
         </div>
         
@@ -1667,6 +1667,15 @@ const Expenditures = () => {
               </table>
             </div>
           </div>
+        )}
+        
+        {/* GRAFICE AVANSATE */}
+        {filteredExpendituresForCharts.length > 0 && (
+          <ExpendituresAdvancedCharts 
+            expendituresData={filteredExpendituresForCharts}
+            dateRange={dateRange}
+            visibleCharts={visibleCharts}
+          />
         )}
         
         {/* POS & Bancă Table */}

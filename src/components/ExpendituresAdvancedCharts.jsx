@@ -150,7 +150,7 @@ const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts
         } else {
           // Format: "Nov 2025"
           const [year, month] = timeKey.split('-')
-          const date = new Date(parseInt(year), parseInt(month) - 1, 1)
+        const date = new Date(parseInt(year), parseInt(month) - 1, 1)
           displayLabel = date.toLocaleDateString('ro-RO', { month: 'short', year: 'numeric' })
         }
         
