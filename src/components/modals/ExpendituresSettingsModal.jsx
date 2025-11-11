@@ -53,6 +53,7 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
   const [importingGoogleSheets, setImportingGoogleSheets] = useState(false)
   const [importProgress, setImportProgress] = useState(null)
   const [googleSheetsStatus, setGoogleSheetsStatus] = useState(null)
+  const [forceImport, setForceImport] = useState(false) // Force import toggle
   
   useEffect(() => {
     loadData()
@@ -866,6 +867,26 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                 </div>
                 
                 {/* Import Button */}
+                {/* FORCE IMPORT CHECKBOX */}
+                <div className="mb-4 p-4 bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-300 dark:border-orange-700 rounded-lg">
+                  <label className="flex items-start space-x-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={forceImport}
+                      onChange={(e) => setForceImport(e.target.checked)}
+                      className="mt-1 w-5 h-5 text-orange-600 rounded focus:ring-orange-500"
+                    />
+                    <div>
+                      <p className="font-bold text-orange-800 dark:text-orange-300">
+                        🔥 FORCE IMPORT (Ignoră verificarea duplicate)
+                      </p>
+                      <p className="text-sm text-orange-700 dark:text-orange-400 mt-1">
+                        ⚠️ ATENȚIE: Va importa TOATE rândurile din Google Sheet, chiar dacă există deja în baza de date! Folosește doar dacă ești sigur că datele lipsesc.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+                
                 <button
                   onClick={async () => {
                     if (!googleSheetsSettings.sheetUrl) {
@@ -881,7 +902,7 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                       
                       const response = await axios.post('/api/expenditures/import-google-sheets', {
                         sheetUrl: googleSheetsSettings.sheetUrl,
-                        force: false
+                        force: forceImport
                       })
                       
                       setImportProgress(response.data)

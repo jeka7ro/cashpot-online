@@ -35,6 +35,33 @@ const Expenditures = () => {
   const [showMappingModal, setShowMappingModal] = useState(false)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false)
+  
+  // Chart sizes from localStorage - ACTUALIZARE LIVE!
+  const [chartSizes, setChartSizes] = useState(() => {
+    try {
+      const saved = localStorage.getItem('expenditures_charts_sizes')
+      if (saved) {
+        return JSON.parse(saved)
+      }
+    } catch (error) {
+      console.log('No saved chart sizes')
+    }
+    return {}
+  })
+  
+  // Chart visibility from localStorage - ACTUALIZARE LIVE!
+  const [chartVisibility, setChartVisibility] = useState(() => {
+    try {
+      const saved = localStorage.getItem('expenditures_charts_visibility')
+      if (saved) {
+        return JSON.parse(saved)
+      }
+    } catch (error) {
+      console.log('No saved chart visibility')
+    }
+    return {}
+  })
+  
   const [visibleCharts, setVisibleCharts] = useState(() => {
     // Load from localStorage
     try {
@@ -57,6 +84,49 @@ const Expenditures = () => {
       trendPrediction: true
     }
   })
+  
+  // Listen for localStorage changes from Settings Modal
+  useEffect(() => {
+    const handleStorageChange = () => {
+      try {
+        const sizes = localStorage.getItem('expenditures_charts_sizes')
+        const visibility = localStorage.getItem('expenditures_charts_visibility')
+        
+        if (sizes) setChartSizes(JSON.parse(sizes))
+        if (visibility) setChartVisibility(JSON.parse(visibility))
+        
+        console.log('📊 Chart settings updated from localStorage!')
+      } catch (error) {
+        console.error('Error updating chart settings:', error)
+      }
+    }
+    
+    // Listen to storage events AND custom event from modal
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('expenditures-settings-changed', handleStorageChange)
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('expenditures-settings-changed', handleStorageChange)
+    }
+  }, [])
+  
+  // Helper: Get chart height based on size setting
+  const getChartHeight = (chartId, defaultHeight = 300) => {
+    const size = chartSizes[chartId] || 'L' // Default: Large
+    const heights = {
+      'S': Math.round(defaultHeight * 0.4),  // Small: 40%
+      'M': Math.round(defaultHeight * 0.6),  // Medium: 60%
+      'L': defaultHeight,                     // Large: 100%
+      'XL': Math.round(defaultHeight * 1.5)  // XL: 150%
+    }
+    return heights[size] || defaultHeight
+  }
+  
+  // Helper: Check if chart is visible
+  const isChartVisible = (chartId) => {
+    return chartVisibility[chartId] !== false // Default: true (visible)
+  }
   
   // Load saved preferences from localStorage
   const loadSavedPreferences = () => {
