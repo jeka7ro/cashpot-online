@@ -197,9 +197,9 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
               ))}
               <LabelList 
                 dataKey="value" 
-                position="right" 
+                position="insideRight" 
                 formatter={(value) => formatCurrency(value)}
-                style={{ fontSize: '10px', fontWeight: 'bold', fill: '#1e293b' }}
+                style={{ fontSize: '14px', fontWeight: 'bold', fill: '#ffffff', textShadow: '0 0 3px rgba(0,0,0,0.8)' }}
               />
             </Bar>
           </BarChart>
