@@ -1,0 +1,4 @@
+Force cache invalidation - timestamp: 1731318000
+This file forces Vercel to invalidate cache and redeploy.
+Build: index-88f5672d.js
+
