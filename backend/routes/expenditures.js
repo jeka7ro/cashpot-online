@@ -720,5 +720,234 @@ router.put('/settings', authenticateToken, async (req, res) => {
   }
 })
 
+// ==================== GOOGLE SHEETS SYNC ====================
+
+// Import CSV from Google Sheets
+router.post('/import-google-sheets', authenticateToken, async (req, res) => {
+  try {
+    const { sheetUrl, force = false } = req.body
+    
+    if (!sheetUrl) {
+      return res.status(400).json({ success: false, error: 'Sheet URL is required' })
+    }
+    
+    console.log('🔄 Starting Google Sheets import from:', sheetUrl)
+    
+    // Convert Google Sheets URL to CSV export URL
+    let csvUrl = sheetUrl
+    if (sheetUrl.includes('/edit')) {
+      const sheetId = sheetUrl.match(/\/d\/(.*?)\//)?.[1]
+      const gid = sheetUrl.match(/gid=(\d+)/)?.[1] || '0'
+      csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`
+    }
+    
+    console.log('📥 Fetching CSV from:', csvUrl)
+    
+    // Fetch CSV data
+    const response = await fetch(csvUrl)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch CSV: ${response.statusText}`)
+    }
+    
+    const csvText = await response.text()
+    const lines = csvText.split('\n').filter(line => line.trim())
+    
+    if (lines.length < 2) {
+      return res.status(400).json({ success: false, error: 'CSV is empty or invalid' })
+    }
+    
+    // Parse CSV (skip header)
+    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
+    const rows = lines.slice(1)
+    
+    console.log(`📊 CSV Headers: ${headers.slice(0, 8).join(', ')}`)
+    console.log(`📈 Total rows to process: ${rows.length}`)
+    
+    // PostgreSQL connection (Render.com DB)
+    const { Pool } = pg
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    })
+    
+    let imported = 0
+    let skipped = 0
+    let errors = 0
+    
+    for (const row of rows) {
+      try {
+        // Parse CSV row (handle quoted values)
+        const values = row.match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g)?.map(v => v.replace(/^"|"$/g, '').trim()) || []
+        
+        if (values.length < 8) {
+          console.log('⚠️ Skipping incomplete row:', values)
+          skipped++
+          continue
+        }
+        
+        // Map columns (A=0, B=1, C=2, D=3, E=4, F=5, G=6, H=7)
+        const [dateStr, explanation, amountStr, location, department, expenditureType, createdBy, createdAt] = values
+        
+        // Parse date (DD.MM.YYYY to YYYY-MM-DD)
+        const dateParts = dateStr.split('.')
+        if (dateParts.length !== 3) {
+          console.log('⚠️ Invalid date format:', dateStr)
+          skipped++
+          continue
+        }
+        const operationalDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`
+        
+        // Parse amount (remove thousand separators, convert comma to dot)
+        const amount = parseFloat(amountStr.replace(/\./g, '').replace(',', '.'))
+        
+        if (isNaN(amount) || !location || !department) {
+          console.log('⚠️ Invalid data:', { amount, location, department })
+          skipped++
+          continue
+        }
+        
+        // Check if already exists (to avoid duplicates)
+        if (!force) {
+          const existing = await pool.query(`
+            SELECT id FROM expenditures_sync 
+            WHERE operational_date = $1 
+              AND amount = $2 
+              AND location_name = $3 
+              AND department_name = $4
+              AND expenditure_type = $5
+            LIMIT 1
+          `, [operationalDate, amount, location, department, expenditureType])
+          
+          if (existing.rows.length > 0) {
+            skipped++
+            continue
+          }
+        }
+        
+        // Insert into DB
+        await pool.query(`
+          INSERT INTO expenditures_sync (
+            operational_date, 
+            amount, 
+            location_name, 
+            department_name, 
+            expenditure_type, 
+            description, 
+            data_source,
+            created_by,
+            synced_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+        `, [operationalDate, amount, location, department, expenditureType, explanation, 'google_sheets', createdBy])
+        
+        imported++
+        
+        if (imported % 100 === 0) {
+          console.log(`✅ Imported ${imported} rows...`)
+        }
+        
+      } catch (rowError) {
+        console.error('❌ Error processing row:', rowError.message)
+        errors++
+      }
+    }
+    
+    await pool.end()
+    
+    console.log(`🎉 Import completed: ${imported} imported, ${skipped} skipped, ${errors} errors`)
+    
+    res.json({ 
+      success: true, 
+      imported, 
+      skipped, 
+      errors,
+      message: `Successfully imported ${imported} expenditures from Google Sheets`
+    })
+    
+  } catch (error) {
+    console.error('❌ Google Sheets import error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Get Google Sheets sync settings
+router.get('/google-sheets-settings', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id
+    
+    const { Pool } = pg
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    })
+    
+    const result = await pool.query(`
+      SELECT preferences 
+      FROM users 
+      WHERE id = $1
+    `, [userId])
+    
+    await pool.end()
+    
+    const settings = result.rows[0]?.preferences?.googleSheetsSync || {
+      enabled: false,
+      sheetUrl: '',
+      syncInterval: 24, // hours
+      lastSync: null
+    }
+    
+    res.json({ success: true, settings })
+  } catch (error) {
+    console.error('Error loading Google Sheets settings:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Update Google Sheets sync settings
+router.put('/google-sheets-settings', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id
+    const { enabled, sheetUrl, syncInterval } = req.body
+    
+    const { Pool } = pg
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    })
+    
+    // Get current preferences
+    const current = await pool.query(`
+      SELECT preferences 
+      FROM users 
+      WHERE id = $1
+    `, [userId])
+    
+    const preferences = current.rows[0]?.preferences || {}
+    
+    // Update Google Sheets sync settings
+    preferences.googleSheetsSync = {
+      enabled,
+      sheetUrl,
+      syncInterval: parseInt(syncInterval) || 24,
+      lastSync: preferences.googleSheetsSync?.lastSync || null
+    }
+    
+    // Save to DB
+    await pool.query(`
+      UPDATE users 
+      SET preferences = $1 
+      WHERE id = $2
+    `, [JSON.stringify(preferences), userId])
+    
+    await pool.end()
+    
+    console.log('✅ Google Sheets sync settings saved for user', userId)
+    
+    res.json({ success: true, settings: preferences.googleSheetsSync })
+  } catch (error) {
+    console.error('Error updating Google Sheets settings:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 export default router
 
