@@ -1221,11 +1221,23 @@ const Expenditures = () => {
       {/* Settings Modal */}
       {showSettingsModal && (
         <ExpendituresSettingsModal
-          onClose={() => setShowSettingsModal(false)}
+          onClose={() => {
+            setShowSettingsModal(false)
+            // Force re-render charts after settings change
+            const sizes = localStorage.getItem('expenditures_charts_sizes')
+            const visibility = localStorage.getItem('expenditures_charts_visibility')
+            if (sizes) setChartSizes(JSON.parse(sizes))
+            if (visibility) setChartVisibility(JSON.parse(visibility))
+          }}
           onSave={() => {
             setShowSettingsModal(false)
             loadSettings()
-            toast.success('Setări actualizate! Sincronizează din nou pentru a aplica.')
+            // Force re-render charts after save
+            const sizes = localStorage.getItem('expenditures_charts_sizes')
+            const visibility = localStorage.getItem('expenditures_charts_visibility')
+            if (sizes) setChartSizes(JSON.parse(sizes))
+            if (visibility) setChartVisibility(JSON.parse(visibility))
+            toast.success('Setări actualizate!')
           }}
         />
       )}

@@ -691,9 +691,14 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                             sizes[chart.id] = e.target.value
                             localStorage.setItem('expenditures_charts_sizes', JSON.stringify(sizes))
                             
-                            // Emit event for live update!
-                            window.dispatchEvent(new CustomEvent('expenditures-settings-changed'))
-                            toast.success(`📊 Dimensiune grafic actualizată: ${e.target.value}`)
+                            // Emit event for live update! (timeout pentru propagare)
+                            setTimeout(() => {
+                              window.dispatchEvent(new Event('storage'))
+                              window.dispatchEvent(new CustomEvent('expenditures-settings-changed'))
+                            }, 100)
+                            
+                            const sizeLabels = { 'M': '60%', 'L': '100%', 'XL': '150%' }
+                            toast.success(`📊 Dimensiune: ${sizeLabels[e.target.value]}`, { duration: 2000 })
                           }}
                           className="px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
                         >
@@ -711,14 +716,23 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                             return visibility[chart.id] !== false // Default: true
                           })()}
                           onChange={(e) => {
-                            const saved = localStorage.getItem('expenditures_charts_visibility')
-                            const visibility = saved ? JSON.parse(saved) : {}
-                            visibility[chart.id] = e.target.checked
-                            localStorage.setItem('expenditures_charts_visibility', JSON.stringify(visibility))
-                            
-                            // Emit event for live update!
-                            window.dispatchEvent(new CustomEvent('expenditures-settings-changed'))
-                            toast.success(`${e.target.checked ? '✅ Grafic afișat' : '❌ Grafic ascuns'}`)
+                            try {
+                              const saved = localStorage.getItem('expenditures_charts_visibility')
+                              const visibility = saved ? JSON.parse(saved) : {}
+                              visibility[chart.id] = e.target.checked
+                              localStorage.setItem('expenditures_charts_visibility', JSON.stringify(visibility))
+                              
+                              // Emit event for live update! (timeout pentru propagare)
+                              setTimeout(() => {
+                                window.dispatchEvent(new Event('storage'))
+                                window.dispatchEvent(new CustomEvent('expenditures-settings-changed'))
+                              }, 100)
+                              
+                              toast.success(e.target.checked ? '✅ Grafic afișat' : '❌ Grafic ascuns', { duration: 2000 })
+                            } catch (error) {
+                              console.error('Error updating visibility:', error)
+                              toast.error('Eroare la salvare')
+                            }
                           }}
                           className="w-5 h-5 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
                         />
