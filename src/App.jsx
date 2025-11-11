@@ -5,6 +5,7 @@ import { DataProvider } from './contexts/DataContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import RoleProtectedRoute from './components/RoleProtectedRoute'
 import { MODULES } from './utils/permissions'
+import useBackendKeepAlive from './hooks/useBackendKeepAlive'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Companies from './pages/Companies'
@@ -54,6 +55,10 @@ import Tasks from './pages/Tasks'
 import Messages from './pages/Messages'
 
 function App() {
+  // Keep-Alive: Previne cold starts pe backend (Render.com)
+  // Face ping la fiecare 5 minute pentru a menține backend-ul activ
+  useBackendKeepAlive(true, 5)
+
   return (
     <AuthProvider>
       <DataProvider>

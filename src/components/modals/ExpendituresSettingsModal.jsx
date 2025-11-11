@@ -6,11 +6,19 @@ import { toast } from 'react-hot-toast'
 const ExpendituresSettingsModal = ({ onClose, onSave }) => {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   
   // Data from external DB
   const [expenditureTypes, setExpenditureTypes] = useState([])
   const [departments, setDepartments] = useState([])
   const [locations, setLocations] = useState([])
+  
+  // Track newly discovered items
+  const [newItems, setNewItems] = useState({
+    types: [],
+    departments: [],
+    locations: []
+  })
   
   // Settings
   const [settings, setSettings] = useState({
@@ -50,6 +58,30 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
         axios.get('/api/expenditures/external-locations'),
         axios.get('/api/expenditures/settings')
       ])
+      
+      // Detect NEW items (ones that weren't in the list before)
+      const oldTypes = expenditureTypes.map(t => t.name)
+      const oldDepts = departments.map(d => d.name)
+      const oldLocs = locations.map(l => l.name)
+      
+      const newTypes = typesRes.data.filter(t => !oldTypes.includes(t.name))
+      const newDepts = deptsRes.data.filter(d => !oldDepts.includes(d.name))
+      const newLocs = locsRes.data.filter(l => !oldLocs.includes(l.name))
+      
+      if (newTypes.length > 0 || newDepts.length > 0 || newLocs.length > 0) {
+        setNewItems({
+          types: newTypes.map(t => t.name),
+          departments: newDepts.map(d => d.name),
+          locations: newLocs.map(l => l.name)
+        })
+        
+        const summary = []
+        if (newDepts.length > 0) summary.push(`${newDepts.length} departamente noi`)
+        if (newTypes.length > 0) summary.push(`${newTypes.length} categorii noi`)
+        if (newLocs.length > 0) summary.push(`${newLocs.length} locații noi`)
+        
+        toast.success(`✨ Detectat: ${summary.join(', ')}!`)
+      }
       
       setExpenditureTypes(typesRes.data)
       setDepartments(deptsRes.data)
@@ -95,6 +127,72 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
       toast.error('Eroare la încărcarea setărilor')
     } finally {
       setLoading(false)
+    }
+  }
+  
+  // REFRESH CATEGORII - Detectează și adaugă categorii noi
+  const handleRefreshCategories = async () => {
+    try {
+      setRefreshing(true)
+      toast.loading('🔄 Scanez datele pentru categorii noi...', { id: 'refresh' })
+      
+      // Re-fetch data
+      const [typesRes, deptsRes, locsRes] = await Promise.all([
+        axios.get('/api/expenditures/expenditure-types'),
+        axios.get('/api/expenditures/departments'),
+        axios.get('/api/expenditures/external-locations')
+      ])
+      
+      // Detect NEW items
+      const oldTypes = expenditureTypes.map(t => t.name)
+      const oldDepts = departments.map(d => d.name)
+      const oldLocs = locations.map(l => l.name)
+      
+      const newTypes = typesRes.data.filter(t => !oldTypes.includes(t.name))
+      const newDepts = deptsRes.data.filter(d => !oldDepts.includes(d.name))
+      const newLocs = locsRes.data.filter(l => !oldLocs.includes(l.name))
+      
+      // Update lists
+      setExpenditureTypes(typesRes.data)
+      setDepartments(deptsRes.data)
+      setLocations(locsRes.data)
+      
+      // Track new items for highlighting
+      if (newTypes.length > 0 || newDepts.length > 0 || newLocs.length > 0) {
+        setNewItems({
+          types: newTypes.map(t => t.name),
+          departments: newDepts.map(d => d.name),
+          locations: newLocs.map(l => l.name)
+        })
+        
+        // Auto-select new items (opțional - pentru ușurință)
+        setSettings(prev => ({
+          ...prev,
+          includedExpenditureTypes: [...new Set([...(prev.includedExpenditureTypes || []), ...newTypes.map(t => t.name)])],
+          includedDepartments: [...new Set([...(prev.includedDepartments || []), ...newDepts.map(d => d.name)])],
+          includedLocations: [...new Set([...(prev.includedLocations || []), ...newLocs.map(l => l.name)])]
+        }))
+        
+        const summary = []
+        if (newDepts.length > 0) summary.push(`${newDepts.length} departamente`)
+        if (newTypes.length > 0) summary.push(`${newTypes.length} categorii`)
+        if (newLocs.length > 0) summary.push(`${newLocs.length} locații`)
+        
+        toast.success(`✨ Detectat și adăugat: ${summary.join(', ')} NOI!`, { id: 'refresh', duration: 5000 })
+      } else {
+        toast.success('✅ Nu există categorii noi. Totul este actualizat!', { id: 'refresh' })
+      }
+      
+      // Clear "new" highlights after 10 seconds
+      setTimeout(() => {
+        setNewItems({ types: [], departments: [], locations: [] })
+      }, 10000)
+      
+    } catch (error) {
+      console.error('Error refreshing categories:', error)
+      toast.error('❌ Eroare la scanarea categoriilor', { id: 'refresh' })
+    } finally {
+      setRefreshing(false)
     }
   }
   
@@ -155,12 +253,15 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
         locationsCount: cleanedSettings.includedLocations?.length
       })
       
-      // SALVARE PE SERVER (nu localStorage!)
+      // SALVARE PE SERVER (în users.preferences - per USER!)
       const response = await axios.put('/api/expenditures/settings', { settings: cleanedSettings })
       
       console.log('✅ RĂSPUNS de la backend:', response.data)
       
-      toast.success('Setări salvate cu succes!')
+      toast.success('✅ Setări salvate pe server! Disponibile pe toate device-urile tale.', {
+        duration: 4000,
+        icon: '💾'
+      })
       
       // RELOAD settings pentru a verifica persistența
       await loadData()
@@ -170,8 +271,8 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
       console.error('Error saving settings:', error)
       
       // FALLBACK: Salvare în localStorage dacă serverul nu răspunde (500 ERROR)
-      if (error.response?.status === 500) {
-        console.log('🔄 FALLBACK: Salvez în localStorage până se repară serverul')
+      if (error.response?.status === 500 || error.response?.status === 503) {
+        console.log('🔄 FALLBACK: Salvez în localStorage (server cloud indisponibil)')
         
         // Recreate cleanedSettings pentru fallback
         const fallbackSettings = {
@@ -182,7 +283,12 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
         }
         
         localStorage.setItem('expenditures_settings_fallback', JSON.stringify(fallbackSettings))
-        toast.success('⚠️ Setări salvate local (server indisponibil - fă manual deploy pe Render!)')
+        
+        // Mesaj pentru fallback - funcționează dar DOAR pe acest browser
+        toast.warning('⚠️ Setări salvate DOAR pe acest browser (server temporar indisponibil). Vor fi sincronizate automat când serverul revine.', { 
+          duration: 6000,
+          icon: '💾'
+        })
         
         // RELOAD settings pentru a verifica persistența
         await loadData()
@@ -288,6 +394,14 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                 </div>
                 <div className="flex space-x-2">
                   <button
+                    onClick={handleRefreshCategories}
+                    disabled={refreshing}
+                    className="text-xs px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <RefreshCw className={`w-4 h-4 inline mr-1 ${refreshing ? 'animate-spin' : ''}`} />
+                    {refreshing ? 'Scanez...' : 'Refresh Categorii'}
+                  </button>
+                  <button
                     onClick={() => setSettings(prev => ({ ...prev, includedExpenditureTypes: expenditureTypes.map(t => t.name) }))}
                     className="text-xs px-3 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors font-semibold"
                   >
@@ -314,30 +428,40 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                   )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-96 overflow-y-auto">
-                  {expenditureTypes.map(type => (
-                    <label
-                      key={type.id}
-                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                        settings.includedExpenditureTypes.includes(type.name)
-                          ? 'bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700'
-                          : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={settings.includedExpenditureTypes.includes(type.name)}
-                        onChange={() => toggleItem(
-                          settings.includedExpenditureTypes,
-                          type.name,
-                          (list) => setSettings(prev => ({ ...prev, includedExpenditureTypes: list }))
+                  {expenditureTypes.map(type => {
+                    const isNew = newItems.types.includes(type.name)
+                    return (
+                      <label
+                        key={type.id}
+                        className={`flex items-center space-x-2 px-3 py-2 rounded-lg cursor-pointer transition-all ${
+                          isNew
+                            ? 'bg-yellow-100 dark:bg-yellow-900/40 border-2 border-yellow-400 dark:border-yellow-600 animate-pulse'
+                            : settings.includedExpenditureTypes.includes(type.name)
+                            ? 'bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700'
+                            : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={settings.includedExpenditureTypes.includes(type.name)}
+                          onChange={() => toggleItem(
+                            settings.includedExpenditureTypes,
+                            type.name,
+                            (list) => setSettings(prev => ({ ...prev, includedExpenditureTypes: list }))
+                          )}
+                          className="w-4 h-4 text-green-600 border-slate-300 rounded focus:ring-green-500"
+                        />
+                        <span className="text-sm font-medium text-slate-900 dark:text-slate-100 flex-1">
+                          {type.name}
+                        </span>
+                        {isNew && (
+                          <span className="px-2 py-0.5 bg-yellow-500 text-white text-xs font-bold rounded-full animate-bounce">
+                            NOU!
+                          </span>
                         )}
-                        className="w-4 h-4 text-green-600 border-slate-300 rounded focus:ring-green-500"
-                      />
-                      <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                        {type.name}
-                      </span>
-                    </label>
-                  ))}
+                      </label>
+                    )
+                  })}
                 </div>
               </div>
             </div>
@@ -354,6 +478,14 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                   </p>
                 </div>
                 <div className="flex space-x-2">
+                  <button
+                    onClick={handleRefreshCategories}
+                    disabled={refreshing}
+                    className="text-xs px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <RefreshCw className={`w-4 h-4 inline mr-1 ${refreshing ? 'animate-spin' : ''}`} />
+                    {refreshing ? 'Scanez...' : 'Refresh Departamente'}
+                  </button>
                   <button
                     onClick={() => setSettings(prev => ({ ...prev, includedDepartments: departments.map(d => d.name) }))}
                     className="text-xs px-3 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors font-semibold"
@@ -381,30 +513,40 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                   )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-96 overflow-y-auto">
-                  {departments.map(dept => (
-                    <label
-                      key={dept.id}
-                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                        settings.includedDepartments.includes(dept.name)
-                          ? 'bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700'
-                          : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={settings.includedDepartments.includes(dept.name)}
-                        onChange={() => toggleItem(
-                          settings.includedDepartments,
-                          dept.name,
-                          (list) => setSettings(prev => ({ ...prev, includedDepartments: list }))
+                  {departments.map(dept => {
+                    const isNew = newItems.departments.includes(dept.name)
+                    return (
+                      <label
+                        key={dept.id}
+                        className={`flex items-center space-x-2 px-3 py-2 rounded-lg cursor-pointer transition-all ${
+                          isNew
+                            ? 'bg-yellow-100 dark:bg-yellow-900/40 border-2 border-yellow-400 dark:border-yellow-600 animate-pulse'
+                            : settings.includedDepartments.includes(dept.name)
+                            ? 'bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700'
+                            : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={settings.includedDepartments.includes(dept.name)}
+                          onChange={() => toggleItem(
+                            settings.includedDepartments,
+                            dept.name,
+                            (list) => setSettings(prev => ({ ...prev, includedDepartments: list }))
+                          )}
+                          className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium text-slate-900 dark:text-slate-100 flex-1">
+                          {dept.name}
+                        </span>
+                        {isNew && (
+                          <span className="px-2 py-0.5 bg-yellow-500 text-white text-xs font-bold rounded-full animate-bounce">
+                            NOU!
+                          </span>
                         )}
-                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-                      />
-                      <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                        {dept.name}
-                      </span>
-                    </label>
-                  ))}
+                      </label>
+                    )
+                  })}
                 </div>
               </div>
             </div>
@@ -421,6 +563,14 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                   </p>
                 </div>
                 <div className="flex space-x-2">
+                  <button
+                    onClick={handleRefreshCategories}
+                    disabled={refreshing}
+                    className="text-xs px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <RefreshCw className={`w-4 h-4 inline mr-1 ${refreshing ? 'animate-spin' : ''}`} />
+                    {refreshing ? 'Scanez...' : 'Refresh Locații'}
+                  </button>
                   <button
                     onClick={() => setSettings(prev => ({ ...prev, includedLocations: locations.map(l => l.name) }))}
                     className="text-xs px-3 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors font-semibold"
@@ -443,37 +593,49 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                   <strong>{settings.includedLocations.length}</strong> / <strong>{locations.length}</strong> locații selectate
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-96 overflow-y-auto">
-                  {locations.map(loc => (
-                    <label
-                      key={loc.id}
-                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                        settings.includedLocations.includes(loc.name)
-                          ? 'bg-purple-100 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700'
-                          : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={settings.includedLocations.includes(loc.name)}
-                        onChange={() => toggleItem(
-                          settings.includedLocations,
-                          loc.name,
-                          (list) => setSettings(prev => ({ ...prev, includedLocations: list }))
-                        )}
-                        className="w-4 h-4 text-purple-600 border-slate-300 rounded focus:ring-purple-500"
-                      />
-                      <div className="flex-1">
-                        <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                          {loc.name}
-                        </div>
-                        {loc.address && (
-                          <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                            {loc.address}
+                  {locations.map(loc => {
+                    const isNew = newItems.locations.includes(loc.name)
+                    return (
+                      <label
+                        key={loc.id}
+                        className={`flex items-center space-x-2 px-3 py-2 rounded-lg cursor-pointer transition-all ${
+                          isNew
+                            ? 'bg-yellow-100 dark:bg-yellow-900/40 border-2 border-yellow-400 dark:border-yellow-600 animate-pulse'
+                            : settings.includedLocations.includes(loc.name)
+                            ? 'bg-purple-100 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700'
+                            : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={settings.includedLocations.includes(loc.name)}
+                          onChange={() => toggleItem(
+                            settings.includedLocations,
+                            loc.name,
+                            (list) => setSettings(prev => ({ ...prev, includedLocations: list }))
+                          )}
+                          className="w-4 h-4 text-purple-600 border-slate-300 rounded focus:ring-purple-500"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2">
+                            <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                              {loc.name}
+                            </div>
+                            {isNew && (
+                              <span className="px-2 py-0.5 bg-yellow-500 text-white text-xs font-bold rounded-full animate-bounce">
+                                NOU!
+                              </span>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </label>
-                  ))}
+                          {loc.address && (
+                            <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                              {loc.address}
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    )
+                  })}
                 </div>
               </div>
             </div>
@@ -528,12 +690,16 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                             const sizes = saved ? JSON.parse(saved) : {}
                             sizes[chart.id] = e.target.value
                             localStorage.setItem('expenditures_charts_sizes', JSON.stringify(sizes))
+                            
+                            // Emit event for live update!
+                            window.dispatchEvent(new CustomEvent('expenditures-settings-changed'))
+                            toast.success(`📊 Dimensiune grafic actualizată: ${e.target.value}`)
                           }}
                           className="px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
                         >
-                          <option value="M">M (50%)</option>
+                          <option value="M">M (60%)</option>
                           <option value="L">L (100%)</option>
-                          <option value="XL">XL (Full)</option>
+                          <option value="XL">XL (150%)</option>
                         </select>
                         
                         {/* ON/OFF checkbox */}
@@ -549,6 +715,10 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                             const visibility = saved ? JSON.parse(saved) : {}
                             visibility[chart.id] = e.target.checked
                             localStorage.setItem('expenditures_charts_visibility', JSON.stringify(visibility))
+                            
+                            // Emit event for live update!
+                            window.dispatchEvent(new CustomEvent('expenditures-settings-changed'))
+                            toast.success(`${e.target.checked ? '✅ Grafic afișat' : '❌ Grafic ascuns'}`)
                           }}
                           className="w-5 h-5 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
                         />
@@ -569,8 +739,63 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
           {/* General Settings Tab */}
           {activeTab === 'general' && (
             <div className="space-y-6">
+              {/* Sincronizare din Birou */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-800">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-3 flex items-center">
+                  <RefreshCw className="w-5 h-5 mr-2 text-blue-600" />
+                  💻 Sincronizare din Birou (RECOMANDAT)
+                </h3>
+                
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">
+                    <strong>⚠️ IMPORTANT:</strong> Sincronizarea din site <strong>NU funcționează</strong> pentru că backend-ul pe Render.com nu poate accesa database-ul local de la birou (192.168.1.39).
+                  </p>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 mb-4">
+                    <strong>✅ Soluție:</strong> Folosește script-ul <code className="bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded">SYNC_EXPENDITURES_WINDOWS.bat</code> de pe PC-ul din birou.
+                  </p>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
+                    <p className="font-bold text-green-800 dark:text-green-300 mb-2">📂 Locație Script:</p>
+                    <code className="text-sm bg-green-100 dark:bg-green-900/40 px-3 py-2 rounded block text-green-900 dark:text-green-200">
+                      C:\cashpot-online\SYNC_EXPENDITURES_WINDOWS.bat
+                    </code>
+                  </div>
+                  
+                  <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+                    <p className="font-bold text-purple-800 dark:text-purple-300 mb-2">🚀 Cum să folosești:</p>
+                    <ol className="text-sm text-slate-700 dark:text-slate-300 space-y-2 list-decimal list-inside">
+                      <li>Conectează-te <strong>REMOTE</strong> la PC-ul din birou (TeamViewer/AnyDesk)</li>
+                      <li>Deschide <code className="bg-purple-100 dark:bg-purple-900/40 px-2 py-1 rounded">C:\cashpot-online\</code></li>
+                      <li><strong>Double-click</strong> pe <code className="bg-purple-100 dark:bg-purple-900/40 px-2 py-1 rounded">SYNC_EXPENDITURES_WINDOWS.bat</code></li>
+                      <li>Așteaptă mesajul: <strong className="text-green-600">"✅ SYNC COMPLET!"</strong></li>
+                      <li>Refresh pagina și vei vedea datele noi!</li>
+                    </ol>
+                  </div>
+                  
+                  <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4 border border-orange-200 dark:border-orange-800">
+                    <p className="font-bold text-orange-800 dark:text-orange-300 mb-2">⚙️ Ce face script-ul:</p>
+                    <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
+                      <li>✅ Se conectează la database-ul local (192.168.1.39)</li>
+                      <li>✅ Extrage datele de cheltuieli</li>
+                      <li>✅ Upload automat la backend (Render.com)</li>
+                      <li>✅ Datele apar instant pe site!</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 border border-red-200 dark:border-red-800">
+                    <p className="font-bold text-red-800 dark:text-red-300 mb-2">🚫 De ce NU funcționează din site:</p>
+                    <p className="text-sm text-slate-700 dark:text-slate-300">
+                      Backend-ul pe <strong>Render.com</strong> (cloud) nu poate accesa IP-ul privat <strong>192.168.1.39</strong> (rețea locală birou). 
+                      Script-ul BAT rulează <strong>local pe PC din birou</strong> și are acces direct la database.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
               <div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">Setări Sincronizare</h3>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">Setări Sincronizare Automată</h3>
                 
                 {/* Auto-Sync */}
                 <div className="bg-white dark:bg-slate-900/40 rounded-lg p-4 border border-slate-200 dark:border-slate-700 mb-4">

@@ -2,13 +2,29 @@ import React, { useMemo } from 'react'
 import { BarChart, Bar, PieChart, Pie, AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, LabelList, Label } from 'recharts'
 import { TrendingUp, PieChart as PieChartIcon, AreaChart as AreaChartIcon, Brain, Calendar } from 'lucide-react'
 
-const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts = {} }) => {
+const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts = {}, chartSizes = {}, chartVisibility = {} }) => {
   
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('ro-RO', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(value)
+  }
+  
+  // Helper: Get chart height based on size setting
+  const getChartHeight = (chartId, defaultHeight = 300) => {
+    const size = chartSizes[chartId] || 'L' // Default: Large
+    const heights = {
+      'M': Math.round(defaultHeight * 0.6),  // Medium: 60%
+      'L': defaultHeight,                     // Large: 100%
+      'XL': Math.round(defaultHeight * 1.5)  // XL: 150%
+    }
+    return heights[size] || defaultHeight
+  }
+  
+  // Helper: Check if chart is visible
+  const isChartVisible = (chartId) => {
+    return chartVisibility[chartId] !== false // Default: true (visible)
   }
   
   // GRAFIC 1: Comparație Luna Curentă vs Precedentă
@@ -185,13 +201,13 @@ const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts
     <div className="space-y-6">
       
       {/* GRAFIC 1: Comparație Luni */}
-      {visibleCharts.monthComparison !== false && (
+      {visibleCharts.monthComparison !== false && isChartVisible('comparison') && (
         <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
           <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center">
             <TrendingUp className="w-5 h-5 mr-2 text-blue-500" />
             Comparație Luna Curentă vs Precedentă
           </h3>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={getChartHeight('comparison', 300)}>
             <BarChart data={monthComparisonData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
               <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-15} textAnchor="end" height={80} />
@@ -223,10 +239,10 @@ const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts
       )}
       
       {/* GRAFIC 2: Heatmap */}
-      {visibleCharts.heatmap !== false && (
+      {visibleCharts.heatmap !== false && isChartVisible('heatmap') && (
         <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
           <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">
-            Heatmap Categorii x Locații
+            🔥 Heatmap Categorii x Locații
           </h3>
           <div className="overflow-x-auto">
             <table className="min-w-full">
@@ -272,13 +288,13 @@ const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts
       )}
       
       {/* GRAFIC 3: Top 10 Categorii (Pie) */}
-      {visibleCharts.pieTop10 !== false && (
+      {visibleCharts.pieTop10 !== false && isChartVisible('topCategories') && (
         <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
           <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center">
             <PieChartIcon className="w-5 h-5 mr-2 text-purple-500" />
-            Top 10 Categorii Cheltuieli (detaliat)
+            🥧 Top 10 Categorii Cheltuieli (detaliat)
           </h3>
-          <ResponsiveContainer width="100%" height={350}>
+          <ResponsiveContainer width="100%" height={getChartHeight('topCategories', 350)}>
             <PieChart>
               <Pie
                 data={top10CategoriesData}
@@ -301,13 +317,13 @@ const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts
       )}
       
       {/* GRAFIC 4: Stacked Area (Evoluție Departamente) */}
-      {visibleCharts.stackedArea !== false && (
+      {visibleCharts.stackedArea !== false && isChartVisible('stackedArea') && (
         <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
           <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center">
             <AreaChartIcon className="w-5 h-5 mr-2 text-green-500" />
-            Evoluție Departamente (Stacked Area)
+            📊 Evoluție Departamente (Stacked Area)
           </h3>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={getChartHeight('stackedArea', 300)}>
             <AreaChart data={stackedAreaData.data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
               <XAxis dataKey="month" tick={{ fontSize: 11 }} />
@@ -331,13 +347,13 @@ const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts
       )}
       
       {/* GRAFIC 5: Trend Prediction cu AI */}
-      {visibleCharts.trendPrediction !== false && (
+      {visibleCharts.trendPrediction !== false && isChartVisible('aiTrend') && (
         <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
           <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center">
             <Brain className="w-5 h-5 mr-2 text-pink-500" />
-            Predicție Trend (AI) - Următoarele 3 Luni
+            🤖 Predicție Trend (AI) - Următoarele 3 Luni
           </h3>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={getChartHeight('aiTrend', 300)}>
             <LineChart data={trendPredictionData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
               <XAxis dataKey="month" tick={{ fontSize: 11 }} />

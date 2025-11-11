@@ -12,6 +12,7 @@ import { scheduleBackups } from './backup.js'
 import backupRoutes from './routes/backup.js'
 import uploadRoutes from './routes/upload.js'
 import gamesRoutes from './routes/games.js'
+import powerbiRoutes from './routes/powerbi.js'
 
 // Load environment variables
 dotenv.config()
@@ -138,6 +139,7 @@ app.use('/api/', limiter)
 app.use('/api/backup', backupRoutes)
 app.use('/api/upload', uploadRoutes)
 app.use('/api/games', gamesRoutes)
+app.use('/api/powerbi', powerbiRoutes)
 
 // Health check
 app.get('/health', (req, res) => {

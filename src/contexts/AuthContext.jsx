@@ -32,9 +32,24 @@ export const AuthProvider = ({ children }) => {
   const CIRCUIT_BREAKER_THRESHOLD = 3 // După 3 eșecuri, STOP
   const CIRCUIT_BREAKER_RESET_TIME = 60000 // Reset după 1 minut
 
+  // Cache pentru verificare token (evită request-uri multiple)
+  const tokenVerificationCache = useRef({
+    token: null,
+    data: null,
+    timestamp: 0,
+    CACHE_DURATION: 5 * 60 * 1000 // 5 minute cache
+  })
+
   const verifyTokenWithRetry = async (maxRetries = 0) => { // SCHIMBAT: 0 retry-uri!
-    // CIRCUIT BREAKER: Dacă backend-ul e down, NU mai încerca!
+    // CHECK CACHE FIRST - evită request-uri inutile!
+    const cache = tokenVerificationCache.current
     const now = Date.now()
+    if (cache.token === token && cache.data && (now - cache.timestamp) < cache.CACHE_DURATION) {
+      console.log('✅ Using CACHED token verification (no request needed!)')
+      return { data: cache.data }
+    }
+
+    // CIRCUIT BREAKER: Dacă backend-ul e down, NU mai încerca!
     if (backendFailures.current >= CIRCUIT_BREAKER_THRESHOLD) {
       if (now - lastFailureTime.current < CIRCUIT_BREAKER_RESET_TIME) {
         console.warn('🚫 CIRCUIT BREAKER ACTIV - Backend-ul este DOWN! Opresc request-urile...')
@@ -49,8 +64,18 @@ export const AuthProvider = ({ children }) => {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         // NU mai trezesc backend-ul - pierdere de timp!
-        const response = await axios.get('/api/auth/verify', { timeout: 30000 }) // Crescut la 30s (Render slow start)
+        console.log(`⏳ Verifying token... (attempt ${attempt + 1}/${maxRetries + 1})`)
+        const response = await axios.get('/api/auth/verify', { timeout: 60000 }) // Crescut la 60s pentru Render cold start
         backendFailures.current = 0 // Reset failures on success
+        
+        // CACHE successful verification!
+        tokenVerificationCache.current = {
+          token: token,
+          data: response.data,
+          timestamp: now
+        }
+        console.log('✅ Token verified and CACHED for 5 minutes!')
+        
         return response
       } catch (error) {
         backendFailures.current++

@@ -93,18 +93,17 @@ const Layout = ({ children }) => {
       console.log('⚠️ Could not load global login settings in Layout')
     }
 
+    // OPTIMIZARE: Nu mai facem request la /api/auth/verify aici!
+    // Setările personale sunt deja încărcate în AuthContext
+    // Folosim doar localStorage pentru setări (mai rapid)
     try {
-      // Încarcă setările personale (tema, dashboard)
-      const response = await axios.get('/api/auth/verify')
-      if (response.data.success && response.data.user) {
-        const preferences = response.data.user.preferences || {}
-        if (preferences.appSettings) {
-          personalSettings = preferences.appSettings
-          console.log('✅ Loaded personal settings in Layout from server')
-        }
+      const savedSettings = localStorage.getItem('appSettings')
+      if (savedSettings) {
+        personalSettings = JSON.parse(savedSettings)
+        console.log('✅ Loaded personal settings from localStorage')
       }
     } catch (error) {
-      console.log('⚠️ Could not load personal settings in Layout')
+      console.log('⚠️ Could not load personal settings - using defaults')
     }
     
     // Combină setările: globale pentru login, personale pentru restul

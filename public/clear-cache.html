@@ -1,82 +1,172 @@
 <!DOCTYPE html>
-<html>
+<html lang="ro">
 <head>
-    <title>Clear Cache - Cashpot</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        .container {
-            background: white;
-            padding: 3rem;
-            border-radius: 1rem;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            text-align: center;
-            max-width: 500px;
-        }
-        h1 { color: #333; margin-bottom: 1rem; }
-        p { color: #666; margin-bottom: 2rem; line-height: 1.6; }
-        button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 1rem 2rem;
-            border-radius: 0.5rem;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        button:hover { transform: translateY(-2px); }
-        .success {
-            color: #10b981;
-            font-weight: 600;
-            margin-top: 1rem;
-            display: none;
-        }
-        .icon { font-size: 3rem; margin-bottom: 1rem; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clear Cache - CASHPOT</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 600px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      text-align: center;
+    }
+    
+    h1 {
+      color: #667eea;
+      font-size: 2.5em;
+      margin-bottom: 20px;
+      font-weight: 700;
+    }
+    
+    .emoji {
+      font-size: 4em;
+      margin-bottom: 20px;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+    
+    p {
+      color: #555;
+      font-size: 1.1em;
+      line-height: 1.6;
+      margin-bottom: 15px;
+    }
+    
+    .keyboard-shortcut {
+      background: #fff3cd;
+      border: 2px solid #ffc107;
+      padding: 15px;
+      border-radius: 10px;
+      margin: 20px 0;
+    }
+    
+    kbd {
+      background: #555;
+      color: white;
+      padding: 3px 8px;
+      border-radius: 5px;
+      font-family: monospace;
+      font-weight: bold;
+      margin: 0 2px;
+    }
+    
+    .btn {
+      display: inline-block;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 15px 40px;
+      border-radius: 50px;
+      text-decoration: none;
+      font-size: 1.2em;
+      font-weight: bold;
+      margin-top: 20px;
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+      border: none;
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+    }
+    
+    .success {
+      display: none;
+      color: #10b981;
+      font-size: 1.3em;
+      margin-top: 20px;
+      font-weight: bold;
+    }
+    
+    .success.show {
+      display: block;
+      animation: fadeIn 0.5s;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="icon">🗑️</div>
-        <h1>Clear Broken Cache</h1>
-        <p>
-            Există un cache corupt care afișează date goale (totul pe 0).
-            Apasă butonul pentru a șterge cache-ul și reîncărca datele fresh.
-        </p>
-        <button onclick="clearCache()">🧹 Șterge Cache-ul Acum</button>
-        <div class="success" id="success">
-            ✅ Cache șters cu succes!<br>
-            <small>Redirecting în 2 secunde...</small>
-        </div>
+  <div class="container">
+    <div class="emoji">🔄</div>
+    <h1>Actualizare Cache</h1>
+    
+    <p><strong>Ai văzut versiunea veche a site-ului?</strong></p>
+    <p>Șterge cache-ul pentru a vedea versiunea nouă.</p>
+    
+    <div class="keyboard-shortcut">
+      <p><strong>🚀 Metoda Rapidă (Hard Refresh):</strong></p>
+      <p>
+        <strong>Windows/Linux:</strong> <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd><br>
+        <strong>Mac:</strong> <kbd>⌘ Cmd</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd>
+      </p>
     </div>
     
-    <script>
-        function clearCache() {
-            // Clear sessionStorage
-            sessionStorage.removeItem('dataCache_v1')
-            sessionStorage.removeItem('dataCacheTime')
-            
-            // Clear localStorage (backup)
-            localStorage.removeItem('dataCache_v1')
-            localStorage.removeItem('dataCacheTime')
-            
-            console.log('✅ Cache cleared successfully!')
-            
-            document.getElementById('success').style.display = 'block'
-            
-            setTimeout(() => {
-                window.location.href = '/'
-            }, 2000)
+    <button class="btn" onclick="clearCache()">
+      🗑️ Șterge Cache
+    </button>
+    
+    <div class="success" id="success">
+      ✅ Cache șters! Redirectare în <span id="countdown">3</span>...
+    </div>
+  </div>
+
+  <script>
+    async function clearCache() {
+      const btn = document.querySelector('.btn')
+      const success = document.getElementById('success')
+      
+      btn.disabled = true
+      btn.textContent = '⏳ Se șterge...'
+      
+      try {
+        if ('caches' in window) {
+          const names = await caches.keys()
+          await Promise.all(names.map(name => caches.delete(name)))
         }
-    </script>
+        
+        success.classList.add('show')
+        btn.textContent = '✅ Cache șters!'
+        
+        let countdown = 3
+        const interval = setInterval(() => {
+          countdown--
+          document.getElementById('countdown').textContent = countdown
+          if (countdown <= 0) {
+            clearInterval(interval)
+            window.location.href = '/login?cache=' + Date.now()
+          }
+        }, 1000)
+      } catch (error) {
+        alert('Eroare! Fă manual: Ctrl+Shift+R')
+      }
+    }
+  </script>
 </body>
 </html>
-

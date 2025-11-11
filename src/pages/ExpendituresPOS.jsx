@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
-import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp, TrendingDown, Table2, MapPin, ArrowLeft } from 'lucide-react'
+import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp, TrendingDown, Table2, MapPin, ArrowLeft, Coins, Database, Cloud } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import ExpendituresMappingModal from '../components/modals/ExpendituresMappingModal'
 import ExpendituresSettingsModal from '../components/modals/ExpendituresSettingsModal'
 import AdvancedAnalyticsModal from '../components/modals/AdvancedAnalyticsModal'
+import PowerBIConfigModal from '../components/modals/PowerBIConfigModal'
+import PowerBISyncModal from '../components/modals/PowerBISyncModal'
 import ExpendituresCharts from '../components/ExpendituresCharts'
 import ExpendituresAdvancedCharts from '../components/ExpendituresAdvancedCharts'
 import ExpendituresTableSimple from '../components/ExpendituresTableSimple'
@@ -33,6 +35,8 @@ const Expenditures = () => {
   const [showMappingModal, setShowMappingModal] = useState(false)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false)
+  const [showPowerBIConfigModal, setShowPowerBIConfigModal] = useState(false)
+  const [showPowerBISyncModal, setShowPowerBISyncModal] = useState(false)
   const [visibleCharts, setVisibleCharts] = useState(() => {
     // Load from localStorage
     try {
@@ -55,6 +59,74 @@ const Expenditures = () => {
       trendPrediction: true
     }
   })
+  
+  // Chart sizes from localStorage - ACTUALIZARE LIVE!
+  const [chartSizes, setChartSizes] = useState(() => {
+    try {
+      const saved = localStorage.getItem('expenditures_charts_sizes')
+      if (saved) {
+        return JSON.parse(saved)
+      }
+    } catch (error) {
+      console.log('No saved chart sizes')
+    }
+    return {}
+  })
+  
+  // Chart visibility from localStorage - ACTUALIZARE LIVE!
+  const [chartVisibility, setChartVisibility] = useState(() => {
+    try {
+      const saved = localStorage.getItem('expenditures_charts_visibility')
+      if (saved) {
+        return JSON.parse(saved)
+      }
+    } catch (error) {
+      console.log('No saved chart visibility')
+    }
+    return {}
+  })
+  
+  // Listen for localStorage changes from Settings Modal
+  useEffect(() => {
+    const handleStorageChange = () => {
+      try {
+        const sizes = localStorage.getItem('expenditures_charts_sizes')
+        const visibility = localStorage.getItem('expenditures_charts_visibility')
+        
+        if (sizes) setChartSizes(JSON.parse(sizes))
+        if (visibility) setChartVisibility(JSON.parse(visibility))
+        
+        console.log('📊 Chart settings updated from localStorage!')
+      } catch (error) {
+        console.error('Error updating chart settings:', error)
+      }
+    }
+    
+    // Listen to storage events AND custom event from modal
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('expenditures-settings-changed', handleStorageChange)
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('expenditures-settings-changed', handleStorageChange)
+    }
+  }, [])
+  
+  // Helper: Get chart height based on size setting
+  const getChartHeight = (chartId, defaultHeight = 300) => {
+    const size = chartSizes[chartId] || 'L' // Default: Large
+    const heights = {
+      'M': Math.round(defaultHeight * 0.6),  // Medium: 60%
+      'L': defaultHeight,                     // Large: 100%
+      'XL': Math.round(defaultHeight * 1.5)  // XL: 150%
+    }
+    return heights[size] || defaultHeight
+  }
+  
+  // Helper: Check if chart is visible
+  const isChartVisible = (chartId) => {
+    return chartVisibility[chartId] !== false // Default: true (visible)
+  }
   
   // Load saved preferences from localStorage
   const loadSavedPreferences = () => {
@@ -495,6 +567,22 @@ const Expenditures = () => {
             </button>
             
             <button
+              onClick={() => setShowPowerBIConfigModal(true)}
+              className="btn-secondary flex items-center space-x-2 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 hover:from-blue-500/20 hover:to-indigo-500/20 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300"
+            >
+              <Database className="w-4 h-4" />
+              <span>🔌 Power BI Config</span>
+            </button>
+            
+            <button
+              onClick={() => setShowPowerBISyncModal(true)}
+              className="btn-secondary flex items-center space-x-2 bg-gradient-to-r from-green-500/10 to-emerald-500/10 hover:from-green-500/20 hover:to-emerald-500/20 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300"
+            >
+              <Cloud className="w-4 h-4" />
+              <span>☁️ Power BI Sync</span>
+            </button>
+            
+            <button
               onClick={() => setShowAnalyticsModal(true)}
               className="btn-secondary flex items-center space-x-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 hover:from-purple-500/20 hover:to-pink-500/20 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300"
             >
@@ -517,15 +605,6 @@ const Expenditures = () => {
                 )}
               </button>
             )}
-            
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className="btn-primary flex items-center space-x-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-              <span>{syncing ? 'Sincronizare...' : 'Sincronizare Date'}</span>
-            </button>
           </div>
         </div>
         
@@ -824,7 +903,7 @@ const Expenditures = () => {
         {/* 2 GRAFICE SEPARATE: POS și Bancă */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Grafic 1: Evoluție POS */}
-          {filteredExpendituresForCharts.filter(item => item.department_name === 'POS').length > 0 && (
+          {filteredExpendituresForCharts.filter(item => item.department_name === 'POS').length > 0 && isChartVisible('evolution') && (
             <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -846,7 +925,7 @@ const Expenditures = () => {
                   </p>
                 </div>
               </div>
-              <ResponsiveContainer width="100%" height={200}>
+              <ResponsiveContainer width="100%" height={getChartHeight('evolution', 250)}>
                 <LineChart data={(() => {
                   // Process trend data DOAR pentru POS
                   const monthMap = {}
@@ -912,7 +991,7 @@ const Expenditures = () => {
           )}
           
           {/* Grafic 2: Evoluție Bancă */}
-          {filteredExpendituresForCharts.filter(item => item.department_name === 'Bancă').length > 0 && (
+          {filteredExpendituresForCharts.filter(item => item.department_name === 'Bancă').length > 0 && isChartVisible('evolution') && (
             <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -934,7 +1013,7 @@ const Expenditures = () => {
                   </p>
                 </div>
               </div>
-              <ResponsiveContainer width="100%" height={200}>
+              <ResponsiveContainer width="100%" height={getChartHeight('evolution', 250)}>
                 <LineChart data={(() => {
                   // Process trend data DOAR pentru Bancă
                   const monthMap = {}
@@ -1001,7 +1080,7 @@ const Expenditures = () => {
         </div>
         
         {/* Grafic per LOCAȚIE (POS & Bancă) */}
-        {filteredExpendituresForCharts.length > 0 && (
+        {filteredExpendituresForCharts.length > 0 && isChartVisible('locations') && (
           <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -1011,7 +1090,7 @@ const Expenditures = () => {
                 </p>
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={getChartHeight('locations', 350)}>
               <BarChart data={(() => {
                 // Group by location
                 const locationMap = {}
@@ -1155,6 +1234,30 @@ const Expenditures = () => {
         <AdvancedAnalyticsModal
           onClose={() => setShowAnalyticsModal(false)}
           expendituresData={expendituresData}
+        />
+      )}
+      
+      {/* Power BI Config Modal */}
+      {showPowerBIConfigModal && (
+        <PowerBIConfigModal
+          isOpen={showPowerBIConfigModal}
+          onClose={() => setShowPowerBIConfigModal(false)}
+          onConfigured={() => {
+            setShowPowerBIConfigModal(false)
+            toast.success('Configurație Power BI salvată!')
+          }}
+        />
+      )}
+      
+      {/* Power BI Sync Modal */}
+      {showPowerBISyncModal && (
+        <PowerBISyncModal
+          isOpen={showPowerBISyncModal}
+          onClose={() => setShowPowerBISyncModal(false)}
+          onSyncComplete={() => {
+            setShowPowerBISyncModal(false)
+            loadExpendituresData()
+          }}
         />
       )}
     </Layout>

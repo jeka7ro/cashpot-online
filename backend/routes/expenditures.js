@@ -1,5 +1,6 @@
 import express from 'express'
 import pg from 'pg'
+import { authenticateToken } from '../middleware/auth.js'
 
 const router = express.Router()
 const { Pool } = pg
@@ -460,19 +461,26 @@ router.put('/mapping', async (req, res) => {
   }
 })
 
-// Get sync settings
-router.get('/settings', async (req, res) => {
+// Get sync settings (PER USER!)
+router.get('/settings', authenticateToken, async (req, res) => {
   try {
     const pool = req.app.get('pool')
-    const result = await pool.query(`
-      SELECT setting_value 
-      FROM global_settings 
-      WHERE setting_key = 'expenditures_sync_config'
-    `)
+    const userId = req.user?.userId || req.user?.id
     
-    if (result.rows.length > 0) {
-      const settings = JSON.parse(result.rows[0].setting_value)
-      console.log('✅ Loaded expenditures settings from DB:', settings)
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'User not authenticated' })
+    }
+    
+    // Load settings from user preferences
+    const result = await pool.query(`
+      SELECT preferences 
+      FROM users 
+      WHERE id = $1
+    `, [userId])
+    
+    if (result.rows.length > 0 && result.rows[0].preferences?.expendituresSettings) {
+      const settings = result.rows[0].preferences.expendituresSettings
+      console.log('✅ Loaded expenditures settings for user', userId, ':', settings)
       res.json(settings)
     } else {
       // Default settings - TOATE BIFATE!
@@ -585,15 +593,21 @@ router.get('/settings', async (req, res) => {
   }
 })
 
-// Update sync settings
-router.put('/settings', async (req, res) => {
+// Update sync settings (PER USER!)
+router.put('/settings', authenticateToken, async (req, res) => {
   try {
     const { settings } = req.body
     const pool = req.app.get('pool')
+    const userId = req.user?.userId || req.user?.id
     
     console.log('🔧 PUT /settings - Received request')
+    console.log('   User ID:', userId)
     console.log('   Settings:', settings ? 'YES' : 'NO')
     console.log('   Pool:', pool ? 'YES' : 'NO')
+    
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'User not authenticated' })
+    }
     
     // VERIFICARE POOL (Render poate să returneze undefined/null)
     if (!pool) {
@@ -604,7 +618,7 @@ router.put('/settings', async (req, res) => {
       })
     }
     
-    console.log('💾 BACKEND - Primesc setări de salvat:')
+    console.log('💾 BACKEND - Primesc setări de salvat pentru user', userId, ':')
     console.log('   - includedDepartments:', settings.includedDepartments?.length, 'items')
     console.log('   - includedExpenditureTypes:', settings.includedExpenditureTypes?.length, 'items')
     console.log('   - includedLocations:', settings.includedLocations?.length, 'items')
@@ -663,44 +677,43 @@ router.put('/settings', async (req, res) => {
         settings.includedExpenditureTypes.length - cleanSettings.includedExpenditureTypes.length, 'duplicates')
     }
     
-    // SALVARE ca JSONB - TRY/CATCH robust!
-    console.log('📦 Salvez setări (primii 200 chars):', JSON.stringify(cleanSettings).substring(0, 200))
+    // SALVARE în users.preferences.expendituresSettings (PER USER!)
+    console.log('📦 Salvez setări pentru user', userId)
     
-    try {
-      await pool.query(`
-        INSERT INTO global_settings (setting_key, setting_value)
-        VALUES ('expenditures_sync_config', $1::jsonb)
-        ON CONFLICT (setting_key) 
-        DO UPDATE SET setting_value = $1::jsonb, updated_at = CURRENT_TIMESTAMP
-      `, [JSON.stringify(cleanSettings)])
-    } catch (dbError) {
-      console.error('❌ JSONB insert FAILED:', dbError.message)
-      // Fallback: Încearcă fără ::jsonb cast
-      await pool.query(`
-        INSERT INTO global_settings (setting_key, setting_value)
-        VALUES ('expenditures_sync_config', $1)
-        ON CONFLICT (setting_key) 
-        DO UPDATE SET setting_value = $1, updated_at = CURRENT_TIMESTAMP
-      `, [JSON.stringify(cleanSettings)])
-      console.log('✅ Salvat cu fallback (fără JSONB cast)')
+    // 1. Load current preferences
+    const currentResult = await pool.query('SELECT preferences FROM users WHERE id = $1', [userId])
+    const currentPreferences = currentResult.rows[0]?.preferences || {}
+    
+    // 2. Update expendituresSettings
+    const updatedPreferences = {
+      ...currentPreferences,
+      expendituresSettings: cleanSettings
     }
     
-    console.log('✅ BACKEND - Setări salvate în DB cu succes!')
+    // 3. Save back to database
+    await pool.query(`
+      UPDATE users 
+      SET preferences = $1::jsonb, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = $2
+    `, [JSON.stringify(updatedPreferences), userId])
+    
+    console.log('✅ BACKEND - Setări salvate în users.preferences pentru user', userId)
     
     // Verifică ce s-a salvat (re-citește)
     const verifyResult = await pool.query(`
-      SELECT setting_value 
-      FROM global_settings 
-      WHERE setting_key = 'expenditures_sync_config'
-    `)
-    const savedSettings = JSON.parse(verifyResult.rows[0].setting_value)
-    console.log('🔍 BACKEND - Verificare: Ce e în DB acum:', {
-      departments: savedSettings.includedDepartments?.length,
-      types: savedSettings.includedExpenditureTypes?.length,
-      locations: savedSettings.includedLocations?.length
+      SELECT preferences 
+      FROM users 
+      WHERE id = $1
+    `, [userId])
+    
+    const savedSettings = verifyResult.rows[0].preferences?.expendituresSettings
+    console.log('🔍 BACKEND - Verificare: Ce e în DB pentru user', userId, ':', {
+      departments: savedSettings?.includedDepartments?.length,
+      types: savedSettings?.includedExpenditureTypes?.length,
+      locations: savedSettings?.includedLocations?.length
     })
     
-    res.json({ success: true, message: 'Settings updated successfully', settings: savedSettings })
+    res.json({ success: true, message: 'Settings updated successfully for user ' + userId, settings: savedSettings })
   } catch (error) {
     console.error('Error updating sync settings:', error)
     res.status(500).json({ success: false, error: error.message })
