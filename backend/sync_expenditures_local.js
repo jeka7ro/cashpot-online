@@ -44,10 +44,10 @@ const externalPool = new Pool({
 // Render backend URL
 const RENDER_BACKEND = process.env.RENDER_BACKEND_URL || 'https://cashpot-backend.onrender.com'
 
-// Date range (default: anul curent)
+// Date range (default: ultimii 3 ani: 2023-2025)
 const today = new Date()
-const startDate = process.argv[2] || `${today.getFullYear()}-01-01`
-const endDate = process.argv[3] || `${today.getFullYear()}-12-31`
+const startDate = process.argv[2] || `${today.getFullYear() - 2}-01-01` // 2023-01-01
+const endDate = process.argv[3] || `${today.getFullYear()}-12-31`       // 2025-12-31
 
 console.log('🚀 Starting LOCAL sync script...')
 console.log(`📅 Date range: ${startDate} → ${endDate}`)
