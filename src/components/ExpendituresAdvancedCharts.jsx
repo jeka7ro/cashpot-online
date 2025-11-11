@@ -103,43 +103,68 @@ const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts
   
   // GRAFIC 4: Stacked Area (Evoluție departamente)
   const stackedAreaData = useMemo(() => {
-    const monthMap = {}
+    // Detectăm dacă e selectată doar o lună
+    const startDate = new Date(dateRange.startDate)
+    const endDate = new Date(dateRange.endDate)
+    const isSingleMonth = (
+      startDate.getFullYear() === endDate.getFullYear() &&
+      startDate.getMonth() === endDate.getMonth()
+    )
+    
+    const timeMap = {}
     const departments = new Set()
     
     expendituresData.forEach(item => {
       const itemDate = new Date(item.operational_date)
-      const monthKey = `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}`
+      
+      // AGREGARE PE ZI sau LUNĂ
+      const timeKey = isSingleMonth 
+        ? `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}-${String(itemDate.getDate()).padStart(2, '0')}`
+        : `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}`
+      
       const dept = item.department_name || 'Unknown'
       
       if (dept.toLowerCase() === 'unknown') return
       
       departments.add(dept)
       
-      if (!monthMap[monthKey]) {
-        monthMap[monthKey] = { month: monthKey }
+      if (!timeMap[timeKey]) {
+        timeMap[timeKey] = { timeKey }
       }
-      if (!monthMap[monthKey][dept]) {
-        monthMap[monthKey][dept] = 0
+      if (!timeMap[timeKey][dept]) {
+        timeMap[timeKey][dept] = 0
       }
-      monthMap[monthKey][dept] += parseFloat(item.amount || 0)
+      timeMap[timeKey][dept] += parseFloat(item.amount || 0)
     })
     
-    const sortedData = Object.entries(monthMap)
+    const sortedData = Object.entries(timeMap)
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([monthKey, data]) => {
-        const [year, month] = monthKey.split('-')
-        const date = new Date(parseInt(year), parseInt(month) - 1, 1)
+      .map(([timeKey, data]) => {
+        let displayLabel
+        
+        if (isSingleMonth) {
+          // Format: "01 Nov"
+          const [year, month, day] = timeKey.split('-')
+          const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+          displayLabel = date.toLocaleDateString('ro-RO', { day: '2-digit', month: 'short' })
+        } else {
+          // Format: "Nov 2025"
+          const [year, month] = timeKey.split('-')
+          const date = new Date(parseInt(year), parseInt(month) - 1, 1)
+          displayLabel = date.toLocaleDateString('ro-RO', { month: 'short', year: 'numeric' })
+        }
+        
         return {
-          month: date.toLocaleDateString('ro-RO', { month: 'short', year: 'numeric' }),
+          month: displayLabel,
           ...data
         }
       })
     
     return {
-      data: sortedData.slice(-6), // Last 6 months
+      data: isSingleMonth ? sortedData : sortedData.slice(-6), // Toate zilele dacă 1 lună, altfel ultimele 6 luni
       departments: Array.from(departments).slice(0, 5) // Top 5 departments
     }
-  }, [expendituresData])
+  }, [expendituresData, dateRange])
   
   // GRAFIC 5: Trend Prediction (AI-style)
   const trendPredictionData = useMemo(() => {
