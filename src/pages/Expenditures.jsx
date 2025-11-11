@@ -146,8 +146,8 @@ const Expenditures = () => {
   // Filters with saved preferences
   const [dateRange, setDateRange] = useState(
     savedPrefs?.dateRange || {
-      startDate: new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0], // Jan 1
-      endDate: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0]  // Dec 31
+      startDate: new Date(new Date().getFullYear() - 2, 0, 1).toISOString().split('T')[0], // Jan 1, 2023
+      endDate: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0]  // Dec 31, 2025
     }
   )
   const [departmentFilter, setDepartmentFilter] = useState(savedPrefs?.departmentFilter || 'all')
