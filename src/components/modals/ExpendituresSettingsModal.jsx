@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { X, Save, Filter, RefreshCw, Eye, EyeOff, CheckSquare, Square } from 'lucide-react'
+import { X, Save, Filter, RefreshCw, Eye, EyeOff, CheckSquare, Square, Cloud, Download } from 'lucide-react'
 import axios from 'axios'
 import { toast } from 'react-hot-toast'
 
@@ -42,6 +42,16 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
   })
   
   const [activeTab, setActiveTab] = useState('departments') // 'departments' PRIMUL! (user vrea departamente prima)
+  
+  // Google Sheets Import
+  const [googleSheetsSettings, setGoogleSheetsSettings] = useState({
+    enabled: false,
+    sheetUrl: '',
+    syncInterval: 24,
+    lastSync: null
+  })
+  const [importingGoogleSheets, setImportingGoogleSheets] = useState(false)
+  const [importProgress, setImportProgress] = useState(null)
   
   useEffect(() => {
     loadData()
@@ -367,6 +377,7 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
               { id: 'types', label: 'Tipuri Cheltuieli', count: expenditureTypes.length },
               { id: 'locations', label: 'Locații', count: locations.length },
               { id: 'charts', label: '📊 Grafice', count: 8 }, // Charts visibility + size
+              { id: 'google-sheets', label: '☁️ Google Sheets', icon: Cloud }, // Import din Google Sheets!
               { id: 'general', label: 'Setări Generale' }
             ].map(tab => (
               <button
@@ -761,6 +772,126 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
           )}
           
           {/* General Settings Tab */}
+          {/* Google Sheets Tab */}
+          {activeTab === 'google-sheets' && (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-6 border-2 border-green-200 dark:border-green-800">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-3 flex items-center">
+                  <Cloud className="w-6 h-6 mr-2 text-green-600" />
+                  ☁️ Import din Google Sheets (Date Vechi 2023-2025)
+                </h3>
+                
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">
+                    <strong>✅ AVANTAJE:</strong> Importă date istorice din Google Sheets fără să afectezi sincronizarea BAT actuală!
+                  </p>
+                  <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1 list-disc list-inside">
+                    <li>📊 Import date 2023-2024-2025</li>
+                    <li>🔄 Verificare automată duplicate</li>
+                    <li>⚡ 0 conflict cu BAT sync</li>
+                    <li>🎯 Marcare sursă automată</li>
+                  </ul>
+                </div>
+                
+                {/* URL Input */}
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    URL Google Sheet:
+                  </label>
+                  <input
+                    type="url"
+                    value={googleSheetsSettings.sheetUrl}
+                    onChange={(e) => setGoogleSheetsSettings(prev => ({ ...prev, sheetUrl: e.target.value }))}
+                    placeholder="https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit..."
+                    className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                  />
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                    💡 Sheet-ul trebuie să fie <strong>public (View only)</strong> sau partajat cu linkul.
+                  </p>
+                </div>
+                
+                {/* Import Button */}
+                <button
+                  onClick={async () => {
+                    if (!googleSheetsSettings.sheetUrl) {
+                      toast.error('Introdu URL-ul Google Sheet!')
+                      return
+                    }
+                    
+                    setImportingGoogleSheets(true)
+                    setImportProgress(null)
+                    
+                    try {
+                      toast.loading('🔄 Import în curs...', { id: 'google-sheets-import' })
+                      
+                      const response = await axios.post('/api/expenditures/import-google-sheets', {
+                        sheetUrl: googleSheetsSettings.sheetUrl,
+                        force: false
+                      })
+                      
+                      setImportProgress(response.data)
+                      
+                      toast.success(
+                        `✅ Import finalizat!\n📥 ${response.data.imported} importate\n⏭️ ${response.data.skipped} duplicate\n❌ ${response.data.errors} erori`,
+                        { id: 'google-sheets-import', duration: 5000 }
+                      )
+                      
+                      // Refresh data
+                      await loadData()
+                      
+                    } catch (error) {
+                      console.error('Google Sheets import error:', error)
+                      toast.error(
+                        `❌ Eroare import: ${error.response?.data?.error || error.message}`,
+                        { id: 'google-sheets-import', duration: 5000 }
+                      )
+                    } finally {
+                      setImportingGoogleSheets(false)
+                    }
+                  }}
+                  disabled={importingGoogleSheets || !googleSheetsSettings.sheetUrl}
+                  className="w-full px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-lg"
+                >
+                  <Download className="w-5 h-5" />
+                  <span>{importingGoogleSheets ? 'Import în curs...' : '📥 Import Date din Google Sheets'}</span>
+                </button>
+                
+                {/* Import Results */}
+                {importProgress && (
+                  <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                    <h4 className="font-bold text-blue-800 dark:text-blue-300 mb-3">📊 Rezultate Import:</h4>
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div className="bg-green-100 dark:bg-green-900/40 rounded-lg p-3">
+                        <p className="text-2xl font-bold text-green-700 dark:text-green-300">{importProgress.imported}</p>
+                        <p className="text-xs text-green-600 dark:text-green-400 mt-1">✅ Importate</p>
+                      </div>
+                      <div className="bg-orange-100 dark:bg-orange-900/40 rounded-lg p-3">
+                        <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">{importProgress.skipped}</p>
+                        <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">⏭️ Duplicate (skip)</p>
+                      </div>
+                      <div className="bg-red-100 dark:bg-red-900/40 rounded-lg p-3">
+                        <p className="text-2xl font-bold text-red-700 dark:text-red-300">{importProgress.errors}</p>
+                        <p className="text-xs text-red-600 dark:text-red-400 mt-1">❌ Erori</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Info */}
+                <div className="mt-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+                  <p className="font-bold text-purple-800 dark:text-purple-300 mb-2">ℹ️ Cum funcționează:</p>
+                  <ol className="text-sm text-slate-700 dark:text-slate-300 space-y-1 list-decimal list-inside">
+                    <li>Backend-ul convertește Google Sheet în CSV</li>
+                    <li>Parsează fiecare rând (Date, Sumă, Locație, Departament, Categorie)</li>
+                    <li>Verifică duplicate (dacă toate 5 câmpuri se potrivesc = SKIP)</li>
+                    <li>Inserează în DB cu marcare <code className="bg-purple-100 dark:bg-purple-900/40 px-1 rounded">data_source: 'google_sheets'</code></li>
+                    <li>Dashboard afișează date din AMBELE surse (BAT + Google Sheets)!</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {activeTab === 'general' && (
             <div className="space-y-6">
               {/* Sincronizare din Birou */}
