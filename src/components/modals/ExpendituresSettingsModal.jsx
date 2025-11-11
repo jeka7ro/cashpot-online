@@ -856,8 +856,46 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                   <span>{importingGoogleSheets ? 'Import în curs...' : '📥 Import Date din Google Sheets'}</span>
                 </button>
                 
+                {/* Progress Bar - LIVE IMPORT STATUS */}
+                {importingGoogleSheets && (
+                  <div className="mt-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-lg p-6 border-2 border-blue-300 dark:border-blue-700 animate-pulse">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="relative">
+                          <div className="w-8 h-8 border-4 border-blue-200 dark:border-blue-800 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin"></div>
+                        </div>
+                        <div>
+                          <p className="font-bold text-blue-800 dark:text-blue-300">⏳ Import în curs...</p>
+                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Se procesează datele din Google Sheets</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-blue-700 dark:text-blue-300 font-semibold">Poate dura 30-60 secunde</p>
+                        <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">pentru ~2000+ rânduri</p>
+                      </div>
+                    </div>
+                    
+                    {/* Animated Progress Bar */}
+                    <div className="relative h-3 bg-blue-100 dark:bg-blue-900/40 rounded-full overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-500 animate-[shimmer_2s_ease-in-out_infinite] bg-[length:200%_100%]"></div>
+                    </div>
+                    
+                    <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+                      <div className="bg-white dark:bg-slate-800 rounded-lg p-3">
+                        <p className="text-xs text-slate-600 dark:text-slate-400">📥 Descărcare CSV</p>
+                      </div>
+                      <div className="bg-white dark:bg-slate-800 rounded-lg p-3">
+                        <p className="text-xs text-slate-600 dark:text-slate-400">🔍 Verificare duplicate</p>
+                      </div>
+                      <div className="bg-white dark:bg-slate-800 rounded-lg p-3">
+                        <p className="text-xs text-slate-600 dark:text-slate-400">💾 Salvare în DB</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Import Results */}
-                {importProgress && (
+                {importProgress && !importingGoogleSheets && (
                   <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
                     <h4 className="font-bold text-blue-800 dark:text-blue-300 mb-3">📊 Rezultate Import:</h4>
                     <div className="grid grid-cols-3 gap-4 text-center">
