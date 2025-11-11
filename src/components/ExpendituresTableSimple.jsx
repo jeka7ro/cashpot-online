@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
-import { Coins, Building2, ChevronDown, ChevronRight } from 'lucide-react'
+import { Coins, Building2, ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 
 const ExpendituresTableSimple = ({ expendituresData, dateRange }) => {
   const [expandedDepts, setExpandedDepts] = useState(new Set())
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' })
   
   const formatCurrency = (amount) => {
     if (!amount || amount === 0) return '-'
@@ -81,6 +82,35 @@ const ExpendituresTableSimple = ({ expendituresData, dateRange }) => {
   const data = processData()
   const allLocations = [...new Set(expendituresData.map(item => item.location_name))].sort()
   
+  // Sortare date după sortConfig
+  const sortedData = [...data].sort((a, b) => {
+    if (!sortConfig.key) return 0
+    
+    let aValue, bValue
+    
+    if (sortConfig.key === 'department') {
+      aValue = a.department
+      bValue = b.department
+    } else if (sortConfig.key === 'total') {
+      aValue = a.total
+      bValue = b.total
+    } else {
+      // Sortare după locație
+      aValue = a.locationTotals[sortConfig.key] || 0
+      bValue = b.locationTotals[sortConfig.key] || 0
+    }
+    
+    if (typeof aValue === 'string') {
+      return sortConfig.direction === 'asc' 
+        ? aValue.localeCompare(bValue)
+        : bValue.localeCompare(aValue)
+    } else {
+      return sortConfig.direction === 'asc' 
+        ? aValue - bValue
+        : bValue - aValue
+    }
+  })
+  
   const toggleExpand = (dept) => {
     const newExpanded = new Set(expandedDepts)
     if (newExpanded.has(dept)) {
@@ -89,6 +119,25 @@ const ExpendituresTableSimple = ({ expendituresData, dateRange }) => {
       newExpanded.add(dept)
     }
     setExpandedDepts(newExpanded)
+  }
+  
+  // Sortare funcție
+  const handleSort = (key) => {
+    let direction = 'asc'
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc'
+    }
+    setSortConfig({ key, direction })
+  }
+  
+  // Sortare icon
+  const getSortIcon = (columnKey) => {
+    if (sortConfig.key !== columnKey) {
+      return <ArrowUpDown className="w-4 h-4 opacity-30" />
+    }
+    return sortConfig.direction === 'asc' 
+      ? <ArrowUp className="w-4 h-4 text-blue-500" />
+      : <ArrowDown className="w-4 h-4 text-blue-500" />
   }
   
   const getDeptIcon = (dept) => {
@@ -107,21 +156,40 @@ const ExpendituresTableSimple = ({ expendituresData, dateRange }) => {
       <table className="w-full border-collapse">
         <thead className="bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 sticky top-0 z-10">
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider border-b-2 border-slate-300 dark:border-slate-600">
-              Departament
+            <th 
+              className="px-4 py-3 text-left text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider border-b-2 border-slate-300 dark:border-slate-600 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+              onClick={() => handleSort('department')}
+            >
+              <div className="flex items-center justify-between">
+                <span>Departament</span>
+                {getSortIcon('department')}
+              </div>
             </th>
             {allLocations.map(loc => (
-              <th key={loc} className="px-4 py-3 text-right text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider border-b-2 border-slate-300 dark:border-slate-600">
-                {loc}
+              <th 
+                key={loc} 
+                className="px-4 py-3 text-right text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider border-b-2 border-slate-300 dark:border-slate-600 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                onClick={() => handleSort(loc)}
+              >
+                <div className="flex items-center justify-end space-x-2">
+                  <span>{loc}</span>
+                  {getSortIcon(loc)}
+                </div>
               </th>
             ))}
-            <th className="px-4 py-3 text-right text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider border-b-2 border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20">
-              Total
+            <th 
+              className="px-4 py-3 text-right text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider border-b-2 border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/20 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+              onClick={() => handleSort('total')}
+            >
+              <div className="flex items-center justify-end space-x-2">
+                <span>Total</span>
+                {getSortIcon('total')}
+              </div>
             </th>
           </tr>
         </thead>
         <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-          {data.map((dept, deptIdx) => (
+          {sortedData.map((dept, deptIdx) => (
             <React.Fragment key={dept.department}>
               {/* Main Department Row */}
               <tr 
