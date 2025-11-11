@@ -1,0 +1,16 @@
+{
+  "version": "1.1.0",
+  "build": "88f5672d",
+  "timestamp": "2025-11-11T10:30:00Z",
+  "features": [
+    "Per-user settings saved on server",
+    "Dynamic chart sizes (M/L/XL)",
+    "Refresh button for new categories",
+    "Token caching (5 min)",
+    "Backend keep-alive",
+    "Power BI integration",
+    "Timeout fixes (60s)",
+    "Circuit breaker"
+  ]
+}
+
