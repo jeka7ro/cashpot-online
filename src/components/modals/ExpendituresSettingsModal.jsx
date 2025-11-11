@@ -334,12 +334,12 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-6 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <Filter className="w-6 h-6 text-white" />
             <div>
               <h2 className="text-2xl font-bold text-white">Setări Filtrare Cheltuieli</h2>
-              <p className="text-purple-100 text-sm mt-1">Configurează ce date să fie importate și calculate</p>
+              <p className="text-blue-100 text-sm mt-1">Configurează ce date să fie importate și calculate</p>
             </div>
           </div>
           <button
@@ -365,7 +365,7 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-4 py-3 text-sm font-semibold transition-colors border-b-2 ${
                   activeTab === tab.id
-                    ? 'border-purple-600 text-purple-600 dark:text-purple-400'
+                    ? 'border-blue-600 text-blue-600 dark:text-blue-400'
                     : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
@@ -946,7 +946,7 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="btn-primary flex items-center space-x-2"
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-4 h-4" />
               <span>{saving ? 'Salvare...' : 'Salvează Setări'}</span>
