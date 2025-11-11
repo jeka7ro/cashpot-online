@@ -49,6 +49,7 @@ import LegalDocuments from './pages/LegalDocuments'
 import UsersPage from './pages/Users'
 import Expenditures from './pages/Expenditures'
 import ExpendituresPOS from './pages/ExpendituresPOS'
+import AdvancedAnalytics from './pages/AdvancedAnalytics'
 import AIInsights from './pages/AIInsights'
 import Settings from './pages/Settings'
 import Tasks from './pages/Tasks'
@@ -112,6 +113,7 @@ function App() {
             <Route path="/legal-documents" element={<RoleProtectedRoute module={MODULES.LEGAL}><LegalDocuments /></RoleProtectedRoute>} />
             <Route path="/expenditures" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><Expenditures /></RoleProtectedRoute>} />
             <Route path="/expenditures/pos-banca" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><ExpendituresPOS /></RoleProtectedRoute>} />
+            <Route path="/expenditures/advanced-analytics" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><AdvancedAnalytics /></RoleProtectedRoute>} />
             <Route path="/ai-insights" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><AIInsights /></RoleProtectedRoute>} />
             <Route path="/marketing" element={<RoleProtectedRoute module={MODULES.MARKETING}><Marketing /></RoleProtectedRoute>} />
             <Route path="/marketing-ai" element={<RoleProtectedRoute module={MODULES.MARKETING}><MarketingAI /></RoleProtectedRoute>} />

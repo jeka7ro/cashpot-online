@@ -9,11 +9,9 @@ import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 import ExpendituresMappingModal from '../components/modals/ExpendituresMappingModal'
 import ExpendituresSettingsModal from '../components/modals/ExpendituresSettingsModal'
-import AdvancedAnalyticsModal from '../components/modals/AdvancedAnalyticsModal'
 import PowerBIConfigModal from '../components/modals/PowerBIConfigModal'
 import PowerBISyncModal from '../components/modals/PowerBISyncModal'
 import ExpendituresCharts from '../components/ExpendituresCharts'
-import ExpendituresAdvancedCharts from '../components/ExpendituresAdvancedCharts'
 import ExpendituresTableSimple from '../components/ExpendituresTableSimple'
 import DateRangeSelector from '../components/DateRangeSelector'
 import { generateAIInsights } from '../utils/aiInsights'
@@ -37,7 +35,6 @@ const Expenditures = () => {
   const [syncing, setSyncing] = useState(false)
   const [showMappingModal, setShowMappingModal] = useState(false)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
-  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false)
   const [showPowerBIConfigModal, setShowPowerBIConfigModal] = useState(false)
   const [showPowerBISyncModal, setShowPowerBISyncModal] = useState(false)
   
@@ -635,7 +632,7 @@ const Expenditures = () => {
             </button>
             
             <button
-              onClick={() => setShowAnalyticsModal(true)}
+              onClick={() => navigate('/expenditures/advanced-analytics')}
               className="btn-secondary flex items-center space-x-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 hover:from-purple-500/20 hover:to-pink-500/20 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300"
             >
               <BarChart3 className="w-4 h-4" />
@@ -1760,13 +1757,6 @@ const Expenditures = () => {
             if (visibility) setChartVisibility(JSON.parse(visibility))
             toast.success('Setări actualizate!')
           }}
-        />
-      )}
-      
-      {showAnalyticsModal && (
-        <AdvancedAnalyticsModal
-          onClose={() => setShowAnalyticsModal(false)}
-          expendituresData={expendituresData}
         />
       )}
       
