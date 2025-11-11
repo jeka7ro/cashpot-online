@@ -1,7 +1,7 @@
 {
   "name": "cashpot-backend",
-  "version": "1.0.55",
-  "description": "CASHPOT ERP Backend API",
+  "version": "2.0.0",
+  "description": "CASHPOT ERP Backend API + Google Sheets Import",
   "main": "server-postgres.js",
   "type": "module",
   "scripts": {
