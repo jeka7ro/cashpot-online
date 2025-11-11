@@ -116,6 +116,7 @@ const Expenditures = () => {
   const getChartHeight = (chartId, defaultHeight = 300) => {
     const size = chartSizes[chartId] || 'L' // Default: Large
     const heights = {
+      'S': Math.round(defaultHeight * 0.4),  // Small: 40%
       'M': Math.round(defaultHeight * 0.6),  // Medium: 60%
       'L': defaultHeight,                     // Large: 100%
       'XL': Math.round(defaultHeight * 1.5)  // XL: 150%

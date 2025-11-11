@@ -706,11 +706,12 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                               window.dispatchEvent(new CustomEvent('expenditures-settings-changed'))
                             }, 100)
                             
-                            const sizeLabels = { 'M': '60%', 'L': '100%', 'XL': '150%' }
+                            const sizeLabels = { 'S': '40%', 'M': '60%', 'L': '100%', 'XL': '150%' }
                             toast.success(`📊 Dimensiune: ${sizeLabels[e.target.value]}`, { duration: 2000 })
                           }}
                           className="px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
                         >
+                          <option value="S">S (40%)</option>
                           <option value="M">M (60%)</option>
                           <option value="L">L (100%)</option>
                           <option value="XL">XL (150%)</option>
