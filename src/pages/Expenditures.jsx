@@ -873,7 +873,7 @@ const Expenditures = () => {
               locations={locations}
               expenditureTypes={expenditureTypes}
               totalsRow={totalsRow}
-              expendituresData={expendituresData}
+              expendituresData={filteredExpendituresForCharts}
             />
           )}
         </div>
