@@ -4,7 +4,10 @@ import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 const DateRangeSelector = ({ startDate, endDate, onChange }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [granularity, setGranularity] = useState('M') // Y, Q, M, D
-  const [selectedMonths, setSelectedMonths] = useState([]) // Pentru multi-select
+  const [selectedMonths, setSelectedMonths] = useState([]) // Pentru multi-select luni
+  const [selectedQuarters, setSelectedQuarters] = useState([]) // Pentru multi-select trimestre
+  const [selectedYears, setSelectedYears] = useState([]) // Pentru multi-select ani
+  const [selectedDays, setSelectedDays] = useState([]) // Pentru multi-select zile
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   
   const start = new Date(startDate)
@@ -129,31 +132,68 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
     }
   }
   
-  // QUARTER SELECT
-  const handleQuarterClick = (quarterIndex) => {
-    const newStart = new Date(selectedYear, quarterIndex * 3, 1)
-    const newEnd = new Date(selectedYear, quarterIndex * 3 + 3, 0)
+  // QUARTER MULTI-SELECT
+  const toggleQuarter = (quarterIndex) => {
+    const newSelected = [...selectedQuarters]
+    const idx = newSelected.indexOf(quarterIndex)
     
-    console.log(`📅 SELECTARE TRIMESTRU Q${quarterIndex + 1}:`)
-    console.log(`   Start: ${formatDateLocal(newStart)}`)
-    console.log(`   End: ${formatDateLocal(newEnd)}`)
+    if (idx > -1) {
+      newSelected.splice(idx, 1) // Remove
+    } else {
+      newSelected.push(quarterIndex) // Add
+    }
     
-    onChange({
-      startDate: formatDateLocal(newStart),
-      endDate: formatDateLocal(newEnd)
-    })
-    setIsOpen(false)
+    setSelectedQuarters(newSelected.sort((a, b) => a - b))
+    
+    // Update date range
+    if (newSelected.length > 0) {
+      const firstQuarter = Math.min(...newSelected)
+      const lastQuarter = Math.max(...newSelected)
+      
+      const newStart = new Date(selectedYear, firstQuarter * 3, 1)
+      const newEnd = new Date(selectedYear, lastQuarter * 3 + 3, 0)
+      
+      console.log(`📅 MULTI-SELECT TRIMESTRE: Q${firstQuarter + 1} - Q${lastQuarter + 1}`)
+      console.log(`   Start: ${formatDateLocal(newStart)}`)
+      console.log(`   End: ${formatDateLocal(newEnd)}`)
+      
+      onChange({
+        startDate: formatDateLocal(newStart),
+        endDate: formatDateLocal(newEnd)
+      })
+    }
   }
   
-  // YEAR SELECT
-  const handleYearClick = (year) => {
-    const newStart = new Date(year, 0, 1)
-    const newEnd = new Date(year, 11, 31)
-    onChange({
-      startDate: formatDateLocal(newStart),
-      endDate: formatDateLocal(newEnd)
-    })
-    setIsOpen(false)
+  // YEAR MULTI-SELECT
+  const toggleYear = (year) => {
+    const newSelected = [...selectedYears]
+    const idx = newSelected.indexOf(year)
+    
+    if (idx > -1) {
+      newSelected.splice(idx, 1) // Remove
+    } else {
+      newSelected.push(year) // Add
+    }
+    
+    setSelectedYears(newSelected.sort((a, b) => a - b))
+    
+    // Update date range
+    if (newSelected.length > 0) {
+      const firstYear = Math.min(...newSelected)
+      const lastYear = Math.max(...newSelected)
+      
+      const newStart = new Date(firstYear, 0, 1)
+      const newEnd = new Date(lastYear, 11, 31)
+      
+      console.log(`📅 MULTI-SELECT ANI: ${firstYear} - ${lastYear}`)
+      console.log(`   Start: ${formatDateLocal(newStart)}`)
+      console.log(`   End: ${formatDateLocal(newEnd)}`)
+      
+      onChange({
+        startDate: formatDateLocal(newStart),
+        endDate: formatDateLocal(newEnd)
+      })
+    }
   }
   
   return (
@@ -241,46 +281,95 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
           {/* Content */}
           <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
             
-            {/* YEAR MODE */}
+            {/* YEAR MODE - MULTI-SELECT */}
             {granularity === 'Y' && (
               <div className="space-y-4">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">Selectează An</h3>
-                <div className="grid grid-cols-4 gap-3">
-                  {[2023, 2024, 2025, 2026, 2027].map(year => (
-                    <button
-                      key={year}
-                      onClick={() => handleYearClick(year)}
-                      className={`p-4 rounded-xl font-bold transition-all ${
-                        selectedYear === year
-                          ? 'bg-blue-600 text-white shadow-lg'
-                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
-                      }`}
-                    >
-                      {year}
-                    </button>
-                  ))}
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">Selectează Ani (Multi-select)</h3>
+                <div className="grid grid-cols-5 gap-3">
+                  {[2023, 2024, 2025, 2026, 2027].map(year => {
+                    const isSelected = selectedYears.includes(year)
+                    return (
+                      <button
+                        key={year}
+                        onClick={() => toggleYear(year)}
+                        className={`p-4 rounded-xl font-bold transition-all border-2 ${
+                          isSelected
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-lg'
+                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span>{year}</span>
+                          {isSelected && <span className="text-xl">✓</span>}
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
+                
+                {selectedYears.length > 0 && (
+                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <p className="text-sm text-blue-700 dark:text-blue-300 font-semibold">
+                      ✓ Selectați: {selectedYears.join(', ')}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
             
-            {/* QUARTER MODE */}
+            {/* QUARTER MODE - MULTI-SELECT */}
             {granularity === 'Q' && (
               <div className="space-y-4">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">{selectedYear}</h3>
-                <div className="grid grid-cols-4 gap-4">
-                  {['Q1', 'Q2', 'Q3', 'Q4'].map((q, idx) => (
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{selectedYear}</h3>
+                  <div className="flex items-center space-x-2">
                     <button
-                      key={q}
-                      onClick={() => handleQuarterClick(idx)}
-                      className="p-6 rounded-xl font-bold text-lg transition-all bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 border-2 border-slate-200 dark:border-slate-700 hover:border-blue-400 text-slate-700 dark:text-slate-300"
+                      onClick={() => setSelectedYear(selectedYear - 1)}
+                      className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded"
                     >
-                      {q}
-                      <div className="text-xs mt-2 opacity-70">
-                        {months[idx * 3]} - {months[idx * 3 + 2]}
-                      </div>
+                      <ChevronLeft className="w-5 h-5" />
                     </button>
-                  ))}
+                    <button
+                      onClick={() => setSelectedYear(selectedYear + 1)}
+                      className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
+                
+                <div className="grid grid-cols-4 gap-4">
+                  {['Q1', 'Q2', 'Q3', 'Q4'].map((q, idx) => {
+                    const isSelected = selectedQuarters.includes(idx)
+                    return (
+                      <button
+                        key={q}
+                        onClick={() => toggleQuarter(idx)}
+                        className={`p-6 rounded-xl font-bold text-lg transition-all border-2 ${
+                          isSelected
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-lg'
+                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span>{q}</span>
+                          {isSelected && <span className="text-2xl">✓</span>}
+                        </div>
+                        <div className="text-xs mt-2 opacity-70">
+                          {months[idx * 3]} - {months[idx * 3 + 2]}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+                
+                {selectedQuarters.length > 0 && (
+                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <p className="text-sm text-blue-700 dark:text-blue-300 font-semibold">
+                      ✓ Selectate: {selectedQuarters.map(i => `Q${i + 1}`).join(', ')}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
             
@@ -337,27 +426,57 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
               </div>
             )}
             
-            {/* DAY MODE - CALENDAR SIMPLU */}
+            {/* DAY MODE - RANGE PICKER */}
             {granularity === 'D' && (
               <div className="space-y-4">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">Calendar Simplu</h3>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                  Folosește Quick Actions de sus pentru selectare rapidă, sau filtrele clasice (săptămână, lună, an)
-                </p>
-                <div className="grid grid-cols-7 gap-2">
-                  {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, idx) => (
-                    <div key={idx} className="text-center font-bold text-slate-500 text-sm">
-                      {day}
-                    </div>
-                  ))}
-                  {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Selectează Interval Zile</h3>
+                  <div className="flex items-center space-x-2">
                     <button
-                      key={day}
-                      className="p-3 rounded-lg text-center font-semibold bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 hover:border-blue-400 transition-all"
+                      onClick={() => setSelectedYear(selectedYear - 1)}
+                      className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded"
                     >
-                      {day}
+                      <ChevronLeft className="w-5 h-5" />
                     </button>
-                  ))}
+                    <span className="text-sm font-semibold">{selectedYear}</span>
+                    <button
+                      onClick={() => setSelectedYear(selectedYear + 1)}
+                      className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      Data început:
+                    </label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => onChange({ startDate: e.target.value, endDate })}
+                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                      Data sfârșit:
+                    </label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => onChange({ startDate, endDate: e.target.value })}
+                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800"
+                    />
+                  </div>
+                </div>
+                
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <p className="text-sm text-blue-700 dark:text-blue-300 font-semibold">
+                    💡 Selectează data început și data sfârșit pentru interval custom
+                  </p>
                 </div>
               </div>
             )}
