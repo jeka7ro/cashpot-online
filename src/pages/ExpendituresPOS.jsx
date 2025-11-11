@@ -40,6 +40,9 @@ const Expenditures = () => {
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false)
   const [showPowerBIConfigModal, setShowPowerBIConfigModal] = useState(false)
   const [showPowerBISyncModal, setShowPowerBISyncModal] = useState(false)
+  
+  // Sorting pentru tabelul lunar
+  const [monthTableSort, setMonthTableSort] = useState({ column: 'month', direction: 'desc' })
   const [visibleCharts, setVisibleCharts] = useState(() => {
     // Load from localStorage
     try {
@@ -1497,25 +1500,90 @@ const Expenditures = () => {
               </BarChart>
             </ResponsiveContainer>
             
-            {/* TABEL LUNAR */}
+            {/* TABEL LUNAR - CU SORTARE! */}
             <div className="mt-8 overflow-x-auto">
-              <h4 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">📊 Tabel Detaliat Lunar</h4>
+              <h4 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">
+                📊 Tabel Detaliat Lunar (FILTRAT: {dateRange.startDate} → {dateRange.endDate})
+              </h4>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-slate-200 dark:bg-slate-700">
-                    <th className="px-4 py-3 text-left font-semibold text-slate-900 dark:text-slate-100">Luna</th>
+                    <th 
+                      className="px-4 py-3 text-left font-semibold text-slate-900 dark:text-slate-100 cursor-pointer hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                      onClick={() => {
+                        setMonthTableSort({
+                          column: 'month',
+                          direction: monthTableSort.column === 'month' && monthTableSort.direction === 'asc' ? 'desc' : 'asc'
+                        })
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span>Luna</span>
+                        {monthTableSort.column === 'month' ? (
+                          monthTableSort.direction === 'asc' ? '▲' : '▼'
+                        ) : '⇅'}
+                      </div>
+                    </th>
                     {Array.from(new Set(filteredExpendituresForCharts.map(item => item.location_name))).map(loc => (
                       <React.Fragment key={loc}>
-                        <th className="px-4 py-3 text-right font-semibold text-green-600 dark:text-green-400">{loc} POS</th>
-                        <th className="px-4 py-3 text-right font-semibold text-blue-600 dark:text-blue-400">{loc} Bancă</th>
+                        <th 
+                          className="px-4 py-3 text-right font-semibold text-green-600 dark:text-green-400 cursor-pointer hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                          onClick={() => {
+                            setMonthTableSort({
+                              column: `${loc}-POS`,
+                              direction: monthTableSort.column === `${loc}-POS` && monthTableSort.direction === 'desc' ? 'asc' : 'desc'
+                            })
+                          }}
+                        >
+                          <div className="flex items-center justify-end space-x-1">
+                            <span>{loc} POS</span>
+                            {monthTableSort.column === `${loc}-POS` ? (
+                              monthTableSort.direction === 'asc' ? '▲' : '▼'
+                            ) : '⇅'}
+                          </div>
+                        </th>
+                        <th 
+                          className="px-4 py-3 text-right font-semibold text-blue-600 dark:text-blue-400 cursor-pointer hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                          onClick={() => {
+                            setMonthTableSort({
+                              column: `${loc}-Bancă`,
+                              direction: monthTableSort.column === `${loc}-Bancă` && monthTableSort.direction === 'desc' ? 'asc' : 'desc'
+                            })
+                          }}
+                        >
+                          <div className="flex items-center justify-end space-x-1">
+                            <span>{loc} Bancă</span>
+                            {monthTableSort.column === `${loc}-Bancă` ? (
+                              monthTableSort.direction === 'asc' ? '▲' : '▼'
+                            ) : '⇅'}
+                          </div>
+                        </th>
                       </React.Fragment>
                     ))}
-                    <th className="px-4 py-3 text-right font-semibold text-purple-600 dark:text-purple-400">Total</th>
+                    <th 
+                      className="px-4 py-3 text-right font-semibold text-purple-600 dark:text-purple-400 cursor-pointer hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                      onClick={() => {
+                        setMonthTableSort({
+                          column: 'total',
+                          direction: monthTableSort.column === 'total' && monthTableSort.direction === 'desc' ? 'asc' : 'desc'
+                        })
+                      }}
+                    >
+                      <div className="flex items-center justify-end space-x-1">
+                        <span>Total</span>
+                        {monthTableSort.column === 'total' ? (
+                          monthTableSort.direction === 'asc' ? '▲' : '▼'
+                        ) : '⇅'}
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {(() => {
                     const monthLocationMap = {}
+                    
+                    // IMPORTANT: Folosim filteredExpendituresForCharts care E FILTRAT după date!
+                    console.log(`📊 Tabel Lunar: Procesez ${filteredExpendituresForCharts.length} rânduri filtrate`)
                     
                     filteredExpendituresForCharts.forEach(item => {
                       const dateObj = new Date(item.operational_date)
@@ -1540,9 +1608,38 @@ const Expenditures = () => {
                     
                     const locations = Array.from(new Set(filteredExpendituresForCharts.map(item => item.location_name)))
                     
-                    return Object.entries(monthLocationMap).sort(([a], [b]) => a.localeCompare(b)).map(([month, locs], idx) => {
+                    // Transform în array pentru sortare
+                    let monthRows = Object.entries(monthLocationMap).map(([month, locs]) => {
                       const monthTotal = Object.values(locs).reduce((sum, data) => sum + data.POS + data.Bancă, 0)
+                      return { month, locs, monthTotal }
+                    })
+                    
+                    // Apply sorting
+                    monthRows.sort((a, b) => {
+                      let valueA, valueB
                       
+                      if (monthTableSort.column === 'month') {
+                        valueA = a.month
+                        valueB = b.month
+                        return monthTableSort.direction === 'asc' 
+                          ? valueA.localeCompare(valueB) 
+                          : valueB.localeCompare(valueA)
+                      } else if (monthTableSort.column === 'total') {
+                        valueA = a.monthTotal
+                        valueB = b.monthTotal
+                      } else {
+                        // Sortare după locație specifică (ex: "Pitești-POS")
+                        const [loc, dept] = monthTableSort.column.split('-')
+                        valueA = a.locs[loc]?.[dept] || 0
+                        valueB = b.locs[loc]?.[dept] || 0
+                      }
+                      
+                      return monthTableSort.direction === 'desc' 
+                        ? valueB - valueA 
+                        : valueA - valueB
+                    })
+                    
+                    return monthRows.map(({ month, locs, monthTotal }, idx) => {
                       return (
                         <tr key={month} className={idx % 2 === 0 ? 'bg-slate-50 dark:bg-slate-800/50' : 'bg-white dark:bg-slate-800'}>
                           <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">
