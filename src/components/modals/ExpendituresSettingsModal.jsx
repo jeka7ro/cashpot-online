@@ -52,10 +52,27 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
   })
   const [importingGoogleSheets, setImportingGoogleSheets] = useState(false)
   const [importProgress, setImportProgress] = useState(null)
+  const [googleSheetsStatus, setGoogleSheetsStatus] = useState(null)
   
   useEffect(() => {
     loadData()
   }, [])
+  
+  // Load Google Sheets status when tab is opened
+  useEffect(() => {
+    if (activeTab === 'google-sheets') {
+      loadGoogleSheetsStatus()
+    }
+  }, [activeTab])
+  
+  const loadGoogleSheetsStatus = async () => {
+    try {
+      const response = await axios.get('/api/expenditures/google-sheets-status')
+      setGoogleSheetsStatus(response.data)
+    } catch (error) {
+      console.error('Error loading Google Sheets status:', error)
+    }
+  }
   
   const loadData = async () => {
     try {
@@ -775,6 +792,44 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
           {/* Google Sheets Tab */}
           {activeTab === 'google-sheets' && (
             <div className="space-y-6">
+              {/* Status Dashboard */}
+              {googleSheetsStatus && (
+                <div className={`rounded-xl p-6 border-2 ${
+                  googleSheetsStatus.hasData 
+                    ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-300 dark:border-green-700'
+                    : 'bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900/20 dark:to-slate-800/20 border-slate-300 dark:border-slate-700'
+                }`}>
+                  <h4 className="text-md font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center">
+                    {googleSheetsStatus.hasData ? '✅' : '📭'} Status Date Google Sheets
+                  </h4>
+                  {googleSheetsStatus.hasData ? (
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="bg-white dark:bg-slate-800 rounded-lg p-4 text-center">
+                        <p className="text-3xl font-bold text-green-600 dark:text-green-400">{googleSheetsStatus.stats.totalRecords.toLocaleString('ro-RO')}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Înregistrări</p>
+                      </div>
+                      <div className="bg-white dark:bg-slate-800 rounded-lg p-4 text-center">
+                        <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{new Date(googleSheetsStatus.stats.earliestDate).toLocaleDateString('ro-RO')}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Prima dată</p>
+                      </div>
+                      <div className="bg-white dark:bg-slate-800 rounded-lg p-4 text-center">
+                        <p className="text-xl font-bold text-purple-600 dark:text-purple-400">{new Date(googleSheetsStatus.stats.latestDate).toLocaleDateString('ro-RO')}</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Ultima dată</p>
+                      </div>
+                      <div className="bg-white dark:bg-slate-800 rounded-lg p-4 text-center">
+                        <p className="text-xl font-bold text-orange-600 dark:text-orange-400">{googleSheetsStatus.stats.totalAmount.toLocaleString('ro-RO', { maximumFractionDigits: 0 })} RON</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Total Suma</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-white dark:bg-slate-800 rounded-lg p-6 text-center">
+                      <p className="text-slate-600 dark:text-slate-400">📭 Nu există date din Google Sheets în baza de date</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">Folosește formularul de mai jos pentru a importa date</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              
               <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-6 border-2 border-green-200 dark:border-green-800">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-3 flex items-center">
                   <Cloud className="w-6 h-6 mr-2 text-green-600" />
@@ -836,8 +891,9 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                         { id: 'google-sheets-import', duration: 5000 }
                       )
                       
-                      // Refresh data
+                      // Refresh data AND status
                       await loadData()
+                      await loadGoogleSheetsStatus()
                       
                     } catch (error) {
                       console.error('Google Sheets import error:', error)

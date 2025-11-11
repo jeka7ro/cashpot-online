@@ -869,6 +869,45 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
   }
 })
 
+// Check if Google Sheets data exists
+router.get('/google-sheets-status', authenticateToken, async (req, res) => {
+  try {
+    const { Pool } = pg
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    })
+    
+    const result = await pool.query(`
+      SELECT 
+        COUNT(*) as total_records,
+        MIN(operational_date) as earliest_date,
+        MAX(operational_date) as latest_date,
+        SUM(amount) as total_amount
+      FROM expenditures_sync 
+      WHERE data_source = 'google_sheets'
+    `)
+    
+    await pool.end()
+    
+    const stats = result.rows[0]
+    
+    res.json({ 
+      success: true, 
+      hasData: parseInt(stats.total_records) > 0,
+      stats: {
+        totalRecords: parseInt(stats.total_records),
+        earliestDate: stats.earliest_date,
+        latestDate: stats.latest_date,
+        totalAmount: parseFloat(stats.total_amount || 0)
+      }
+    })
+  } catch (error) {
+    console.error('Error checking Google Sheets status:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 // Get Google Sheets sync settings
 router.get('/google-sheets-settings', authenticateToken, async (req, res) => {
   try {
