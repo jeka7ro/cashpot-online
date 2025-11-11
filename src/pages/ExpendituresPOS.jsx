@@ -799,6 +799,36 @@ const Expenditures = () => {
             </div>
           </div>
           
+          {/* CARD NOU: Surse Date */}
+          <div className="bg-gradient-to-br from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 p-6 rounded-2xl shadow-lg">
+            <div className="flex items-center justify-between">
+              <div className="w-full">
+                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium mb-3">📊 Surse Date</p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-600 dark:text-slate-400">🔄 BAT Sync:</span>
+                    <span className="text-sm font-bold text-cyan-600 dark:text-cyan-400">
+                      {filteredData.filter(item => !item.data_source || item.data_source === 'local').length} rânduri
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-600 dark:text-slate-400">☁️ Google Sheets:</span>
+                    <span className="text-sm font-bold text-green-600 dark:text-green-400">
+                      {filteredData.filter(item => item.data_source === 'google_sheets').length} rânduri
+                    </span>
+                  </div>
+                  <div className="h-px bg-slate-300 dark:bg-slate-600"></div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">📌 Total:</span>
+                    <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                      {filteredData.length} rânduri
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
           {/* 3 CARDURI: General, POS, Bancă */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Card 1: General */}
