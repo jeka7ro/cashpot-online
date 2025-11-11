@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 
-const DateRangeSelector = ({ startDate, endDate, onChange }) => {
+const DateRangeSelector = ({ startDate, endDate, onChange, availableYears }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [granularity, setGranularity] = useState('M') // Y, Q, M, D
   const [selectedMonths, setSelectedMonths] = useState([]) // Pentru multi-select luni
@@ -14,6 +14,10 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
   const end = new Date(endDate)
   
   const months = ['Ian', 'Feb', 'Mar', 'Apr', 'Mai', 'Iun', 'Iul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  
+  // Generate available years: ultimii 5 ani până la anul curent (NU viitori!)
+  const currentYear = new Date().getFullYear()
+  const yearsToShow = availableYears || Array.from({ length: 5 }, (_, i) => currentYear - 4 + i)
   
   // FIX TIMEZONE BUG! Format date fără timezone issues
   const formatDateLocal = (date) => {
@@ -286,7 +290,7 @@ const DateRangeSelector = ({ startDate, endDate, onChange }) => {
               <div className="space-y-4">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">Selectează Ani (Multi-select)</h3>
                 <div className="grid grid-cols-5 gap-3">
-                  {[2023, 2024, 2025, 2026, 2027].map(year => {
+                  {yearsToShow.map(year => {
                     const isSelected = selectedYears.includes(year)
                     return (
                       <button
