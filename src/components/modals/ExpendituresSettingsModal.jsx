@@ -59,28 +59,37 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
         axios.get('/api/expenditures/settings')
       ])
       
-      // Detect NEW items (ones that weren't in the list before)
+      // Detect NEW items DOAR dacă listele vechi nu sunt goale (nu e prima încărcare)
       const oldTypes = expenditureTypes.map(t => t.name)
       const oldDepts = departments.map(d => d.name)
       const oldLocs = locations.map(l => l.name)
       
-      const newTypes = typesRes.data.filter(t => !oldTypes.includes(t.name))
-      const newDepts = deptsRes.data.filter(d => !oldDepts.includes(d.name))
-      const newLocs = locsRes.data.filter(l => !oldLocs.includes(l.name))
-      
-      if (newTypes.length > 0 || newDepts.length > 0 || newLocs.length > 0) {
-        setNewItems({
-          types: newTypes.map(t => t.name),
-          departments: newDepts.map(d => d.name),
-          locations: newLocs.map(l => l.name)
-        })
+      // Doar dacă listele VECHI au conținut (nu e prima încărcare)
+      if (oldTypes.length > 0 || oldDepts.length > 0 || oldLocs.length > 0) {
+        const newTypes = typesRes.data.filter(t => !oldTypes.includes(t.name))
+        const newDepts = deptsRes.data.filter(d => !oldDepts.includes(d.name))
+        const newLocs = locsRes.data.filter(l => !oldLocs.includes(l.name))
         
-        const summary = []
-        if (newDepts.length > 0) summary.push(`${newDepts.length} departamente noi`)
-        if (newTypes.length > 0) summary.push(`${newTypes.length} categorii noi`)
-        if (newLocs.length > 0) summary.push(`${newLocs.length} locații noi`)
-        
-        toast.success(`✨ Detectat: ${summary.join(', ')}!`)
+        if (newTypes.length > 0 || newDepts.length > 0 || newLocs.length > 0) {
+          setNewItems({
+            types: newTypes.map(t => t.name),
+            departments: newDepts.map(d => d.name),
+            locations: newLocs.map(l => l.name)
+          })
+          
+          const summary = []
+          if (newDepts.length > 0) summary.push(`${newDepts.length} departamente noi`)
+          if (newTypes.length > 0) summary.push(`${newTypes.length} categorii noi`)
+          if (newLocs.length > 0) summary.push(`${newLocs.length} locații noi`)
+          
+          toast.success(`✨ Detectat: ${summary.join(', ')}!`)
+        } else {
+          // Reset newItems dacă nu sunt noi
+          setNewItems({ types: [], departments: [], locations: [] })
+        }
+      } else {
+        // Prima încărcare - NU marca nimic ca "nou"
+        setNewItems({ types: [], departments: [], locations: [] })
       }
       
       setExpenditureTypes(typesRes.data)
@@ -778,14 +787,22 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                   </div>
                   
                   <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
-                    <p className="font-bold text-purple-800 dark:text-purple-300 mb-2">🚀 Cum să folosești:</p>
-                    <ol className="text-sm text-slate-700 dark:text-slate-300 space-y-2 list-decimal list-inside">
+                    <p className="font-bold text-purple-800 dark:text-purple-300 mb-3">🚀 Cum să folosești:</p>
+                    <ol className="text-sm text-slate-700 dark:text-slate-300 space-y-2 list-decimal list-inside mb-4">
                       <li>Conectează-te <strong>REMOTE</strong> la PC-ul din birou (TeamViewer/AnyDesk)</li>
                       <li>Deschide <code className="bg-purple-100 dark:bg-purple-900/40 px-2 py-1 rounded">C:\cashpot-online\</code></li>
                       <li><strong>Double-click</strong> pe <code className="bg-purple-100 dark:bg-purple-900/40 px-2 py-1 rounded">SYNC_EXPENDITURES_WINDOWS.bat</code></li>
                       <li>Așteaptă mesajul: <strong className="text-green-600">"✅ SYNC COMPLET!"</strong></li>
-                      <li>Refresh pagina și vei vedea datele noi!</li>
+                      <li>APOI aici: Click <strong>"🔄 Refresh Departamente"</strong> pentru a vedea categoriile noi!</li>
                     </ol>
+                    
+                    <a 
+                      href="https://github.com/jeka7ro/cashpot-online/raw/main/SYNC_EXPENDITURES_WINDOWS.bat"
+                      download="SYNC_EXPENDITURES_WINDOWS.bat"
+                      className="inline-block px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-semibold"
+                    >
+                      📥 Download Script BAT
+                    </a>
                   </div>
                   
                   <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4 border border-orange-200 dark:border-orange-800">
