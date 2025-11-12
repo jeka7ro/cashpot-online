@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { X, Save, Activity, FileCheck, Calendar, CheckCircle } from 'lucide-react'
+import { X, Save, Activity, FileCheck, Calendar, CheckCircle, FileText } from 'lucide-react'
 import axios from 'axios'
 import PDFViewer from '../PDFViewer'
 
