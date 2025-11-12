@@ -14,3 +14,6 @@ mongodb-macos-x86_64-8.2.0.tgz
 *.tgz
 *.zip
 .vercel
+# Ignore build output
+src/dist/
+dist/
