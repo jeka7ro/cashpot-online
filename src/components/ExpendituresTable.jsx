@@ -3,12 +3,14 @@ import {
   ChevronDown, ChevronRight, Maximize2, Minimize2,
   Users, Coffee, Home, Sparkles, ShieldCheck, Box, Music, Briefcase,
   DollarSign, Coins, Zap, Truck, Megaphone, Wrench, Scale,
-  FileText, Settings, Wine, Banknote, Building2, Factory
+  FileText, Settings, Wine, Banknote, Building2, Factory,
+  ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react'
 
 const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, expendituresData }) => {
   const [expandedDepartments, setExpandedDepartments] = useState(new Set())
   const [allExpanded, setAllExpanded] = useState(false)
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' }) // SORTARE!
   
   // ICONIȚE PENTRU FIECARE DEPARTAMENT!
   const getDepartmentIcon = (deptName) => {
@@ -99,6 +101,49 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
   
   const departments = groupByDepartment()
   
+  // === SORTARE LOGIC ===
+  const handleSort = (key) => {
+    setSortConfig((prevConfig) => ({
+      key,
+      direction: prevConfig.key === key && prevConfig.direction === 'asc' ? 'desc' : 'asc'
+    }))
+  }
+  
+  const getSortIcon = (columnKey) => {
+    if (sortConfig.key !== columnKey) {
+      return <ArrowUpDown className="w-3 h-3 ml-1 text-slate-400" />
+    }
+    return sortConfig.direction === 'asc' 
+      ? <ArrowUp className="w-3 h-3 ml-1 text-blue-600 dark:text-blue-400" />
+      : <ArrowDown className="w-3 h-3 ml-1 text-blue-600 dark:text-blue-400" />
+  }
+  
+  // Sortare departamente
+  const sortedDepartments = [...departments].sort((a, b) => {
+    if (!sortConfig.key) return 0 // Fără sortare
+    
+    let valueA, valueB
+    
+    if (sortConfig.key === 'department') {
+      valueA = a.name.toLowerCase()
+      valueB = b.name.toLowerCase()
+      return sortConfig.direction === 'asc'
+        ? valueA.localeCompare(valueB)
+        : valueB.localeCompare(valueA)
+    } else if (sortConfig.key === 'total') {
+      valueA = a.total
+      valueB = b.total
+    } else {
+      // Sortare după locație (ex: "CRAIOVA")
+      valueA = a.byLocation[sortConfig.key] || 0
+      valueB = b.byLocation[sortConfig.key] || 0
+    }
+    
+    return sortConfig.direction === 'desc'
+      ? valueB - valueA
+      : valueA - valueB
+  })
+  
   const toggleDepartment = (deptName) => {
     const newExpanded = new Set(expandedDepartments)
     if (newExpanded.has(deptName)) {
@@ -155,21 +200,40 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
       <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
         <thead className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 sticky top-0 z-10">
           <tr>
-            <th className="px-6 py-4 text-left text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-              Departament / Categorie
+            <th 
+              className="px-6 py-4 text-left text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              onClick={() => handleSort('department')}
+            >
+              <div className="flex items-center justify-between">
+                <span>Departament / Categorie</span>
+                {getSortIcon('department')}
+              </div>
             </th>
             {locations.map(loc => (
-              <th key={loc} className="px-4 py-4 text-right text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                {loc}
+              <th 
+                key={loc} 
+                className="px-4 py-4 text-right text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                onClick={() => handleSort(loc)}
+              >
+                <div className="flex items-center justify-end space-x-1">
+                  <span>{loc}</span>
+                  {getSortIcon(loc)}
+                </div>
               </th>
             ))}
-            <th className="px-4 py-4 text-right text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider bg-blue-50 dark:bg-blue-900/20">
-              TOTAL
+            <th 
+              className="px-4 py-4 text-right text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider bg-blue-50 dark:bg-blue-900/20 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+              onClick={() => handleSort('total')}
+            >
+              <div className="flex items-center justify-end space-x-1">
+                <span>TOTAL</span>
+                {getSortIcon('total')}
+              </div>
             </th>
           </tr>
         </thead>
         <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-          {departments.map((dept, deptIdx) => (
+          {sortedDepartments.map((dept, deptIdx) => (
             <React.Fragment key={dept.name}>
               {/* Department Row */}
               <tr 

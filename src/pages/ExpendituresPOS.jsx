@@ -12,7 +12,6 @@ import ExpendituresSettingsModal from '../components/modals/ExpendituresSettings
 import PowerBIConfigModal from '../components/modals/PowerBIConfigModal'
 import PowerBISyncModal from '../components/modals/PowerBISyncModal'
 import ExpendituresCharts from '../components/ExpendituresCharts'
-import ExpendituresAdvancedCharts from '../components/ExpendituresAdvancedCharts'
 import ExpendituresTableSimple from '../components/ExpendituresTableSimple'
 import DateRangeSelector from '../components/DateRangeSelector'
 import { generateAIInsights } from '../utils/aiInsights'
@@ -1178,26 +1177,49 @@ const Expenditures = () => {
               </div>
               <ResponsiveContainer width="100%" height={getChartHeight('evolution', 400)}>
                 <LineChart data={(() => {
-                  // Process trend data DOAR pentru POS
-                  const monthMap = {}
+                  // Detectează dacă e o singură lună selectată
+                  const startDate = new Date(dateRange.startDate)
+                  const endDate = new Date(dateRange.endDate)
+                  const isSingleMonth = 
+                    startDate.getFullYear() === endDate.getFullYear() &&
+                    startDate.getMonth() === endDate.getMonth()
+                  
+                  const dataMap = {}
                   filteredExpendituresForCharts
                     .filter(item => item.department_name === 'POS')
                     .forEach(item => {
                       const dateObj = new Date(item.operational_date)
-                      const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`
-                      if (!monthMap[monthKey]) {
-                        monthMap[monthKey] = 0
+                      
+                      // Alegem cheia după selecție: ZI sau LUNĂ
+                      const key = isSingleMonth
+                        ? `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}` // ZI
+                        : `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}` // LUNĂ
+                      
+                      if (!dataMap[key]) {
+                        dataMap[key] = 0
                       }
-                      monthMap[monthKey] += parseFloat(item.amount || 0)
+                      dataMap[key] += parseFloat(item.amount || 0)
                     })
-                  return Object.entries(monthMap)
+                  
+                  return Object.entries(dataMap)
                     .sort((a, b) => a[0].localeCompare(b[0]))
-                    .map(([monthKey, value]) => {
-                      const [year, month] = monthKey.split('-')
-                      const dateObj = new Date(parseInt(year), parseInt(month) - 1, 1)
-                      return {
-                        date: dateObj.toLocaleDateString('ro-RO', { month: 'short', year: 'numeric' }),
-                        value: Math.round(value)
+                    .map(([key, value]) => {
+                      if (isSingleMonth) {
+                        // Afișare pe ZI: "12 Nov"
+                        const [year, month, day] = key.split('-')
+                        const dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+                        return {
+                          date: dateObj.toLocaleDateString('ro-RO', { day: 'numeric', month: 'short' }),
+                          value: Math.round(value)
+                        }
+                      } else {
+                        // Afișare pe LUNĂ: "Nov 2025"
+                        const [year, month] = key.split('-')
+                        const dateObj = new Date(parseInt(year), parseInt(month) - 1, 1)
+                        return {
+                          date: dateObj.toLocaleDateString('ro-RO', { month: 'short', year: 'numeric' }),
+                          value: Math.round(value)
+                        }
                       }
                     })
                 })()}>
@@ -1266,26 +1288,49 @@ const Expenditures = () => {
               </div>
               <ResponsiveContainer width="100%" height={getChartHeight('evolution', 400)}>
                 <LineChart data={(() => {
-                  // Process trend data DOAR pentru Bancă
-                  const monthMap = {}
+                  // Detectează dacă e o singură lună selectată
+                  const startDate = new Date(dateRange.startDate)
+                  const endDate = new Date(dateRange.endDate)
+                  const isSingleMonth = 
+                    startDate.getFullYear() === endDate.getFullYear() &&
+                    startDate.getMonth() === endDate.getMonth()
+                  
+                  const dataMap = {}
                   filteredExpendituresForCharts
                     .filter(item => item.department_name === 'Bancă')
                     .forEach(item => {
                       const dateObj = new Date(item.operational_date)
-                      const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`
-                      if (!monthMap[monthKey]) {
-                        monthMap[monthKey] = 0
+                      
+                      // Alegem cheia după selecție: ZI sau LUNĂ
+                      const key = isSingleMonth
+                        ? `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}` // ZI
+                        : `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}` // LUNĂ
+                      
+                      if (!dataMap[key]) {
+                        dataMap[key] = 0
                       }
-                      monthMap[monthKey] += parseFloat(item.amount || 0)
+                      dataMap[key] += parseFloat(item.amount || 0)
                     })
-                  return Object.entries(monthMap)
+                  
+                  return Object.entries(dataMap)
                     .sort((a, b) => a[0].localeCompare(b[0]))
-                    .map(([monthKey, value]) => {
-                      const [year, month] = monthKey.split('-')
-                      const dateObj = new Date(parseInt(year), parseInt(month) - 1, 1)
-                      return {
-                        date: dateObj.toLocaleDateString('ro-RO', { month: 'short', year: 'numeric' }),
-                        value: Math.round(value)
+                    .map(([key, value]) => {
+                      if (isSingleMonth) {
+                        // Afișare pe ZI: "12 Nov"
+                        const [year, month, day] = key.split('-')
+                        const dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+                        return {
+                          date: dateObj.toLocaleDateString('ro-RO', { day: 'numeric', month: 'short' }),
+                          value: Math.round(value)
+                        }
+                      } else {
+                        // Afișare pe LUNĂ: "Nov 2025"
+                        const [year, month] = key.split('-')
+                        const dateObj = new Date(parseInt(year), parseInt(month) - 1, 1)
+                        return {
+                          date: dateObj.toLocaleDateString('ro-RO', { month: 'short', year: 'numeric' }),
+                          value: Math.round(value)
+                        }
                       }
                     })
                 })()}>
@@ -1404,280 +1449,6 @@ const Expenditures = () => {
           </div>
         )}
         
-        {/* CHART NOU: POS + Bancă per Locație (LUNAR) */}
-        {filteredExpendituresForCharts.length > 0 && isChartVisible('locations') && (
-          <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center">
-                  <MapPin className="w-6 h-6 mr-2 text-purple-600" />
-                  Evoluție Lunară POS & Bancă per Locație
-                </h3>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                  Comparație lunară încasări POS și depuneri Bancă pentru fiecare locație
-                </p>
-              </div>
-            </div>
-            
-            <ResponsiveContainer width="100%" height={500}>
-              <BarChart data={(() => {
-                // Group by MONTH and LOCATION
-                const monthLocationMap = {}
-                
-                filteredExpendituresForCharts.forEach(item => {
-                  const dateObj = new Date(item.operational_date)
-                  const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`
-                  const loc = item.location_name || 'Unknown'
-                  const dept = item.department_name
-                  
-                  if (!monthLocationMap[monthKey]) {
-                    monthLocationMap[monthKey] = { month: monthKey }
-                  }
-                  
-                  // Create keys for each location + department
-                  const key = `${loc} (${dept})`
-                  if (!monthLocationMap[monthKey][key]) {
-                    monthLocationMap[monthKey][key] = 0
-                  }
-                  
-                  if (dept === 'POS' || dept === 'Bancă') {
-                    monthLocationMap[monthKey][key] += parseFloat(item.amount || 0)
-                  }
-                })
-                
-                return Object.values(monthLocationMap).sort((a, b) => a.month.localeCompare(b.month))
-              })()}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
-                <XAxis 
-                  dataKey="month" 
-                  stroke="#64748b" 
-                  style={{ fontSize: '12px' }}
-                  tickFormatter={(value) => {
-                    const [year, month] = value.split('-')
-                    const monthNames = ['Ian', 'Feb', 'Mar', 'Apr', 'Mai', 'Iun', 'Iul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-                    return `${monthNames[parseInt(month) - 1]} ${year}`
-                  }}
-                />
-                <YAxis 
-                  stroke="#64748b" 
-                  style={{ fontSize: '12px' }}
-                  tickFormatter={(value) => formatCurrency(value)}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#1e293b', 
-                    border: 'none', 
-                    borderRadius: '8px',
-                    color: '#fff'
-                  }}
-                  formatter={(value) => [`${formatCurrency(value)} RON`, '']}
-                />
-                <Legend />
-                
-                {/* Generate bars dynamically for each location */}
-                {(() => {
-                  const locations = Array.from(new Set(filteredExpendituresForCharts.map(item => item.location_name)))
-                  const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316']
-                  const bars = []
-                  
-                  locations.forEach((loc, idx) => {
-                    bars.push(
-                      <Bar key={`${loc}-POS`} dataKey={`${loc} (POS)`} fill={colors[idx % colors.length]} name={`${loc} POS`} stackId="pos" />
-                    )
-                  })
-                  
-                  locations.forEach((loc, idx) => {
-                    bars.push(
-                      <Bar key={`${loc}-Bancă`} dataKey={`${loc} (Bancă)`} fill={colors[idx % colors.length]} name={`${loc} Bancă`} stackId="banca" opacity={0.7} />
-                    )
-                  })
-                  
-                  return bars
-                })()}
-              </BarChart>
-            </ResponsiveContainer>
-            
-            {/* TABEL LUNAR - CU SORTARE! */}
-            <div className="mt-8 overflow-x-auto">
-              <h4 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">
-                📊 Tabel Detaliat Lunar (FILTRAT: {dateRange.startDate} → {dateRange.endDate})
-              </h4>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-200 dark:bg-slate-700">
-                    <th 
-                      className="px-4 py-3 text-left font-semibold text-slate-900 dark:text-slate-100 cursor-pointer hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
-                      onClick={() => {
-                        setMonthTableSort({
-                          column: 'month',
-                          direction: monthTableSort.column === 'month' && monthTableSort.direction === 'asc' ? 'desc' : 'asc'
-                        })
-                      }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span>Luna</span>
-                        {monthTableSort.column === 'month' ? (
-                          monthTableSort.direction === 'asc' ? '▲' : '▼'
-                        ) : '⇅'}
-                      </div>
-                    </th>
-                    {Array.from(new Set(filteredExpendituresForCharts.map(item => item.location_name))).map(loc => (
-                      <React.Fragment key={loc}>
-                        <th 
-                          className="px-4 py-3 text-right font-semibold text-green-600 dark:text-green-400 cursor-pointer hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
-                          onClick={() => {
-                            setMonthTableSort({
-                              column: `${loc}-POS`,
-                              direction: monthTableSort.column === `${loc}-POS` && monthTableSort.direction === 'desc' ? 'asc' : 'desc'
-                            })
-                          }}
-                        >
-                          <div className="flex items-center justify-end space-x-1">
-                            <span>{loc} POS</span>
-                            {monthTableSort.column === `${loc}-POS` ? (
-                              monthTableSort.direction === 'asc' ? '▲' : '▼'
-                            ) : '⇅'}
-                          </div>
-                        </th>
-                        <th 
-                          className="px-4 py-3 text-right font-semibold text-blue-600 dark:text-blue-400 cursor-pointer hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
-                          onClick={() => {
-                            setMonthTableSort({
-                              column: `${loc}-Bancă`,
-                              direction: monthTableSort.column === `${loc}-Bancă` && monthTableSort.direction === 'desc' ? 'asc' : 'desc'
-                            })
-                          }}
-                        >
-                          <div className="flex items-center justify-end space-x-1">
-                            <span>{loc} Bancă</span>
-                            {monthTableSort.column === `${loc}-Bancă` ? (
-                              monthTableSort.direction === 'asc' ? '▲' : '▼'
-                            ) : '⇅'}
-                          </div>
-                        </th>
-                      </React.Fragment>
-                    ))}
-                    <th 
-                      className="px-4 py-3 text-right font-semibold text-purple-600 dark:text-purple-400 cursor-pointer hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
-                      onClick={() => {
-                        setMonthTableSort({
-                          column: 'total',
-                          direction: monthTableSort.column === 'total' && monthTableSort.direction === 'desc' ? 'asc' : 'desc'
-                        })
-                      }}
-                    >
-                      <div className="flex items-center justify-end space-x-1">
-                        <span>Total</span>
-                        {monthTableSort.column === 'total' ? (
-                          monthTableSort.direction === 'asc' ? '▲' : '▼'
-                        ) : '⇅'}
-                      </div>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    const monthLocationMap = {}
-                    
-                    // IMPORTANT: Folosim filteredExpendituresForCharts care E FILTRAT după date!
-                    console.log(`📊 Tabel Lunar: Procesez ${filteredExpendituresForCharts.length} rânduri filtrate`)
-                    
-                    filteredExpendituresForCharts.forEach(item => {
-                      const dateObj = new Date(item.operational_date)
-                      const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`
-                      const loc = item.location_name || 'Unknown'
-                      const dept = item.department_name
-                      
-                      if (!monthLocationMap[monthKey]) {
-                        monthLocationMap[monthKey] = {}
-                      }
-                      
-                      if (!monthLocationMap[monthKey][loc]) {
-                        monthLocationMap[monthKey][loc] = { POS: 0, Bancă: 0 }
-                      }
-                      
-                      if (dept === 'POS') {
-                        monthLocationMap[monthKey][loc].POS += parseFloat(item.amount || 0)
-                      } else if (dept === 'Bancă') {
-                        monthLocationMap[monthKey][loc].Bancă += parseFloat(item.amount || 0)
-                      }
-                    })
-                    
-                    const locations = Array.from(new Set(filteredExpendituresForCharts.map(item => item.location_name)))
-                    
-                    // Transform în array pentru sortare
-                    let monthRows = Object.entries(monthLocationMap).map(([month, locs]) => {
-                      const monthTotal = Object.values(locs).reduce((sum, data) => sum + data.POS + data.Bancă, 0)
-                      return { month, locs, monthTotal }
-                    })
-                    
-                    // Apply sorting
-                    monthRows.sort((a, b) => {
-                      let valueA, valueB
-                      
-                      if (monthTableSort.column === 'month') {
-                        valueA = a.month
-                        valueB = b.month
-                        return monthTableSort.direction === 'asc' 
-                          ? valueA.localeCompare(valueB) 
-                          : valueB.localeCompare(valueA)
-                      } else if (monthTableSort.column === 'total') {
-                        valueA = a.monthTotal
-                        valueB = b.monthTotal
-                      } else {
-                        // Sortare după locație specifică (ex: "Pitești-POS")
-                        const [loc, dept] = monthTableSort.column.split('-')
-                        valueA = a.locs[loc]?.[dept] || 0
-                        valueB = b.locs[loc]?.[dept] || 0
-                      }
-                      
-                      return monthTableSort.direction === 'desc' 
-                        ? valueB - valueA 
-                        : valueA - valueB
-                    })
-                    
-                    return monthRows.map(({ month, locs, monthTotal }, idx) => {
-                      return (
-                        <tr key={month} className={idx % 2 === 0 ? 'bg-slate-50 dark:bg-slate-800/50' : 'bg-white dark:bg-slate-800'}>
-                          <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">
-                            {(() => {
-                              const [year, m] = month.split('-')
-                              const monthNames = ['Ian', 'Feb', 'Mar', 'Apr', 'Mai', 'Iun', 'Iul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-                              return `${monthNames[parseInt(m) - 1]} ${year}`
-                            })()}
-                          </td>
-                          {locations.map(loc => (
-                            <React.Fragment key={loc}>
-                              <td className="px-4 py-3 text-right text-green-600 dark:text-green-400 font-semibold">
-                                {formatCurrency(locs[loc]?.POS || 0)}
-                              </td>
-                              <td className="px-4 py-3 text-right text-blue-600 dark:text-blue-400 font-semibold">
-                                {formatCurrency(locs[loc]?.Bancă || 0)}
-                              </td>
-                            </React.Fragment>
-                          ))}
-                          <td className="px-4 py-3 text-right font-bold text-purple-600 dark:text-purple-400">
-                            {formatCurrency(monthTotal)}
-                          </td>
-                        </tr>
-                      )
-                    })
-                  })()}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-        
-        {/* GRAFICE AVANSATE */}
-        {filteredExpendituresForCharts.length > 0 && (
-          <ExpendituresAdvancedCharts 
-            expendituresData={filteredExpendituresForCharts}
-            dateRange={dateRange}
-            visibleCharts={visibleCharts}
-          />
-        )}
-        
         {/* POS & Bancă Table */}
         <div id="pos-banca-table" className="card p-6">
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center">
@@ -1708,93 +1479,10 @@ const Expenditures = () => {
             />
           )}
         </div>
-        
-        {/* Sync Info */}
-        <div className="card p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center space-x-4">
-              <span className="text-slate-600 dark:text-slate-400">
-                <strong>Auto-sincronizare:</strong> {syncSettings.autoSync ? `✅ Activ (la fiecare ${syncSettings.syncInterval}h)` : '❌ Dezactivat'}
-              </span>
-              {syncSettings.autoSync && (
-                <span className="text-slate-600 dark:text-slate-400">
-                  <strong>Ora:</strong> {syncSettings.syncTime}
-                </span>
-              )}
-            </div>
-            <button
-              onClick={() => setShowSettingsModal(true)}
-              className="text-blue-600 dark:text-blue-400 hover:underline font-semibold"
-            >
-              Configurare Setări
-            </button>
-          </div>
-        </div>
+        </div> {/* ÎNCHIDE div cu ref={exportRef} */}
       </div>
-      
-      </div> {/* END ZONA DE EXPORT PDF */}
-      
-      {/* Mapping Modal */}
-      {showMappingModal && (
-        <ExpendituresMappingModal
-          onClose={() => setShowMappingModal(false)}
-          onSave={() => {
-            setShowMappingModal(false)
-            loadExpendituresData()
-          }}
-        />
-      )}
-      
-      {/* Settings Modal */}
-      {showSettingsModal && (
-        <ExpendituresSettingsModal
-          onClose={() => {
-            setShowSettingsModal(false)
-            // Force re-render charts after settings change
-            const sizes = localStorage.getItem('expenditures_charts_sizes')
-            const visibility = localStorage.getItem('expenditures_charts_visibility')
-            if (sizes) setChartSizes(JSON.parse(sizes))
-            if (visibility) setChartVisibility(JSON.parse(visibility))
-          }}
-          onSave={() => {
-            setShowSettingsModal(false)
-            loadSettings()
-            // Force re-render charts after save
-            const sizes = localStorage.getItem('expenditures_charts_sizes')
-            const visibility = localStorage.getItem('expenditures_charts_visibility')
-            if (sizes) setChartSizes(JSON.parse(sizes))
-            if (visibility) setChartVisibility(JSON.parse(visibility))
-            toast.success('Setări actualizate!')
-          }}
-        />
-      )}
-      
-      {/* Power BI Config Modal */}
-      {showPowerBIConfigModal && (
-        <PowerBIConfigModal
-          isOpen={showPowerBIConfigModal}
-          onClose={() => setShowPowerBIConfigModal(false)}
-          onConfigured={() => {
-            setShowPowerBIConfigModal(false)
-            toast.success('Configurație Power BI salvată!')
-          }}
-        />
-      )}
-      
-      {/* Power BI Sync Modal */}
-      {showPowerBISyncModal && (
-        <PowerBISyncModal
-          isOpen={showPowerBISyncModal}
-          onClose={() => setShowPowerBISyncModal(false)}
-          onSyncComplete={() => {
-            setShowPowerBISyncModal(false)
-            loadExpendituresData()
-          }}
-        />
-      )}
     </Layout>
   )
 }
 
-export default Expenditures
-
+export default ExpendituresPOS
