@@ -751,8 +751,8 @@ const ExpendituresPOS = () => {
         {/* ZONA DE EXPORT PDF - FĂRĂ FILTRE! */}
         <div ref={exportRef} className="space-y-6">
         
-        {/* Stats Cards - SUPER COMPACT 4 COLOANE */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        {/* Stats Cards - SUPER COMPACT 3 COLOANE */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
           <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-3 rounded-lg shadow-sm">
             <div className="flex items-center justify-between">
               <div>
@@ -795,36 +795,6 @@ const ExpendituresPOS = () => {
               </div>
               <div className="p-1.5 bg-purple-500/10 rounded-lg">
                 <Calendar className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-              </div>
-            </div>
-          </div>
-          
-          {/* CARD: Surse Date - SUPER COMPACT */}
-          <div className="bg-gradient-to-br from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 p-3 rounded-lg shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="w-full">
-                <p className="text-slate-600 dark:text-slate-400 text-[10px] font-medium mb-1.5">📊 Surse</p>
-                <div className="space-y-0.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] text-slate-600 dark:text-slate-400">🔄 BAT:</span>
-                    <span className="text-[11px] font-bold text-cyan-600 dark:text-cyan-400">
-                      {filteredData.filter(item => !item.data_source || item.data_source === 'local').length}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] text-slate-600 dark:text-slate-400">☁️ Sheets:</span>
-                    <span className="text-[11px] font-bold text-green-600 dark:text-green-400">
-                      {filteredData.filter(item => item.data_source === 'google_sheets').length}
-                    </span>
-                  </div>
-                  <div className="h-px bg-slate-300 dark:bg-slate-600"></div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-bold text-slate-700 dark:text-slate-300">Total:</span>
-                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
-                      {filteredData.length}
-                    </span>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -1255,7 +1225,7 @@ const ExpendituresPOS = () => {
                       dataKey="value" 
                       position="top" 
                       formatter={(value) => formatCurrency(value)}
-                      style={{ fontSize: '10px', fontWeight: 'bold', fill: '#ffffff', textShadow: '0 0 4px rgba(0,0,0,0.8)' }}
+                      style={{ fontSize: '10px', fontWeight: 'bold', fill: '#059669' }}
                     />
                   </Line>
                 </LineChart>
@@ -1366,7 +1336,7 @@ const ExpendituresPOS = () => {
                       dataKey="value" 
                       position="top" 
                       formatter={(value) => formatCurrency(value)}
-                      style={{ fontSize: '10px', fontWeight: 'bold', fill: '#ffffff', textShadow: '0 0 4px rgba(0,0,0,0.8)' }}
+                      style={{ fontSize: '10px', fontWeight: 'bold', fill: '#1e40af' }}
                     />
                   </Line>
                 </LineChart>
