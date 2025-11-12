@@ -17,7 +17,7 @@ import DateRangeSelector from '../components/DateRangeSelector'
 import { generateAIInsights } from '../utils/aiInsights'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Label, LabelList } from 'recharts'
 
-const Expenditures = () => {
+const ExpendituresPOS = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
   const exportRef = useRef(null) // Ref pentru zona de export PDF
