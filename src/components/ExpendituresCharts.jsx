@@ -233,9 +233,35 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
               ))}
               <LabelList 
                 dataKey="value" 
-                position="insideRight" 
+                position={(props) => {
+                  // Calculăm spațiul disponibil în bară (ca % din max)
+                  const maxValue = Math.max(...departmentData.map(d => d.value))
+                  const percentage = (props.value / maxValue) * 100
+                  // Dacă bara e mai mică de 20% din max → afișăm în exterior (right)
+                  return percentage < 20 ? 'right' : 'insideRight'
+                }}
                 formatter={(value) => formatCurrency(value)}
-                style={{ fontSize: '14px', fontWeight: 'bold', fill: '#ffffff', textShadow: '0 0 3px rgba(0,0,0,0.8)' }}
+                content={(props) => {
+                  const { x, y, width, height, value } = props
+                  const maxValue = Math.max(...departmentData.map(d => d.value))
+                  const percentage = (value / maxValue) * 100
+                  const isSmall = percentage < 20
+                  
+                  return (
+                    <text
+                      x={isSmall ? x + width + 5 : x + width - 5}
+                      y={y + height / 2}
+                      fill={isSmall ? '#1e40af' : '#ffffff'}
+                      fontSize="14px"
+                      fontWeight="bold"
+                      textAnchor={isSmall ? 'start' : 'end'}
+                      dominantBaseline="middle"
+                      style={isSmall ? {} : { textShadow: '0 0 3px rgba(0,0,0,0.8)' }}
+                    >
+                      {formatCurrency(value)}
+                    </text>
+                  )
+                }}
               />
             </Bar>
           </BarChart>

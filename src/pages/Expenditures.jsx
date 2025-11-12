@@ -642,23 +642,23 @@ const Expenditures = () => {
         </div>
         
         {/* Filters - MUTAT ÎN VÂRFUL PAGINII! */}
-        <div className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center">
-              <Filter className="w-5 h-5 mr-2 text-blue-500" />
+        <div className="card p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center">
+              <Filter className="w-4 h-4 mr-2 text-blue-500" />
               Filtre
             </h2>
             <div className="text-xs text-slate-500 dark:text-slate-400">
-              💾 Preferințele tale sunt salvate automat
+              💾 Auto-save
             </div>
           </div>
           
-          <div className="space-y-4">
+          <div className="space-y-3">
               {/* Filters Grid */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Date Range Selector */}
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   📅 Perioadă
                 </label>
                 <DateRangeSelector
@@ -672,9 +672,9 @@ const Expenditures = () => {
               </div>
               
               {/* Department Filter */}
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  <Briefcase className="w-4 h-4 inline mr-1" />
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <Briefcase className="w-3 h-3 inline mr-1" />
                   Departament
                 </label>
                 <select
@@ -690,9 +690,9 @@ const Expenditures = () => {
               </div>
               
               {/* Expenditure Type Filter */}
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  <Filter className="w-4 h-4 inline mr-1" />
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <Filter className="w-3 h-3 inline mr-1" />
                   Tip Cheltuială
                 </label>
                 <select
