@@ -28,11 +28,22 @@ const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts
     return chartVisibility[chartId] !== false // Default: true (visible)
   }
   
-  // GRAFIC 1: Comparație Luna Curentă vs Precedentă
+  // GRAFIC 1: Comparație Luna Curentă vs Precedentă (PRIMELE N ZILE!)
   const monthComparisonData = useMemo(() => {
-    const now = new Date()
-    const currentMonth = now.getMonth()
-    const currentYear = now.getFullYear()
+    const today = new Date()
+    const currentDay = today.getDate()
+    const currentMonth = today.getMonth()
+    const currentYear = today.getFullYear()
+    
+    // Luna curentă (1 - currentDay)
+    const currentMonthStart = new Date(currentYear, currentMonth, 1)
+    const currentMonthEnd = new Date(currentYear, currentMonth, currentDay, 23, 59, 59)
+    
+    // Luna precedentă (1 - currentDay)
+    const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1
+    const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear
+    const prevMonthStart = new Date(prevYear, prevMonth, 1)
+    const prevMonthEnd = new Date(prevYear, prevMonth, currentDay, 23, 59, 59)
     
     const deptMap = {}
     
@@ -47,9 +58,13 @@ const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts
         deptMap[dept] = { name: dept, current: 0, previous: 0 }
       }
       
-      if (itemDate.getMonth() === currentMonth && itemDate.getFullYear() === currentYear) {
+      // Luna curentă (primele N zile)
+      if (itemDate >= currentMonthStart && itemDate <= currentMonthEnd) {
         deptMap[dept].current += parseFloat(item.amount || 0)
-      } else if (itemDate.getMonth() === currentMonth - 1 && itemDate.getFullYear() === currentYear) {
+      }
+      
+      // Luna precedentă (primele N zile)
+      if (itemDate >= prevMonthStart && itemDate <= prevMonthEnd) {
         deptMap[dept].previous += parseFloat(item.amount || 0)
       }
     })
@@ -233,6 +248,9 @@ const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts
             <TrendingUp className="w-5 h-5 mr-2 text-blue-500" />
             Comparație Luna Curentă vs Precedentă
           </h3>
+          <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
+            📅 Primele {new Date().getDate()} zile din luna curentă vs primele {new Date().getDate()} zile din luna precedentă
+          </p>
           <ResponsiveContainer width="100%" height={getChartHeight('comparison', 300)}>
             <BarChart data={monthComparisonData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />

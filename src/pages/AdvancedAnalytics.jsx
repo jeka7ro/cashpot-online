@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
 import { ArrowLeft, BarChart3, TrendingUp, TrendingDown, Brain } from 'lucide-react'
 import { toast } from 'react-hot-toast'
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts'
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, LabelList } from 'recharts'
 import ExpendituresAdvancedCharts from '../components/ExpendituresAdvancedCharts'
 import { generateAIInsights } from '../utils/aiInsights'
 
@@ -43,6 +43,9 @@ const AdvancedAnalytics = () => {
     stackedArea: true,
     trendPrediction: true
   })
+  
+  // AI Insights visibility
+  const [showAIInsights, setShowAIInsights] = useState(false)
   
   // Load expenditures data
   const loadExpendituresData = async () => {
@@ -435,7 +438,14 @@ const AdvancedAnalytics = () => {
                           strokeWidth={3}
                           dot={{ fill: '#3b82f6', r: 5 }}
                           activeDot={{ r: 8 }}
-                        />
+                        >
+                          <LabelList 
+                            dataKey="amount" 
+                            position="top" 
+                            formatter={(value) => formatCurrency(value)}
+                            style={{ fontSize: '10px', fontWeight: 'bold', fill: '#ffffff', textShadow: '0 0 4px rgba(0,0,0,0.8)' }}
+                          />
+                        </Line>
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
@@ -521,16 +531,28 @@ const AdvancedAnalytics = () => {
                 )}
               </div>
               
-              {/* AI Insights Section */}
+              {/* AI Insights Section - PRIN BUTON! */}
               <div className="mt-8">
-                <div className="flex items-center space-x-3 mb-6">
-                  <Brain className="w-6 h-6 text-purple-600 dark:text-purple-400 animate-pulse" />
-                  <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                    🤖 AI Insights Detaliate
-                  </h3>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center space-x-3">
+                    <Brain className="w-6 h-6 text-purple-600 dark:text-purple-400 animate-pulse" />
+                    <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                      🤖 AI Insights Detaliate
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setShowAIInsights(!showAIInsights)}
+                    className={`px-6 py-3 rounded-xl font-semibold transition-all shadow-lg ${
+                      showAIInsights
+                        ? 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white'
+                        : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white'
+                    }`}
+                  >
+                    {showAIInsights ? '✖ Ascunde AI Insights' : '🤖 Vezi AI Insights'}
+                  </button>
                 </div>
                 
-                {filteredInsights.length === 0 ? (
+                {showAIInsights && (filteredInsights.length === 0 ? (
                   <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl p-8 text-center">
                     <Brain className="w-12 h-12 mx-auto mb-3 text-slate-400" />
                     <p className="text-slate-600 dark:text-slate-400">
@@ -570,7 +592,7 @@ const AdvancedAnalytics = () => {
                       )
                     })}
                   </div>
-                )}
+                ))}
               </div>
             </div>
             
