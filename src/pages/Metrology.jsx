@@ -171,6 +171,34 @@ const Metrology = () => {
     setShowModal(false)
     setEditingItem(null)
   }
+  
+  // View CVT document in new tab (EXACT CA ÎN LOCATIONS!)
+  const handleViewDocument = (item) => {
+    const cvtFile = item.cvt_file || item.cvtFile
+    if (cvtFile) {
+      try {
+        // Convertește Base64 → Blob → Object URL → deschide în tab nou
+        const base64Data = cvtFile.split(',')[1] || cvtFile
+        const byteCharacters = atob(base64Data)
+        const byteNumbers = new Array(byteCharacters.length)
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i)
+        }
+        const byteArray = new Uint8Array(byteNumbers)
+        const blob = new Blob([byteArray], { type: 'application/pdf' })
+        const blobUrl = URL.createObjectURL(blob)
+        
+        // Deschide în tab nou
+        window.open(blobUrl, '_blank')
+        
+        // Cleanup după 1 minut (pentru a nu leak memory)
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
+      } catch (error) {
+        console.error('Error opening CVT:', error)
+        toast.error('❌ Eroare la deschiderea documentului CVT')
+      }
+    }
+  }
 
   // Sub-page handlers
   const handleApprovalSave = async (data) => {
@@ -414,12 +442,15 @@ const Metrology = () => {
       label: 'DOCUMENT CVT', 
       sortable: false,
       render: (item) => {
-        const pdfUrl = getCvtPdfUrl(item)
+        const hasCvt = item.cvt_file || item.cvtFile
         return (
           <div className="flex items-center justify-center">
-            {pdfUrl ? (
+            {hasCvt ? (
               <button
-                onClick={() => window.open(pdfUrl, '_blank')}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleViewDocument(item)
+                }}
                 className="p-2 bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-900/20 dark:hover:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 rounded-lg transition-colors"
                 title="Vizualizează documentul CVT"
               >

@@ -1,6 +1,7 @@
 import React from 'react'
 import { X, Download, Eye, FileText, Calendar, CheckCircle, AlertCircle } from 'lucide-react'
 import PDFViewer from '../PDFViewer'
+import MultiPDFViewer from '../MultiPDFViewer'
 import { formatGameMixName } from '../../utils/gameMixFormatter'
 
 const MetrologyDetailModal = ({ item, onClose }) => {
