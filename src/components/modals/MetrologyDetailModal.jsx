@@ -312,11 +312,11 @@ const MetrologyDetailModal = ({ item, onClose }) => {
             {/* Right Column - PDF Viewer */}
             <div className="space-y-4">
               <div className="bg-slate-50 rounded-2xl p-6">
-                <h4 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
+                <h4 className="text-lg font-bold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-600 pb-2 mb-4">
                   Document CVT
                 </h4>
                 {(() => {
-                  const rawUrl = item.cvtFile || item.file_path || item.file?.url || item.file?.path || item.cvt_file || null
+                  const rawUrl = item.cvt_file || item.cvtFile || item.file_path || item.file?.url || item.file?.path || null
                   const makeAbsolute = (url) => {
                     if (!url) return null
                     // Accept data URLs as-is (e.g., base64 PDFs stored directly)
@@ -331,42 +331,30 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                     const backend = (window && window.APP_BACKEND_URL) || 'https://cashpot-backend.onrender.com'
                     pdfUrl = `${backend}/api/cvt-pdf/${item.id}`
                   }
-                  return pdfUrl ? (
-                  <div className="space-y-4">
-                    <iframe
-                      src={pdfUrl}
-                      className="w-full h-[600px] rounded-lg border-2 border-slate-300"
-                      title="CVT Document"
+                  // Folosim MultiPDFViewer EXACT CA LocationDetail!
+                  return rawUrl ? (
+                    <MultiPDFViewer
+                      files={[{
+                        name: `CVT ${item.cvt_series || item.cvt_number || 'Document'}`,
+                        type: 'Document CVT',
+                        file_path: rawUrl,
+                        url: rawUrl,
+                        id: 'cvt'
+                      }]}
+                      title="Document CVT"
+                      placeholder="Nu există document CVT încărcat"
+                      placeholderSubtext="Adaugă document pentru vizualizare"
                     />
-                    <div className="flex space-x-3">
-                      <a
-                        href={pdfUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 btn-primary flex items-center justify-center space-x-2"
-                      >
-                        <Eye className="w-4 h-4" />
-                        <span>Vizualizează</span>
-                      </a>
-                      <a
-                        href={pdfUrl}
-                        download
-                        className="flex-1 btn-secondary flex items-center justify-center space-x-2"
-                      >
-                        <Download className="w-4 h-4" />
-                        <span>Descarcă</span>
-                      </a>
-                    </div>
-                  </div>
                   ) : (
-                  <div className="aspect-[3/4] bg-slate-100 rounded-lg border-2 border-dashed border-slate-300 flex items-center justify-center">
-                    <div className="text-center text-slate-500">
-                      <FileText className="w-16 h-16 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm font-medium">Nu există document CVT</p>
-                      <p className="text-xs text-slate-400 mt-1">Atașează documentul CVT pentru vizualizare</p>
+                    <div className="aspect-[3/4] bg-slate-100 dark:bg-slate-800 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center">
+                      <div className="text-center text-slate-500 dark:text-slate-400">
+                        <FileText className="w-16 h-16 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm font-medium">Nu există document CVT</p>
+                        <p className="text-xs text-slate-400 mt-1">Atașează documentul CVT pentru vizualizare</p>
+                      </div>
                     </div>
-                  </div>
-                )})()}
+                  )
+                })()}
               </div>
 
               {/* Created By */}
