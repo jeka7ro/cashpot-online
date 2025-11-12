@@ -24,6 +24,7 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
     software: '',
     cvtFile: null,
     cvtPreview: null,
+    cvtFileName: null,
     notes: ''
   })
 
@@ -82,8 +83,9 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
         game_mix: item.game_mix || '',
         approval_type: item.approval_type || '',
         software: item.software || '',
-        cvtFile: null, // Don't store existing file data
-        cvtPreview: item.cvtFile || null, // Store file path for display
+        cvtFile: item.cvt_file || item.cvtFile || null, // Base64 string from DB
+        cvtPreview: item.cvt_file || item.cvtFile || null,
+        cvtFileName: item.cvt_file ? 'Document CVT existent' : null,
         notes: item.notes || ''
       })
     }
@@ -173,17 +175,32 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
 
   const handleFileChange = (e) => {
     const file = e.target.files[0]
-    if (file) {
-      // Create URL for preview
-      const fileUrl = URL.createObjectURL(file)
-      
-      // Store the actual File object for upload, and URL for preview
-      setFormData(prev => ({
-        ...prev,
-        cvtFile: file,
-        cvtPreview: fileUrl // URL for immediate preview
-      }))
+    if (!file) return
+    
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Fișierul este prea mare! Maxim 10MB.')
+      return
     }
+    
+    console.log('📄 Upload CVT:', file.name, `(${(file.size / 1024).toFixed(2)} KB)`)
+    
+    // Convert file to Base64 (EXACT CA LocationModal!)
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const base64String = e.target.result
+      console.log('✅ CVT convertit în Base64 (primii 100 chars):', base64String.substring(0, 100) + '...')
+      console.log('   Total length:', base64String.length, 'chars')
+      setFormData({
+        ...formData,
+        cvtFile: base64String,
+        cvtPreview: base64String,
+        cvtFileName: file.name
+      })
+    }
+    reader.onerror = () => {
+      alert('Eroare la citirea fișierului')
+    }
+    reader.readAsDataURL(file)
   }
 
   const handleDeleteCvt = async () => {
@@ -199,43 +216,22 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    // If there's a new file to upload, upload it first
-    let filePath = formData.cvtPreview
-    
-    // Check if cvtFile is a File object (new upload)
-    if (formData.cvtFile instanceof File) {
-      try {
-        const uploadFormData = new FormData()
-        uploadFormData.append('file', formData.cvtFile)
-        
-        const uploadResponse = await axios.post('/api/upload', uploadFormData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          },
-          timeout: 120000,
-          maxBodyLength: Infinity,
-          maxContentLength: Infinity
-        })
-        
-        if (uploadResponse.data) {
-          filePath = uploadResponse.data.url || uploadResponse.data.file_path || uploadResponse.data.file?.url
-        }
-      } catch (error) {
-        console.error('Error uploading file:', error)
-        // Fallback: proceed without the file to avoid blocking creation
-        filePath = null
-      }
-    }
-    
-    // Prepare payload - send only URL for file
+    // Prepare payload - Base64 direct (EXACT CA LocationModal!)
     const dataToSave = {
       ...formData,
-      cvtFile: filePath,
-      cvtPreview: filePath
+      cvt_file: formData.cvtFile // Map cvtFile → cvt_file pentru backend
     }
-    if (dataToSave.cvtFile instanceof File) {
-      delete dataToSave.cvtFile
-    }
+    
+    // Clean up properties
+    delete dataToSave.cvtFile
+    delete dataToSave.cvtPreview
+    delete dataToSave.cvtFileName
+    
+    console.log('💾 Saving metrology certificate:')
+    console.log('   Serial:', dataToSave.serial_number)
+    console.log('   cvt_file type:', typeof dataToSave.cvt_file)
+    console.log('   cvt_file is Base64?', dataToSave.cvt_file?.startsWith('data:'))
+    console.log('   cvt_file length:', dataToSave.cvt_file?.length || 0, 'chars')
     
     onSave(dataToSave)
   }
