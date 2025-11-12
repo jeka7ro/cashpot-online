@@ -751,39 +751,39 @@ const ExpendituresPOS = () => {
         {/* ZONA DE EXPORT PDF - FĂRĂ FILTRE! */}
         <div ref={exportRef} className="space-y-6">
         
-        {/* Stats Cards - COMPACT 4 COLOANE */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-4 rounded-xl shadow-md">
+        {/* Stats Cards - SUPER COMPACT 4 COLOANE */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-3 rounded-lg shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-xs font-medium">Total Încasări</p>
-                <p className="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">
+                <p className="text-slate-600 dark:text-slate-400 text-[10px] font-medium">Total Încasări</p>
+                <p className="text-lg font-bold text-blue-600 dark:text-blue-400 mt-0.5">
                   {formatCurrency(totalsRow?.total || 0)} RON
                 </p>
               </div>
-              <div className="p-2 bg-blue-500/10 rounded-lg">
-                <TrendingUp className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <div className="p-1.5 bg-blue-500/10 rounded-lg">
+                <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
           </div>
           
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-green-900/20 dark:to-emerald-900/20 p-4 rounded-xl shadow-md">
+          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-green-900/20 dark:to-emerald-900/20 p-3 rounded-lg shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-xs font-medium">Locații</p>
-                <p className="text-xl font-bold text-green-600 dark:text-green-400 mt-1">{locations.length}</p>
+                <p className="text-slate-600 dark:text-slate-400 text-[10px] font-medium">Locații</p>
+                <p className="text-lg font-bold text-green-600 dark:text-green-400 mt-0.5">{locations.length}</p>
               </div>
-              <div className="p-2 bg-green-500/10 rounded-lg">
-                <Building2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+              <div className="p-1.5 bg-green-500/10 rounded-lg">
+                <Building2 className="w-4 h-4 text-green-600 dark:text-green-400" />
               </div>
             </div>
           </div>
           
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-purple-900/20 dark:to-pink-900/20 p-4 rounded-xl shadow-md">
+          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-purple-900/20 dark:to-pink-900/20 p-3 rounded-lg shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-xs font-medium">Zile Selectate</p>
-                <p className="text-xl font-bold text-purple-600 dark:text-purple-400 mt-1">
+                <p className="text-slate-600 dark:text-slate-400 text-[10px] font-medium">Zile Selectate</p>
+                <p className="text-lg font-bold text-purple-600 dark:text-purple-400 mt-0.5">
                   {(() => {
                     const start = new Date(dateRange.startDate)
                     const end = new Date(dateRange.endDate)
@@ -793,34 +793,34 @@ const ExpendituresPOS = () => {
                   })()}
                 </p>
               </div>
-              <div className="p-2 bg-purple-500/10 rounded-lg">
-                <Calendar className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              <div className="p-1.5 bg-purple-500/10 rounded-lg">
+                <Calendar className="w-4 h-4 text-purple-600 dark:text-purple-400" />
               </div>
             </div>
           </div>
           
-          {/* CARD: Surse Date - COMPACT */}
-          <div className="bg-gradient-to-br from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 p-4 rounded-xl shadow-md">
+          {/* CARD: Surse Date - SUPER COMPACT */}
+          <div className="bg-gradient-to-br from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 p-3 rounded-lg shadow-sm">
             <div className="flex items-center justify-between">
               <div className="w-full">
-                <p className="text-slate-600 dark:text-slate-400 text-xs font-medium mb-2">📊 Surse</p>
-                <div className="space-y-1">
+                <p className="text-slate-600 dark:text-slate-400 text-[10px] font-medium mb-1.5">📊 Surse</p>
+                <div className="space-y-0.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-slate-600 dark:text-slate-400">🔄 BAT:</span>
-                    <span className="text-xs font-bold text-cyan-600 dark:text-cyan-400">
+                    <span className="text-[9px] text-slate-600 dark:text-slate-400">🔄 BAT:</span>
+                    <span className="text-[11px] font-bold text-cyan-600 dark:text-cyan-400">
                       {filteredData.filter(item => !item.data_source || item.data_source === 'local').length}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-slate-600 dark:text-slate-400">☁️ Sheets:</span>
-                    <span className="text-xs font-bold text-green-600 dark:text-green-400">
+                    <span className="text-[9px] text-slate-600 dark:text-slate-400">☁️ Sheets:</span>
+                    <span className="text-[11px] font-bold text-green-600 dark:text-green-400">
                       {filteredData.filter(item => item.data_source === 'google_sheets').length}
                     </span>
                   </div>
                   <div className="h-px bg-slate-300 dark:bg-slate-600"></div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">Total:</span>
-                    <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                    <span className="text-[9px] font-bold text-slate-700 dark:text-slate-300">Total:</span>
+                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
                       {filteredData.length}
                     </span>
                   </div>
@@ -830,14 +830,14 @@ const ExpendituresPOS = () => {
           </div>
         </div>
         
-        {/* 3 CARDURI EVOLUȚIE: General, POS, Bancă - COMPACT */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* 3 CARDURI EVOLUȚIE: General, POS, Bancă - SUPER COMPACT */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
           {/* Card 1: General */}
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-orange-900/20 dark:to-amber-900/20 p-4 rounded-xl shadow-md">
+          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-orange-900/20 dark:to-amber-900/20 p-3 rounded-lg shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-xs font-medium">Evoluție vs Luna Trecută</p>
-                <p className={`text-2xl font-bold mt-1 ${
+                <p className="text-slate-600 dark:text-slate-400 text-[10px] font-medium">Evoluție vs Luna Trecută</p>
+                <p className={`text-xl font-bold mt-0.5 ${
                   (() => {
                     // Calculate current month vs previous month (same days)
                     const today = new Date()
@@ -909,11 +909,11 @@ const ExpendituresPOS = () => {
                     return `${diff >= 0 ? '+' : ''}${percentage.toFixed(1)}%`
                   })()}
                 </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Primele {new Date().getDate()} zile vs luna trecută
+                <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Primele {new Date().getDate()} zile
                 </p>
               </div>
-              <div className={`p-3 rounded-xl ${
+              <div className={`p-1.5 rounded-lg ${
                 (() => {
                   const today = new Date()
                   const currentDay = today.getDate()
@@ -986,11 +986,11 @@ const ExpendituresPOS = () => {
           </div>
           
           {/* Card 2: POS */}
-          <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-green-900/20 dark:to-emerald-900/20 p-4 rounded-xl shadow-md">
+          <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-green-900/20 dark:to-emerald-900/20 p-3 rounded-lg shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-xs font-medium">Evoluție POS vs Luna Trecută</p>
-                <p className={`text-2xl font-bold mt-1 ${
+                <p className="text-slate-600 dark:text-slate-400 text-[10px] font-medium">Evoluție POS vs Luna Trecută</p>
+                <p className={`text-xl font-bold mt-0.5 ${
                   (() => {
                     const today = new Date()
                     const currentDay = today.getDate()
@@ -1068,11 +1068,11 @@ const ExpendituresPOS = () => {
           </div>
           
           {/* Card 3: Bancă */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-xl shadow-md">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-3 rounded-lg shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-600 dark:text-slate-400 text-xs font-medium">Evoluție Bancă vs Luna Trecută</p>
-                <p className={`text-2xl font-bold mt-1 ${
+                <p className="text-slate-600 dark:text-slate-400 text-[10px] font-medium">Evoluție Bancă vs Luna Trecută</p>
+                <p className={`text-xl font-bold mt-0.5 ${
                   (() => {
                     const today = new Date()
                     const currentDay = today.getDate()
@@ -1255,7 +1255,7 @@ const ExpendituresPOS = () => {
                       dataKey="value" 
                       position="top" 
                       formatter={(value) => formatCurrency(value)}
-                      style={{ fontSize: '10px', fontWeight: 'bold', fill: '#059669' }}
+                      style={{ fontSize: '10px', fontWeight: 'bold', fill: '#ffffff', textShadow: '0 0 4px rgba(0,0,0,0.8)' }}
                     />
                   </Line>
                 </LineChart>
@@ -1366,7 +1366,7 @@ const ExpendituresPOS = () => {
                       dataKey="value" 
                       position="top" 
                       formatter={(value) => formatCurrency(value)}
-                      style={{ fontSize: '10px', fontWeight: 'bold', fill: '#1e40af' }}
+                      style={{ fontSize: '10px', fontWeight: 'bold', fill: '#ffffff', textShadow: '0 0 4px rgba(0,0,0,0.8)' }}
                     />
                   </Line>
                 </LineChart>
@@ -1382,27 +1382,63 @@ const ExpendituresPOS = () => {
               <div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">🏢 Încasări POS & Bancă per Locație</h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                  Comparație încasări între locații
+                  Comparație primele {new Date().getDate()} zile: Luna Curentă vs Luna Precedentă
                 </p>
               </div>
             </div>
             <ResponsiveContainer width="100%" height={getChartHeight('locations', 350)}>
               <BarChart data={(() => {
-                // Group by location
+                // LOGICĂ NOUĂ: Compară primele N zile din luna curentă cu primele N zile din luna precedentă
+                const today = new Date()
+                const currentDay = today.getDate()
+                const currentMonth = today.getMonth()
+                const currentYear = today.getFullYear()
+                
+                // Luna curentă (1 - currentDay)
+                const currentMonthStart = new Date(currentYear, currentMonth, 1)
+                const currentMonthEnd = new Date(currentYear, currentMonth, currentDay, 23, 59, 59)
+                
+                // Luna precedentă (1 - currentDay)
+                const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1
+                const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear
+                const prevMonthStart = new Date(prevYear, prevMonth, 1)
+                const prevMonthEnd = new Date(prevYear, prevMonth, currentDay, 23, 59, 59)
+                
                 const locationMap = {}
-                filteredExpendituresForCharts.forEach(item => {
+                
+                // Folosim TOATE datele (nu filteredExpendituresForCharts), doar filtrate de primele N zile
+                expendituresData.forEach(item => {
+                  const itemDate = new Date(item.operational_date)
                   const loc = item.location_name || 'Unknown'
-                  if (!locationMap[loc]) {
-                    locationMap[loc] = { location: loc, POS: 0, Bancă: 0 }
-                  }
                   const dept = item.department_name
-                  if (dept === 'POS') {
-                    locationMap[loc].POS += parseFloat(item.amount || 0)
-                  } else if (dept === 'Bancă') {
-                    locationMap[loc].Bancă += parseFloat(item.amount || 0)
+                  
+                  // Init location
+                  if (!locationMap[loc]) {
+                    locationMap[loc] = { location: loc, 'POS (Curent)': 0, 'Bancă (Curent)': 0, 'POS (Precedent)': 0, 'Bancă (Precedent)': 0 }
+                  }
+                  
+                  // Luna curentă (primele N zile)
+                  if (itemDate >= currentMonthStart && itemDate <= currentMonthEnd) {
+                    if (dept === 'POS') {
+                      locationMap[loc]['POS (Curent)'] += parseFloat(item.amount || 0)
+                    } else if (dept === 'Bancă') {
+                      locationMap[loc]['Bancă (Curent)'] += parseFloat(item.amount || 0)
+                    }
+                  }
+                  
+                  // Luna precedentă (primele N zile)
+                  if (itemDate >= prevMonthStart && itemDate <= prevMonthEnd) {
+                    if (dept === 'POS') {
+                      locationMap[loc]['POS (Precedent)'] += parseFloat(item.amount || 0)
+                    } else if (dept === 'Bancă') {
+                      locationMap[loc]['Bancă (Precedent)'] += parseFloat(item.amount || 0)
+                    }
                   }
                 })
-                return Object.values(locationMap).sort((a, b) => (b.POS + b.Bancă) - (a.POS + a.Bancă))
+                
+                return Object.values(locationMap).sort((a, b) => 
+                  (b['POS (Curent)'] + b['Bancă (Curent)']) - (a['POS (Curent)'] + a['Bancă (Curent)'])
+                )
               })()}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
                 <XAxis 
@@ -1428,20 +1464,36 @@ const ExpendituresPOS = () => {
                   formatter={(value) => [`${formatCurrency(value)} RON`, '']}
                 />
                 <Legend />
-                <Bar dataKey="POS" fill="#10b981" name="POS">
+                <Bar dataKey="POS (Curent)" fill="#10b981" name="POS (Luna Curentă)">
                   <LabelList 
-                    dataKey="POS" 
+                    dataKey="POS (Curent)" 
                     position="top" 
                     formatter={(value) => formatCurrency(value)}
-                    style={{ fontSize: '10px', fontWeight: 'bold', fill: '#059669' }}
+                    style={{ fontSize: '9px', fontWeight: 'bold', fill: '#059669' }}
                   />
                 </Bar>
-                <Bar dataKey="Bancă" fill="#3b82f6" name="Bancă">
+                <Bar dataKey="POS (Precedent)" fill="#86efac" name="POS (Luna Precedentă)">
                   <LabelList 
-                    dataKey="Bancă" 
+                    dataKey="POS (Precedent)" 
                     position="top" 
                     formatter={(value) => formatCurrency(value)}
-                    style={{ fontSize: '10px', fontWeight: 'bold', fill: '#1e40af' }}
+                    style={{ fontSize: '9px', fontWeight: 'bold', fill: '#22c55e' }}
+                  />
+                </Bar>
+                <Bar dataKey="Bancă (Curent)" fill="#3b82f6" name="Bancă (Luna Curentă)">
+                  <LabelList 
+                    dataKey="Bancă (Curent)" 
+                    position="top" 
+                    formatter={(value) => formatCurrency(value)}
+                    style={{ fontSize: '9px', fontWeight: 'bold', fill: '#1e40af' }}
+                  />
+                </Bar>
+                <Bar dataKey="Bancă (Precedent)" fill="#93c5fd" name="Bancă (Luna Precedentă)">
+                  <LabelList 
+                    dataKey="Bancă (Precedent)" 
+                    position="top" 
+                    formatter={(value) => formatCurrency(value)}
+                    style={{ fontSize: '9px', fontWeight: 'bold', fill: '#3b82f6' }}
                   />
                 </Bar>
               </BarChart>
