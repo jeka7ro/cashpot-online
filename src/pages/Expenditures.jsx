@@ -8,11 +8,10 @@ import { toast } from 'react-hot-toast'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 import ExpendituresMappingModal from '../components/modals/ExpendituresMappingModal'
-import ExpendituresSettingsModal from '../components/modals/ExpendituresSettingsModal'
 import ExpendituresCharts from '../components/ExpendituresCharts'
 import ExpendituresAdvancedCharts from '../components/ExpendituresAdvancedCharts'
 import ExpendituresTable from '../components/ExpendituresTable'
-import DateRangeSelector from '../components/DateRangeSelector'
+import DateRangeSelector, { QuickDateButtons } from '../components/DateRangeSelector'
 import { generateAIInsights } from '../utils/aiInsights'
 
 const Expenditures = () => {
@@ -32,7 +31,6 @@ const Expenditures = () => {
   const [loading, setLoading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [showMappingModal, setShowMappingModal] = useState(false)
-  const [showSettingsModal, setShowSettingsModal] = useState(false)
   
   // Chart sizes from localStorage - ACTUALIZARE LIVE!
   const [chartSizes, setChartSizes] = useState(() => {
@@ -583,7 +581,7 @@ const Expenditures = () => {
           
           <div className="flex space-x-3">
             <button
-              onClick={() => setShowSettingsModal(true)}
+              onClick={() => navigate('/expenditures/settings')}
               className="btn-secondary flex items-center space-x-2"
             >
               <Settings className="w-4 h-4" />
@@ -596,6 +594,14 @@ const Expenditures = () => {
             >
               <MapPin className="w-4 h-4" />
               <span>Mapping Locații</span>
+            </button>
+
+            <button
+              onClick={() => navigate('/expenditures/sql-table')}
+              className="btn-secondary flex items-center space-x-2"
+            >
+              <Table2 className="w-4 h-4" />
+              <span>Tabel SQL</span>
             </button>
             
             <button
@@ -643,21 +649,30 @@ const Expenditures = () => {
         
         {/* Filters - MUTAT ÎN VÂRFUL PAGINII! */}
         <div className="card p-4">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center">
-              <Filter className="w-4 h-4 mr-2 text-blue-500" />
-              Filtre
-            </h2>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-4">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center">
+                <Filter className="w-4 h-4 mr-2 text-blue-500" />
+                Filtre
+              </h2>
+              {/* Butoane Rapide Perioadă */}
+              <QuickDateButtons 
+                onChange={(newRange) => {
+                  setDateRange(newRange)
+                  setSelectedDateFilter('custom')
+                }}
+              />
+            </div>
             <div className="text-xs text-slate-500 dark:text-slate-400">
               💾 Auto-save
             </div>
           </div>
           
           <div className="space-y-3">
-              {/* Filters Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Date Range Selector */}
-              <div className="space-y-1">
+              {/* Filters Grid - 4 coloane: Perioada, Departament, Tip */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              {/* Date Range Selector - mai îngust */}
+              <div className="space-y-1 md:col-span-2">
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   📅 Perioadă
                 </label>
@@ -671,7 +686,7 @@ const Expenditures = () => {
                 />
               </div>
               
-              {/* Department Filter */}
+              {/* Department Filter - îngust */}
               <div className="space-y-1">
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                   <Briefcase className="w-3 h-3 inline mr-1" />
@@ -682,14 +697,14 @@ const Expenditures = () => {
                   onChange={(e) => setDepartmentFilter(e.target.value)}
                   className="input-field"
                 >
-                  <option value="all">Toate Departamentele</option>
+                  <option value="all">Toate</option>
                   {uniqueDepartments.map(dept => (
                     <option key={dept} value={dept}>{dept}</option>
                   ))}
                 </select>
               </div>
               
-              {/* Expenditure Type Filter */}
+              {/* Expenditure Type Filter - îngust */}
               <div className="space-y-1">
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                   <Filter className="w-3 h-3 inline mr-1" />
@@ -700,7 +715,7 @@ const Expenditures = () => {
                   onChange={(e) => setExpenditureTypeFilter(e.target.value)}
                   className="input-field"
                 >
-                  <option value="all">Toate Tipurile</option>
+                  <option value="all">Toate</option>
                   {uniqueExpenditureTypes.map(type => (
                     <option key={type} value={type}>{type}</option>
                   ))}
@@ -893,7 +908,7 @@ const Expenditures = () => {
               )}
             </div>
             <button
-              onClick={() => setShowSettingsModal(true)}
+              onClick={() => navigate('/expenditures/settings')}
               className="text-blue-600 dark:text-blue-400 hover:underline font-semibold"
             >
               Configurare Setări
@@ -915,17 +930,6 @@ const Expenditures = () => {
         />
       )}
       
-      {/* Settings Modal */}
-      {showSettingsModal && (
-        <ExpendituresSettingsModal
-          onClose={() => setShowSettingsModal(false)}
-          onSave={() => {
-            setShowSettingsModal(false)
-            loadSettings()
-            toast.success('Setări actualizate! Sincronizează din nou pentru a aplica.')
-          }}
-        />
-      )}
     </Layout>
   )
 }

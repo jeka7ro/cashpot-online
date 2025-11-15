@@ -3,14 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
-import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp, TrendingDown, Table2, MapPin, ArrowLeft, Coins, Database, Cloud } from 'lucide-react'
+import { DollarSign, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, TrendingUp, TrendingDown, Table2, ArrowLeft, Coins, Brain, Briefcase, BarChart3, RefreshCw } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
-import ExpendituresMappingModal from '../components/modals/ExpendituresMappingModal'
-import ExpendituresSettingsModal from '../components/modals/ExpendituresSettingsModal'
-import PowerBIConfigModal from '../components/modals/PowerBIConfigModal'
-import PowerBISyncModal from '../components/modals/PowerBISyncModal'
 import ExpendituresCharts from '../components/ExpendituresCharts'
 import ExpendituresTableSimple from '../components/ExpendituresTableSimple'
 import DateRangeSelector from '../components/DateRangeSelector'
@@ -33,10 +29,6 @@ const ExpendituresPOS = () => {
   const [expendituresData, setExpendituresData] = useState([])
   const [loading, setLoading] = useState(false)
   const [syncing, setSyncing] = useState(false)
-  const [showMappingModal, setShowMappingModal] = useState(false)
-  const [showSettingsModal, setShowSettingsModal] = useState(false)
-  const [showPowerBIConfigModal, setShowPowerBIConfigModal] = useState(false)
-  const [showPowerBISyncModal, setShowPowerBISyncModal] = useState(false)
   
   // Sorting pentru tabelul lunar
   const [monthTableSort, setMonthTableSort] = useState({ column: 'month', direction: 'desc' })
@@ -596,64 +588,13 @@ const ExpendituresPOS = () => {
                 Încasări POS și depuneri la bancă din casieriile de locații
             </p>
             </div>
-          </div>
-          
-          <div className="flex space-x-3">
             <button
-              onClick={() => setShowSettingsModal(true)}
-              className="btn-secondary flex items-center space-x-2"
+              onClick={() => navigate('/expenditures/pos-banca/ai-analysis', { state: { expendituresData, dateRange } })}
+              className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg font-semibold transition-all shadow-lg flex items-center space-x-2"
             >
-              <Settings className="w-4 h-4" />
-              <span>Setări</span>
+              <Brain className="w-4 h-4" />
+              <span>🤖 Analiză AI Avansată</span>
             </button>
-            
-            <button
-              onClick={() => setShowMappingModal(true)}
-              className="btn-secondary flex items-center space-x-2"
-            >
-              <MapPin className="w-4 h-4" />
-              <span>Mapping Locații</span>
-            </button>
-            
-            <button
-              onClick={() => setShowPowerBIConfigModal(true)}
-              className="btn-secondary flex items-center space-x-2 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 hover:from-blue-500/20 hover:to-indigo-500/20 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300"
-            >
-              <Database className="w-4 h-4" />
-              <span>🔌 Power BI Config</span>
-            </button>
-            
-            <button
-              onClick={() => setShowPowerBISyncModal(true)}
-              className="btn-secondary flex items-center space-x-2 bg-gradient-to-r from-green-500/10 to-emerald-500/10 hover:from-green-500/20 hover:to-emerald-500/20 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300"
-            >
-              <Cloud className="w-4 h-4" />
-              <span>☁️ Power BI Sync</span>
-            </button>
-            
-            <button
-              onClick={() => navigate('/expenditures/advanced-analytics')}
-              className="btn-secondary flex items-center space-x-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 hover:from-purple-500/20 hover:to-pink-500/20 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300"
-            >
-              <BarChart3 className="w-4 h-4" />
-              <span>📊 Analiză Avansată</span>
-            </button>
-            
-            {aiInsights.length > 0 && (
-              <button
-                onClick={() => navigate('/ai-insights')}
-                className="btn-secondary flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white border-purple-600 dark:border-pink-600 relative"
-                title={`${aiInsights.length} insights • ${aiInsights.filter(i => i.severity === 'error' || i.severity === 'warning').length} alerte`}
-              >
-                <Brain className="w-4 h-4 animate-pulse" />
-                <span>🤖 AI Insights</span>
-                {aiInsights.filter(i => i.severity === 'error' || i.severity === 'warning').length > 0 && (
-                  <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full text-xs font-bold flex items-center justify-center">
-                    {aiInsights.filter(i => i.severity === 'error' || i.severity === 'warning').length}
-                  </span>
-                )}
-              </button>
-            )}
           </div>
         </div>
         
@@ -751,8 +692,8 @@ const ExpendituresPOS = () => {
         {/* ZONA DE EXPORT PDF - FĂRĂ FILTRE! */}
         <div ref={exportRef} className="space-y-6">
         
-        {/* Stats Cards - SUPER COMPACT 3 COLOANE */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        {/* 6 CARDURI ÎN 1 RÂND */}
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
           <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-3 rounded-lg shadow-sm">
             <div className="flex items-center justify-between">
               <div>
@@ -798,11 +739,8 @@ const ExpendituresPOS = () => {
               </div>
             </div>
           </div>
-        </div>
-        
-        {/* 3 CARDURI EVOLUȚIE: General, POS, Bancă - SUPER COMPACT */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-          {/* Card 1: General */}
+          
+          {/* Card 4: Evoluție vs Luna Trecută (General) */}
           <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-orange-900/20 dark:to-amber-900/20 p-3 rounded-lg shadow-sm">
             <div className="flex items-center justify-between">
               <div>
@@ -955,7 +893,7 @@ const ExpendituresPOS = () => {
             </div>
           </div>
           
-          {/* Card 2: POS */}
+          {/* Card 5: Evoluție POS */}
           <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-green-900/20 dark:to-emerald-900/20 p-3 rounded-lg shadow-sm">
             <div className="flex items-center justify-between">
               <div>
@@ -1037,7 +975,7 @@ const ExpendituresPOS = () => {
             </div>
           </div>
           
-          {/* Card 3: Bancă */}
+          {/* Card 6: Evoluție Bancă */}
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-3 rounded-lg shadow-sm">
             <div className="flex items-center justify-between">
               <div>
@@ -1120,8 +1058,8 @@ const ExpendituresPOS = () => {
           </div>
         </div>
         
-        {/* 2 GRAFICE SEPARATE: POS și Bancă */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* 2 GRAFICE SEPARATE: POS și Bancă - FIECARE PE RÂND! */}
+        <div className="space-y-6">
           {/* Grafic 1: Evoluție POS */}
           {filteredExpendituresForCharts.filter(item => item.department_name === 'POS').length > 0 && isChartVisible('evolution') && (
             <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
@@ -1225,7 +1163,7 @@ const ExpendituresPOS = () => {
                       dataKey="value" 
                       position="top" 
                       formatter={(value) => formatCurrency(value)}
-                      style={{ fontSize: '10px', fontWeight: 'bold', fill: '#059669' }}
+                      style={{ fontSize: '10px', fontWeight: 'bold', fill: '#ffffff', textShadow: '0 0 4px rgba(0,0,0,0.8)' }}
                     />
                   </Line>
                 </LineChart>
@@ -1336,7 +1274,7 @@ const ExpendituresPOS = () => {
                       dataKey="value" 
                       position="top" 
                       formatter={(value) => formatCurrency(value)}
-                      style={{ fontSize: '10px', fontWeight: 'bold', fill: '#1e40af' }}
+                      style={{ fontSize: '10px', fontWeight: 'bold', fill: '#ffffff', textShadow: '0 0 4px rgba(0,0,0,0.8)' }}
                     />
                   </Line>
                 </LineChart>
@@ -1473,13 +1411,17 @@ const ExpendituresPOS = () => {
         
         {/* POS & Bancă Table */}
         <div id="pos-banca-table" className="card p-6">
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center">
-            <Table2 className="w-6 h-6 mr-2 text-emerald-500" />
-            Încasări POS & Bancă per Locație
-          </h2>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-            💡 <strong>Click pe departament</strong> pentru a vedea detalii pe luni
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center">
+                <Table2 className="w-6 h-6 mr-2 text-emerald-500" />
+                Încasări POS & Bancă per Locație
+              </h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
+                💡 <strong>Click pe departament</strong> pentru a vedea detalii pe luni
+              </p>
+            </div>
+          </div>
           
           {matrix.length === 0 ? (
             <div className="text-center py-12 text-slate-500 dark:text-slate-400">
@@ -1503,6 +1445,7 @@ const ExpendituresPOS = () => {
         </div>
         </div> {/* ÎNCHIDE div cu ref={exportRef} */}
       </div>
+
     </Layout>
   )
 }

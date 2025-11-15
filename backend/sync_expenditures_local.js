@@ -90,6 +90,7 @@ async function syncExpenditures() {
         d.name as department_name,
         et.name as expenditure_type,
         p.amount,
+        p.explanation,
         p.operational_date
       FROM public.casino_payments p
       LEFT JOIN public.casino_locations l ON p.location_id = l.id
@@ -109,15 +110,41 @@ async function syncExpenditures() {
       process.exit(0)
     }
     
+    const normalizeDate = (value) => {
+      if (!value) return null
+      if (value instanceof Date) {
+        return value.toISOString().split('T')[0]
+      }
+      const date = new Date(value)
+      return Number.isNaN(date.getTime()) ? null : date.toISOString().split('T')[0]
+    }
+    
     // Transform data
     let records = result.rows.map(row => ({
       location_name: row.location_name,
       department_name: row.department_name,
       expenditure_type: row.expenditure_type,
       amount: row.amount,
-      operational_date: row.operational_date,
-      original_location_id: row.location_id
+      description: row.explanation || null,
+      operational_date: normalizeDate(row.operational_date),
+      original_location_id: row.location_id,
+      data_source: 'bat_sync'
     }))
+    
+    const dateStats = records.reduce((acc, record) => {
+      const key = record.operational_date || 'unknown'
+      acc[key] = (acc[key] || 0) + 1
+      return acc
+    }, {})
+    const sortedDates = Object.keys(dateStats).filter(Boolean).sort()
+    const earliestDate = sortedDates[0] || 'N/A'
+    const latestDate = sortedDates[sortedDates.length - 1] || 'N/A'
+    const latestPreview = sortedDates.slice(-5).reverse()
+    console.log(`📅 BAT date range in query: ${earliestDate} → ${latestDate}`)
+    if (latestPreview.length) {
+      console.log('🗓️ Latest BAT dates:')
+      latestPreview.forEach(date => console.log(`   ${date}: ${dateStats[date]} records`))
+    }
     
     // STEP 2: Apply user filter settings (ce a DEBIFAT user-ul se EXCLUDE!)
     const beforeFilterCount = records.length
@@ -144,7 +171,17 @@ async function syncExpenditures() {
       console.log(`🔧 Location filter: ${beforeLocationFilter} → ${records.length} records (excluded ${beforeLocationFilter - records.length})`)
     }
     
+    const filteredStats = records.reduce((acc, record) => {
+      const key = record.operational_date || 'unknown'
+      acc[key] = (acc[key] || 0) + 1
+      return acc
+    }, {})
+    const filteredLatest = Object.keys(filteredStats).filter(Boolean).sort().pop() || 'N/A'
+    const describedCount = records.filter(record => record.description && record.description.trim().length > 0).length
+    
     console.log(`\n✅ After filtering: ${records.length} records (excluded ${beforeFilterCount - records.length} total)`)
+    console.log(`📍 Latest date after filters: ${filteredLatest}`)
+    console.log(`📝 Records with descriptions: ${describedCount}/${records.length}`)
     
     if (records.length === 0) {
       console.log('⚠️ No records left after filtering! Check your settings.')

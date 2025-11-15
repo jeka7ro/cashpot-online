@@ -54,15 +54,19 @@ echo OK: package.json creat!
 echo.
 
 REM Descarcă sync script de pe GitHub
-echo [3/7] Descarcare sync_expenditures_local.js...
-curl -L -o sync_expenditures_local.js "https://raw.githubusercontent.com/jeka7ro/cashpot-online/main/backend/sync_expenditures_local.js"
-if %ERRORLEVEL% NEQ 0 (
-    echo [X] EROARE: Nu am putut descărca fișierul!
-    echo Verifică conexiunea la internet.
-    pause
-    exit /b 1
+if not exist sync_expenditures_local.js (
+    echo [3/7] Descarcare sync_expenditures_local.js...
+    curl -L -o sync_expenditures_local.js "https://raw.githubusercontent.com/jeka7ro/cashpot-online/main/backend/sync_expenditures_local.js"
+    if %ERRORLEVEL% NEQ 0 (
+        echo [X] EROARE: Nu am putut descărca fișierul!
+        echo Verifică conexiunea la internet.
+        pause
+        exit /b 1
+    )
+    echo OK: Fișier descarcat!
+) else (
+    echo [3/7] Folosesc sync_expenditures_local.js existent (nu descarc din nou)
 )
-echo OK: Fișier descarcat!
 echo.
 
 REM Creează .env cu configurația DB
@@ -105,8 +109,9 @@ echo ========================================
 echo Data range: 2023-01-01 ^<-^> 2025-12-31
 echo ========================================
 echo.
-node sync_expenditures_local.js
+node sync_expenditures_local.js > "%SYNC_FOLDER%\sync_log.txt" 2>&1
 set SYNC_ERROR=%ERRORLEVEL%
+type "%SYNC_FOLDER%\sync_log.txt"
 echo.
 
 if %SYNC_ERROR% EQU 0 (
@@ -131,7 +136,7 @@ if %SYNC_ERROR% EQU 0 (
 
 echo [7/7] Finalizare...
 echo.
-echo Log salvat în: %SYNC_FOLDER%\ERROR_LOG.txt
+echo Log salvat în: %SYNC_FOLDER%\sync_log.txt
 echo.
 goto :pause
 
@@ -142,19 +147,5 @@ echo EROARE CRITICĂ! Vezi mai sus.
 echo ========================================
 
 :pause
-) > ERROR_LOG.txt 2>&1
-
-REM Afișează log-ul
-cls
-type ERROR_LOG.txt
-
-echo.
-echo ========================================
-echo LOG COMPLET SALVAT ÎN:
-echo %SYNC_FOLDER%\ERROR_LOG.txt
-echo.
-echo Deschide fisierul pentru a vedea detalii!
-echo ========================================
-echo.
 pause
 

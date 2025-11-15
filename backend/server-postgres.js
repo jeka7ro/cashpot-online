@@ -1172,6 +1172,61 @@ const initializeDatabase = async () => {
     } catch (error) {
       console.log('⚠️ Expenditures sync table may already exist:', error.message)
     }
+    
+    // Add data_source column to expenditures_sync (for Google Sheets tracking)
+    try {
+      await pool.query(`
+        ALTER TABLE expenditures_sync 
+        ADD COLUMN IF NOT EXISTS data_source VARCHAR(50) DEFAULT 'bat_sync'
+      `)
+      console.log('✅ Added data_source column to expenditures_sync')
+    } catch (error) {
+      console.log('⚠️ data_source column may already exist:', error.message)
+    }
+    
+    // Add description column to expenditures_sync (for detailed explanations)
+    try {
+      await pool.query(`
+        ALTER TABLE expenditures_sync 
+        ADD COLUMN IF NOT EXISTS description TEXT
+      `)
+      console.log('✅ Added description column to expenditures_sync')
+    } catch (error) {
+      console.log('⚠️ description column may already exist:', error.message)
+    }
+
+    // Add created_by column to expenditures_sync (track user)
+    try {
+      await pool.query(`
+        ALTER TABLE expenditures_sync 
+        ADD COLUMN IF NOT EXISTS created_by INTEGER
+      `)
+      console.log('✅ Added created_by column to expenditures_sync')
+    } catch (error) {
+      console.log('⚠️ created_by column may already exist:', error.message)
+    }
+
+    // Add updated_by column to expenditures_sync (track edits)
+    try {
+      await pool.query(`
+        ALTER TABLE expenditures_sync 
+        ADD COLUMN IF NOT EXISTS updated_by INTEGER
+      `)
+      console.log('✅ Added updated_by column to expenditures_sync')
+    } catch (error) {
+      console.log('⚠️ updated_by column may already exist:', error.message)
+    }
+
+    // Add updated_at column to expenditures_sync (timestamp for edits)
+    try {
+      await pool.query(`
+        ALTER TABLE expenditures_sync 
+        ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      `)
+      console.log('✅ Added updated_at column to expenditures_sync')
+    } catch (error) {
+      console.log('⚠️ updated_at column may already exist:', error.message)
+    }
 
     // Expenditure location mapping table
     try {
@@ -1257,7 +1312,7 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'X-Keep-Alive', 'x-keep-alive'],
   exposedHeaders: ['Content-Length', 'X-Request-Id'],
   maxAge: 86400, // 24 hours
   optionsSuccessStatus: 200
@@ -3161,6 +3216,18 @@ app.get('/api/contracts', async (req, res) => {
   }
 })
 
+const normalizeNumber = (value) => {
+  if (value === undefined || value === null) return null
+  if (value === '') return null
+  const num = Number(value)
+  return Number.isFinite(num) ? num : null
+}
+
+const normalizeDate = (value) => {
+  if (!value || value === '') return null
+  return value
+}
+
 app.post('/api/contracts', async (req, res) => {
   try {
     const { 
@@ -3182,6 +3249,12 @@ app.post('/api/contracts', async (req, res) => {
       annexes
     } = req.body
     
+    const cleanMonthlyRent = normalizeNumber(monthly_rent)
+    const cleanDeposit = normalizeNumber(deposit)
+    const cleanSurface = normalizeNumber(surface_area)
+    const cleanStartDate = normalizeDate(start_date)
+    const cleanEndDate = normalizeDate(end_date)
+
     const result = await pool.query(`
       INSERT INTO contracts (
         contract_number, title, location_id, proprietar_id, 
@@ -3191,8 +3264,8 @@ app.post('/api/contracts', async (req, res) => {
       RETURNING *
     `, [
       contract_number, title, location_id, proprietar_id,
-      type, status, start_date, end_date, monthly_rent, currency, deposit, payment_terms, description,
-      surface_area || null,
+      type, status, cleanStartDate, cleanEndDate, cleanMonthlyRent, currency || 'RON', cleanDeposit, payment_terms, description,
+      cleanSurface,
       contractFile || null,
       JSON.stringify(annexes || [])
     ])
@@ -3226,6 +3299,12 @@ app.put('/api/contracts/:id', async (req, res) => {
       annexes
     } = req.body
 
+    const cleanMonthlyRent = normalizeNumber(monthly_rent)
+    const cleanDeposit = normalizeNumber(deposit)
+    const cleanSurface = normalizeNumber(surface_area)
+    const cleanStartDate = normalizeDate(start_date)
+    const cleanEndDate = normalizeDate(end_date)
+
     const result = await pool.query(`
       UPDATE contracts SET 
         contract_number = $1, 
@@ -3249,8 +3328,8 @@ app.put('/api/contracts/:id', async (req, res) => {
       RETURNING *
     `, [
       contract_number, title, location_id, proprietar_id,
-      type, status, start_date, end_date, monthly_rent, currency, deposit, payment_terms, description,
-      surface_area || null,
+      type, status, cleanStartDate, cleanEndDate, cleanMonthlyRent, currency || 'RON', cleanDeposit, payment_terms, description,
+      cleanSurface,
       contractFile || null,
       JSON.stringify(annexes || []),
       id

@@ -48,7 +48,10 @@ import ONJNCompanyDetail from './pages/ONJNCompanyDetail'
 import LegalDocuments from './pages/LegalDocuments'
 import UsersPage from './pages/Users'
 import Expenditures from './pages/Expenditures'
+import ExpendituresSettings from './pages/ExpendituresSettings'
 import ExpendituresPOS from './pages/ExpendituresPOS'
+import ExpendituresSQLTable from './pages/ExpendituresSQLTable'
+import POSBancaAIAnalysis from './pages/POSBancaAIAnalysis'
 import AdvancedAnalytics from './pages/AdvancedAnalytics'
 import AIInsights from './pages/AIInsights'
 import Settings from './pages/Settings'
@@ -112,8 +115,11 @@ function App() {
             <Route path="/onjn-operators/brand/:brandName" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNBrandDetails /></RoleProtectedRoute>} />
             <Route path="/legal-documents" element={<RoleProtectedRoute module={MODULES.LEGAL}><LegalDocuments /></RoleProtectedRoute>} />
             <Route path="/expenditures" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><Expenditures /></RoleProtectedRoute>} />
+            <Route path="/expenditures/settings" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><ExpendituresSettings /></RoleProtectedRoute>} />
             <Route path="/expenditures/pos-banca" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><ExpendituresPOS /></RoleProtectedRoute>} />
+            <Route path="/expenditures/pos-banca/ai-analysis" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><POSBancaAIAnalysis /></RoleProtectedRoute>} />
             <Route path="/expenditures/advanced-analytics" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><AdvancedAnalytics /></RoleProtectedRoute>} />
+            <Route path="/expenditures/sql-table" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><ExpendituresSQLTable /></RoleProtectedRoute>} />
             <Route path="/ai-insights" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><AIInsights /></RoleProtectedRoute>} />
             <Route path="/marketing" element={<RoleProtectedRoute module={MODULES.MARKETING}><Marketing /></RoleProtectedRoute>} />
             <Route path="/marketing-ai" element={<RoleProtectedRoute module={MODULES.MARKETING}><MarketingAI /></RoleProtectedRoute>} />

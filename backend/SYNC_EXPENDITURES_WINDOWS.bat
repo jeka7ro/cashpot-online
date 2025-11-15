@@ -1,4 +1,7 @@
 @echo off
+REM Asigură-te că rulăm din folderul backend (unde e package.json)
+cd /d "%~dp0"
+echo ========================================
 echo ========================================
 echo CASHPOT - Sincronizare Cheltuieli
 echo ========================================

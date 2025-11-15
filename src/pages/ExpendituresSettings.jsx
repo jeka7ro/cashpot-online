@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { X, Save, Filter, RefreshCw, Eye, EyeOff, CheckSquare, Square, Cloud, Download, MapPin, Database } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import Layout from '../components/Layout'
+import { X, Save, Filter, RefreshCw, Eye, EyeOff, CheckSquare, Square, Cloud, Download, MapPin, Database, ArrowLeft, Settings, AlertCircle, CheckCircle } from 'lucide-react'
 import axios from 'axios'
 import { toast } from 'react-hot-toast'
 
@@ -32,7 +34,8 @@ const uniqueDeduplicate = (arr) => {
   return unique
 }
 
-const ExpendituresSettingsModal = ({ onClose, onSave }) => {
+const ExpendituresSettings = () => {
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -67,7 +70,10 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
     
     // Date range defaults
     defaultStartDate: new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0],
-    defaultEndDate: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0]
+    defaultEndDate: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0],
+    
+    // Google Sheets URL salvat persistent
+    googleSheetsUrl: ''
   })
   
   const [activeTab, setActiveTab] = useState('departments') // 'departments' PRIMUL! (user vrea departamente prima)
@@ -86,9 +92,29 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
   const [previewData, setPreviewData] = useState(null) // Preview data before import
   const [loadingPreview, setLoadingPreview] = useState(false)
   
+  // Reset loading state dacă rămâne blocat
+  useEffect(() => {
+    if (loadingPreview) {
+      const timeout = setTimeout(() => {
+        console.warn('⚠️ Preview timeout - resetez loading state')
+        setLoadingPreview(false)
+        toast.error('⏱️ Timeout! Sheet-ul e prea mare sau serverul nu răspunde. Încearcă din nou.', { id: 'preview', duration: 7000 })
+      }, 305000) // 305 secunde (mai mult decât axios timeout de 300s)
+      
+      return () => clearTimeout(timeout)
+    }
+  }, [loadingPreview])
+  
   useEffect(() => {
     loadData()
   }, [])
+  
+  // Sincronizează Google Sheets URL cu settings când se încarcă
+  useEffect(() => {
+    if (settings.googleSheetsUrl) {
+      setGoogleSheetsSettings(prev => ({ ...prev, sheetUrl: settings.googleSheetsUrl }))
+    }
+  }, [settings.googleSheetsUrl])
   
   // Load Google Sheets status when tab is opened
   useEffect(() => {
@@ -103,6 +129,12 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
       setGoogleSheetsStatus(response.data)
     } catch (error) {
       console.error('Error loading Google Sheets status:', error)
+      // Nu blocăm pagina - setăm un status default
+      setGoogleSheetsStatus({ 
+        success: true, 
+        hasData: false,
+        stats: { totalRecords: 0, earliestDate: null, latestDate: null, totalAmount: 0 }
+      })
     }
   }
   
@@ -183,13 +215,18 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
           : locsRes.data.map(l => l.name) // Default: toate bifate
       })
       
-      console.log('✅ Loaded settings with arrays:', {
-        departments: loadedSettings.includedDepartments,
-        types: loadedSettings.includedExpenditureTypes,
-        locations: loadedSettings.includedLocations
-      })
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+      console.log('📥 FRONTEND LOAD - Primit de la backend:')
+      console.log('   Departments:', loadedSettings.includedDepartments?.length, 'items')
+      console.log('   Types:', loadedSettings.includedExpenditureTypes?.length, 'items')
+      console.log('   Locations:', loadedSettings.includedLocations?.length, 'items')
+      console.log('   Google Sheets URL:', loadedSettings.googleSheetsUrl ? 'YES' : 'NO')
+      console.log('   First 3 types:', loadedSettings.includedExpenditureTypes?.slice(0, 3))
+      console.log('   First 3 departments:', loadedSettings.includedDepartments?.slice(0, 3))
       
-      console.log('✅ Loaded expenditures settings:', loadedSettings)
+      console.log('🎯 FRONTEND - Setare în state:')
+      console.log('   Settings object:', loadedSettings)
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
     } catch (error) {
       console.error('Error loading settings:', error)
       toast.error('Eroare la încărcarea setărilor')
@@ -276,26 +313,26 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
         includedLocations: uniqueDeduplicate(settings.includedLocations || [])
       }
       
-      console.log('💾 SALVARE SETĂRI - ÎNAINTE de cleanup:', {
-        types: settings.includedExpenditureTypes?.length,
-        departments: settings.includedDepartments?.length,
-        locations: settings.includedLocations?.length
-      })
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+      console.log('💾 FRONTEND SALVARE - ÎNAINTE de cleanup:')
+      console.log('   Types:', settings.includedExpenditureTypes?.length)
+      console.log('   Departments:', settings.includedDepartments?.length)
+      console.log('   Locations:', settings.includedLocations?.length)
+      console.log('   First 3 types:', settings.includedExpenditureTypes?.slice(0, 3))
       
-      console.log('🧹 DUPĂ cleanup (duplicates removed):', {
-        types: cleanedSettings.includedExpenditureTypes?.length,
-        departments: cleanedSettings.includedDepartments?.length,
-        locations: cleanedSettings.includedLocations?.length
-      })
+      console.log('🧹 FRONTEND - DUPĂ cleanup (duplicates removed):')
+      console.log('   Types:', cleanedSettings.includedExpenditureTypes?.length)
+      console.log('   Departments:', cleanedSettings.includedDepartments?.length)
+      console.log('   Locations:', cleanedSettings.includedLocations?.length)
+      console.log('   First 3 types cleaned:', cleanedSettings.includedExpenditureTypes?.slice(0, 3))
       
-      console.log('💾 SALVARE SETĂRI - Ce trimit la backend:', {
-        includedDepartments: cleanedSettings.includedDepartments,
-        includedExpenditureTypes: cleanedSettings.includedExpenditureTypes,
-        includedLocations: cleanedSettings.includedLocations,
+      console.log('📤 FRONTEND - Trimit la backend:', {
         departmentsCount: cleanedSettings.includedDepartments?.length,
         typesCount: cleanedSettings.includedExpenditureTypes?.length,
-        locationsCount: cleanedSettings.includedLocations?.length
+        locationsCount: cleanedSettings.includedLocations?.length,
+        googleSheetsUrl: cleanedSettings.googleSheetsUrl
       })
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
       
       // SALVARE PE SERVER (în users.preferences - per USER!)
       const response = await axios.put('/api/expenditures/settings', { settings: cleanedSettings })
@@ -309,8 +346,6 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
       
       // RELOAD settings pentru a verifica persistența
       await loadData()
-      
-      onSave()
     } catch (error) {
       console.error('Error saving settings:', error)
       
@@ -336,7 +371,6 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
         
         // RELOAD settings pentru a verifica persistența
         await loadData()
-        onSave()
       } else {
         toast.error('Eroare la salvarea setărilor: ' + (error.response?.data?.error || error.message))
       }
@@ -373,40 +407,49 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
   
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-        <div className="bg-white dark:bg-slate-800 rounded-2xl p-8 max-w-4xl w-full mx-4">
-          <div className="text-center">
+      <Layout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="card p-8 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-slate-600 dark:text-slate-400">Se încarcă setările...</p>
           </div>
         </div>
-      </div>
+      </Layout>
     )
   }
   
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+    <Layout>
+      <div className="space-y-6">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Filter className="w-6 h-6 text-white" />
-            <div>
-              <h2 className="text-2xl font-bold text-white">Setări Filtrare Cheltuieli</h2>
-              <p className="text-blue-100 text-sm mt-1">Configurează ce date să fie importate și calculate</p>
+        <div className="card p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => navigate('/expenditures')}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div className="flex items-center space-x-3">
+                <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl shadow-lg">
+                  <Settings className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Setări Cheltuieli</h1>
+                  <p className="text-slate-600 dark:text-slate-400 mt-1">Configurează filtrare, sincronizare și integrări</p>
+                </div>
+              </div>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
         </div>
         
+        {/* Main Card - Full Width */}
+        <div className="card overflow-hidden">
+        
         {/* Tabs */}
-        <div className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 px-6">
-          <div className="flex space-x-1">
+        <div className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 px-6 py-2">
+          <div className="flex space-x-1 overflow-x-auto">
             {[
               { id: 'departments', label: 'Departamente', count: departments.length }, // PRIMUL! (user vrea asta)
               { id: 'types', label: 'Tipuri Cheltuieli', count: expenditureTypes.length },
@@ -439,7 +482,7 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
         </div>
         
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-280px)]">
+        <div className="p-6">
           {/* Types Tab */}
           {activeTab === 'types' && (
             <div className="space-y-4">
@@ -489,7 +532,7 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                     </span>
                   )}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-96 overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[600px] overflow-y-auto">
                   {expenditureTypes.map(type => {
                     const isNew = newItems.types.includes(type.name)
                     return (
@@ -578,7 +621,7 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                     </span>
                   )}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-96 overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[600px] overflow-y-auto">
                   {departments.map(dept => {
                     const isNew = newItems.departments.includes(dept.name)
                     return (
@@ -662,7 +705,7 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                 <div className="text-sm text-slate-600 dark:text-slate-400 mb-3">
                   <strong>{settings.includedLocations.length}</strong> / <strong>{locations.length}</strong> locații selectate
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-96 overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[600px] overflow-y-auto">
                   {locations.map(loc => {
                     const isNew = newItems.locations.includes(loc.name)
                     return (
@@ -863,43 +906,36 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                 </div>
               )}
               
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-6 border-2 border-green-200 dark:border-green-800">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-3 flex items-center">
-                  <Cloud className="w-6 h-6 mr-2 text-green-600" />
-                  ☁️ Import din Google Sheets (Date Vechi 2023-2025)
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
+                <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center">
+                  <Cloud className="w-6 h-6 mr-2 text-blue-500" />
+                  Import Google Sheets
                 </h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+                  Importă date istorice (2023-2025) fără conflict cu sincronizarea BAT
+                </p>
                 
-                <div className="bg-white dark:bg-slate-800 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">
-                    <strong>✅ AVANTAJE:</strong> Importă date istorice din Google Sheets fără să afectezi sincronizarea BAT actuală!
-                  </p>
-                  <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1 list-disc list-inside">
-                    <li>📊 Import date 2023-2024-2025</li>
-                    <li>🔄 Verificare automată duplicate</li>
-                    <li>⚡ 0 conflict cu BAT sync</li>
-                    <li>🎯 Marcare sursă automată</li>
-                  </ul>
-                </div>
-                
-                {/* URL Input */}
-                <div className="mb-4">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                    URL Google Sheet:
+                {/* URL Input - macOS Clean */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">
+                    URL Google Sheet
                   </label>
                   <input
                     type="url"
                     value={googleSheetsSettings.sheetUrl}
-                    onChange={(e) => setGoogleSheetsSettings(prev => ({ ...prev, sheetUrl: e.target.value }))}
-                    placeholder="https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit..."
-                    className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                    onChange={(e) => {
+                      setGoogleSheetsSettings(prev => ({ ...prev, sheetUrl: e.target.value }))
+                      setSettings(prev => ({ ...prev, googleSheetsUrl: e.target.value }))
+                    }}
+                    placeholder="https://docs.google.com/spreadsheets/d/..."
+                    className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors"
                   />
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                    💡 Sheet-ul trebuie să fie <strong>public (View only)</strong> sau partajat cu linkul.
+                    Sheet-ul trebuie să fie public. URL-ul se salvează prin "Salvează Setări" din footer.
                   </p>
                 </div>
                 
-                {/* Import Button */}
-                {/* PREVIEW BUTTON - STEP 1 */}
+                {/* PREVIEW BUTTON - macOS Clean Style */}
                 <button
                   onClick={async () => {
                     if (!googleSheetsSettings.sheetUrl) {
@@ -907,110 +943,226 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                       return
                     }
                     
+                    console.log('🔍 USER CLICKED: PREVIEW (Nu importă încă!)')
                     setLoadingPreview(true)
                     setPreviewData(null)
+                    setImportingGoogleSheets(false) // Reset import state
+                    setImportProgress(null) // Reset import progress
                     
                     try {
-                      toast.loading('👀 Analizez TOATE datele... (poate dura 30-60 sec)', { id: 'preview' })
+                      console.log('🚀 START PREVIEW - URL:', googleSheetsSettings.sheetUrl)
+                      toast.loading('🔄 STEP 1/3: Se conectează la Google Sheets...', { id: 'preview' })
                       
+                      const startTime = Date.now()
                       const response = await axios.post('/api/expenditures/preview-google-sheets', {
                         sheetUrl: googleSheetsSettings.sheetUrl
+                      }, {
+                        timeout: 300000, // 5 minute timeout pentru sheet-uri mari
+                        onUploadProgress: () => {
+                          toast.loading('📤 STEP 2/3: Se trimite request...', { id: 'preview' })
+                        },
+                        onDownloadProgress: () => {
+                          toast.loading('📥 STEP 3/3: Se procesează datele...', { id: 'preview' })
+                        }
                       })
                       
+                      const duration = ((Date.now() - startTime) / 1000).toFixed(1)
+                      console.log(`✅ PREVIEW COMPLETE in ${duration}s:`, response.data)
                       setPreviewData(response.data)
                       
-                      toast.success(
-                        `✅ Analiză completă!\n🆕 ${response.data.newCount} date NOI\n⏭️ ${response.data.duplicateCount} duplicate`,
-                        { id: 'preview', duration: 5000 }
-                      )
+                      const message = response.data.wasLimited 
+                        ? `✅ Analiză rapidă în ${duration}s!\n${response.data.message}\n🆕 ~${response.data.newCount} date NOI (estimare)\n⏭️ ~${response.data.duplicateCount} duplicate (estimare)`
+                        : `✅ Analiză completă în ${duration}s!\n🆕 ${response.data.newCount} date NOI\n⏭️ ${response.data.duplicateCount} duplicate`
+                      
+                      toast.success(message, { id: 'preview', duration: 6000 })
                       
                     } catch (error) {
-                      console.error('Preview error:', error)
-                      toast.error(
-                        `❌ Eroare: ${error.response?.data?.error || error.message}`,
-                        { id: 'preview', duration: 5000 }
-                      )
+                      console.error('❌ PREVIEW ERROR FULL:', {
+                        message: error.message,
+                        response: error.response?.data,
+                        status: error.response?.status,
+                        stack: error.stack
+                      })
+                      
+                      if (error.code === 'ECONNABORTED') {
+                        toast.error('⏱️ Timeout! Sheet-ul e prea mare sau serverul nu răspunde.', { id: 'preview', duration: 5000 })
+                      } else if (error.response?.status === 500) {
+                        toast.error(`❌ Eroare server: ${error.response?.data?.error || 'Verifică logurile backend!'}`, { id: 'preview', duration: 5000 })
+                      } else {
+                        toast.error(`❌ Eroare: ${error.response?.data?.error || error.message}`, { id: 'preview', duration: 5000 })
+                      }
                     } finally {
                       setLoadingPreview(false)
                     }
                   }}
                   disabled={loadingPreview || !googleSheetsSettings.sheetUrl}
-                  className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all shadow-lg flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-lg mb-6"
+                  className="w-full px-6 py-3.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl transition-colors shadow-sm flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-base"
                 >
                   <Eye className="w-5 h-5" />
-                  <span>{loadingPreview ? 'Analizez...' : '👀 PREVIEW Date (fără import)'}</span>
+                  <span>{loadingPreview ? 'Se analizează...' : 'Analizează datele'}</span>
                 </button>
                 
-                {/* PREVIEW RESULTS TABLE */}
-                {previewData && (
-                  <div className="mb-6 p-6 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl border-2 border-blue-300 dark:border-blue-700">
-                    <h4 className="text-lg font-bold text-blue-900 dark:text-blue-200 mb-4 flex items-center">
-                      📊 Rezultate Analiză Completă ({previewData.totalRows} rânduri verificate)
-                    </h4>
+                {/* LOADING - macOS Clean Style */}
+                {loadingPreview && (
+                  <div className="mb-6 p-8 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <div className="text-center">
+                      <div className="inline-block mb-4">
+                        <div className="w-12 h-12 border-4 border-slate-200 dark:border-slate-700 border-t-blue-500 rounded-full animate-spin"></div>
+                      </div>
+                      <p className="text-base font-medium text-slate-900 dark:text-slate-100 mb-1">
+                        Se analizează datele
+                      </p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        Poate dura până la 2 minute
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* PREVIEW RESULTS - macOS Clean Style */}
+                {previewData && !importingGoogleSheets && (
+                  <div className="mb-6 p-8 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <div className="text-center mb-8">
+                      <div className="inline-block w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mb-4">
+                        <Eye className="w-10 h-10 text-white" />
+                      </div>
+                      <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                        Analiză completă
+                      </h3>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {previewData.message || `${previewData.checkedRows} rânduri verificate`}
+                      </p>
+                    </div>
                     
                     <div className="grid grid-cols-3 gap-4 mb-6">
-                      <div className="p-4 bg-green-100 dark:bg-green-900/30 rounded-lg text-center">
-                        <p className="text-3xl font-bold text-green-700 dark:text-green-300">{previewData.newCount}</p>
-                        <p className="text-sm text-green-600 dark:text-green-400">🆕 Date NOI</p>
+                      <div className="text-center p-4">
+                        <p className="text-4xl font-light text-green-500 mb-1">{previewData.newCount.toLocaleString('ro-RO')}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Date noi</p>
                       </div>
-                      <div className="p-4 bg-gray-100 dark:bg-gray-900/30 rounded-lg text-center">
-                        <p className="text-3xl font-bold text-gray-700 dark:text-gray-300">{previewData.duplicateCount}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">⏭️ Duplicate</p>
+                      <div className="text-center p-4">
+                        <p className="text-4xl font-light text-slate-400 dark:text-slate-500 mb-1">{previewData.duplicateCount.toLocaleString('ro-RO')}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Duplicate</p>
                       </div>
-                      <div className="p-4 bg-red-100 dark:bg-red-900/30 rounded-lg text-center">
-                        <p className="text-3xl font-bold text-red-700 dark:text-red-300">{previewData.errorCount}</p>
-                        <p className="text-sm text-red-600 dark:text-red-400">❌ Erori</p>
+                      <div className="text-center p-4">
+                        <p className="text-4xl font-light text-red-500 mb-1">{previewData.errorCount}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Erori</p>
                       </div>
                     </div>
                     
-                    {previewData.newCount > 0 && (
-                      <div>
-                        <h5 className="font-bold text-green-800 dark:text-green-300 mb-2">
-                          🆕 Sample Date NOI (total {previewData.newCount} vor fi importate):
+                    {previewData.newCount > 0 && previewData.newRows && previewData.newRows.length > 0 && (
+                      <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+                        <h5 className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-3 uppercase tracking-wide">
+                          Previzualizare date
                         </h5>
-                        <div className="overflow-x-auto max-h-60">
+                        <div className="overflow-x-auto max-h-60 border border-slate-200 dark:border-slate-700 rounded-lg">
                           <table className="w-full text-sm">
-                            <thead className="bg-green-200 dark:bg-green-900 sticky top-0">
-                              <tr>
-                                <th className="p-2 text-left">Data</th>
-                                <th className="p-2 text-right">Sumă (RON)</th>
-                                <th className="p-2 text-left">Locație</th>
-                                <th className="p-2 text-left">Departament</th>
+                            <thead className="bg-slate-50 dark:bg-slate-900/50 sticky top-0">
+                              <tr className="border-b border-slate-200 dark:border-slate-700">
+                                <th className="px-4 py-2 text-left font-medium text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wide">Data</th>
+                                <th className="px-4 py-2 text-right font-medium text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wide">Sumă</th>
+                                <th className="px-4 py-2 text-left font-medium text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wide">Locație</th>
+                                <th className="px-4 py-2 text-left font-medium text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wide">Departament</th>
                               </tr>
                             </thead>
-                            <tbody className="bg-white dark:bg-slate-800">
+                            <tbody>
                               {previewData.newRows.map((row, idx) => (
-                                <tr key={idx} className="border-b dark:border-slate-700">
-                                  <td className="p-2">{row.date}</td>
-                                  <td className="p-2 text-right font-bold">{row.amount.toFixed(2)}</td>
-                                  <td className="p-2">{row.location}</td>
-                                  <td className="p-2">{row.department}</td>
+                                <tr key={idx} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/30">
+                                  <td className="px-4 py-2.5 text-slate-700 dark:text-slate-300">{row.date}</td>
+                                  <td className="px-4 py-2.5 text-right font-mono text-slate-900 dark:text-slate-100">{row.amount.toFixed(2)}</td>
+                                  <td className="px-4 py-2.5 text-slate-700 dark:text-slate-300">{row.location}</td>
+                                  <td className="px-4 py-2.5 text-slate-700 dark:text-slate-300">{row.department}</td>
                                 </tr>
                               ))}
                             </tbody>
                           </table>
                         </div>
                         {previewData.newCount > previewData.newRows.length && (
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 font-bold">
-                            ... și încă {previewData.newCount - previewData.newRows.length} rânduri noi (afișez sample de {previewData.newRows.length})
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-3 text-center">
+                            +{(previewData.newCount - previewData.newRows.length).toLocaleString('ro-RO')} înregistrări suplimentare
                           </p>
                         )}
                       </div>
                     )}
                     
                     {previewData.newCount === 0 && (
-                      <div className="p-4 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg text-center">
-                        <p className="font-bold text-yellow-800 dark:text-yellow-300">⚠️ TOATE datele există deja în baza de date!</p>
-                        <p className="text-sm text-yellow-700 dark:text-yellow-400 mt-2">
-                          Dacă ești sigur că datele lipsesc, bifează "FORCE IMPORT" mai jos și apasă "Import cu FORȚĂ".
+                      <div className="p-6 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
+                        <p className="text-base font-medium text-slate-700 dark:text-slate-300 mb-2">
+                          Toate datele există deja în baza de date
+                        </p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                          Verifică perioada sau folosește import forțat
                         </p>
                       </div>
                     )}
+                    
                   </div>
                 )}
                 
+                {/* BUTON IMPORT - macOS Clean Style */}
+                {previewData && previewData.newCount > 0 && !importingGoogleSheets && (
+                  <button
+                    onClick={async () => {
+                      if (!googleSheetsSettings.sheetUrl) {
+                        toast.error('Introdu URL-ul Google Sheet!')
+                        return
+                      }
+                      
+                      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+                      console.log('💾 USER CLICKED: IMPORT (SALVARE EFECTIVĂ ÎN DB!)')
+                      console.log('   Rows to import:', previewData.newCount)
+                      console.log('   URL:', googleSheetsSettings.sheetUrl)
+                      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+                      
+                      setImportingGoogleSheets(true)
+                      setImportProgress(null)
+                      
+                      try {
+                        toast.loading('Se importă datele...', { id: 'import' })
+                        console.log('📤 TRIMITEM REQUEST LA BACKEND: POST /api/expenditures/import-google-sheets')
+                        
+                        const startTime = Date.now()
+                        const response = await axios.post('/api/expenditures/import-google-sheets', {
+                          sheetUrl: googleSheetsSettings.sheetUrl,
+                          force: forceImport
+                        }, {
+                          timeout: 300000 // 5 minute
+                        })
+                        
+                        const duration = ((Date.now() - startTime) / 1000).toFixed(1)
+                        console.log(`✅ RĂSPUNS PRIMIT de la backend în ${duration}s:`, response.data)
+                        
+                        setImportProgress(response.data)
+                        
+                        toast.success(
+                          `Import complet în ${duration}s: ${response.data.imported} ${response.data.imported === 1 ? 'înregistrare salvată' : 'înregistrări salvate'}`,
+                          { id: 'import', duration: 5000 }
+                        )
+                        
+                        // Refresh status
+                        await loadGoogleSheetsStatus()
+                        
+                        // Reset preview pentru a forța un nou preview dacă vrea să reimporte
+                        setPreviewData(null)
+                        
+                      } catch (error) {
+                        console.error('Import error:', error)
+                        toast.error(
+                          `Eroare: ${error.response?.data?.error || error.message}`,
+                          { id: 'import', duration: 5000 }
+                        )
+                      } finally {
+                        setImportingGoogleSheets(false)
+                      }
+                    }}
+                    className="w-full px-6 py-4 bg-blue-500 hover:bg-blue-600 text-white rounded-xl transition-colors shadow-sm flex items-center justify-center space-x-2 font-medium text-base mb-6"
+                  >
+                    <Download className="w-5 h-5" />
+                    <span>Importă {previewData.newCount.toLocaleString('ro-RO')} {previewData.newCount === 1 ? 'înregistrare' : 'înregistrări'}</span>
+                  </button>
+                )}
+                
                 {/* FORCE IMPORT CHECKBOX - STEP 2 (doar dacă previewData arată 0 noi) */}
-                {previewData && previewData.newCount === 0 && (
+                {previewData && previewData.newCount === 0 && !importingGoogleSheets && (
                   <div className="mb-4 p-4 bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-300 dark:border-orange-700 rounded-lg">
                     <label className="flex items-start space-x-3 cursor-pointer">
                       <input
@@ -1031,127 +1183,99 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                   </div>
                 )}
                 
-                {/* IMPORT BUTTON - STEP 3 (doar dacă avem previewData ȘI (date noi SAU forceImport)) */}
-                {previewData && (previewData.newCount > 0 || forceImport) && (
-                  <button
-                  onClick={async () => {
-                    if (!googleSheetsSettings.sheetUrl) {
-                      toast.error('Introdu URL-ul Google Sheet!')
-                      return
-                    }
-                    
-                    setImportingGoogleSheets(true)
-                    setImportProgress(null)
-                    
-                    try {
-                      toast.loading('🔄 Import în curs...', { id: 'google-sheets-import' })
-                      
-                      const response = await axios.post('/api/expenditures/import-google-sheets', {
-                        sheetUrl: googleSheetsSettings.sheetUrl,
-                        force: forceImport
-                      })
-                      
-                      setImportProgress(response.data)
-                      
-                      toast.success(
-                        `✅ Import finalizat!\n📥 ${response.data.imported} importate\n⏭️ ${response.data.skipped} duplicate\n❌ ${response.data.errors} erori`,
-                        { id: 'google-sheets-import', duration: 5000 }
-                      )
-                      
-                      // Refresh data AND status
-                      await loadData()
-                      await loadGoogleSheetsStatus()
-                      
-                      // Reset preview
-                      setPreviewData(null)
-                      setForceImport(false)
-                      
-                    } catch (error) {
-                      console.error('Google Sheets import error:', error)
-                      toast.error(
-                        `❌ Eroare import: ${error.response?.data?.error || error.message}`,
-                        { id: 'google-sheets-import', duration: 5000 }
-                      )
-                    } finally {
-                      setImportingGoogleSheets(false)
-                    }
-                  }}
-                  disabled={importingGoogleSheets || !googleSheetsSettings.sheetUrl}
-                  className="w-full px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-lg"
-                >
-                  <Download className="w-5 h-5" />
-                  <span>{importingGoogleSheets ? 'Import în curs...' : (forceImport ? '🔥 CONFIRMĂ IMPORT CU FORȚĂ' : '✅ CONFIRMĂ IMPORT DATE NOI')}</span>
-                </button>
-                )}
                 
-                {/* Progress Bar - LIVE IMPORT STATUS */}
+                {/* IMPORT PROGRESS - macOS Style Clean */}
                 {importingGoogleSheets && (
-                  <div className="mt-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-lg p-6 border-2 border-blue-300 dark:border-blue-700 animate-pulse">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="relative">
-                          <div className="w-8 h-8 border-4 border-blue-200 dark:border-blue-800 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin"></div>
+                  <div className="mt-6 mb-6 p-8 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex-1 text-center">
+                        <div className="inline-block mb-6">
+                          <div className="w-16 h-16 border-4 border-slate-200 dark:border-slate-700 border-t-blue-500 rounded-full animate-spin"></div>
                         </div>
-                        <div>
-                          <p className="font-bold text-blue-800 dark:text-blue-300">⏳ Import în curs...</p>
-                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Se procesează datele din Google Sheets</p>
-                        </div>
+                        <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                          Se importă datele
+                        </h3>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                          PostgreSQL Database
+                        </p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm text-blue-700 dark:text-blue-300 font-semibold">Poate dura 30-60 secunde</p>
-                        <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">pentru ~2000+ rânduri</p>
-                      </div>
+                      <button
+                        onClick={() => {
+                          setImportingGoogleSheets(false)
+                          setImportProgress(null)
+                          toast.error('Import anulat', { id: 'import' })
+                          console.log('❌ USER CLICKED: Anulează import')
+                        }}
+                        className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors"
+                      >
+                        Anulează
+                      </button>
                     </div>
                     
-                    {/* Animated Progress Bar */}
-                    <div className="relative h-3 bg-blue-100 dark:bg-blue-900/40 rounded-full overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-500 animate-[shimmer_2s_ease-in-out_infinite] bg-[length:200%_100%]"></div>
-                    </div>
-                    
-                    <div className="mt-4 grid grid-cols-3 gap-3 text-center">
-                      <div className="bg-white dark:bg-slate-800 rounded-lg p-3">
-                        <p className="text-xs text-slate-600 dark:text-slate-400">📥 Descărcare CSV</p>
+                    {/* Clean Progress Bar - macOS style */}
+                    <div className="mb-6">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Import în desfășurare</span>
+                        <span className="text-sm font-mono text-slate-900 dark:text-slate-100">Se procesează...</span>
                       </div>
-                      <div className="bg-white dark:bg-slate-800 rounded-lg p-3">
-                        <p className="text-xs text-slate-600 dark:text-slate-400">🔍 Verificare duplicate</p>
+                      <div className="relative h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div className="absolute inset-0 bg-blue-500 rounded-full transition-all duration-300 ease-out animate-pulse"></div>
                       </div>
-                      <div className="bg-white dark:bg-slate-800 rounded-lg p-3">
-                        <p className="text-xs text-slate-600 dark:text-slate-400">💾 Salvare în DB</p>
-                      </div>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 text-center">
+                        Timp estimat: ~{Math.round((previewData?.newCount || 2000) / 30)} secunde pentru {previewData?.newCount || 0} rânduri
+                      </p>
                     </div>
                   </div>
                 )}
                 
-                {/* Import Results */}
+                {/* IMPORT RESULTS - macOS Clean Style */}
                 {importProgress && !importingGoogleSheets && (
-                  <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
-                    <h4 className="font-bold text-blue-800 dark:text-blue-300 mb-3">📊 Rezultate Import:</h4>
-                    <div className="grid grid-cols-3 gap-4 text-center">
-                      <div className="bg-green-100 dark:bg-green-900/40 rounded-lg p-3">
-                        <p className="text-2xl font-bold text-green-700 dark:text-green-300">{importProgress.imported}</p>
-                        <p className="text-xs text-green-600 dark:text-green-400 mt-1">✅ Importate</p>
+                  <div className="mt-6 mb-6 p-8 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <div className="text-center mb-8">
+                      <div className="inline-block w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mb-4">
+                        <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
                       </div>
-                      <div className="bg-orange-100 dark:bg-orange-900/40 rounded-lg p-3">
-                        <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">{importProgress.skipped}</p>
-                        <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">⏭️ Duplicate (skip)</p>
+                      <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                        Import complet
+                      </h3>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {importProgress.imported} {importProgress.imported === 1 ? 'înregistrare salvată' : 'înregistrări salvate'}
+                      </p>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="text-center p-4">
+                        <p className="text-4xl font-light text-green-500 mb-1">{importProgress.imported}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Salvate</p>
                       </div>
-                      <div className="bg-red-100 dark:bg-red-900/40 rounded-lg p-3">
-                        <p className="text-2xl font-bold text-red-700 dark:text-red-300">{importProgress.errors}</p>
-                        <p className="text-xs text-red-600 dark:text-red-400 mt-1">❌ Erori</p>
+                      <div className="text-center p-4">
+                        <p className="text-4xl font-light text-slate-400 dark:text-slate-500 mb-1">{importProgress.skipped}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Duplicate</p>
                       </div>
+                      <div className="text-center p-4">
+                        <p className="text-4xl font-light text-red-500 mb-1">{importProgress.errors}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Erori</p>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700 text-center">
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        Datele sunt disponibile în <span className="font-semibold text-blue-500">Dashboard → Cheltuieli</span>
+                      </p>
                     </div>
                   </div>
                 )}
                 
-                {/* Info */}
-                <div className="mt-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
-                  <p className="font-bold text-purple-800 dark:text-purple-300 mb-2">ℹ️ Cum funcționează:</p>
-                  <ol className="text-sm text-slate-700 dark:text-slate-300 space-y-1 list-decimal list-inside">
-                    <li>Backend-ul convertește Google Sheet în CSV</li>
-                    <li>Parsează fiecare rând (Date, Sumă, Locație, Departament, Categorie)</li>
-                    <li>Verifică duplicate (dacă toate 5 câmpuri se potrivesc = SKIP)</li>
-                    <li>Inserează în DB cu marcare <code className="bg-purple-100 dark:bg-purple-900/40 px-1 rounded">data_source: 'google_sheets'</code></li>
-                    <li>Dashboard afișează date din AMBELE surse (BAT + Google Sheets)!</li>
+                {/* Info - macOS Style */}
+                <div className="mt-6 p-6 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-3">Proces de import:</p>
+                  <ol className="text-sm text-slate-600 dark:text-slate-400 space-y-2 list-decimal list-inside">
+                    <li>Conversie Google Sheet → CSV</li>
+                    <li>Parsare date (Dată, Sumă, Locație, Departament, Tip)</li>
+                    <li>Verificare duplicate automată</li>
+                    <li>Salvare în PostgreSQL</li>
                   </ol>
                 </div>
               </div>
@@ -1427,10 +1551,10 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
           </div>
           <div className="flex space-x-3">
             <button
-              onClick={onClose}
+              onClick={() => navigate('/expenditures')}
               className="btn-secondary"
             >
-              Anulează
+              Înapoi
             </button>
             <button
               onClick={handleSave}
@@ -1442,10 +1566,11 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
             </button>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </Layout>
   )
 }
 
-export default ExpendituresSettingsModal
+export default ExpendituresSettings
 

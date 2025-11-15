@@ -5,6 +5,167 @@ import { authenticateToken } from '../middleware/auth.js'
 const router = express.Router()
 const { Pool } = pg
 
+const SQL_TABLE_SORT_COLUMNS = {
+  operational_date: 'operational_date',
+  amount: 'amount',
+  location_name: 'location_name',
+  department_name: 'department_name',
+  expenditure_type: 'expenditure_type',
+  data_source: 'data_source',
+  created_at: 'created_at',
+  updated_at: 'updated_at'
+}
+
+const getIncludedFiltersForUser = async (pool, userId) => {
+  const result = {
+    departments: null,
+    types: null,
+    locations: null
+  }
+
+  if (!userId) {
+    return result
+  }
+
+  try {
+    const settingsResult = await pool.query(
+      `
+        SELECT preferences
+        FROM users
+        WHERE id = $1
+      `,
+      [userId]
+    )
+
+    const preferences = settingsResult.rows[0]?.preferences?.expendituresSettings
+    if (preferences) {
+      if (Array.isArray(preferences.includedDepartments)) {
+        result.departments = preferences.includedDepartments.filter(Boolean)
+      }
+      if (Array.isArray(preferences.includedExpenditureTypes)) {
+        result.types = preferences.includedExpenditureTypes.filter(Boolean)
+      }
+      if (Array.isArray(preferences.includedLocations)) {
+        result.locations = preferences.includedLocations.filter(Boolean)
+      }
+    }
+  } catch (error) {
+    console.error('Error loading expenditures settings for SQL table:', error)
+  }
+
+  return result
+}
+
+const buildSqlTableWhereClause = (query, includedFilters) => {
+  const {
+    startDate,
+    endDate,
+    department = 'all',
+    type = 'all',
+    location = 'all',
+    dataSource = 'all',
+    search = ''
+  } = query
+
+  const filters = []
+  const values = []
+  let paramIndex = 1
+
+  const { departments, types, locations } = includedFilters
+
+  if (departments && departments.length > 0) {
+    filters.push(`department_name = ANY($${paramIndex++}::text[])`)
+    values.push(departments)
+  }
+
+  if (types && types.length > 0) {
+    filters.push(`expenditure_type = ANY($${paramIndex++}::text[])`)
+    values.push(types)
+  }
+
+  if (locations && locations.length > 0) {
+    filters.push(`location_name = ANY($${paramIndex++}::text[])`)
+    values.push(locations)
+  }
+
+  if (startDate) {
+    filters.push(`operational_date >= $${paramIndex++}`)
+    values.push(startDate)
+  }
+
+  if (endDate) {
+    filters.push(`operational_date <= $${paramIndex++}`)
+    values.push(endDate)
+  }
+
+  if (department && department !== 'all') {
+    filters.push(`department_name = $${paramIndex++}`)
+    values.push(department)
+  }
+
+  if (type && type !== 'all') {
+    filters.push(`expenditure_type = $${paramIndex++}`)
+    values.push(type)
+  }
+
+  if (location && location !== 'all') {
+    filters.push(`location_name = $${paramIndex++}`)
+    values.push(location)
+  }
+
+  if (dataSource && dataSource !== 'all') {
+    filters.push(`data_source = $${paramIndex++}`)
+    values.push(dataSource)
+  }
+
+  if (search && search.trim().length > 0) {
+    filters.push(`(
+      description ILIKE $${paramIndex} OR
+      location_name ILIKE $${paramIndex} OR
+      department_name ILIKE $${paramIndex} OR
+      expenditure_type ILIKE $${paramIndex}
+    )`)
+    values.push(`%${search.trim()}%`)
+    paramIndex++
+  }
+
+  const whereClause = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : ''
+
+  return { whereClause, values, nextParamIndex: paramIndex }
+}
+
+const attachUserNames = async (pool, rows) => {
+  const userIds = new Set()
+  rows.forEach((row) => {
+    if (row.created_by) userIds.add(row.created_by)
+    if (row.updated_by) userIds.add(row.updated_by)
+  })
+
+  if (userIds.size === 0) {
+    return rows
+  }
+
+  const usersResult = await pool.query(
+    `
+      SELECT id, COALESCE(full_name, username) AS name
+      FROM users
+      WHERE id = ANY($1::int[])
+    `,
+    [[...userIds]]
+  )
+
+  const usersMap = usersResult.rows.reduce((acc, user) => {
+    acc[user.id] = user.name || `User ${user.id}`
+    return acc
+  }, {})
+
+  return rows.map((row) => ({
+    ...row,
+    created_by_name: row.created_by ? usersMap[row.created_by] || `User ${row.created_by}` : null,
+    updated_by_name: row.updated_by ? usersMap[row.updated_by] || `User ${row.updated_by}` : null
+  }))
+}
+
 // External DB connection pool (for expenditures)
 let externalPool = null
 
@@ -213,15 +374,23 @@ router.post('/upload', async (req, res) => {
     for (const record of records) {
       await localPool.query(`
         INSERT INTO expenditures_sync (
-          location_name, department_name, expenditure_type, amount, 
-          operational_date, synced_at
-        ) VALUES ($1, $2, $3, $4, $5, NOW())
+          location_name,
+          department_name,
+          expenditure_type,
+          amount,
+          operational_date,
+          description,
+          data_source,
+          synced_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
       `, [
         record.location_name || 'Unknown',
         record.department_name || 'Unknown',
         record.expenditure_type || 'Unknown',
         parseFloat(record.amount || 0),
-        record.operational_date
+        record.operational_date,
+        record.description || null,
+        record.data_source || 'bat_sync'
       ])
       inserted++
     }
@@ -625,12 +794,15 @@ router.put('/settings', authenticateToken, async (req, res) => {
     console.log('   - Full departments array:', settings.includedDepartments)
     
     // NORMALIZE DIACRITICS (ț/ţ, ș/ş) pentru a detecta duplicate Unicode!
+    // ACEEAȘI LOGICĂ ca în frontend!
     const normalizeDiacritics = (str) => {
+      if (!str) return ''
       return str
         .replace(/ţ/g, 'ț')  // sedilă → virgulă
         .replace(/ş/g, 'ș')  // sedilă → virgulă
         .replace(/Ţ/g, 'Ț')
         .replace(/Ş/g, 'Ș')
+        .trim() // IMPORTANT! La fel ca în frontend
     }
     
     const removeDuplicatesWithNormalization = (arr) => {
@@ -655,6 +827,8 @@ router.put('/settings', authenticateToken, async (req, res) => {
       syncTime: settings.syncTime || '02:00',
       excludeDeleted: settings.excludeDeleted !== undefined ? settings.excludeDeleted : true,
       showInExpenditures: settings.showInExpenditures !== undefined ? settings.showInExpenditures : true,
+      // Google Sheets URL persistent
+      googleSheetsUrl: settings.googleSheetsUrl || '',
       // REMOVE DUPLICATES cu normalizare diacritice!
       includedExpenditureTypes: Array.isArray(settings.includedExpenditureTypes) 
         ? removeDuplicatesWithNormalization(settings.includedExpenditureTypes)
@@ -770,7 +944,11 @@ router.post('/preview-google-sheets', authenticateToken, async (req, res) => {
     
     console.log(`📊 Total rows in CSV: ${rows.length}`)
     
-    for (const row of rows) { // Procesează TOATE rândurile pentru preview
+    // PREVIEW MODE - procesează MAXIM primele 2000 rânduri (pentru viteză)
+    const rowsToCheck = rows.slice(0, 2000)
+    console.log(`🚀 PREVIEW MODE: Procesez primele ${rowsToCheck.length} rânduri (din ${rows.length} total)`)
+    
+    for (const row of rowsToCheck) {
       try {
         // Parse CSV with better handling
         const values = []
@@ -877,16 +1055,35 @@ router.post('/preview-google-sheets', authenticateToken, async (req, res) => {
     
     await pool.end()
     
-    console.log(`👀 Preview COMPLET: ${newRows.length} noi, ${duplicates.length} duplicate, ${errors} erori din ${rows.length} total`)
+    // Calculăm estimare pentru TOATE rândurile dacă am verificat doar o parte
+    const checkedRows = rowsToCheck.length
+    const totalRows = rows.length
+    const wasLimited = totalRows > checkedRows
+    
+    let estimatedNew = newRows.length
+    let estimatedDuplicates = duplicates.length
+    
+    if (wasLimited) {
+      // Extrapolare liniară
+      const ratio = totalRows / checkedRows
+      estimatedNew = Math.round(newRows.length * ratio)
+      estimatedDuplicates = Math.round(duplicates.length * ratio)
+      console.log(`📊 Estimare pentru TOATE ${totalRows} rânduri: ~${estimatedNew} noi, ~${estimatedDuplicates} duplicate`)
+    }
+    
+    console.log(`👀 Preview COMPLET: ${newRows.length} noi, ${duplicates.length} duplicate, ${errors} erori din ${checkedRows}/${totalRows} verificate`)
     
     res.json({ 
       success: true, 
-      totalRows: rows.length,
+      totalRows: totalRows,
+      checkedRows: checkedRows,
+      wasLimited: wasLimited,
       newRows: newRows.slice(0, 20), // Sample doar primele 20 pentru display
       duplicates: duplicates.slice(0, 10), // Sample de 10
-      newCount: newRows.length, // Dar COUNT-ul total corect!
-      duplicateCount: duplicates.length,
-      errorCount: errors
+      newCount: wasLimited ? estimatedNew : newRows.length, // Estimare dacă e limitat
+      duplicateCount: wasLimited ? estimatedDuplicates : duplicates.length,
+      errorCount: errors,
+      message: wasLimited ? `Verificate ${checkedRows} din ${totalRows} rânduri. Estimare: ~${estimatedNew} date noi.` : 'Toate rândurile au fost verificate.'
     })
     
   } catch (error) {
@@ -1193,6 +1390,317 @@ router.put('/google-sheets-settings', authenticateToken, async (req, res) => {
     res.json({ success: true, settings: preferences.googleSheetsSync })
   } catch (error) {
     console.error('Error updating Google Sheets settings:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// SQL TABLE VIEW - fetch paginated expenditures with filters
+router.get('/sql-table', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not initialized' })
+    }
+
+    const userId = req.user?.userId || req.user?.id
+    const includedFilters = await getIncludedFiltersForUser(pool, userId)
+    const rawPageSize = (req.query.pageSize || '50').toString().toLowerCase()
+    const isAll = rawPageSize === 'all' || rawPageSize === '0'
+
+    const {
+      startDate,
+      endDate,
+      department = 'all',
+      type = 'all',
+      location = 'all',
+      dataSource = 'all',
+      search = '',
+      page = '1',
+      sortBy = 'operational_date',
+      order = 'desc'
+    } = req.query
+
+    const pageNumber = Math.max(parseInt(page, 10) || 1, 1)
+    const parsedPageSize = Math.min(Math.max(parseInt(rawPageSize, 10) || 50, 1), 500)
+    const limit = isAll ? null : parsedPageSize
+    const offset = isAll ? 0 : (pageNumber - 1) * parsedPageSize
+    const sortColumn = SQL_TABLE_SORT_COLUMNS[sortBy] || SQL_TABLE_SORT_COLUMNS.operational_date
+    const sortOrder = order && order.toLowerCase() === 'asc' ? 'ASC' : 'DESC'
+
+    const { whereClause, values, nextParamIndex } = buildSqlTableWhereClause(req.query, includedFilters)
+
+    const countResult = await pool.query(
+      `SELECT COUNT(*) AS total, COALESCE(SUM(amount), 0) AS total_amount FROM expenditures_sync ${whereClause}`,
+      values
+    )
+    const total = parseInt(countResult.rows[0]?.total || 0, 10)
+    const totalAmount = parseFloat(countResult.rows[0]?.total_amount || 0)
+
+    const limitClause = !isAll ? `LIMIT $${nextParamIndex} OFFSET $${nextParamIndex + 1}` : ''
+    const dataQuery = `
+      SELECT 
+        id,
+        operational_date,
+        amount,
+        location_name,
+        department_name,
+        expenditure_type,
+        description,
+        data_source,
+        created_by,
+        updated_by,
+        created_at,
+        updated_at
+      FROM expenditures_sync
+      ${whereClause}
+      ORDER BY ${sortColumn} ${sortOrder}
+      ${limitClause}
+    `
+    const dataValues = !isAll ? [...values, parsedPageSize, offset] : [...values]
+
+    const dataResult = await pool.query(dataQuery, dataValues)
+    const dataWithNames = await attachUserNames(pool, dataResult.rows)
+
+    res.json({
+      success: true,
+      data: dataWithNames,
+      pagination: {
+        page: pageNumber,
+        pageSize: isAll ? 'all' : parsedPageSize,
+        total,
+        totalPages: isAll ? 1 : Math.max(1, Math.ceil(total / parsedPageSize)),
+        totalAmount
+      }
+    })
+  } catch (error) {
+    console.error('Error loading SQL table data:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// SQL TABLE EXPORT (CSV / Excel)
+router.get('/sql-table/export', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not initialized' })
+    }
+
+    const userId = req.user?.userId || req.user?.id
+    const includedFilters = await getIncludedFiltersForUser(pool, userId)
+
+    const format = (req.query.format || 'csv').toString().toLowerCase()
+    const sortColumn = SQL_TABLE_SORT_COLUMNS[req.query.sortBy] || SQL_TABLE_SORT_COLUMNS.operational_date
+    const sortOrder = req.query.order && req.query.order.toLowerCase() === 'asc' ? 'ASC' : 'DESC'
+
+    const { whereClause, values } = buildSqlTableWhereClause(req.query, includedFilters)
+
+    const dataQuery = `
+      SELECT 
+        id,
+        operational_date,
+        amount,
+        location_name,
+        department_name,
+        expenditure_type,
+        description,
+        data_source,
+        created_by,
+        updated_by,
+        created_at,
+        updated_at
+      FROM expenditures_sync
+      ${whereClause}
+      ORDER BY ${sortColumn} ${sortOrder}
+    `
+
+    const dataResult = await pool.query(dataQuery, values)
+    const rows = await attachUserNames(pool, dataResult.rows)
+
+    const formatDate = (value) => {
+      if (!value) return ''
+      const date = value instanceof Date ? value : new Date(value)
+      if (Number.isNaN(date.getTime())) return ''
+      return date.toISOString().split('T')[0]
+    }
+
+    const formatDateTime = (value) => {
+      if (!value) return ''
+      const date = value instanceof Date ? value : new Date(value)
+      if (Number.isNaN(date.getTime())) return ''
+      return date.toISOString().replace('T', ' ').split('.')[0]
+    }
+
+    const exportRows = rows.map((row) => ({
+      ID: row.id,
+      Data: formatDate(row.operational_date),
+      Suma: row.amount ?? '',
+      Departament: row.department_name || '',
+      'Tip Cheltuială': row.expenditure_type || '',
+      Locație: row.location_name || '',
+      Descriere: row.description || '',
+      Sursă: row.data_source === 'google_sheets' ? 'Google Sheets' : 'BAT Sync',
+      'Creat de': row.created_by_name || '',
+      'Creat la': formatDateTime(row.created_at),
+      'Actualizat de': row.updated_by_name || '',
+      'Actualizat la': formatDateTime(row.updated_at)
+    }))
+
+    if (format === 'xlsx' || format === 'excel') {
+      const XLSX = await import('xlsx')
+      const workbook = XLSX.utils.book_new()
+      const worksheet = XLSX.utils.json_to_sheet(exportRows)
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Cheltuieli')
+      const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' })
+
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      )
+      res.setHeader('Content-Disposition', 'attachment; filename="cheltuieli_sql.xlsx"')
+      return res.send(buffer)
+    }
+
+    // Default: CSV export
+    const headers = Object.keys(exportRows[0] || {
+      ID: '',
+      Data: '',
+      Suma: '',
+      Departament: '',
+      'Tip Cheltuială': '',
+      Locație: '',
+      Descriere: '',
+      Sursă: '',
+      'Creat de': '',
+      'Creat la': '',
+      'Actualizat de': '',
+      'Actualizat la': ''
+    })
+
+    const escapeCsv = (value) => {
+      if (value === null || value === undefined) return ''
+      const str = value.toString()
+      if (/[",\n]/.test(str)) {
+        return `"${str.replace(/"/g, '""')}"`
+      }
+      return str
+    }
+
+    const csvRows = [
+      headers.join(','),
+      ...exportRows.map((row) => headers.map((header) => escapeCsv(row[header])).join(','))
+    ]
+
+    const csvContent = csvRows.join('\n')
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', 'attachment; filename="cheltuieli_sql.csv"')
+    return res.send(csvContent)
+  } catch (error) {
+    console.error('Error exporting SQL table data:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// SQL TABLE UPDATE
+router.put('/sql-table/:id', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not initialized' })
+    }
+
+    const { id } = req.params
+    const {
+      operational_date,
+      amount,
+      location_name,
+      department_name,
+      expenditure_type,
+      description
+    } = req.body || {}
+
+    if (!operational_date || !amount || !location_name || !department_name || !expenditure_type) {
+      return res.status(400).json({ success: false, error: 'Missing required fields' })
+    }
+
+    const parsedAmount = parseFloat(amount)
+    if (Number.isNaN(parsedAmount)) {
+      return res.status(400).json({ success: false, error: 'Invalid amount value' })
+    }
+
+    const userId = req.user?.userId || req.user?.id
+
+    const updateResult = await pool.query(
+      `
+        UPDATE expenditures_sync
+        SET
+          operational_date = $1,
+          amount = $2,
+          location_name = $3,
+          department_name = $4,
+          expenditure_type = $5,
+          description = $6,
+          updated_by = $7,
+          updated_at = NOW()
+        WHERE id = $8
+        RETURNING
+          id,
+          operational_date,
+          amount,
+          location_name,
+          department_name,
+          expenditure_type,
+          description,
+          data_source,
+          created_by,
+          updated_by,
+          created_at,
+          updated_at
+      `,
+      [
+        operational_date,
+        parsedAmount,
+        location_name,
+        department_name,
+        expenditure_type,
+        description || null,
+        userId || null,
+        id
+      ]
+    )
+
+    if (updateResult.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Record not found' })
+    }
+
+    res.json({ success: true, record: updateResult.rows[0] })
+  } catch (error) {
+    console.error('Error updating expenditure row:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// SQL TABLE DELETE
+router.delete('/sql-table/:id', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not initialized' })
+    }
+
+    const { id } = req.params
+    const deleteResult = await pool.query(
+      'DELETE FROM expenditures_sync WHERE id = $1 RETURNING id',
+      [id]
+    )
+
+    if (deleteResult.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Record not found' })
+    }
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Error deleting expenditure row:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })

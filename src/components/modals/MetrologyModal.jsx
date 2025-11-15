@@ -183,7 +183,7 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
     }
     
     console.log('📄 Upload CVT:', file.name, `(${(file.size / 1024).toFixed(2)} KB)`)
-    
+      
     // Convert file to Base64 (EXACT CA LocationModal!)
     const reader = new FileReader()
     reader.onload = (e) => {

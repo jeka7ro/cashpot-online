@@ -7,6 +7,7 @@ import { ArrowLeft, BarChart3, TrendingUp, TrendingDown, Brain } from 'lucide-re
 import { toast } from 'react-hot-toast'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, LabelList } from 'recharts'
 import ExpendituresAdvancedCharts from '../components/ExpendituresAdvancedCharts'
+import DateRangeSelector from '../components/DateRangeSelector'
 import { generateAIInsights } from '../utils/aiInsights'
 
 const AdvancedAnalytics = () => {
@@ -100,6 +101,14 @@ const AdvancedAnalytics = () => {
   const getComparativeData = () => {
     let filtered = expendituresData
     
+    // FILTRU PERIOADĂ
+    const startDate = new Date(dateRange.startDate)
+    const endDate = new Date(dateRange.endDate)
+    filtered = filtered.filter(item => {
+      const itemDate = new Date(item.operational_date)
+      return itemDate >= startDate && itemDate <= endDate
+    })
+    
     if (selectedDepartment !== 'all') {
       filtered = filtered.filter(item => item.department_name === selectedDepartment)
     }
@@ -134,6 +143,14 @@ const AdvancedAnalytics = () => {
     
     let filtered = expendituresData
     
+    // FILTRU PERIOADĂ
+    const startDate = new Date(dateRange.startDate)
+    const endDate = new Date(dateRange.endDate)
+    filtered = filtered.filter(item => {
+      const itemDate = new Date(item.operational_date)
+      return itemDate >= startDate && itemDate <= endDate
+    })
+    
     if (selectedDepartment !== 'all') {
       filtered = filtered.filter(item => item.department_name === selectedDepartment)
     }
@@ -164,6 +181,15 @@ const AdvancedAnalytics = () => {
     })
     
     let filtered = expendituresData
+    
+    // FILTRU PERIOADĂ
+    const startDate = new Date(dateRange.startDate)
+    const endDate = new Date(dateRange.endDate)
+    filtered = filtered.filter(item => {
+      const itemDate = new Date(item.operational_date)
+      return itemDate >= startDate && itemDate <= endDate
+    })
+    
     if (selectedLocation !== 'all') {
       filtered = filtered.filter(item => item.location_name === selectedLocation)
     }
@@ -188,6 +214,14 @@ const AdvancedAnalytics = () => {
   const filteredInsights = useMemo(() => {
     let filtered = expendituresData
     
+    // FILTRU PERIOADĂ
+    const startDate = new Date(dateRange.startDate)
+    const endDate = new Date(dateRange.endDate)
+    filtered = filtered.filter(item => {
+      const itemDate = new Date(item.operational_date)
+      return itemDate >= startDate && itemDate <= endDate
+    })
+    
     if (selectedDepartment !== 'all') {
       filtered = filtered.filter(item => item.department_name === selectedDepartment)
     }
@@ -200,8 +234,8 @@ const AdvancedAnalytics = () => {
       filtered = filtered.filter(item => item.location_name === selectedLocation)
     }
     
-    return generateAIInsights(filtered, { startDate: '', endDate: '' })
-  }, [expendituresData, selectedDepartment, selectedCategory, selectedLocation])
+    return generateAIInsights(filtered, { startDate: dateRange.startDate, endDate: dateRange.endDate })
+  }, [expendituresData, selectedDepartment, selectedCategory, selectedLocation, dateRange])
   
   const COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899']
   
@@ -280,6 +314,21 @@ const AdvancedAnalytics = () => {
           <>
             {/* === SECȚIUNEA A: TOT CE ERA ÎN MODAL VECHI === */}
             <div className="card p-8">
+              {/* FILTRU PERIOADĂ */}
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                  📅 Perioadă Analiză
+                </label>
+                <DateRangeSelector
+                  startDate={dateRange.startDate}
+                  endDate={dateRange.endDate}
+                  onChange={(newRange) => setDateRange(newRange)}
+                />
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                  Filtrează toate graficele și analiza AI pentru perioada selectată
+                </p>
+              </div>
+              
               {/* Filtre (4 dropdown-uri) */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 {/* Departament Filter (CASCADE) */}
