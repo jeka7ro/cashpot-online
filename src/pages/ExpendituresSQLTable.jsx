@@ -426,67 +426,59 @@ const ExpendituresSQLTable = () => {
 
         {/* Filters Card */}
         <div className="card p-5 bg-white/80 dark:bg-slate-800/80 rounded-2xl shadow-xl border border-white/40 dark:border-slate-700/50 backdrop-blur-2xl">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center space-x-4">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center">
-                <Filter className="w-4 h-4 mr-2 text-blue-500" />
-                Filtre SQL
-              </h2>
+          {/* Header cu titlu și toggle */}
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center">
+              <Filter className="w-4 h-4 mr-2 text-blue-500" />
+              Filtre SQL
+            </h2>
+            {/* Toggle "Afișează toate" - Apple Liquid Glass Style */}
+            <button
+              onClick={() => {
+                setShowAll(!showAll)
+                setPagination((prev) => ({ ...prev, page: 1 }))
+              }}
+              className={`
+                relative px-4 py-2 rounded-xl font-semibold text-sm
+                transition-all duration-300 ease-out
+                ${showAll 
+                  ? 'bg-gradient-to-r from-blue-500/90 to-cyan-500/90 text-white shadow-lg shadow-blue-500/30' 
+                  : 'bg-white/60 dark:bg-slate-700/60 text-slate-700 dark:text-slate-300 border border-white/40 dark:border-slate-600/40'
+                }
+                backdrop-blur-xl
+                hover:scale-105 active:scale-95
+                ${showAll ? 'hover:shadow-xl hover:shadow-blue-500/40' : 'hover:bg-white/80 dark:hover:bg-slate-700/80'}
+              `}
+              style={{
+                boxShadow: showAll 
+                  ? '0 8px 32px rgba(59, 130, 246, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)' 
+                  : '0 4px 16px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+              }}
+            >
+              <span className="relative z-10 flex items-center space-x-2">
+                <Database className={`w-4 h-4 ${showAll ? 'animate-pulse' : ''}`} />
+                <span>{showAll ? 'Afișează toate' : 'Filtre active'}</span>
+              </span>
+              {showAll && (
+                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-400/20 to-cyan-400/20 animate-pulse" />
+              )}
+            </button>
+          </div>
+
+          {/* Rând 1: Quick Date Buttons + Filtre Departament, Tip, Locație, Sursă */}
+          <div className="flex flex-wrap items-end gap-3 mb-4">
+            <div className="flex items-center space-x-2">
               <QuickDateButtons
                 onChange={(range) => handleQuickFilter(range)}
               />
-              {/* Toggle "Afișează toate" - Apple Liquid Glass Style */}
-              <button
-                onClick={() => {
-                  setShowAll(!showAll)
-                  setPagination((prev) => ({ ...prev, page: 1 }))
-                }}
-                className={`
-                  relative px-4 py-2 rounded-xl font-semibold text-sm
-                  transition-all duration-300 ease-out
-                  ${showAll 
-                    ? 'bg-gradient-to-r from-blue-500/90 to-cyan-500/90 text-white shadow-lg shadow-blue-500/30' 
-                    : 'bg-white/60 dark:bg-slate-700/60 text-slate-700 dark:text-slate-300 border border-white/40 dark:border-slate-600/40'
-                  }
-                  backdrop-blur-xl
-                  hover:scale-105 active:scale-95
-                  ${showAll ? 'hover:shadow-xl hover:shadow-blue-500/40' : 'hover:bg-white/80 dark:hover:bg-slate-700/80'}
-                `}
-                style={{
-                  boxShadow: showAll 
-                    ? '0 8px 32px rgba(59, 130, 246, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)' 
-                    : '0 4px 16px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
-                }}
-              >
-                <span className="relative z-10 flex items-center space-x-2">
-                  <Database className={`w-4 h-4 ${showAll ? 'animate-pulse' : ''}`} />
-                  <span>{showAll ? 'Afișează toate' : 'Filtre active'}</span>
-                </span>
-                {showAll && (
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-400/20 to-cyan-400/20 animate-pulse" />
-                )}
-              </button>
             </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
-              💾 Auto-save filtre
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-6 gap-3">
-            <div className="lg:col-span-2">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Perioadă</label>
-              <DateRangeSelector
-                startDate={filters.startDate}
-                endDate={filters.endDate}
-                onChange={handleDateChange}
-              />
-            </div>
-            <div>
+            <div className="flex-1 min-w-[120px]">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Departament</label>
               <select
                 value={filters.department}
                 onChange={(e) => handleFilterChange('department', e.target.value)}
-                className="input-field"
+                className="input-field w-full"
+                disabled={showAll}
               >
                 <option value="all">Toate</option>
                 {departments.map((dept) => (
@@ -494,12 +486,13 @@ const ExpendituresSQLTable = () => {
                 ))}
               </select>
             </div>
-            <div>
+            <div className="flex-1 min-w-[120px]">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Tip cheltuială</label>
               <select
                 value={filters.type}
                 onChange={(e) => handleFilterChange('type', e.target.value)}
-                className="input-field"
+                className="input-field w-full"
+                disabled={showAll}
               >
                 <option value="all">Toate</option>
                 {types.map((type) => (
@@ -507,12 +500,13 @@ const ExpendituresSQLTable = () => {
                 ))}
               </select>
             </div>
-            <div>
+            <div className="flex-1 min-w-[120px]">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Locație</label>
               <select
                 value={filters.location}
                 onChange={(e) => handleFilterChange('location', e.target.value)}
-                className="input-field"
+                className="input-field w-full"
+                disabled={showAll}
               >
                 <option value="all">Toate</option>
                 {locations.map((loc) => (
@@ -520,19 +514,34 @@ const ExpendituresSQLTable = () => {
                 ))}
               </select>
             </div>
-            <div>
+            <div className="flex-1 min-w-[120px]">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Sursă</label>
               <select
                 value={filters.dataSource}
                 onChange={(e) => handleFilterChange('dataSource', e.target.value)}
-                className="input-field"
+                className="input-field w-full"
+                disabled={showAll}
               >
                 {dataSourceOptions.map((option) => (
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
             </div>
-            <div className="lg:col-span-2">
+          </div>
+
+          {/* Rând 2: Perioadă (DateRangeSelector) */}
+          <div className="mb-4">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Perioadă</label>
+            <DateRangeSelector
+              startDate={filters.startDate}
+              endDate={filters.endDate}
+              onChange={handleDateChange}
+            />
+          </div>
+
+          {/* Rând 3: Căutare + Info + Export Buttons */}
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[300px]">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Căutare</label>
               <div className="relative">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -541,16 +550,12 @@ const ExpendituresSQLTable = () => {
                   onChange={(e) => setSearchInput(e.target.value)}
                   placeholder="Caută după descriere / locație / departament / tip"
                   className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  disabled={showAll}
                 />
               </div>
             </div>
-          </div>
-
-          <div className="mt-4 flex items-center justify-between gap-3">
-            <div className="text-sm text-slate-600 dark:text-slate-400">
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                {pagination.total.toLocaleString('ro-RO')} înregistrări • {tableSummary.totalAmount.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON în pagina curentă
-              </p>
+            <div className="text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
+              {pagination.total.toLocaleString('ro-RO')} înregistrări • {tableSummary.totalAmount.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON
             </div>
             <div className="flex items-center space-x-2">
               <button
