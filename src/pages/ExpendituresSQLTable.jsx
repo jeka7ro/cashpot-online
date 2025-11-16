@@ -404,6 +404,12 @@ const ExpendituresSQLTable = () => {
 
   return (
     <Layout>
+      <style>{`
+        @keyframes shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(200%); }
+        }
+      `}</style>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -426,12 +432,19 @@ const ExpendituresSQLTable = () => {
 
         {/* Filters Card */}
         <div className="card p-5 bg-white/80 dark:bg-slate-800/80 rounded-2xl shadow-xl border border-white/40 dark:border-slate-700/50 backdrop-blur-2xl">
-          {/* Header cu titlu și toggle */}
-          <div className="flex items-center justify-between mb-4">
+          {/* Header cu titlu */}
+          <div className="mb-4">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center">
               <Filter className="w-4 h-4 mr-2 text-blue-500" />
               Filtre SQL
             </h2>
+          </div>
+
+          {/* Rând 1: Quick Date Buttons + Toggle "Afișează toate" */}
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <QuickDateButtons
+              onChange={(range) => handleQuickFilter(range)}
+            />
             {/* Toggle "Afișează toate" - Apple Liquid Glass Style */}
             <button
               onClick={() => {
@@ -439,40 +452,59 @@ const ExpendituresSQLTable = () => {
                 setPagination((prev) => ({ ...prev, page: 1 }))
               }}
               className={`
-                relative px-4 py-2 rounded-xl font-semibold text-sm
-                transition-all duration-300 ease-out
+                relative px-5 py-2.5 rounded-2xl font-semibold text-sm
+                transition-all duration-300 ease-out overflow-hidden
                 ${showAll 
-                  ? 'bg-gradient-to-r from-blue-500/90 to-cyan-500/90 text-white shadow-lg shadow-blue-500/30' 
-                  : 'bg-white/60 dark:bg-slate-700/60 text-slate-700 dark:text-slate-300 border border-white/40 dark:border-slate-600/40'
+                  ? 'text-white' 
+                  : 'text-slate-700 dark:text-slate-300'
                 }
-                backdrop-blur-xl
+                backdrop-blur-2xl
                 hover:scale-105 active:scale-95
-                ${showAll ? 'hover:shadow-xl hover:shadow-blue-500/40' : 'hover:bg-white/80 dark:hover:bg-slate-700/80'}
+                border
               `}
               style={{
+                background: showAll 
+                  ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.85) 0%, rgba(6, 182, 212, 0.85) 100%)'
+                  : 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%)',
+                borderColor: showAll 
+                  ? 'rgba(255, 255, 255, 0.3)'
+                  : 'rgba(255, 255, 255, 0.2)',
                 boxShadow: showAll 
-                  ? '0 8px 32px rgba(59, 130, 246, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)' 
-                  : '0 4px 16px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+                  ? '0 8px 32px rgba(59, 130, 246, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.3), inset 0 -1px 1px rgba(0, 0, 0, 0.1)' 
+                  : '0 4px 20px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.4), inset 0 -1px 1px rgba(0, 0, 0, 0.05)',
+                WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                backdropFilter: 'blur(20px) saturate(180%)'
               }}
             >
-              <span className="relative z-10 flex items-center space-x-2">
-                <Database className={`w-4 h-4 ${showAll ? 'animate-pulse' : ''}`} />
-                <span>{showAll ? 'Afișează toate' : 'Filtre active'}</span>
-              </span>
+              {/* Glass reflection effect */}
+              <div 
+                className="absolute inset-0 rounded-2xl opacity-30"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, transparent 50%, rgba(0, 0, 0, 0.1) 100%)',
+                  pointerEvents: 'none'
+                }}
+              />
+              {/* Animated shimmer when active */}
               {showAll && (
-                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-400/20 to-cyan-400/20 animate-pulse" />
+                <div 
+                  className="absolute inset-0 rounded-2xl animate-pulse"
+                  style={{
+                    background: 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.2) 50%, transparent 100%)',
+                    animation: 'shimmer 2s infinite',
+                    pointerEvents: 'none'
+                  }}
+                />
               )}
+              <span className="relative z-10 flex items-center space-x-2">
+                <Database className={`w-4 h-4 ${showAll ? 'drop-shadow-lg' : ''}`} />
+                <span className="drop-shadow-sm">{showAll ? 'Afișează toate' : 'Filtre active'}</span>
+              </span>
             </button>
           </div>
 
-          {/* Rând 1: Quick Date Buttons + Filtre Departament, Tip, Locație, Sursă */}
-          <div className="flex flex-wrap items-end gap-3 mb-4">
-            <div className="flex items-center space-x-2">
-              <QuickDateButtons
-                onChange={(range) => handleQuickFilter(range)}
-              />
-            </div>
-            <div className="flex-1 min-w-[120px]">
+          {/* Rând 2: Filtre Departament, Tip, Locație, Sursă - TOATE ACEEAȘI DIMENSIUNE */}
+          <div className="grid grid-cols-4 gap-3 mb-4">
+            <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Departament</label>
               <select
                 value={filters.department}
@@ -486,7 +518,7 @@ const ExpendituresSQLTable = () => {
                 ))}
               </select>
             </div>
-            <div className="flex-1 min-w-[120px]">
+            <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Tip cheltuială</label>
               <select
                 value={filters.type}
@@ -500,7 +532,7 @@ const ExpendituresSQLTable = () => {
                 ))}
               </select>
             </div>
-            <div className="flex-1 min-w-[120px]">
+            <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Locație</label>
               <select
                 value={filters.location}
@@ -514,7 +546,7 @@ const ExpendituresSQLTable = () => {
                 ))}
               </select>
             </div>
-            <div className="flex-1 min-w-[120px]">
+            <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Sursă</label>
               <select
                 value={filters.dataSource}
