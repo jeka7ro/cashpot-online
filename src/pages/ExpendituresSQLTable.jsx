@@ -96,6 +96,7 @@ const ExpendituresSQLTable = () => {
   const [savingEdit, setSavingEdit] = useState(false)
   const [deletingId, setDeletingId] = useState(null)
   const [exportingFormat, setExportingFormat] = useState(null)
+  const [showAll, setShowAll] = useState(false) // Toggle pentru a afișa TOATE înregistrările ignorând filtrele
 
   useEffect(() => {
     const loadMeta = async () => {
@@ -177,13 +178,16 @@ const ExpendituresSQLTable = () => {
   const buildQueryParamObject = (extra = {}, includePagination = true) => {
     const params = {}
 
-    if (filters.startDate) params.startDate = filters.startDate
-    if (filters.endDate) params.endDate = filters.endDate
-    if (filters.department && filters.department !== 'all') params.department = filters.department
-    if (filters.type && filters.type !== 'all') params.type = filters.type
-    if (filters.location && filters.location !== 'all') params.location = filters.location
-    if (filters.dataSource && filters.dataSource !== 'all') params.dataSource = filters.dataSource
-    if (filters.search) params.search = filters.search
+    // Dacă showAll e activ, NU trimitem filtrele (doar sort și pagination)
+    if (!showAll) {
+      if (filters.startDate) params.startDate = filters.startDate
+      if (filters.endDate) params.endDate = filters.endDate
+      if (filters.department && filters.department !== 'all') params.department = filters.department
+      if (filters.type && filters.type !== 'all') params.type = filters.type
+      if (filters.location && filters.location !== 'all') params.location = filters.location
+      if (filters.dataSource && filters.dataSource !== 'all') params.dataSource = filters.dataSource
+      if (filters.search) params.search = filters.search
+    }
 
     params.sortBy = sort.sortBy
     params.order = sort.order
@@ -227,7 +231,7 @@ const ExpendituresSQLTable = () => {
     if (!settingsReady) return
     fetchTableData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, pagination.page, pagination.pageSize, sort, settingsReady])
+  }, [filters, pagination.page, pagination.pageSize, sort, settingsReady, showAll])
 
   useEffect(() => {
     if (editingRecord) {
@@ -421,7 +425,7 @@ const ExpendituresSQLTable = () => {
         </div>
 
         {/* Filters Card */}
-        <div className="card p-5">
+        <div className="card p-5 bg-white/80 dark:bg-slate-800/80 rounded-2xl shadow-xl border border-white/40 dark:border-slate-700/50 backdrop-blur-2xl">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-4">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center">
@@ -431,6 +435,37 @@ const ExpendituresSQLTable = () => {
               <QuickDateButtons
                 onChange={(range) => handleQuickFilter(range)}
               />
+              {/* Toggle "Afișează toate" - Apple Liquid Glass Style */}
+              <button
+                onClick={() => {
+                  setShowAll(!showAll)
+                  setPagination((prev) => ({ ...prev, page: 1 }))
+                }}
+                className={`
+                  relative px-4 py-2 rounded-xl font-semibold text-sm
+                  transition-all duration-300 ease-out
+                  ${showAll 
+                    ? 'bg-gradient-to-r from-blue-500/90 to-cyan-500/90 text-white shadow-lg shadow-blue-500/30' 
+                    : 'bg-white/60 dark:bg-slate-700/60 text-slate-700 dark:text-slate-300 border border-white/40 dark:border-slate-600/40'
+                  }
+                  backdrop-blur-xl
+                  hover:scale-105 active:scale-95
+                  ${showAll ? 'hover:shadow-xl hover:shadow-blue-500/40' : 'hover:bg-white/80 dark:hover:bg-slate-700/80'}
+                `}
+                style={{
+                  boxShadow: showAll 
+                    ? '0 8px 32px rgba(59, 130, 246, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)' 
+                    : '0 4px 16px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+                }}
+              >
+                <span className="relative z-10 flex items-center space-x-2">
+                  <Database className={`w-4 h-4 ${showAll ? 'animate-pulse' : ''}`} />
+                  <span>{showAll ? 'Afișează toate' : 'Filtre active'}</span>
+                </span>
+                {showAll && (
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-400/20 to-cyan-400/20 animate-pulse" />
+                )}
+              </button>
             </div>
             <div className="text-xs text-slate-500 dark:text-slate-400">
               💾 Auto-save filtre
