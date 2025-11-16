@@ -516,17 +516,19 @@ const ExpendituresSQLTable = () => {
               })}
             </div>
             
-            {/* Filtre Departament, Tip, Locație, Sursă - TOATE ACEEAȘI DIMENSIUNE CU APPLE LIQUID GLASS */}
-            <div className="flex-1 min-w-[140px] relative">
+            {/* Filtre Departament, Tip, Locație, Sursă - ACEEAȘI ÎNĂLȚIME ȘI ROTUNJIME, LĂȚIME DINAMICĂ */}
+            <div className="relative">
               <select
                 value={filters.department}
                 onChange={(e) => handleFilterChange('department', e.target.value)}
-                className="w-full rounded-xl text-slate-700 dark:text-slate-300 text-sm font-medium border transition-all"
+                className="rounded-xl text-slate-700 dark:text-slate-300 text-sm font-medium border transition-all"
                 disabled={showAll}
                 style={{
                   height: '40px',
                   paddingLeft: '12px',
                   paddingRight: '32px',
+                  width: 'auto',
+                  minWidth: '140px',
                   background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%)',
                   borderColor: 'rgba(255, 255, 255, 0.2)',
                   boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.4), inset 0 -1px 1px rgba(0, 0, 0, 0.05)',
@@ -541,16 +543,18 @@ const ExpendituresSQLTable = () => {
                 ))}
               </select>
             </div>
-            <div className="flex-1 min-w-[140px] relative">
+            <div className="relative">
               <select
                 value={filters.type}
                 onChange={(e) => handleFilterChange('type', e.target.value)}
-                className="w-full rounded-xl text-slate-700 dark:text-slate-300 text-sm font-medium border transition-all"
+                className="rounded-xl text-slate-700 dark:text-slate-300 text-sm font-medium border transition-all"
                 disabled={showAll}
                 style={{
                   height: '40px',
                   paddingLeft: '12px',
                   paddingRight: '32px',
+                  width: 'auto',
+                  minWidth: '140px',
                   background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%)',
                   borderColor: 'rgba(255, 255, 255, 0.2)',
                   boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.4), inset 0 -1px 1px rgba(0, 0, 0, 0.05)',
@@ -565,16 +569,18 @@ const ExpendituresSQLTable = () => {
                 ))}
               </select>
             </div>
-            <div className="flex-1 min-w-[140px] relative">
+            <div className="relative">
               <select
                 value={filters.location}
                 onChange={(e) => handleFilterChange('location', e.target.value)}
-                className="w-full rounded-xl text-slate-700 dark:text-slate-300 text-sm font-medium border transition-all"
+                className="rounded-xl text-slate-700 dark:text-slate-300 text-sm font-medium border transition-all"
                 disabled={showAll}
                 style={{
                   height: '40px',
                   paddingLeft: '12px',
                   paddingRight: '32px',
+                  width: 'auto',
+                  minWidth: '140px',
                   background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%)',
                   borderColor: 'rgba(255, 255, 255, 0.2)',
                   boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.4), inset 0 -1px 1px rgba(0, 0, 0, 0.05)',
@@ -589,16 +595,18 @@ const ExpendituresSQLTable = () => {
                 ))}
               </select>
             </div>
-            <div className="flex-1 min-w-[140px] relative">
+            <div className="relative">
               <select
                 value={filters.dataSource}
                 onChange={(e) => handleFilterChange('dataSource', e.target.value)}
-                className="w-full rounded-xl text-slate-700 dark:text-slate-300 text-sm font-medium border transition-all"
+                className="rounded-xl text-slate-700 dark:text-slate-300 text-sm font-medium border transition-all"
                 disabled={showAll}
                 style={{
                   height: '40px',
                   paddingLeft: '12px',
                   paddingRight: '32px',
+                  width: 'auto',
+                  minWidth: '140px',
                   background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%)',
                   borderColor: 'rgba(255, 255, 255, 0.2)',
                   boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.4), inset 0 -1px 1px rgba(0, 0, 0, 0.05)',
