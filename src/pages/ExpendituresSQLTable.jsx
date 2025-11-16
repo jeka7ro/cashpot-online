@@ -440,11 +440,179 @@ const ExpendituresSQLTable = () => {
             </h2>
           </div>
 
-          {/* Rând 1: Quick Date Buttons + Toggle "Afișează toate" */}
-          <div className="flex flex-wrap items-center gap-3 mb-4">
-            <QuickDateButtons
-              onChange={(range) => handleQuickFilter(range)}
-            />
+          {/* Rând 1: Quick Date Buttons + Filtre + Toggle - TOATE ÎN ACELAȘI RÂND CU ACEEAȘI ÎNĂLȚIME */}
+          <div className="flex flex-wrap items-end gap-3 mb-4">
+            {/* Quick Date Buttons - fără label, doar butoanele */}
+            <div className="flex items-center gap-2">
+              {[
+                { id: 'today', label: 'Azi' },
+                { id: 'thisWeek', label: 'Săpt' },
+                { id: 'thisMonth', label: 'Luna curentă' },
+                { id: 'lastMonth', label: 'Luna trecută' },
+                { id: 'thisYear', label: 'Anul curent' }
+              ].map((action) => {
+                const handleQuickAction = () => {
+                  const now = new Date()
+                  let newStart, newEnd
+                  
+                  switch (action.id) {
+                    case 'today':
+                      newStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+                      newEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+                      break
+                    case 'thisWeek':
+                      const dayOfWeek = now.getDay()
+                      const startOfWeek = new Date(now)
+                      startOfWeek.setDate(now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1))
+                      const endOfWeek = new Date(startOfWeek)
+                      endOfWeek.setDate(startOfWeek.getDate() + 6)
+                      newStart = startOfWeek
+                      newEnd = endOfWeek
+                      break
+                    case 'thisMonth':
+                      newStart = new Date(now.getFullYear(), now.getMonth(), 1)
+                      newEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+                      break
+                    case 'lastMonth':
+                      newStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+                      newEnd = new Date(now.getFullYear(), now.getMonth(), 0)
+                      break
+                    case 'thisYear':
+                      newStart = new Date(now.getFullYear(), 0, 1)
+                      newEnd = new Date(now.getFullYear(), 11, 31)
+                      break
+                    default:
+                      return
+                  }
+                  handleQuickFilter({ startDate: newStart.toISOString().split('T')[0], endDate: newEnd.toISOString().split('T')[0] })
+                }
+                
+                return (
+                  <button
+                    key={action.id}
+                    onClick={handleQuickAction}
+                    className="relative px-3 py-2 rounded-xl text-slate-700 dark:text-slate-300 text-xs font-semibold transition-all overflow-hidden border"
+                    style={{
+                      height: '40px',
+                      minWidth: '80px',
+                      background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%)',
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.4), inset 0 -1px 1px rgba(0, 0, 0, 0.05)',
+                      WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                      backdropFilter: 'blur(20px) saturate(180%)'
+                    }}
+                  >
+                    {/* Glass reflection */}
+                    <div 
+                      className="absolute inset-0 rounded-xl opacity-30"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, transparent 50%, rgba(0, 0, 0, 0.1) 100%)',
+                        pointerEvents: 'none'
+                      }}
+                    />
+                    <span className="relative z-10">{action.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+            
+            {/* Filtre Departament, Tip, Locație, Sursă - TOATE ACEEAȘI DIMENSIUNE CU APPLE LIQUID GLASS */}
+            <div className="flex-1 min-w-[140px] relative">
+              <select
+                value={filters.department}
+                onChange={(e) => handleFilterChange('department', e.target.value)}
+                className="w-full rounded-xl text-slate-700 dark:text-slate-300 text-sm font-medium border transition-all"
+                disabled={showAll}
+                style={{
+                  height: '40px',
+                  paddingLeft: '12px',
+                  paddingRight: '32px',
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%)',
+                  borderColor: 'rgba(255, 255, 255, 0.2)',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.4), inset 0 -1px 1px rgba(0, 0, 0, 0.05)',
+                  WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                  backdropFilter: 'blur(20px) saturate(180%)',
+                  opacity: showAll ? 0.5 : 1
+                }}
+              >
+                <option value="all">Departament: Toate</option>
+                {departments.map((dept) => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1 min-w-[140px] relative">
+              <select
+                value={filters.type}
+                onChange={(e) => handleFilterChange('type', e.target.value)}
+                className="w-full rounded-xl text-slate-700 dark:text-slate-300 text-sm font-medium border transition-all"
+                disabled={showAll}
+                style={{
+                  height: '40px',
+                  paddingLeft: '12px',
+                  paddingRight: '32px',
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%)',
+                  borderColor: 'rgba(255, 255, 255, 0.2)',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.4), inset 0 -1px 1px rgba(0, 0, 0, 0.05)',
+                  WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                  backdropFilter: 'blur(20px) saturate(180%)',
+                  opacity: showAll ? 0.5 : 1
+                }}
+              >
+                <option value="all">Tip: Toate</option>
+                {types.map((type) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1 min-w-[140px] relative">
+              <select
+                value={filters.location}
+                onChange={(e) => handleFilterChange('location', e.target.value)}
+                className="w-full rounded-xl text-slate-700 dark:text-slate-300 text-sm font-medium border transition-all"
+                disabled={showAll}
+                style={{
+                  height: '40px',
+                  paddingLeft: '12px',
+                  paddingRight: '32px',
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%)',
+                  borderColor: 'rgba(255, 255, 255, 0.2)',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.4), inset 0 -1px 1px rgba(0, 0, 0, 0.05)',
+                  WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                  backdropFilter: 'blur(20px) saturate(180%)',
+                  opacity: showAll ? 0.5 : 1
+                }}
+              >
+                <option value="all">Locație: Toate</option>
+                {locations.map((loc) => (
+                  <option key={loc} value={loc}>{loc}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1 min-w-[140px] relative">
+              <select
+                value={filters.dataSource}
+                onChange={(e) => handleFilterChange('dataSource', e.target.value)}
+                className="w-full rounded-xl text-slate-700 dark:text-slate-300 text-sm font-medium border transition-all"
+                disabled={showAll}
+                style={{
+                  height: '40px',
+                  paddingLeft: '12px',
+                  paddingRight: '32px',
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%)',
+                  borderColor: 'rgba(255, 255, 255, 0.2)',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.4), inset 0 -1px 1px rgba(0, 0, 0, 0.05)',
+                  WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                  backdropFilter: 'blur(20px) saturate(180%)',
+                  opacity: showAll ? 0.5 : 1
+                }}
+              >
+                {dataSourceOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            
             {/* Toggle "Afișează toate" - Apple Liquid Glass Style */}
             <button
               onClick={() => {
@@ -463,6 +631,7 @@ const ExpendituresSQLTable = () => {
                 border
               `}
               style={{
+                height: '40px',
                 background: showAll 
                   ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.85) 0%, rgba(6, 182, 212, 0.85) 100%)'
                   : 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%)',
@@ -500,65 +669,6 @@ const ExpendituresSQLTable = () => {
                 <span className="drop-shadow-sm">{showAll ? 'Afișează toate' : 'Filtre active'}</span>
               </span>
             </button>
-          </div>
-
-          {/* Rând 2: Filtre Departament, Tip, Locație, Sursă - TOATE ACEEAȘI DIMENSIUNE */}
-          <div className="grid grid-cols-4 gap-3 mb-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Departament</label>
-              <select
-                value={filters.department}
-                onChange={(e) => handleFilterChange('department', e.target.value)}
-                className="input-field w-full"
-                disabled={showAll}
-              >
-                <option value="all">Toate</option>
-                {departments.map((dept) => (
-                  <option key={dept} value={dept}>{dept}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Tip cheltuială</label>
-              <select
-                value={filters.type}
-                onChange={(e) => handleFilterChange('type', e.target.value)}
-                className="input-field w-full"
-                disabled={showAll}
-              >
-                <option value="all">Toate</option>
-                {types.map((type) => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Locație</label>
-              <select
-                value={filters.location}
-                onChange={(e) => handleFilterChange('location', e.target.value)}
-                className="input-field w-full"
-                disabled={showAll}
-              >
-                <option value="all">Toate</option>
-                {locations.map((loc) => (
-                  <option key={loc} value={loc}>{loc}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Sursă</label>
-              <select
-                value={filters.dataSource}
-                onChange={(e) => handleFilterChange('dataSource', e.target.value)}
-                className="input-field w-full"
-                disabled={showAll}
-              >
-                {dataSourceOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
           </div>
 
           {/* Rând 2: Perioadă (DateRangeSelector) */}
