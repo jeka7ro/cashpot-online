@@ -1142,6 +1142,13 @@ router.post('/import-all', authenticateToken, async (req, res) => {
             const endYear = endDate.getFullYear()
             
             console.log(`📅 Fetching data year by year: ${startYear} to ${endYear}`)
+            console.log(`📅 Start date: ${minDateInDB}, End date: ${maxDateInDB}`)
+            console.log(`📅 Start year: ${startYear}, End year: ${endYear}`)
+            
+            if (isNaN(startYear) || isNaN(endYear)) {
+              console.error('⚠️⚠️⚠️ CRITICAL: Invalid year range! startYear:', startYear, 'endYear:', endYear)
+              throw new Error('Invalid date range from external DB')
+            }
             
             for (let year = startYear; year <= endYear; year++) {
               const yearStart = `${year}-01-01`
