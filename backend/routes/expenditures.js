@@ -1432,9 +1432,10 @@ router.post('/import-all', authenticateToken, async (req, res) => {
             }
           }
           
-          if (batchNumber >= maxBatches) {
+          // Verificare batchNumber doar dacă există (în fallback approach)
+          if (typeof batchNumber !== 'undefined' && batchNumber >= maxBatches) {
             console.error(`⚠️⚠️⚠️ WARNING: Reached maximum batch limit (${maxBatches})! May not have fetched all records!`)
-            console.error(`⚠️ Total fetched: ${allExternalRows.length}, Last offset: ${offset}`)
+            console.error(`⚠️ Total fetched: ${allExternalRows.length}, Last offset: ${typeof offset !== 'undefined' ? offset : 'N/A'}`)
           }
           
           // IMPORT-ALL: NU aplicăm filtre! Vrem TOATE datele!
@@ -1520,17 +1521,17 @@ router.post('/import-all', authenticateToken, async (req, res) => {
               })
             }
           }
-        } else {
-          console.error('⚠️⚠️⚠️ CRITICAL: externalPool is NULL! Cannot fetch data from external DB!')
-          console.error('⚠️ Connection to external DB failed or was not established!')
+        } catch (externalError) {
+          console.error('❌ CRITICAL ERROR: Failed to fetch external data!')
+          console.error('❌ Error message:', externalError.message)
+          console.error('❌ Error stack:', externalError.stack)
+          console.error('❌ Error code:', externalError.code)
+          console.warn('⚠️ Continuing with existing data only, but NO new data will be imported!')
+          externalData = []
         }
-      } catch (externalError) {
-        console.error('❌ CRITICAL ERROR: Failed to fetch external data!')
-        console.error('❌ Error message:', externalError.message)
-        console.error('❌ Error stack:', externalError.stack)
-        console.error('❌ Error code:', externalError.code)
-        console.warn('⚠️ Continuing with existing data only, but NO new data will be imported!')
-        externalData = []
+      } else {
+        console.error('⚠️⚠️⚠️ CRITICAL: externalPool is NULL! Cannot fetch data from external DB!')
+        console.error('⚠️ Connection to external DB failed or was not established!')
       }
     
       // Step 4: Import from Google Sheets if URL is available
