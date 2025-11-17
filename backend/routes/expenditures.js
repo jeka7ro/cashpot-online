@@ -217,18 +217,49 @@ const getExternalPool = () => {
 // Test connection to external DB
 router.get('/test-connection', async (req, res) => {
   try {
+    console.log('🧪 Testing external DB connection from test endpoint...')
+    console.log('📡 Request headers:', {
+      'x-forwarded-for': req.headers['x-forwarded-for'],
+      'x-real-ip': req.headers['x-real-ip'],
+      'user-agent': req.headers['user-agent']
+    })
+    console.log('🌐 Server info:', {
+      hostname: process.env.RENDER_EXTERNAL_HOSTNAME || 'unknown',
+      nodeEnv: process.env.NODE_ENV || 'unknown'
+    })
+    
     const pool = getExternalPool()
-    const result = await pool.query('SELECT NOW() as current_time')
+    const result = await pool.query('SELECT NOW() as current_time, current_database() as db_name, inet_server_addr() as server_ip')
+    
     res.json({ 
       success: true, 
       message: 'Connection successful',
-      timestamp: result.rows[0].current_time
+      timestamp: result.rows[0].current_time,
+      database: result.rows[0].db_name,
+      serverIP: result.rows[0].server_ip,
+      connectionInfo: {
+        host: process.env.EXPENDITURES_DB_HOST || '82.76.35.50',
+        port: process.env.EXPENDITURES_DB_PORT || '26257',
+        database: process.env.EXPENDITURES_DB_NAME || 'cashpot',
+        user: process.env.EXPENDITURES_DB_USER || 'cashpot'
+      }
     })
   } catch (error) {
-    console.error('External DB connection error:', error)
+    console.error('❌ External DB connection error:', error)
+    console.error('❌ Error code:', error.code)
+    console.error('❌ Error details:', error.toString())
+    
     res.status(500).json({ 
       success: false, 
-      error: error.message 
+      error: error.message,
+      errorCode: error.code,
+      hint: error.code === 'ENETUNREACH' 
+        ? '⚠️ IMPORTANT: Firewall-ul din birou trebuie să permită conexiuni de la IP-urile Render! Verifică whitelist-ul pe router/firewall.' 
+        : 'Verifică configurația conexiunii și firewall-ul',
+      connectionInfo: {
+        host: process.env.EXPENDITURES_DB_HOST || '82.76.35.50',
+        port: process.env.EXPENDITURES_DB_PORT || '26257'
+      }
     })
   }
 })
@@ -448,10 +479,14 @@ router.post('/sync', async (req, res) => {
       
       // Test connection immediately
       console.log('🧪 Testing external DB connection...')
+      console.log('🌐 Attempting connection from:', process.env.RENDER_EXTERNAL_HOSTNAME || 'unknown host')
+      console.log('🌐 Node environment:', process.env.NODE_ENV || 'unknown')
+      
       const testResult = await externalPool.query('SELECT NOW() as current_time, current_database() as db_name')
       console.log('✅ External DB connection test successful!')
       console.log(`   Database: ${testResult.rows[0].db_name}`)
       console.log(`   Time: ${testResult.rows[0].current_time}`)
+      console.log('✅ Connection is working - can proceed with sync!')
     } catch (poolError) {
       console.error('❌ Cannot create/connect to external DB pool:', poolError.message)
       console.error('❌ Error code:', poolError.code)
@@ -465,7 +500,7 @@ router.post('/sync', async (req, res) => {
         errorHint = 'Verifică dacă IP-ul și portul sunt corecte și dacă baza de date acceptă conexiuni externe'
       } else if (poolError.code === 'ENETUNREACH' || poolError.message?.includes('network')) {
         errorMessage = 'Nu se poate ajunge la baza de date externă (probleme de rețea)'
-        errorHint = 'Verifică firewall-ul și configurația rețelei. Serverul Render poate să nu poată accesa IP-uri private/externe'
+        errorHint = '⚠️ IMPORTANT: Firewall-ul din birou trebuie să permită conexiuni de la IP-urile Render! Verifică log-urile backend-ului pentru IP-ul exact. Posibil să fie nevoie de whitelist IP-urile Render pe router/firewall.'
       } else if (poolError.message?.includes('password') || poolError.message?.includes('authentication')) {
         errorMessage = 'Eroare de autentificare la baza de date externă'
         errorHint = 'Verifică username-ul și parola în variabilele de mediu (EXPENDITURES_DB_USER, EXPENDITURES_DB_PASSWORD)'
