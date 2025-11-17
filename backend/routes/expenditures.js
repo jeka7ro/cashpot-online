@@ -1084,6 +1084,8 @@ router.post('/import-all', authenticateToken, async (req, res) => {
             console.warn('⚠️ Error loading sync settings, using defaults:', settingsError.message)
           }
           
+          // IMPORT-ALL: Aducem TOATE datele din API extern, FĂRĂ filtre!
+          // Nu aplicăm filtre pentru că vrem TOATE datele pentru import
           let whereConditions = ['p.is_deleted = false']
           const whereClause = whereConditions.join(' AND ')
           
@@ -1104,33 +1106,29 @@ router.post('/import-all', authenticateToken, async (req, res) => {
             ORDER BY p.operational_date DESC
           `
           
+          console.log('📊 Executing query on external DB:', query.substring(0, 200))
           _importAllProgress.currentStep = 'Se preiau datele din API extern...'
           const externalResult = await externalPool.query(query)
           console.log(`✅ Fetched ${externalResult.rows.length} records from external DB`)
           
+          // IMPORT-ALL: NU aplicăm filtre! Vrem TOATE datele!
+          // Filtrele se aplică doar la sincronizare normală, nu la import-all
           let filteredRows = externalResult.rows
           
-          if (syncSettings.includedExpenditureTypes && syncSettings.includedExpenditureTypes.length > 0) {
-            filteredRows = filteredRows.filter(row => 
-              syncSettings.includedExpenditureTypes.includes(row.expenditure_type)
-            )
-          }
+          console.log(`📊 Total rows from external DB: ${externalResult.rows.length}`)
+          console.log(`📊 Sample row (first):`, externalResult.rows[0] ? {
+            location: externalResult.rows[0].location_name,
+            department: externalResult.rows[0].department_name,
+            type: externalResult.rows[0].expenditure_type,
+            amount: externalResult.rows[0].amount,
+            date: externalResult.rows[0].operational_date
+          } : 'No rows')
           
-          if (syncSettings.includedDepartments && syncSettings.includedDepartments.length > 0) {
-            filteredRows = filteredRows.filter(row => 
-              syncSettings.includedDepartments.includes(row.department_name)
-            )
-          }
-          
-          if (syncSettings.includedLocations && syncSettings.includedLocations.length > 0) {
-            filteredRows = filteredRows.filter(row => 
-              syncSettings.includedLocations.includes(row.location_name)
-            )
-          }
-          
+          // NU FILTRĂM! Aducem TOATE datele pentru import-all
+          // Filtrele din syncSettings sunt pentru sincronizare normală, nu pentru import-all
           externalData = filteredRows
           _importAllProgress.fromExternalAPI = filteredRows.length
-          console.log(`✅ Filtered to ${externalData.length} records from external DB`)
+          console.log(`✅ Using ALL ${externalData.length} records from external DB (no filters applied for import-all)`)
         }
       } catch (externalError) {
         console.warn('⚠️ Error fetching external data, continuing with existing data:', externalError.message)
