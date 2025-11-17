@@ -1218,6 +1218,21 @@ router.post('/import-all', authenticateToken, async (req, res) => {
               
               console.log(`✅ Year ${year} complete: ${yearOffset} records fetched. Total so far: ${allExternalRows.length}`)
             }
+            
+            // Final summary by year
+            console.log(`📊 ========== YEAR-BY-YEAR SUMMARY ==========`)
+            const byYearFinal = {}
+            allExternalRows.forEach(row => {
+              if (row.operational_date) {
+                const year = new Date(row.operational_date).getFullYear()
+                byYearFinal[year] = (byYearFinal[year] || 0) + 1
+              }
+            })
+            Object.keys(byYearFinal).sort().forEach(year => {
+              console.log(`📅 Year ${year}: ${byYearFinal[year]} records`)
+            })
+            console.log(`📊 TOTAL FROM EXTERNAL DB: ${allExternalRows.length} records`)
+            console.log(`📊 ==========================================`)
           } else {
             // Fallback: Original approach with ASC ordering
             console.log('⚠️ Fallback: Using batch approach with ASC ordering')
