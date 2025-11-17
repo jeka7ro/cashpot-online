@@ -182,8 +182,10 @@ const getExternalPool = () => {
     externalPool = null
   }
   
-  const dbUser = process.env.EXPENDITURES_DB_USER || 'cashpot'
-  const dbPassword = process.env.EXPENDITURES_DB_PASSWORD || '129hj8oahwd7yaw3e21321'
+  // Credențiale pentru baza de date externă
+  // Pot fi suprascrise din variabilele de mediu EXPENDITURES_DB_USER și EXPENDITURES_DB_PASSWORD
+  const dbUser = process.env.EXPENDITURES_DB_USER || 'Jeka'
+  const dbPassword = process.env.EXPENDITURES_DB_PASSWORD || '31ianurie'
   const dbPort = parseInt(process.env.EXPENDITURES_DB_PORT || '26257')
   const dbName = process.env.EXPENDITURES_DB_NAME || 'cashpot'
   
