@@ -1102,10 +1102,14 @@ router.post('/import-all', authenticateToken, async (req, res) => {
           let batchNumber = 0
           const maxRetries = 3
           const retryDelay = 1000 // 1 secundă între retry-uri
+          const maxBatches = 1000 // Limita maximă de batch-uri pentru a preveni infinite loops (1000 * 2000 = 2M înregistrări)
+          
+          console.log('🔍 IMPORT-ALL: Starting batch processing with NO DATE LIMITS')
+          console.log(`🔍 IMPORT-ALL: Batch size: ${batchSize}, Max batches: ${maxBatches} (total: ${maxBatches * batchSize} records max)`)
           
           _importAllProgress.currentStep = 'Se preiau datele din API extern (batch 0)...'
           
-          while (hasMore) {
+          while (hasMore && batchNumber < maxBatches) {
             batchNumber++
             let batchRows = []
             let batchSuccess = false
@@ -1193,6 +1197,11 @@ router.post('/import-all', authenticateToken, async (req, res) => {
                 console.log(`📅 Cumulative date range: ${minDate ? minDate.toISOString().split('T')[0] : 'N/A'} to ${maxDate ? maxDate.toISOString().split('T')[0] : 'N/A'}`)
               }
             }
+          }
+          
+          if (batchNumber >= maxBatches) {
+            console.error(`⚠️⚠️⚠️ WARNING: Reached maximum batch limit (${maxBatches})! May not have fetched all records!`)
+            console.error(`⚠️ Total fetched: ${allExternalRows.length}, Last offset: ${offset}`)
           }
           
           console.log(`✅ TOTAL Fetched ${allExternalRows.length} records from external DB in ${batchNumber} batch(es)`)
