@@ -1750,6 +1750,8 @@ router.post('/import-all', authenticateToken, async (req, res) => {
             
             // Insert cu ON CONFLICT DO NOTHING pentru a preveni duplicate la nivel de DB
             // UNIQUE INDEX pe (operational_date, amount, location_name, department_name, expenditure_type)
+            // Folosim ON CONFLICT cu coloanele exacte din UNIQUE INDEX
+            // IMPORTANT: Datele trebuie să fie normalizate (normalizeDate, normalizeAmount, normalizeString)
             const insertPromise = dataSource === 'google_sheets' && description
               ? localPool.query(`
                   INSERT INTO expenditures_sync (
@@ -1759,11 +1761,11 @@ router.post('/import-all', authenticateToken, async (req, res) => {
                   ON CONFLICT (operational_date, amount, location_name, department_name, expenditure_type) 
                   DO NOTHING
                 `, [
-                  row.location_name,
-                  row.department_name,
-                  row.expenditure_type,
-                  row.amount,
-                  row.operational_date,
+                  row.location_name,  // Deja normalizat cu normalizeString
+                  row.department_name, // Deja normalizat cu normalizeString
+                  row.expenditure_type, // Deja normalizat cu normalizeString
+                  row.amount,          // Deja normalizat cu normalizeAmount
+                  row.operational_date, // Deja normalizat cu normalizeDate
                   mappedLocationId,
                   dataSource,
                   description
@@ -1776,11 +1778,11 @@ router.post('/import-all', authenticateToken, async (req, res) => {
                   ON CONFLICT (operational_date, amount, location_name, department_name, expenditure_type) 
                   DO NOTHING
                 `, [
-                  row.location_name,
-                  row.department_name,
-                  row.expenditure_type,
-                  row.amount,
-                  row.operational_date,
+                  row.location_name,  // Deja normalizat cu normalizeString
+                  row.department_name, // Deja normalizat cu normalizeString
+                  row.expenditure_type, // Deja normalizat cu normalizeString
+                  row.amount,          // Deja normalizat cu normalizeAmount
+                  row.operational_date, // Deja normalizat cu normalizeDate
                   mappedLocationId,
                   dataSource
                 ])
