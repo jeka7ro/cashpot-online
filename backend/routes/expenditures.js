@@ -1226,8 +1226,8 @@ router.post('/import-all', authenticateToken, async (req, res) => {
               console.log(`✅ Year ${year} complete: ${yearOffset} records fetched. Total so far: ${allExternalRows.length}`)
             }
             
-            // Final summary by year
-            console.log(`📊 ========== YEAR-BY-YEAR SUMMARY ==========`)
+            // Final summary by year - CRITICAL FOR DEBUGGING!
+            console.log(`\n📊 ========== YEAR-BY-YEAR SUMMARY ==========`)
             const byYearFinal = {}
             allExternalRows.forEach(row => {
               if (row.operational_date) {
@@ -1235,11 +1235,28 @@ router.post('/import-all', authenticateToken, async (req, res) => {
                 byYearFinal[year] = (byYearFinal[year] || 0) + 1
               }
             })
-            Object.keys(byYearFinal).sort().forEach(year => {
-              console.log(`📅 Year ${year}: ${byYearFinal[year]} records`)
-            })
+            
+            if (Object.keys(byYearFinal).length === 0) {
+              console.error(`⚠️⚠️⚠️ CRITICAL: NO RECORDS BY YEAR! Total rows: ${allExternalRows.length}`)
+            } else {
+              Object.keys(byYearFinal).sort().forEach(year => {
+                console.log(`📅 Year ${year}: ${byYearFinal[year]} records`)
+              })
+            }
+            
             console.log(`📊 TOTAL FROM EXTERNAL DB: ${allExternalRows.length} records`)
-            console.log(`📊 ==========================================`)
+            
+            // Find min and max dates in fetched data
+            const dates = allExternalRows.map(r => r.operational_date).filter(d => d)
+            if (dates.length > 0) {
+              const minFetchedDate = new Date(Math.min(...dates.map(d => new Date(d))))
+              const maxFetchedDate = new Date(Math.max(...dates.map(d => new Date(d))))
+              console.log(`📅 Date range in fetched data: ${minFetchedDate.toISOString().split('T')[0]} to ${maxFetchedDate.toISOString().split('T')[0]}`)
+            } else {
+              console.error(`⚠️⚠️⚠️ CRITICAL: NO DATES IN FETCHED DATA!`)
+            }
+            
+            console.log(`📊 ==========================================\n`)
           } else {
             // Fallback: Original approach with ASC ordering
             console.log('⚠️ Fallback: Using batch approach with ASC ordering')
@@ -1337,13 +1354,14 @@ router.post('/import-all', authenticateToken, async (req, res) => {
             console.error(`⚠️ Total fetched: ${allExternalRows.length}, Last offset: ${offset}`)
           }
           
-          console.log(`✅ TOTAL Fetched ${allExternalRows.length} records from external DB in ${batchNumber} batch(es)`)
-          
           // IMPORT-ALL: NU aplicăm filtre! Vrem TOATE datele!
           // Filtrele se aplică doar la sincronizare normală, nu la import-all
           let filteredRows = allExternalRows
           
           // Log date range for debugging - CRITICAL FOR DEBUGGING!
+          console.log(`\n📊 ========== EXTERNAL DB IMPORT SUMMARY ==========`)
+          console.log(`📊 Total rows from external DB: ${filteredRows.length}`)
+          
           if (filteredRows.length > 0) {
             const dates = filteredRows.map(r => r.operational_date).filter(d => d)
             const minDate = dates.length > 0 ? new Date(Math.min(...dates.map(d => new Date(d)))) : null
@@ -1358,25 +1376,33 @@ router.post('/import-all', authenticateToken, async (req, res) => {
               }
             })
             
-            console.log(`📊 ========== EXTERNAL DB IMPORT SUMMARY ==========`)
-            console.log(`📊 Total rows from external DB: ${filteredRows.length}`)
-            console.log(`📅 Date range in external DB: ${minDate ? minDate.toISOString().split('T')[0] : 'N/A'} to ${maxDate ? maxDate.toISOString().split('T')[0] : 'N/A'}`)
-            console.log(`📊 Records by year:`, byYear)
-            console.log(`📊 Sample row (first - newest):`, filteredRows[0] ? {
-              location: filteredRows[0].location_name,
-              department: filteredRows[0].department_name,
-              type: filteredRows[0].expenditure_type,
-              amount: filteredRows[0].amount,
-              date: filteredRows[0].operational_date
-            } : 'No rows')
-            console.log(`📊 Sample row (last - oldest):`, filteredRows[filteredRows.length - 1] ? {
-              location: filteredRows[filteredRows.length - 1].location_name,
-              department: filteredRows[filteredRows.length - 1].department_name,
-              type: filteredRows[filteredRows.length - 1].expenditure_type,
-              amount: filteredRows[filteredRows.length - 1].amount,
-              date: filteredRows[filteredRows.length - 1].operational_date
-            } : 'No rows')
-            console.log(`📊 ================================================`)
+            console.log(`📅 Date range in fetched data: ${minDate ? minDate.toISOString().split('T')[0] : 'N/A'} to ${maxDate ? maxDate.toISOString().split('T')[0] : 'N/A'}`)
+            console.log(`📊 Records by year:`)
+            Object.keys(byYear).sort().forEach(year => {
+              console.log(`   📅 Year ${year}: ${byYear[year]} records`)
+            })
+            
+            if (filteredRows.length > 0) {
+              console.log(`📊 Sample row (first):`, {
+                location: filteredRows[0].location_name,
+                department: filteredRows[0].department_name,
+                type: filteredRows[0].expenditure_type,
+                amount: filteredRows[0].amount,
+                date: filteredRows[0].operational_date
+              })
+              console.log(`📊 Sample row (last):`, {
+                location: filteredRows[filteredRows.length - 1].location_name,
+                department: filteredRows[filteredRows.length - 1].department_name,
+                type: filteredRows[filteredRows.length - 1].expenditure_type,
+                amount: filteredRows[filteredRows.length - 1].amount,
+                date: filteredRows[filteredRows.length - 1].operational_date
+              })
+            }
+          } else {
+            console.error(`⚠️⚠️⚠️ CRITICAL: NO ROWS FETCHED FROM EXTERNAL DB!`)
+          }
+          
+          console.log(`📊 ================================================\n`)
             
             // WARNING dacă cel mai vechi record este după 13.11
             if (minDate && new Date(minDate) > new Date('2024-11-13')) {
