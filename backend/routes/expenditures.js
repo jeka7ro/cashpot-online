@@ -186,7 +186,7 @@ const getExternalPool = () => {
   // Pot fi suprascrise din variabilele de mediu EXPENDITURES_DB_USER și EXPENDITURES_DB_PASSWORD
   const dbUser = process.env.EXPENDITURES_DB_USER || 'jeka'
   const dbPassword = process.env.EXPENDITURES_DB_PASSWORD || '31Ianuarie'
-  const dbPort = parseInt(process.env.EXPENDITURES_DB_PORT || '9858')
+  const dbPort = parseInt(process.env.EXPENDITURES_DB_PORT || '26257')
   const dbName = process.env.EXPENDITURES_DB_NAME || 'cashpot'
   
   console.log(`🔌 Creating NEW external DB pool:`)
