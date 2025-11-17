@@ -1501,9 +1501,38 @@ router.post('/import-all', authenticateToken, async (req, res) => {
           externalData = filteredRows
           _importAllProgress.fromExternalAPI = filteredRows.length
           console.log(`✅ Using ALL ${externalData.length} records from external DB (no filters applied for import-all)`)
+          
+          // CRITICAL VERIFICATION: Verificăm dacă am adus date
+          if (externalData.length === 0) {
+            console.error('⚠️⚠️⚠️ CRITICAL: externalData is EMPTY after fetch!')
+            console.error('⚠️ This means NO data was fetched from external DB!')
+            console.error('⚠️ Check:')
+            console.error('   1. Is external DB accessible?')
+            console.error('   2. Are credentials correct?')
+            console.error('   3. Does casino_payments table exist?')
+            console.error('   4. Are there records with is_deleted = false?')
+          } else {
+            console.log(`✅ SUCCESS: Fetched ${externalData.length} records from external DB`)
+            // Log sample data
+            if (externalData.length > 0) {
+              console.log(`📊 Sample record:`, {
+                date: externalData[0].operational_date,
+                location: externalData[0].location_name,
+                amount: externalData[0].amount,
+                department: externalData[0].department_name
+              })
+            }
+          }
+        } else {
+          console.error('⚠️⚠️⚠️ CRITICAL: externalPool is NULL! Cannot fetch data from external DB!')
+          console.error('⚠️ Connection to external DB failed or was not established!')
         }
       } catch (externalError) {
-        console.warn('⚠️ Error fetching external data, continuing with existing data:', externalError.message)
+        console.error('❌ CRITICAL ERROR: Failed to fetch external data!')
+        console.error('❌ Error message:', externalError.message)
+        console.error('❌ Error stack:', externalError.stack)
+        console.error('❌ Error code:', externalError.code)
+        console.warn('⚠️ Continuing with existing data only, but NO new data will be imported!')
         externalData = []
       }
     
