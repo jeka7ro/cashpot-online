@@ -206,7 +206,9 @@ const getExternalPool = () => {
     ssl: process.env.EXPENDITURES_DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
     max: 5,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 20000 // Mărim timeout-ul pentru conexiuni externe
+    connectionTimeoutMillis: 60000, // 60 secunde timeout pentru conexiuni externe (firewall delay)
+    query_timeout: 60000, // 60 secunde timeout pentru query-uri
+    statement_timeout: 60000 // 60 secunde timeout pentru statements
   })
   
   externalPool.on('error', (err) => {
@@ -475,48 +477,83 @@ router.post('/sync', async (req, res) => {
     const localPool = req.app.get('pool')
     
     // Try to get external pool - catch error if connection fails
+    // Retry logic pentru conexiuni externe (firewall delay)
     let externalPool
-    try {
-      console.log('🔌 Attempting to create external DB connection...')
-      externalPool = getExternalPool()
-      
-      // Test connection immediately
-      console.log('🧪 Testing external DB connection...')
-      console.log('🌐 Attempting connection from:', process.env.RENDER_EXTERNAL_HOSTNAME || 'unknown host')
-      console.log('🌐 Node environment:', process.env.NODE_ENV || 'unknown')
-      
-      const testResult = await externalPool.query('SELECT NOW() as current_time, current_database() as db_name')
-      console.log('✅ External DB connection test successful!')
-      console.log(`   Database: ${testResult.rows[0].db_name}`)
-      console.log(`   Time: ${testResult.rows[0].current_time}`)
-      console.log('✅ Connection is working - can proceed with sync!')
-    } catch (poolError) {
-      console.error('❌ Cannot create/connect to external DB pool:', poolError.message)
-      console.error('❌ Error code:', poolError.code)
-      console.error('❌ Error stack:', poolError.stack)
-      
+    let lastError = null
+    const maxRetries = 3
+    const retryDelay = 2000 // 2 secunde între retry-uri
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🔌 Attempting to create external DB connection (attempt ${attempt}/${maxRetries})...`)
+        externalPool = getExternalPool()
+        
+        // Test connection immediately cu timeout mai mare
+        console.log('🧪 Testing external DB connection...')
+        console.log('🌐 Attempting connection from:', process.env.RENDER_EXTERNAL_HOSTNAME || 'unknown host')
+        console.log('🌐 Node environment:', process.env.NODE_ENV || 'unknown')
+        
+        // Query cu timeout explicit
+        const testResult = await Promise.race([
+          externalPool.query('SELECT NOW() as current_time, current_database() as db_name'),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Connection test timeout after 60 seconds')), 60000)
+          )
+        ])
+        
+        console.log('✅ External DB connection test successful!')
+        console.log(`   Database: ${testResult.rows[0].db_name}`)
+        console.log(`   Time: ${testResult.rows[0].current_time}`)
+        console.log('✅ Connection is working - can proceed with sync!')
+        lastError = null
+        break // Success - exit retry loop
+      } catch (poolError) {
+        lastError = poolError
+        console.error(`❌ Connection attempt ${attempt}/${maxRetries} failed:`, poolError.message)
+        console.error('❌ Error code:', poolError.code)
+        
+        if (attempt < maxRetries) {
+          console.log(`⏳ Retrying in ${retryDelay}ms...`)
+          await new Promise(resolve => setTimeout(resolve, retryDelay))
+          // Reset pool pentru următorul retry
+          if (externalPool) {
+            try {
+              externalPool.end().catch(() => {})
+            } catch (e) {}
+            externalPool = null
+          }
+        } else {
+          console.error('❌ All connection attempts failed!')
+          console.error('❌ Error stack:', lastError.stack)
+        }
+      }
+    }
+    
+    // Dacă toate retry-urile au eșuat
+    if (lastError) {
       let errorMessage = 'Nu se poate conecta la baza de date externă'
       let errorHint = ''
       
-      if (poolError.code === 'ECONNREFUSED') {
+      if (lastError.code === 'ECONNREFUSED') {
         errorMessage = `Nu se poate conecta la ${process.env.EXPENDITURES_DB_HOST || '82.76.35.50'}:${process.env.EXPENDITURES_DB_PORT || '26257'}`
         errorHint = 'Verifică dacă IP-ul și portul sunt corecte și dacă baza de date acceptă conexiuni externe'
-      } else if (poolError.code === 'ENETUNREACH' || poolError.message?.includes('network')) {
+      } else if (lastError.code === 'ENETUNREACH' || lastError.message?.includes('network')) {
         errorMessage = 'Nu se poate ajunge la baza de date externă (probleme de rețea)'
-        errorHint = '⚠️ IMPORTANT: Firewall-ul din birou trebuie să permită conexiuni de la IP-urile Render! Verifică log-urile backend-ului pentru IP-ul exact. Posibil să fie nevoie de whitelist IP-urile Render pe router/firewall.'
-      } else if (poolError.message?.includes('password') || poolError.message?.includes('authentication')) {
+        errorHint = '⚠️ IMPORTANT: Firewall-ul din birou trebuie să permită conexiuni INBOUND pe portul 26257 de la IP-urile Render! Verifică configurarea router-ului/firewall-ului pentru Port Forwarding și whitelist IP-urile Render.'
+      } else if (lastError.message?.includes('password') || lastError.message?.includes('authentication')) {
         errorMessage = 'Eroare de autentificare la baza de date externă'
         errorHint = 'Verifică username-ul și parola în variabilele de mediu (EXPENDITURES_DB_USER, EXPENDITURES_DB_PASSWORD)'
-      } else if (poolError.message?.includes('timeout')) {
-        errorMessage = 'Timeout la conectare la baza de date externă'
-        errorHint = 'Verifică dacă baza de date este accesibilă și dacă firewall-ul permite conexiuni'
+      } else if (lastError.message?.includes('timeout') || lastError.code === 'ETIMEDOUT') {
+        errorMessage = 'Timeout la conectare la baza de date externă (60 secunde)'
+        errorHint = 'Firewall-ul din birou blochează conexiuni sau nu este configurat Port Forwarding pentru 82.76.35.50:26257. Verifică configurarea router-ului/firewall-ului pentru a permite conexiuni INBOUND de la IP-urile Render.'
       }
       
       return res.status(500).json({
         success: false,
         error: errorMessage,
         hint: errorHint || 'Verifică log-urile backend-ului pentru detalii',
-        errorCode: poolError.code
+        errorCode: lastError.code,
+        attempts: maxRetries
       })
     }
     
@@ -645,11 +682,6 @@ router.post('/sync', async (req, res) => {
       })
     }
     
-    // Clear existing sync data
-    console.log('🗑️ Clearing existing sync data...')
-    await localPool.query('DELETE FROM expenditures_sync')
-    console.log('✅ Existing sync data cleared')
-    
     // Get location mapping
     const mappingResult = await localPool.query('SELECT * FROM expenditure_location_mapping')
     const mapping = {}
@@ -658,8 +690,12 @@ router.post('/sync', async (req, res) => {
     })
     console.log(`📍 Loaded ${mappingResult.rows.length} location mappings`)
     
+    // NU ștergem datele existente! Verificăm duplicatele și inserăm doar pe cele noi
+    console.log('🔄 Verificare duplicate și inserare doar înregistrări noi...')
+    
     // Insert synced data - batch insert pentru performanță mai bună
     let inserted = 0
+    let skipped = 0 // Duplicatele
     let errors = 0
     const batchSize = 50 // Insert în batch-uri de 50
     
@@ -670,8 +706,33 @@ router.post('/sync', async (req, res) => {
         try {
           const mappedLocationId = mapping[row.location_name] || null
           
-          // Nu salvăm original_location_id dacă este UUID (externul folosește UUID, localul integer)
-          // Folosim doar mapped_location_id și location_name
+          // Verificăm dacă înregistrarea există deja (duplicat)
+          // Verificăm după: operational_date, amount, location_name, department_name, expenditure_type
+          const existingCheck = await localPool.query(`
+            SELECT id 
+            FROM expenditures_sync
+            WHERE operational_date = $1 
+              AND amount = $2 
+              AND location_name = $3 
+              AND department_name = $4
+              AND expenditure_type = $5
+              AND data_source = 'api_sync'
+            LIMIT 1
+          `, [
+            row.operational_date,
+            row.amount || 0,
+            row.location_name || 'Unknown',
+            row.department_name || 'Unknown',
+            row.expenditure_type || 'Unknown'
+          ])
+          
+          // Dacă există deja, skip
+          if (existingCheck.rows.length > 0) {
+            skipped++
+            continue
+          }
+          
+          // Inserăm doar dacă nu există deja
           await localPool.query(`
             INSERT INTO expenditures_sync (
               location_name, department_name, expenditure_type, amount, 
@@ -689,7 +750,7 @@ router.post('/sync', async (req, res) => {
           inserted++
           
           if (inserted % 10 === 0) {
-            console.log(`📝 Inserted ${inserted}/${filteredRows.length} records...`)
+            console.log(`📝 Inserted ${inserted}/${filteredRows.length} records (${skipped} skipped as duplicates)...`)
           }
         } catch (insertError) {
           errors++
@@ -700,7 +761,9 @@ router.post('/sync', async (req, res) => {
       }
     }
     
-    console.log(`✅ Synced ${inserted} expenditure records to local DB (${errors} errors)`)
+    console.log(`✅ Synced ${inserted} new expenditure records to local DB`)
+    console.log(`   - ${skipped} records skipped (already exist)`)
+    console.log(`   - ${errors} errors`)
     
     if (errors > 0) {
       console.warn(`⚠️ Sync completed with ${errors} errors out of ${filteredRows.length} total records`)
@@ -708,8 +771,9 @@ router.post('/sync', async (req, res) => {
     
     res.json({
       success: true,
-      message: `Synchronized ${inserted} records${errors > 0 ? ` (${errors} errors)` : ''}`,
+      message: `Sincronizate ${inserted} înregistrări noi${skipped > 0 ? ` (${skipped} deja existente)` : ''}${errors > 0 ? ` (${errors} erori)` : ''}`,
       records: inserted,
+      skipped: skipped,
       errors: errors,
       totalFetched: result.rows.length,
       totalFiltered: filteredRows.length,

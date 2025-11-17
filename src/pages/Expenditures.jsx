@@ -279,9 +279,9 @@ const Expenditures = () => {
       setSyncing(true)
       toast.loading('Sincronizare în curs...', { id: 'sync' })
       
+      // NU trimitem dateRange - vrem TOATE datele, nu doar cele din perioada selectată
       const response = await axios.post('/api/expenditures/sync', {
-        startDate: dateRange.startDate,
-        endDate: dateRange.endDate,
+        // startDate și endDate NU se trimit - vrem TOATE datele disponibile
         filters: syncSettings.filters
       })
       
