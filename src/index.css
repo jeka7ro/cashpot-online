@@ -617,21 +617,49 @@
   margin: 0 !important;
 }
 
+/* Remove white stripe/band under tooltip - ELIMINARE BANDĂ ALBĂ */
+.recharts-tooltip-wrapper::before,
+.recharts-tooltip-wrapper::after,
+.recharts-default-tooltip::before,
+.recharts-default-tooltip::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* Remove white background from tooltip cursor line */
+.recharts-tooltip-cursor {
+  display: none !important;
+  stroke: none !important;
+  fill: none !important;
+  background: none !important;
+  background-color: transparent !important;
+}
+
+/* Remove white stripe from active bar when tooltip shows */
+.recharts-active-bar {
+  opacity: 1 !important;
+  stroke: none !important;
+  stroke-width: 0 !important;
+}
+
+/* Remove any line/stripe/band background on hover in bar charts */
+.recharts-bar-rectangle:hover {
+  background-color: transparent !important;
+  fill-opacity: 1 !important;
+  stroke: none !important;
+  stroke-width: 0 !important;
+}
+
+/* Remove white border/outline from tooltip wrapper */
+.recharts-tooltip-wrapper *,
+.recharts-default-tooltip * {
+  border-color: transparent !important;
+  outline: none !important;
+}
+
 /* Allow custom tooltips with explicit backgroundColor to show their dark background */
 .recharts-tooltip-wrapper > div[style*="#1e293b"],
 .recharts-default-tooltip > div[style*="#1e293b"] {
   background-color: #1e293b !important;
   background: #1e293b !important;
-}
-
-/* Remove any default Recharts tooltip background on hover */
-.recharts-active-bar,
-.recharts-bar-rectangle:hover {
-  opacity: 1 !important;
-}
-
-/* Remove any line/stripe background on hover in bar charts */
-.recharts-bar-rectangle:hover {
-  background-color: transparent !important;
-  fill-opacity: 1 !important;
 }

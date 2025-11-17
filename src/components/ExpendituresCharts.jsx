@@ -374,6 +374,7 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
             />
             <Tooltip 
               content={<CustomTrendTooltip />}
+              cursor={false}
               wrapperStyle={{ 
                 backgroundColor: 'transparent',
                 background: 'transparent',
@@ -434,6 +435,7 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
             />
             <Tooltip 
               content={<CustomDepartmentTooltip />}
+              cursor={false}
               wrapperStyle={{ 
                 backgroundColor: 'transparent',
                 background: 'transparent',
