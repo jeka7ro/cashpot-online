@@ -1064,6 +1064,8 @@ router.post('/import-all', authenticateToken, async (req, res) => {
         }
         
         if (externalPool) {
+          console.log('✅ External DB pool available, starting data fetch...')
+          
           // IMPORT-ALL: NU ÎNCĂRCĂM syncSettings PENTRU IMPORT-ALL!
           // Import-all aduce TOATE datele, fără nicio filtrare (nici pe date, nici pe tipuri, nici pe departamente, nici pe locații)
           // Doar pentru URL Google Sheets citim setările, dar ignorăm complet filtrele!
@@ -1096,6 +1098,19 @@ router.post('/import-all', authenticateToken, async (req, res) => {
           
           console.log('🔍 IMPORT-ALL: NO FILTERS - Only filtering is_deleted = false')
           console.log('🔍 IMPORT-ALL: Will fetch ALL records from external DB in batches (no date limits, no type filters, no department filters, no location filters)')
+          console.log('🔍 IMPORT-ALL: Where clause:', whereClause)
+          
+          // Test query pentru a verifica că conexiunea funcționează
+          try {
+            console.log('🧪 Testing external DB connection with simple query...')
+            const testQuery = await externalPool.query('SELECT COUNT(*) as total FROM public.casino_payments WHERE is_deleted = false')
+            const testTotal = parseInt(testQuery.rows[0].total || 0)
+            console.log(`✅ External DB connection OK! Total records (is_deleted = false): ${testTotal}`)
+          } catch (testError) {
+            console.error('❌ External DB test query failed:', testError.message)
+            console.error('❌ Error details:', testError.stack)
+            throw testError
+          }
           
           // NOUĂ ABORDARE: Fetch pe intervale de timp (year-by-year) pentru a aduce TOATE datele
           // ORDER BY DESC aduce doar date noi, ORDER BY ASC + query pe ani = toate datele
