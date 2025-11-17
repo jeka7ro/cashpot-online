@@ -9,6 +9,18 @@ export const getBuild = () => {
   return versionData.build
 }
 
+export const getBuildWithDateTime = () => {
+  // Returnează build number cu data și ora (HH:mm)
+  const buildDate = new Date(versionData.buildDate)
+  const day = String(buildDate.getDate()).padStart(2, '0')
+  const month = String(buildDate.getMonth() + 1).padStart(2, '0')
+  const year = buildDate.getFullYear()
+  const hours = String(buildDate.getHours()).padStart(2, '0')
+  const minutes = String(buildDate.getMinutes()).padStart(2, '0')
+  
+  return `#${versionData.build} - ${day}.${month}.${year} ${hours}:${minutes}`
+}
+
 export const getBuildDate = () => {
   // Folosim data din version.json (ora reală a build-ului)
   const buildDate = new Date(versionData.buildDate)

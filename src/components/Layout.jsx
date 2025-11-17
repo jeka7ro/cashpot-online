@@ -4,7 +4,7 @@ import axios from 'axios'
 import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useTheme } from '../contexts/ThemeContext'
-import { getVersion, getBuild, getBuildDate } from '../utils/version'
+import { getVersion, getBuild, getBuildDate, getBuildWithDateTime } from '../utils/version'
 import { hasPermission, MODULES, getDefaultPermissionsForRole } from '../utils/permissions'
 import { 
   Menu, 
@@ -411,7 +411,7 @@ const Layout = ({ children }) => {
                 }
               </div>
               <div className="text-white/50 text-xs mt-1">
-                v{getVersion()} Build #{getBuild()}
+                v{getVersion()} Build {getBuildWithDateTime()}
               </div>
             </div>
             
