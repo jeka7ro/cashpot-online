@@ -90,22 +90,52 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
         })
     } else {
       // AGREGARE PE LUNĂ (când e selectat interval mai mare)
-    const monthMap = {}
-    
-    expendituresData.forEach(item => {
-      const dateObj = new Date(item.operational_date)
-      const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`
+      const monthMap = {}
       
-      if (!monthMap[monthKey]) {
-        monthMap[monthKey] = 0
-      }
-      monthMap[monthKey] += parseFloat(item.amount || 0)
-    })
-    
+      expendituresData.forEach(item => {
+        const dateObj = new Date(item.operational_date)
+        const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`
+        
+        if (!monthMap[monthKey]) {
+          monthMap[monthKey] = 0
+        }
+        monthMap[monthKey] += parseFloat(item.amount || 0)
+      })
+      
       // Sortare CRONOLOGICĂ
-    return Object.entries(monthMap)
+      const sortedEntries = Object.entries(monthMap)
         .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([monthKey, value]) => {
+      
+      // Log pentru debugging - verifică ce luni lipsesc
+      if (sortedEntries.length > 0) {
+        const firstMonth = sortedEntries[0][0]
+        const lastMonth = sortedEntries[sortedEntries.length - 1][0]
+        const [firstYear, firstMonthNum] = firstMonth.split('-')
+        const [lastYear, lastMonthNum] = lastMonth.split('-')
+        
+        // Verifică dacă există goluri între luni
+        const monthsWithData = sortedEntries.map(([monthKey]) => monthKey)
+        console.log('📊 Luni cu date în grafic:', monthsWithData)
+        
+        // Detectează luni lipsă între prima și ultima lună cu date
+        const missingMonths = []
+        const startDate = new Date(parseInt(firstYear), parseInt(firstMonthNum) - 1, 1)
+        const endDate = new Date(parseInt(lastYear), parseInt(lastMonthNum) - 1, 1)
+        
+        for (let d = new Date(startDate); d <= endDate; d.setMonth(d.getMonth() + 1)) {
+          const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+          if (!monthsWithData.includes(monthKey)) {
+            missingMonths.push(monthKey)
+          }
+        }
+        
+        if (missingMonths.length > 0) {
+          console.warn('⚠️ Luni fără date detectate:', missingMonths)
+          console.warn('💡 Sfat: Folosește butonul "Import Toate Datele" pentru a aduce toate datele din toate sursele (SQL, API, Google Sheets)')
+        }
+      }
+      
+      return sortedEntries.map(([monthKey, value]) => {
         const [year, month] = monthKey.split('-')
         const dateObj = new Date(parseInt(year), parseInt(month) - 1, 1)
         return {
