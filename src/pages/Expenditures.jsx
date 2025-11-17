@@ -277,7 +277,17 @@ const Expenditures = () => {
   const handleSync = async () => {
     try {
       setSyncing(true)
-      toast.loading('Sincronizare în curs...', { id: 'sync' })
+      let progressInterval
+      
+      // Start progress updates
+      let progressCount = 0
+      progressInterval = setInterval(() => {
+        progressCount++
+        toast.loading(`Sincronizare în curs... (${progressCount}s)`, { 
+          id: 'sync',
+          duration: 1000 
+        })
+      }, 1000)
       
       // NU trimitem dateRange - vrem TOATE datele, nu doar cele din perioada selectată
       const response = await axios.post('/api/expenditures/sync', {
@@ -285,11 +295,36 @@ const Expenditures = () => {
         filters: syncSettings.filters
       })
       
-      toast.success(`✅ ${response.data.records} înregistrări sincronizate!`, { id: 'sync' })
+      // Stop progress updates
+      if (progressInterval) {
+        clearInterval(progressInterval)
+      }
+      
+      const { records, skipped, errors, totalFetched, totalFiltered } = response.data
+      let message = `✅ ${records} înregistrări noi sincronizate`
+      if (skipped > 0) {
+        message += ` (${skipped} deja existente)`
+      }
+      if (errors > 0) {
+        message += ` (${errors} erori)`
+      }
+      if (totalFetched) {
+        message += `\n📊 Total găsite: ${totalFetched}, După filtre: ${totalFiltered}`
+      }
+      
+      toast.success(message, { 
+        id: 'sync',
+        duration: 6000 
+      })
       
       // Reload data
       await loadExpendituresData()
     } catch (error) {
+      // Stop progress updates
+      if (progressInterval) {
+        clearInterval(progressInterval)
+      }
+      
       console.error('Error syncing expenditures:', error)
       
       // Extract detailed error message from response

@@ -698,9 +698,16 @@ router.post('/sync', async (req, res) => {
     let skipped = 0 // Duplicatele
     let errors = 0
     const batchSize = 50 // Insert în batch-uri de 50
+    const totalRecords = filteredRows.length
+    
+    console.log(`📊 Starting sync: ${totalRecords} records to process...`)
     
     for (let i = 0; i < filteredRows.length; i += batchSize) {
       const batch = filteredRows.slice(i, i + batchSize)
+      const currentIndex = i + 1
+      const progress = Math.round((currentIndex / totalRecords) * 100)
+      
+      console.log(`📝 Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(totalRecords / batchSize)}: ${currentIndex}/${totalRecords} (${progress}%) - Inserted: ${inserted}, Skipped: ${skipped}, Errors: ${errors}`)
       
       for (const row of batch) {
         try {
@@ -748,10 +755,6 @@ router.post('/sync', async (req, res) => {
             'api_sync'
           ])
           inserted++
-          
-          if (inserted % 10 === 0) {
-            console.log(`📝 Inserted ${inserted}/${filteredRows.length} records (${skipped} skipped as duplicates)...`)
-          }
         } catch (insertError) {
           errors++
           console.error(`❌ Error inserting record ${i + batch.indexOf(row) + 1}:`, insertError.message)

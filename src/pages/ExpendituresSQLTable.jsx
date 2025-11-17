@@ -41,8 +41,8 @@ const formatDate = (dateString) => {
 }
 
 const defaultDateRange = () => ({
-  startDate: '2023-01-01',
-  endDate: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0]
+  startDate: '2020-01-01', // Data foarte veche pentru a afișa TOATE datele
+  endDate: new Date(new Date().getFullYear() + 1, 11, 31).toISOString().split('T')[0] // Data viitoare pentru a afișa TOATE datele
 })
 
 const dataSourceOptions = [
