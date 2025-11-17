@@ -1521,7 +1521,7 @@ router.post('/import-all', authenticateToken, async (req, res) => {
               })
             }
           }
-          } catch (externalError) {
+        } catch (externalError) {
           console.error('❌ CRITICAL ERROR: Failed to fetch external data!')
           console.error('❌ Error message:', externalError.message)
           console.error('❌ Error stack:', externalError.stack)
