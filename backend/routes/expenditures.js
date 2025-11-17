@@ -1085,58 +1085,92 @@ router.post('/import-all', authenticateToken, async (req, res) => {
             console.warn('⚠️ Error loading settings for Google Sheets URL:', settingsError.message)
           }
           
-          // IMPORT-ALL: Aducem TOATE datele din API extern, FĂRĂ FILTRE ABSOLUT NICIUNUL!
+          // IMPORT-ALL: Aducem TOATE datele din API extern în BATCH-URI pentru a evita timeout-uri!
           // NU aplicăm filtre pe date, tipuri, departamente, locații - DOAR is_deleted = false
+          // Procesăm în batch-uri de 1000 pentru a aduce TOATE datele (din 2023 până acum!)
           let whereConditions = ['p.is_deleted = false']
           const whereClause = whereConditions.join(' AND ')
           
           console.log('🔍 IMPORT-ALL: NO FILTERS - Only filtering is_deleted = false')
-          console.log('🔍 IMPORT-ALL: Will fetch ALL records from external DB (no date limits, no type filters, no department filters, no location filters)')
+          console.log('🔍 IMPORT-ALL: Will fetch ALL records from external DB in batches (no date limits, no type filters, no department filters, no location filters)')
           
-          const query = `
-            SELECT 
-              l.id as location_id,
-              l.name as location_name,
-              d.name as department_name,
-              et.name as expenditure_type,
-              p.amount,
-              p.operational_date,
-              p.id as payment_id
-            FROM public.casino_payments p
-            LEFT JOIN public.casino_locations l ON p.location_id = l.id
-            LEFT JOIN public.casino_departments d ON p.department_id = d.id
-            LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
-            WHERE ${whereClause}
-            ORDER BY p.operational_date DESC
-          `
+          const batchSize = 1000 // Batch de 1000 înregistrări
+          let allExternalRows = []
+          let offset = 0
+          let hasMore = true
+          let batchNumber = 0
           
-          console.log('📊 Executing query on external DB:', query)
-          console.log('⚠️ IMPORTANT: NO DATE FILTERS APPLIED - Fetching ALL records where is_deleted = false')
-          _importAllProgress.currentStep = 'Se preiau datele din API extern...'
-          const externalResult = await externalPool.query(query)
-          console.log(`✅ Fetched ${externalResult.rows.length} records from external DB`)
+          _importAllProgress.currentStep = 'Se preiau datele din API extern (batch 0)...'
+          
+          while (hasMore) {
+            batchNumber++
+            const query = `
+              SELECT 
+                l.id as location_id,
+                l.name as location_name,
+                d.name as department_name,
+                et.name as expenditure_type,
+                p.amount,
+                p.operational_date,
+                p.id as payment_id
+              FROM public.casino_payments p
+              LEFT JOIN public.casino_locations l ON p.location_id = l.id
+              LEFT JOIN public.casino_departments d ON p.department_id = d.id
+              LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
+              WHERE ${whereClause}
+              ORDER BY p.operational_date DESC
+              LIMIT $1 OFFSET $2
+            `
+            
+            console.log(`📊 Executing batch ${batchNumber} on external DB: LIMIT ${batchSize} OFFSET ${offset}`)
+            _importAllProgress.currentStep = `Se preiau datele din API extern (batch ${batchNumber}, ${offset} înregistrări procesate)...`
+            
+            const batchResult = await externalPool.query(query, [batchSize, offset])
+            const batchRows = batchResult.rows
+            
+            console.log(`✅ Batch ${batchNumber}: Fetched ${batchRows.length} records (offset ${offset})`)
+            
+            if (batchRows.length === 0) {
+              hasMore = false
+              console.log(`✅ No more records - finished fetching all batches`)
+            } else {
+              allExternalRows = allExternalRows.concat(batchRows)
+              offset += batchRows.length
+              
+              // Dacă am primit mai puțin decât batchSize, am ajuns la final
+              if (batchRows.length < batchSize) {
+                hasMore = false
+                console.log(`✅ Last batch received (${batchRows.length} < ${batchSize}) - finished fetching all batches`)
+              }
+              
+              // Update progress
+              _importAllProgress.fromExternalAPI = allExternalRows.length
+            }
+          }
+          
+          console.log(`✅ TOTAL Fetched ${allExternalRows.length} records from external DB in ${batchNumber} batch(es)`)
           
           // IMPORT-ALL: NU aplicăm filtre! Vrem TOATE datele!
           // Filtrele se aplică doar la sincronizare normală, nu la import-all
-          let filteredRows = externalResult.rows
+          let filteredRows = allExternalRows
           
           // Log date range for debugging
-          if (externalResult.rows.length > 0) {
-            const dates = externalResult.rows.map(r => r.operational_date).filter(d => d)
+          if (filteredRows.length > 0) {
+            const dates = filteredRows.map(r => r.operational_date).filter(d => d)
             const minDate = dates.length > 0 ? new Date(Math.min(...dates.map(d => new Date(d)))) : null
             const maxDate = dates.length > 0 ? new Date(Math.max(...dates.map(d => new Date(d)))) : null
-            console.log(`📊 Total rows from external DB: ${externalResult.rows.length}`)
+            console.log(`📊 Total rows from external DB: ${filteredRows.length}`)
             console.log(`📅 Date range in external DB: ${minDate ? minDate.toISOString().split('T')[0] : 'N/A'} to ${maxDate ? maxDate.toISOString().split('T')[0] : 'N/A'}`)
-            console.log(`📊 Sample row (first):`, externalResult.rows[0] ? {
-              location: externalResult.rows[0].location_name,
-              department: externalResult.rows[0].department_name,
-              type: externalResult.rows[0].expenditure_type,
-              amount: externalResult.rows[0].amount,
-              date: externalResult.rows[0].operational_date
+            console.log(`📊 Sample row (first):`, filteredRows[0] ? {
+              location: filteredRows[0].location_name,
+              department: filteredRows[0].department_name,
+              type: filteredRows[0].expenditure_type,
+              amount: filteredRows[0].amount,
+              date: filteredRows[0].operational_date
             } : 'No rows')
-            console.log(`📊 Sample row (last):`, externalResult.rows[externalResult.rows.length - 1] ? {
-              location: externalResult.rows[externalResult.rows.length - 1].location_name,
-              date: externalResult.rows[externalResult.rows.length - 1].operational_date
+            console.log(`📊 Sample row (last):`, filteredRows[filteredRows.length - 1] ? {
+              location: filteredRows[filteredRows.length - 1].location_name,
+              date: filteredRows[filteredRows.length - 1].operational_date
             } : 'No rows')
           } else {
             console.log(`⚠️ WARNING: No rows fetched from external DB!`)
