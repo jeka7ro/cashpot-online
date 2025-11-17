@@ -279,9 +279,9 @@ const ExpendituresDetail = () => {
         </div>
 
         {/* Filters - Card de perioadă DEASUPRA grafurilor */}
-        <div className="card p-5 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-2xl shadow-xl border border-transparent">
+        <div className="card p-5 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-2xl shadow-xl border border-transparent relative z-[3000]">
           <div className="flex flex-wrap items-end gap-4">
-            <div className="flex-1 min-w-[260px] max-w-md">
+            <div className="flex-1 min-w-[260px] max-w-md relative z-[3000]">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center">
                 <Filter className="w-4 h-4 mr-2 text-blue-500" />
                 Perioadă
@@ -317,9 +317,9 @@ const ExpendituresDetail = () => {
         </div>
 
         {/* Charts - 2 grafice pe același rând: evoluție + locații */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative z-[1]">
           {/* Trend */}
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
+          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6 relative z-[1]">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Evoluție cheltuieli</h3>
@@ -371,7 +371,7 @@ const ExpendituresDetail = () => {
           </div>
 
           {/* Distribuție pe locații */}
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
+          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6 relative z-[1]">
             <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center">
               <Building2 className="w-5 h-5 mr-2 text-green-500" />
               Distribuție pe locații

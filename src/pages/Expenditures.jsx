@@ -168,14 +168,22 @@ const Expenditures = () => {
   }, [dateRange, departmentFilter, expenditureTypeFilter, locationFilter, selectedDateFilter])
   
   // Quick date filters
+  // Fix timezone issues - format date fără timezone conversion
+  const formatDateLocal = (date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+  
   const applyQuickDateFilter = (filterType) => {
     const today = new Date()
     let startDate, endDate
     
     switch (filterType) {
       case 'azi':
-        startDate = today.toISOString().split('T')[0]
-        endDate = today.toISOString().split('T')[0]
+        startDate = formatDateLocal(today)
+        endDate = formatDateLocal(today)
         break
       
       case 'saptamana-curenta':
@@ -183,29 +191,34 @@ const Expenditures = () => {
         const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek // Monday as start
         const monday = new Date(today)
         monday.setDate(today.getDate() + mondayOffset)
-        startDate = monday.toISOString().split('T')[0]
-        endDate = today.toISOString().split('T')[0]
+        startDate = formatDateLocal(monday)
+        endDate = formatDateLocal(today)
         break
       
       case 'luna-curenta':
-        startDate = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
-        endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0]
+        // FIX: Prima zi a lunii curente, NU ultima zi a lunii trecute!
+        const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+        const currentMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0) // Ultima zi a lunii curente
+        startDate = formatDateLocal(currentMonthStart)
+        endDate = formatDateLocal(currentMonthEnd)
         break
       
       case 'luna-anterioara':
-        startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString().split('T')[0]
-        endDate = new Date(today.getFullYear(), today.getMonth(), 0).toISOString().split('T')[0]
+        const prevMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+        const prevMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0) // Ultima zi a lunii anterioare
+        startDate = formatDateLocal(prevMonthStart)
+        endDate = formatDateLocal(prevMonthEnd)
         break
       
       case 'anul-curent':
-        startDate = new Date(today.getFullYear(), 0, 1).toISOString().split('T')[0]
-        endDate = new Date(today.getFullYear(), 11, 31).toISOString().split('T')[0]
+        startDate = formatDateLocal(new Date(today.getFullYear(), 0, 1))
+        endDate = formatDateLocal(new Date(today.getFullYear(), 11, 31))
         break
       
       case 'toate':
         // All time - set very broad range
         startDate = '2020-01-01'
-        endDate = new Date(today.getFullYear() + 1, 11, 31).toISOString().split('T')[0]
+        endDate = formatDateLocal(new Date(today.getFullYear() + 1, 11, 31))
         break
       
       default:

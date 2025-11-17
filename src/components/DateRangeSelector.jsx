@@ -253,12 +253,12 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
   }
   
   return (
-    <div className="relative z-[2000]">
+    <div className="relative z-[3000]">
       {/* Trigger Button */}
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-2 relative z-[3000]">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center space-x-2 px-4 py-2 text-white rounded-xl font-semibold text-sm transition-all shadow-md hover:shadow-lg"
+          className="flex items-center space-x-2 px-4 py-2 text-white rounded-xl font-semibold text-sm transition-all shadow-md hover:shadow-lg relative z-[3000]"
           style={{
             background: isDark 
               ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
@@ -289,14 +289,14 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
       {/* Backdrop Overlay */}
       {isOpen && (
         <div 
-          className="fixed inset-0 z-[1999]" 
+          className="fixed inset-0 z-[2999]" 
           onClick={() => setIsOpen(false)}
         />
       )}
       
       {/* DROPDOWN (ABSOLUTE) - Cade peste conținut */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4 z-[2000] w-[480px]">
+        <div className="absolute top-full left-0 mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4 z-[3000] w-[480px]">
           {/* Header */}
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200 dark:border-slate-700">
             <div className="flex items-center space-x-3">
