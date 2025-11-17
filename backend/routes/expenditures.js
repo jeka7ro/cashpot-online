@@ -1132,6 +1132,15 @@ router.post('/import-all', authenticateToken, async (req, res) => {
               WHERE ${whereClause}
             `
             console.log('🔍 IMPORT-ALL: Getting date range and total count from external DB...')
+            console.log('🔍 Count query:', countQuery)
+            console.log('🔍 Where clause:', whereClause)
+            console.log('🔍 External pool config:', {
+              host: process.env.EXPENDITURES_DB_HOST || '82.76.35.50',
+              port: process.env.EXPENDITURES_DB_PORT || '26257',
+              database: process.env.EXPENDITURES_DB_NAME || 'cashpot',
+              user: process.env.EXPENDITURES_DB_USER || 'cashpot'
+            })
+            
             const countResult = await externalPool.query(countQuery)
             totalRecords = parseInt(countResult.rows[0].total || 0)
             minDateInDB = countResult.rows[0].min_date
@@ -1139,9 +1148,23 @@ router.post('/import-all', authenticateToken, async (req, res) => {
             
             console.log(`📊 IMPORT-ALL: Total records: ${totalRecords}`)
             console.log(`📅 IMPORT-ALL: Date range in DB: ${minDateInDB} to ${maxDateInDB}`)
+            
+            if (totalRecords === 0) {
+              console.error('⚠️⚠️⚠️ CRITICAL: Total records is 0! No data in external DB or query is wrong!')
+            }
+            
+            if (!minDateInDB || !maxDateInDB) {
+              console.error('⚠️⚠️⚠️ CRITICAL: Could not get date range from DB! minDate:', minDateInDB, 'maxDate:', maxDateInDB)
+              console.error('⚠️ This might mean there is no data in external DB or the query failed!')
+            }
+            
             _importAllProgress.totalFound = totalRecords
           } catch (countError) {
-            console.warn('⚠️ Could not get date range, using fallback approach:', countError.message)
+            console.error('❌ CRITICAL ERROR: Could not get date range from external DB!')
+            console.error('❌ Error message:', countError.message)
+            console.error('❌ Error stack:', countError.stack)
+            console.error('❌ Error code:', countError.code)
+            console.warn('⚠️ Will try fallback approach, but data might not be fetched correctly')
           }
           
           let allExternalRows = []
