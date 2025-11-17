@@ -1339,6 +1339,183 @@ const Expenditures = () => {
           }}
         />
       )}
+
+      {/* Import Progress Modal */}
+      {importProgress && (importProgress.status === 'running' || importProgress.status === 'completed' || importProgress.status === 'failed') && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden border-2 border-blue-500/30">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 px-8 py-6 flex justify-between items-center">
+              <div className="flex items-center space-x-4">
+                <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
+                  <Database className={`w-8 h-8 text-white ${importProgress.status === 'running' ? 'animate-spin' : ''}`} />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-white mb-1">
+                    {importProgress.status === 'running' && '🔄 Import în curs...'}
+                    {importProgress.status === 'completed' && '✅ Import completat!'}
+                    {importProgress.status === 'failed' && '❌ Import eșuat'}
+                  </h2>
+                  <p className="text-blue-100 text-sm font-medium">
+                    {importProgress.currentStep || 'Pregătire...'}
+                  </p>
+                </div>
+              </div>
+              {importProgress.status !== 'running' && (
+                <button 
+                  onClick={() => setImportProgress(null)}
+                  className="text-white hover:bg-white/20 rounded-2xl p-2 transition-all"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              )}
+            </div>
+
+            {/* Content */}
+            <div className="p-8 space-y-6 max-h-[calc(90vh-180px)] overflow-y-auto">
+              {/* Progress Bar */}
+              {importProgress.status === 'running' && importProgress.totalFound > 0 && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm text-slate-600 dark:text-slate-400">
+                    <span>Progres</span>
+                    <span className="font-bold">
+                      {Math.round((importProgress.totalProcessed / importProgress.totalFound) * 100)}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-4 overflow-hidden">
+                    <div 
+                      className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 h-full transition-all duration-300 rounded-full"
+                      style={{ 
+                        width: `${Math.min(100, Math.round((importProgress.totalProcessed / importProgress.totalFound) * 100))}%` 
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Statistics Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 p-6 rounded-2xl border border-blue-200 dark:border-blue-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Total Găsite</span>
+                    <Database className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                    {importProgress.totalFound || 0}
+                  </p>
+                </div>
+
+                <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 p-6 rounded-2xl border border-green-200 dark:border-green-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Procesate</span>
+                    <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                    {importProgress.totalProcessed || 0}
+                  </p>
+                  {importProgress.totalFound > 0 && (
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                      din {importProgress.totalFound}
+                    </p>
+                  )}
+                </div>
+
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 p-6 rounded-2xl border border-purple-200 dark:border-purple-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Importate Noi</span>
+                    <FileText className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+                    {importProgress.imported || 0}
+                  </p>
+                </div>
+
+                <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/30 dark:to-yellow-800/30 p-6 rounded-2xl border border-yellow-200 dark:border-yellow-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Duplicate</span>
+                    <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                  </div>
+                  <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
+                    {importProgress.skipped || 0}
+                  </p>
+                </div>
+
+                {importProgress.errors > 0 && (
+                  <div className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/30 dark:to-red-800/30 p-6 rounded-2xl border border-red-200 dark:border-red-700">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Erori</span>
+                      <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                    </div>
+                    <p className="text-3xl font-bold text-red-600 dark:text-red-400">
+                      {importProgress.errors || 0}
+                    </p>
+                  </div>
+                )}
+
+                <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700/50 dark:to-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-slate-600">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Durata</span>
+                    <Clock className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                  </div>
+                  <p className="text-3xl font-bold text-slate-600 dark:text-slate-400">
+                    {importProgress.startTime 
+                      ? Math.round((new Date(importProgress.endTime || new Date()) - new Date(importProgress.startTime)) / 1000)
+                      : 0}s
+                    }
+                  </p>
+                </div>
+              </div>
+
+              {/* Sources Breakdown */}
+              <div className="bg-slate-50 dark:bg-slate-700/50 p-6 rounded-2xl border border-slate-200 dark:border-slate-600">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">📊 Surse de Date</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{importProgress.existing || 0}</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">SQL (Existente)</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">{importProgress.fromExternalAPI || 0}</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">API Extern</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{importProgress.fromGoogleSheets || 0}</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Google Sheets</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Remaining Items */}
+              {importProgress.status === 'running' && importProgress.totalFound > 0 && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-200 dark:border-blue-700">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">⏳ Rămân de procesat:</span>
+                    <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                      {Math.max(0, (importProgress.totalFound || 0) - (importProgress.totalProcessed || 0))}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            {importProgress.status === 'completed' && (
+              <div className="px-8 py-4 bg-green-50 dark:bg-green-900/20 border-t border-green-200 dark:border-green-700">
+                <p className="text-center text-green-700 dark:text-green-400 font-semibold">
+                  ✅ Import finalizat cu succes! Datele au fost actualizate.
+                </p>
+              </div>
+            )}
+            {importProgress.status === 'failed' && (
+              <div className="px-8 py-4 bg-red-50 dark:bg-red-900/20 border-t border-red-200 dark:border-red-700">
+                <p className="text-center text-red-700 dark:text-red-400 font-semibold">
+                  ❌ Import eșuat: {importProgress.currentStep || 'Eroare necunoscută'}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       
     </Layout>
   )
