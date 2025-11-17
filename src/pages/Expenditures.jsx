@@ -278,7 +278,23 @@ const Expenditures = () => {
       await loadExpendituresData()
     } catch (error) {
       console.error('Error syncing expenditures:', error)
-      toast.error('Eroare la sincronizare', { id: 'sync' })
+      
+      // Extract detailed error message from response
+      const errorMessage = error.response?.data?.error || error.message || 'Eroare necunoscută la sincronizare'
+      const errorHint = error.response?.data?.hint
+      
+      // Show detailed error message
+      if (errorHint) {
+        toast.error(`${errorMessage}\n💡 ${errorHint}`, { 
+          id: 'sync',
+          duration: 5000 
+        })
+      } else {
+        toast.error(`❌ ${errorMessage}`, { 
+          id: 'sync',
+          duration: 5000 
+        })
+      }
     } finally {
       setSyncing(false)
     }

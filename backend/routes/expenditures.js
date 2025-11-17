@@ -598,8 +598,31 @@ router.post('/sync', async (req, res) => {
       dateRange: { startDate, endDate }
     })
   } catch (error) {
-    console.error('Error syncing expenditures:', error)
-    res.status(500).json({ success: false, error: error.message })
+    console.error('❌ Error syncing expenditures:', error)
+    console.error('❌ Error stack:', error.stack)
+    
+    // Provide detailed error message
+    let errorMessage = error.message || 'Eroare necunoscută la sincronizare'
+    let errorHint = ''
+    
+    // Check for connection errors
+    if (error.code === 'ECONNREFUSED' || error.code === 'ENETUNREACH' || error.message?.includes('connect')) {
+      errorMessage = 'Nu se poate conecta la baza de date externă (82.76.35.50:26257)'
+      errorHint = 'Verifică dacă IP-ul extern este accesibil și dacă firewall-ul permite conexiunea'
+    } else if (error.message?.includes('timeout') || error.code === 'ETIMEDOUT') {
+      errorMessage = 'Timeout la conectare la baza de date externă'
+      errorHint = 'Verifică conexiunea la internet și accesibilitatea bazei de date externe'
+    } else if (error.message?.includes('password') || error.message?.includes('authentication')) {
+      errorMessage = 'Eroare de autentificare la baza de date externă'
+      errorHint = 'Verifică credențialele în configurarea backend-ului'
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      error: errorMessage,
+      hint: errorHint || undefined,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    })
   }
 })
 
