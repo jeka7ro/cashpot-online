@@ -1141,9 +1141,17 @@ router.post('/import-all', authenticateToken, async (req, res) => {
                 
                 console.log(`✅ Batch ${batchNumber}: Fetched ${batchRows.length} records (offset ${offset})`)
                 
+                // Log date range for first and last record in this batch
+                if (batchRows.length > 0) {
+                  const firstDate = batchRows[0].operational_date
+                  const lastDate = batchRows[batchRows.length - 1].operational_date
+                  console.log(`📅 Batch ${batchNumber} date range: ${firstDate} (first) to ${lastDate} (last)`)
+                }
+                
               } catch (batchError) {
                 retryCount++
                 console.error(`❌ Batch ${batchNumber} failed (attempt ${retryCount}/${maxRetries}):`, batchError.message)
+                console.error(`❌ Batch error details:`, batchError.stack)
                 
                 if (retryCount < maxRetries) {
                   console.log(`⏳ Retrying batch ${batchNumber} in ${retryDelay}ms...`)
@@ -1158,6 +1166,7 @@ router.post('/import-all', authenticateToken, async (req, res) => {
             if (batchRows.length === 0) {
               hasMore = false
               console.log(`✅ No more records - finished fetching all batches. Total: ${allExternalRows.length} records`)
+              console.log(`📊 Final offset: ${offset}, Final batch number: ${batchNumber}`)
             } else {
               allExternalRows = allExternalRows.concat(batchRows)
               offset += batchRows.length
@@ -1166,6 +1175,10 @@ router.post('/import-all', authenticateToken, async (req, res) => {
               if (batchRows.length < batchSize) {
                 hasMore = false
                 console.log(`✅ Last batch received (${batchRows.length} < ${batchSize}) - finished fetching all batches. Total: ${allExternalRows.length} records`)
+                console.log(`📊 Final offset: ${offset}, Final batch number: ${batchNumber}`)
+              } else {
+                // Continuăm cu următorul batch - log pentru debugging
+                console.log(`➡️ Continuing to next batch (offset will be ${offset})...`)
               }
               
               // Update progress
@@ -1173,7 +1186,11 @@ router.post('/import-all', authenticateToken, async (req, res) => {
               
               // Log progress periodic
               if (batchNumber % 5 === 0 || !hasMore) {
+                const dates = allExternalRows.map(r => r.operational_date).filter(d => d)
+                const minDate = dates.length > 0 ? new Date(Math.min(...dates.map(d => new Date(d)))) : null
+                const maxDate = dates.length > 0 ? new Date(Math.max(...dates.map(d => new Date(d)))) : null
                 console.log(`📊 Progress: ${allExternalRows.length} records fetched so far (${batchNumber} batches)`)
+                console.log(`📅 Cumulative date range: ${minDate ? minDate.toISOString().split('T')[0] : 'N/A'} to ${maxDate ? maxDate.toISOString().split('T')[0] : 'N/A'}`)
               }
             }
           }
@@ -1184,24 +1201,46 @@ router.post('/import-all', authenticateToken, async (req, res) => {
           // Filtrele se aplică doar la sincronizare normală, nu la import-all
           let filteredRows = allExternalRows
           
-          // Log date range for debugging
+          // Log date range for debugging - CRITICAL FOR DEBUGGING!
           if (filteredRows.length > 0) {
             const dates = filteredRows.map(r => r.operational_date).filter(d => d)
             const minDate = dates.length > 0 ? new Date(Math.min(...dates.map(d => new Date(d)))) : null
             const maxDate = dates.length > 0 ? new Date(Math.max(...dates.map(d => new Date(d)))) : null
+            
+            // Count records by date ranges
+            const byYear = {}
+            filteredRows.forEach(row => {
+              if (row.operational_date) {
+                const year = new Date(row.operational_date).getFullYear()
+                byYear[year] = (byYear[year] || 0) + 1
+              }
+            })
+            
+            console.log(`📊 ========== EXTERNAL DB IMPORT SUMMARY ==========`)
             console.log(`📊 Total rows from external DB: ${filteredRows.length}`)
             console.log(`📅 Date range in external DB: ${minDate ? minDate.toISOString().split('T')[0] : 'N/A'} to ${maxDate ? maxDate.toISOString().split('T')[0] : 'N/A'}`)
-            console.log(`📊 Sample row (first):`, filteredRows[0] ? {
+            console.log(`📊 Records by year:`, byYear)
+            console.log(`📊 Sample row (first - newest):`, filteredRows[0] ? {
               location: filteredRows[0].location_name,
               department: filteredRows[0].department_name,
               type: filteredRows[0].expenditure_type,
               amount: filteredRows[0].amount,
               date: filteredRows[0].operational_date
             } : 'No rows')
-            console.log(`📊 Sample row (last):`, filteredRows[filteredRows.length - 1] ? {
+            console.log(`📊 Sample row (last - oldest):`, filteredRows[filteredRows.length - 1] ? {
               location: filteredRows[filteredRows.length - 1].location_name,
+              department: filteredRows[filteredRows.length - 1].department_name,
+              type: filteredRows[filteredRows.length - 1].expenditure_type,
+              amount: filteredRows[filteredRows.length - 1].amount,
               date: filteredRows[filteredRows.length - 1].operational_date
             } : 'No rows')
+            console.log(`📊 ================================================`)
+            
+            // WARNING dacă cel mai vechi record este după 13.11
+            if (minDate && new Date(minDate) > new Date('2024-11-13')) {
+              console.error(`⚠️⚠️⚠️ WARNING: Oldest record is AFTER 2024-11-13! This means we didn't fetch all records!`)
+              console.error(`⚠️ Oldest date: ${minDate.toISOString().split('T')[0]}, Expected: before 2024-11-13`)
+            }
           } else {
             console.log(`⚠️ WARNING: No rows fetched from external DB!`)
           }
