@@ -819,12 +819,14 @@ router.post('/sync', async (req, res) => {
             continue
           }
           
-          // Inserăm doar dacă nu există deja
+          // Inserăm doar dacă nu există deja - folosim ON CONFLICT pentru siguranță maximă
           await localPool.query(`
             INSERT INTO expenditures_sync (
               location_name, department_name, expenditure_type, amount, 
               operational_date, synced_at, mapped_location_id, data_source
             ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7)
+            ON CONFLICT (operational_date, amount, location_name, department_name, expenditure_type) 
+            DO NOTHING
           `, [
             row.location_name || 'Unknown',
             row.department_name || 'Unknown',
@@ -1440,14 +1442,44 @@ router.post('/import-all', authenticateToken, async (req, res) => {
       externalData = [...externalData, ...googleSheetsData]
       console.log(`📊 Total external data before deduplication: ${externalData.length}`)
       
-      // CRITICAL: Deduplicate externalData ÎNAINTE de procesare!
-      // Există duplicate în externalData (de ex. aceeași înregistrare din batch-uri diferite sau din surse diferite)
+      // CRITICAL: Normalize and deduplicate externalData ÎNAINTE de procesare!
+      // Normalizăm datele pentru a avea același format (trim, lowercase, etc.)
+      const normalizeString = (str) => {
+        if (!str) return 'Unknown'
+        return String(str).trim().replace(/\s+/g, ' ')
+      }
+      
+      const normalizeAmount = (amt) => {
+        const num = parseFloat(amt) || 0
+        // Rotunjim la 2 zecimale pentru a evita probleme cu floating point
+        return Math.round(num * 100) / 100
+      }
+      
+      const normalizeDate = (dateStr) => {
+        if (!dateStr) return null
+        // Asigurăm că data este în format YYYY-MM-DD
+        const date = new Date(dateStr)
+        if (isNaN(date.getTime())) return null
+        return date.toISOString().split('T')[0]
+      }
+      
+      // Normalizăm datele externe
+      const normalizedExternalData = externalData.map(row => ({
+        ...row,
+        operational_date: normalizeDate(row.operational_date),
+        amount: normalizeAmount(row.amount),
+        location_name: normalizeString(row.location_name),
+        department_name: normalizeString(row.department_name),
+        expenditure_type: normalizeString(row.expenditure_type)
+      })).filter(row => row.operational_date) // Eliminăm rândurile fără dată validă
+      
+      // Deduplicăm externalData normalizat
       const externalDataMap = new Map()
       const deduplicatedExternalData = []
       let externalDuplicates = 0
       
-      for (const row of externalData) {
-        const key = `${row.operational_date}|${row.amount || 0}|${row.location_name || 'Unknown'}|${row.department_name || 'Unknown'}|${row.expenditure_type || 'Unknown'}`
+      for (const row of normalizedExternalData) {
+        const key = `${row.operational_date}|${row.amount}|${row.location_name}|${row.department_name}|${row.expenditure_type}`
         
         if (!externalDataMap.has(key)) {
           externalDataMap.set(key, row)
@@ -1461,10 +1493,10 @@ router.post('/import-all', authenticateToken, async (req, res) => {
       externalData = deduplicatedExternalData
       _importAllProgress.totalFound = externalData.length
       
-      // Build existing map from database
+      // Build existing map from database cu aceeași normalizare
       const existingMap = new Map()
       existingData.forEach(record => {
-        const key = `${record.operational_date}|${record.amount}|${record.location_name}|${record.department_name}|${record.expenditure_type}`
+        const key = `${normalizeDate(record.operational_date)}|${normalizeAmount(record.amount)}|${normalizeString(record.location_name)}|${normalizeString(record.department_name)}|${normalizeString(record.expenditure_type)}`
         existingMap.set(key, record)
       })
       console.log(`📊 Existing records in database: ${existingMap.size}`)
@@ -1476,18 +1508,24 @@ router.post('/import-all', authenticateToken, async (req, res) => {
       })
       
       // Process external data and check for duplicates ÎNAINTE de insert!
+      // Folosim batch insert cu ON CONFLICT pentru siguranță maximă!
       let imported = 0
       let skipped = 0
       let errors = 0
       
       _importAllProgress.currentStep = 'Se procesează și se inserează datele...'
       
-      for (let i = 0; i < externalData.length; i++) {
-        const row = externalData[i]
-        try {
-          const key = `${row.operational_date}|${row.amount || 0}|${row.location_name || 'Unknown'}|${row.department_name || 'Unknown'}|${row.expenditure_type || 'Unknown'}`
+      // Batch size pentru inserare eficientă
+      const batchSize = 100
+      
+      for (let batchStart = 0; batchStart < externalData.length; batchStart += batchSize) {
+        const batch = externalData.slice(batchStart, batchStart + batchSize)
+        const batchPromises = []
+        
+        for (const row of batch) {
+          const key = `${row.operational_date}|${row.amount}|${row.location_name}|${row.department_name}|${row.expenditure_type}`
           
-          // Verificăm duplicate ÎNAINTE de insert - CRITICAL!
+          // Verificăm duplicate în memory map
           if (existingMap.has(key)) {
             skipped++
             _importAllProgress.skipped = skipped
@@ -1495,7 +1533,14 @@ router.post('/import-all', authenticateToken, async (req, res) => {
           }
           
           // Verificăm duplicate în baza de date CU QUERY - CRITICAL pentru siguranță!
-          const duplicateCheck = await localPool.query(`
+          const mappedLocationId = mapping[row.location_name] || null
+          const dataSource = row.data_source || 'api_sync'
+          const description = row.description || null
+          
+          // Folosim ON CONFLICT DO NOTHING pentru a preveni duplicate
+          // Dar trebuie să creăm un index unique pentru a funcționa
+          // Pentru moment, folosim verificare explicită + INSERT
+          const duplicateCheckPromise = localPool.query(`
             SELECT id FROM expenditures_sync
             WHERE operational_date = $1 
               AND amount = $2 
@@ -1505,71 +1550,95 @@ router.post('/import-all', authenticateToken, async (req, res) => {
             LIMIT 1
           `, [
             row.operational_date,
-            row.amount || 0,
-            row.location_name || 'Unknown',
-            row.department_name || 'Unknown',
-            row.expenditure_type || 'Unknown'
-          ])
+            row.amount,
+            row.location_name,
+            row.department_name,
+            row.expenditure_type
+          ]).then(duplicateCheck => {
+            if (duplicateCheck.rows.length > 0) {
+              skipped++
+              _importAllProgress.skipped = skipped
+              existingMap.set(key, duplicateCheck.rows[0])
+              return null // Skip insert
+            }
+            
+            // Insert cu ON CONFLICT DO NOTHING pentru a preveni duplicate la nivel de DB
+            // UNIQUE INDEX pe (operational_date, amount, location_name, department_name, expenditure_type)
+            const insertPromise = dataSource === 'google_sheets' && description
+              ? localPool.query(`
+                  INSERT INTO expenditures_sync (
+                    location_name, department_name, expenditure_type, amount, 
+                    operational_date, synced_at, mapped_location_id, data_source, description
+                  ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7, $8)
+                  ON CONFLICT (operational_date, amount, location_name, department_name, expenditure_type) 
+                  DO NOTHING
+                `, [
+                  row.location_name,
+                  row.department_name,
+                  row.expenditure_type,
+                  row.amount,
+                  row.operational_date,
+                  mappedLocationId,
+                  dataSource,
+                  description
+                ])
+              : localPool.query(`
+                  INSERT INTO expenditures_sync (
+                    location_name, department_name, expenditure_type, amount, 
+                    operational_date, synced_at, mapped_location_id, data_source
+                  ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7)
+                  ON CONFLICT (operational_date, amount, location_name, department_name, expenditure_type) 
+                  DO NOTHING
+                `, [
+                  row.location_name,
+                  row.department_name,
+                  row.expenditure_type,
+                  row.amount,
+                  row.operational_date,
+                  mappedLocationId,
+                  dataSource
+                ])
+            
+            return insertPromise.then(result => {
+              if (result.rowCount > 0) {
+                existingMap.set(key, row)
+                imported++
+                _importAllProgress.imported = imported
+              } else {
+                skipped++
+                _importAllProgress.skipped = skipped
+              }
+              return result
+            }).catch(insertError => {
+              // Dacă este duplicate error (23505 = unique_violation), skipăm
+              if (insertError.code === '23505' || insertError.message.includes('duplicate') || insertError.message.includes('unique')) {
+                skipped++
+                _importAllProgress.skipped = skipped
+                return null
+              }
+              // Altfel, este o altă eroare
+              errors++
+              _importAllProgress.errors = errors
+              console.error('❌ Error inserting record:', insertError.message)
+              throw insertError
+            })
+          })
           
-          if (duplicateCheck.rows.length > 0) {
-            skipped++
-            _importAllProgress.skipped = skipped
-            // Update existing map pentru următoarele verificări în același import
-            existingMap.set(key, duplicateCheck.rows[0])
-            continue
-          }
-          
-          const mappedLocationId = mapping[row.location_name] || null
-          const dataSource = row.data_source || 'api_sync'
-          const description = row.description || null
-          
-          if (dataSource === 'google_sheets' && description) {
-            await localPool.query(`
-              INSERT INTO expenditures_sync (
-                location_name, department_name, expenditure_type, amount, 
-                operational_date, synced_at, mapped_location_id, data_source, description
-              ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7, $8)
-            `, [
-              row.location_name || 'Unknown',
-              row.department_name || 'Unknown',
-              row.expenditure_type || 'Unknown',
-              row.amount || 0,
-              row.operational_date,
-              mappedLocationId,
-              dataSource,
-              description
-            ])
-          } else {
-            await localPool.query(`
-              INSERT INTO expenditures_sync (
-                location_name, department_name, expenditure_type, amount, 
-                operational_date, synced_at, mapped_location_id, data_source
-              ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7)
-            `, [
-              row.location_name || 'Unknown',
-              row.department_name || 'Unknown',
-              row.expenditure_type || 'Unknown',
-              row.amount || 0,
-              row.operational_date,
-              mappedLocationId,
-              dataSource
-            ])
-          }
-          
-          // Update existing map pentru următoarele verificări în același import
-          existingMap.set(key, row)
-          imported++
-          _importAllProgress.imported = imported
-          _importAllProgress.totalProcessed = i + 1
-          
-          // Update progress every 50 records
-          if ((i + 1) % 50 === 0) {
-            _importAllProgress.currentStep = `Se procesează... ${i + 1}/${externalData.length} (${imported} noi, ${skipped} duplicate)`
-          }
-        } catch (insertError) {
-          errors++
-          _importAllProgress.errors = errors
-          console.error('❌ Error inserting record:', insertError.message)
+          batchPromises.push(duplicateCheckPromise)
+        }
+        
+        // Așteptăm batch-ul să se termine
+        try {
+          await Promise.all(batchPromises.filter(p => p !== null))
+        } catch (batchError) {
+          console.error('❌ Batch error:', batchError.message)
+        }
+        
+        _importAllProgress.totalProcessed = Math.min(batchStart + batchSize, externalData.length)
+        
+        // Update progress
+        if ((batchStart + batchSize) % 200 === 0 || batchStart + batchSize >= externalData.length) {
+          _importAllProgress.currentStep = `Se procesează... ${_importAllProgress.totalProcessed}/${externalData.length} (${imported} noi, ${skipped} duplicate, ${errors} erori)`
         }
       }
       

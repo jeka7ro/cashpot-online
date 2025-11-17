@@ -1194,6 +1194,23 @@ const initializeDatabase = async () => {
     } catch (error) {
       console.log('⚠️ description column may already exist:', error.message)
     }
+    
+    // CRITICAL: Create UNIQUE INDEX to prevent duplicates at database level!
+    try {
+      await pool.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS expenditures_sync_unique_record 
+        ON expenditures_sync (
+          operational_date, 
+          amount, 
+          location_name, 
+          department_name, 
+          expenditure_type
+        )
+      `)
+      console.log('✅ Created UNIQUE INDEX on expenditures_sync to prevent duplicates')
+    } catch (error) {
+      console.log('⚠️ Unique index may already exist:', error.message)
+    }
 
     // Add created_by column to expenditures_sync (track user)
     try {
