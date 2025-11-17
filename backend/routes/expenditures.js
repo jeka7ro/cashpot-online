@@ -1708,10 +1708,11 @@ router.post('/import-all', authenticateToken, async (req, res) => {
         const batchPromises = []
         
         for (const row of batch) {
-          const key = `${row.operational_date}|${row.amount}|${row.location_name}|${row.department_name}|${row.expenditure_type}`
+          // CRITICAL: Folosim aceleași funcții de normalizare pentru key!
+          const normalizedKey = `${normalizeDate(row.operational_date)}|${normalizeAmount(row.amount)}|${normalizeString(row.location_name)}|${normalizeString(row.department_name)}|${normalizeString(row.expenditure_type)}`
           
           // Verificăm duplicate în memory map
-          if (existingMap.has(key)) {
+          if (existingMap.has(normalizedKey)) {
             skipped++
             _importAllProgress.skipped = skipped
             continue
@@ -1743,7 +1744,7 @@ router.post('/import-all', authenticateToken, async (req, res) => {
             if (duplicateCheck.rows.length > 0) {
               skipped++
               _importAllProgress.skipped = skipped
-              existingMap.set(key, duplicateCheck.rows[0])
+              existingMap.set(normalizedKey, duplicateCheck.rows[0])
               return null // Skip insert
             }
             
@@ -1786,7 +1787,7 @@ router.post('/import-all', authenticateToken, async (req, res) => {
             
             return insertPromise.then(result => {
               if (result.rowCount > 0) {
-                existingMap.set(key, row)
+                existingMap.set(normalizedKey, row)
                 imported++
                 _importAllProgress.imported = imported
               } else {
