@@ -229,8 +229,9 @@ const getExternalPool = () => {
     max: 5,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 60000, // 60 secunde timeout pentru conexiuni externe (firewall delay)
-    query_timeout: 60000, // 60 secunde timeout pentru query-uri
-    statement_timeout: 60000 // 60 secunde timeout pentru statements
+    query_timeout: 120000, // 120 secunde timeout pentru query-uri (mărit pentru batch-uri mari)
+    statement_timeout: 120000, // 120 secunde timeout pentru statements
+    idle_in_transaction_session_timeout: 120000 // 120 secunde timeout pentru sesiuni idle
   })
   
   externalPool.on('error', (err) => {
@@ -1094,45 +1095,69 @@ router.post('/import-all', authenticateToken, async (req, res) => {
           console.log('🔍 IMPORT-ALL: NO FILTERS - Only filtering is_deleted = false')
           console.log('🔍 IMPORT-ALL: Will fetch ALL records from external DB in batches (no date limits, no type filters, no department filters, no location filters)')
           
-          const batchSize = 1000 // Batch de 1000 înregistrări
+          const batchSize = 2000 // Batch mai mare de 2000 înregistrări pentru performanță mai bună
           let allExternalRows = []
           let offset = 0
           let hasMore = true
           let batchNumber = 0
+          const maxRetries = 3
+          const retryDelay = 1000 // 1 secundă între retry-uri
           
           _importAllProgress.currentStep = 'Se preiau datele din API extern (batch 0)...'
           
           while (hasMore) {
             batchNumber++
-            const query = `
-              SELECT 
-                l.id as location_id,
-                l.name as location_name,
-                d.name as department_name,
-                et.name as expenditure_type,
-                p.amount,
-                p.operational_date,
-                p.id as payment_id
-              FROM public.casino_payments p
-              LEFT JOIN public.casino_locations l ON p.location_id = l.id
-              LEFT JOIN public.casino_departments d ON p.department_id = d.id
-              LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
-              WHERE ${whereClause}
-              ORDER BY p.operational_date DESC
-              LIMIT $1 OFFSET $2
-            `
+            let batchRows = []
+            let batchSuccess = false
+            let retryCount = 0
             
-            console.log(`📊 Executing batch ${batchNumber} on external DB: LIMIT ${batchSize} OFFSET ${offset}`)
-            _importAllProgress.currentStep = `Se preiau datele din API extern (batch ${batchNumber}, ${offset} înregistrări procesate)...`
-            
-            const batchResult = await externalPool.query(query, [batchSize, offset])
-            const batchRows = batchResult.rows
-            
-            console.log(`✅ Batch ${batchNumber}: Fetched ${batchRows.length} records (offset ${offset})`)
+            // Retry logic pentru fiecare batch
+            while (!batchSuccess && retryCount < maxRetries) {
+              try {
+                const query = `
+                  SELECT 
+                    l.id as location_id,
+                    l.name as location_name,
+                    d.name as department_name,
+                    et.name as expenditure_type,
+                    p.amount,
+                    p.operational_date,
+                    p.id as payment_id
+                  FROM public.casino_payments p
+                  LEFT JOIN public.casino_locations l ON p.location_id = l.id
+                  LEFT JOIN public.casino_departments d ON p.department_id = d.id
+                  LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
+                  WHERE ${whereClause}
+                  ORDER BY p.operational_date DESC
+                  LIMIT $1 OFFSET $2
+                `
+                
+                console.log(`📊 Executing batch ${batchNumber} on external DB: LIMIT ${batchSize} OFFSET ${offset} (attempt ${retryCount + 1}/${maxRetries})`)
+                _importAllProgress.currentStep = `Se preiau datele din API extern (batch ${batchNumber}, ${offset} înregistrări procesate)...`
+                
+                const batchResult = await externalPool.query(query, [batchSize, offset])
+                batchRows = batchResult.rows
+                batchSuccess = true
+                
+                console.log(`✅ Batch ${batchNumber}: Fetched ${batchRows.length} records (offset ${offset})`)
+                
+              } catch (batchError) {
+                retryCount++
+                console.error(`❌ Batch ${batchNumber} failed (attempt ${retryCount}/${maxRetries}):`, batchError.message)
+                
+                if (retryCount < maxRetries) {
+                  console.log(`⏳ Retrying batch ${batchNumber} in ${retryDelay}ms...`)
+                  await new Promise(resolve => setTimeout(resolve, retryDelay))
+                } else {
+                  console.error(`❌ Batch ${batchNumber} failed after ${maxRetries} attempts - stopping import`)
+                  throw batchError
+                }
+              }
+            }
             
             if (batchRows.length === 0) {
               hasMore = false
-              console.log(`✅ No more records - finished fetching all batches`)
+              console.log(`✅ No more records - finished fetching all batches. Total: ${allExternalRows.length} records`)
             } else {
               allExternalRows = allExternalRows.concat(batchRows)
               offset += batchRows.length
@@ -1140,11 +1165,16 @@ router.post('/import-all', authenticateToken, async (req, res) => {
               // Dacă am primit mai puțin decât batchSize, am ajuns la final
               if (batchRows.length < batchSize) {
                 hasMore = false
-                console.log(`✅ Last batch received (${batchRows.length} < ${batchSize}) - finished fetching all batches`)
+                console.log(`✅ Last batch received (${batchRows.length} < ${batchSize}) - finished fetching all batches. Total: ${allExternalRows.length} records`)
               }
               
               // Update progress
               _importAllProgress.fromExternalAPI = allExternalRows.length
+              
+              // Log progress periodic
+              if (batchNumber % 5 === 0 || !hasMore) {
+                console.log(`📊 Progress: ${allExternalRows.length} records fetched so far (${batchNumber} batches)`)
+              }
             }
           }
           
