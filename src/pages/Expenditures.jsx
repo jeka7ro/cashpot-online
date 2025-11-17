@@ -4,7 +4,7 @@ import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import axios from 'axios'
-import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp, TrendingDown, Table2, MapPin, Maximize2, Minimize2, Clock, CalendarDays, CalendarRange, Database, X, CheckCircle, AlertCircle } from 'lucide-react'
+import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp, TrendingDown, Table2, MapPin, Maximize2, Minimize2, Clock, CalendarDays, CalendarRange, Database, X, CheckCircle, AlertCircle, Trash2 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
@@ -472,6 +472,34 @@ const Expenditures = () => {
       } else {
         console.error('Error fetching import-all progress:', error)
       }
+    }
+  }
+  
+  // Curățare duplicate din baza de date
+  const handleCleanDuplicates = async () => {
+    try {
+      const confirmed = window.confirm('⚠️ Ești sigur că vrei să ștergi duplicatele? Această acțiune nu poate fi anulată!\n\nSe vor păstra doar primele înregistrări, restul duplicatele vor fi șterse.')
+      if (!confirmed) return
+      
+      toast.loading('Se curăță duplicatele...', { id: 'clean-duplicates' })
+      
+      const response = await axios.post('/api/expenditures/clean-duplicates')
+      
+      if (response.data.success) {
+        toast.success(`✅ ${response.data.message}\n📊 Total înregistrări după curățare: ${response.data.totalRecordsAfter}`, { 
+          id: 'clean-duplicates',
+          duration: 8000 
+        })
+        
+        // Reload data
+        await loadExpendituresData()
+      }
+    } catch (error) {
+      console.error('Error cleaning duplicates:', error)
+      toast.error(`❌ Eroare la curățarea duplicate-urilor: ${error.response?.data?.error || error.message}`, { 
+        id: 'clean-duplicates',
+        duration: 5000 
+      })
     }
   }
   
