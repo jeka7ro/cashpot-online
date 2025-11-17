@@ -4,7 +4,7 @@ import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import axios from 'axios'
-import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp, TrendingDown, Table2, MapPin, Maximize2, Minimize2, Clock, CalendarDays, CalendarRange } from 'lucide-react'
+import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp, TrendingDown, Table2, MapPin, Maximize2, Minimize2, Clock, CalendarDays, CalendarRange, Database } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
@@ -347,6 +347,9 @@ const Expenditures = () => {
       setSyncing(true)
       progressIntervalRef.current = null
       
+      // Show initial toast immediately
+      toast.loading('Pornire sincronizare...', { id: 'sync', duration: 1000 })
+      
       // Start the sync (non-blocking)
       const response = await axios.post('/api/expenditures/sync', {
         // startDate și endDate NU se trimit - vrem TOATE datele disponibile
@@ -397,6 +400,46 @@ const Expenditures = () => {
           duration: 5000 
         })
       }
+    }
+  }
+  
+  // Import TOATE datele din toate sursele (SQL, Google Sheets, BAT) - fără dubluri
+  const handleImportAll = async () => {
+    try {
+      setSyncing(true)
+      toast.loading('Import TOATE datele din toate sursele...', { id: 'import-all', duration: 2000 })
+      
+      const response = await axios.post('/api/expenditures/import-all')
+      
+      const { total, imported, skipped, errors } = response.data
+      let message = `✅ Import completat!\n`
+      message += `📊 Total găsite: ${total}\n`
+      message += `📝 Importate noi: ${imported}\n`
+      if (skipped > 0) {
+        message += `🔄 Duplicate (skip): ${skipped}\n`
+      }
+      if (errors > 0) {
+        message += `❌ Erori: ${errors}\n`
+      }
+      
+      toast.success(message, { 
+        id: 'import-all',
+        duration: 8000 
+      })
+      
+      // Reload data
+      await loadExpendituresData()
+    } catch (error) {
+      setSyncing(false)
+      console.error('Error importing all expenditures:', error)
+      
+      const errorMessage = error.response?.data?.error || error.message || 'Eroare la importul tuturor datelor'
+      toast.error(`❌ ${errorMessage}`, { 
+        id: 'import-all',
+        duration: 5000 
+      })
+    } finally {
+      setSyncing(false)
     }
   }
   
@@ -744,6 +787,27 @@ const Expenditures = () => {
             >
               <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
               <span>{syncing ? 'Sincronizare...' : 'Sincronizare Date'}</span>
+            </button>
+            
+            <button
+              onClick={handleImportAll}
+              disabled={syncing}
+              className={`inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-sm font-semibold border transition-all hover:scale-105 active:scale-95 ${
+                syncing 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : ''
+              }`}
+              style={{
+                background: isDark 
+                  ? 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)'
+                  : 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
+                borderColor: 'rgba(255, 255, 255, 0.25)',
+                boxShadow: '0 6px 18px rgba(37, 99, 235, 0.35)'
+              }}
+              title="Importă TOATE datele din toate sursele (SQL, Google Sheets, BAT, API) - fără dubluri"
+            >
+              <Database className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+              <span>{syncing ? 'Import...' : 'Import Toate Datele'}</span>
             </button>
             
             <button

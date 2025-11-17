@@ -904,6 +904,208 @@ router.post('/sync', async (req, res) => {
   }
 })
 
+// POST /api/expenditures/import-all - Import TOATE datele din toate sursele (SQL, Google Sheets, BAT) - fără dubluri
+router.post('/import-all', authenticateToken, async (req, res) => {
+  try {
+    const localPool = req.app.get('pool')
+    
+    console.log('🔄 Starting import ALL expenditures from all sources...')
+    
+    // Step 1: Get all data from SQL table (toate datele existente)
+    console.log('📊 Step 1: Getting all existing data from expenditures_sync...')
+    const existingResult = await localPool.query(`
+      SELECT * FROM expenditures_sync
+      ORDER BY operational_date DESC
+    `)
+    const existingData = existingResult.rows
+    console.log(`✅ Found ${existingData.length} existing records in expenditures_sync`)
+    
+    // Step 2: Try to get data from external DB (API sync source)
+    let externalData = []
+    try {
+      console.log('📊 Step 2: Getting data from external DB (API sync)...')
+      let externalPool
+      try {
+        externalPool = getExternalPool()
+        const testResult = await externalPool.query('SELECT NOW() as current_time')
+        console.log('✅ External DB connection successful')
+      } catch (poolError) {
+        console.warn('⚠️ Cannot connect to external DB, skipping API sync source:', poolError.message)
+        externalPool = null
+      }
+      
+      if (externalPool) {
+        // Load sync settings
+        let syncSettings = {
+          includedExpenditureTypes: [],
+          includedDepartments: [],
+          includedLocations: [],
+          excludeDeleted: true
+        }
+        
+        try {
+          const settingsResult = await localPool.query(`
+            SELECT setting_value 
+            FROM global_settings 
+            WHERE setting_key = 'expenditures_sync_config'
+          `)
+          
+          if (settingsResult.rows.length > 0 && settingsResult.rows[0].setting_value) {
+            const settingValue = settingsResult.rows[0].setting_value
+            if (typeof settingValue === 'string') {
+              syncSettings = { ...syncSettings, ...JSON.parse(settingValue) }
+            } else if (typeof settingValue === 'object') {
+              syncSettings = { ...syncSettings, ...settingValue }
+            }
+          }
+        } catch (settingsError) {
+          console.warn('⚠️ Error loading sync settings, using defaults:', settingsError.message)
+        }
+        
+        // Build WHERE clause
+        let whereConditions = ['p.is_deleted = false']
+        const queryParams = []
+        
+        const whereClause = whereConditions.join(' AND ')
+        
+        // Fetch ALL data from external DB (no date filter)
+        const query = `
+          SELECT 
+            l.id as location_id,
+            l.name as location_name,
+            d.name as department_name,
+            et.name as expenditure_type,
+            p.amount,
+            p.operational_date,
+            p.id as payment_id
+          FROM public.casino_payments p
+          LEFT JOIN public.casino_locations l ON p.location_id = l.id
+          LEFT JOIN public.casino_departments d ON p.department_id = d.id
+          LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
+          WHERE ${whereClause}
+          ORDER BY p.operational_date DESC
+        `
+        
+        const externalResult = await externalPool.query(query, queryParams)
+        console.log(`✅ Fetched ${externalResult.rows.length} records from external DB`)
+        
+        // Filter by sync settings
+        let filteredRows = externalResult.rows
+        
+        if (syncSettings.includedExpenditureTypes && syncSettings.includedExpenditureTypes.length > 0) {
+          filteredRows = filteredRows.filter(row => 
+            syncSettings.includedExpenditureTypes.includes(row.expenditure_type)
+          )
+        }
+        
+        if (syncSettings.includedDepartments && syncSettings.includedDepartments.length > 0) {
+          filteredRows = filteredRows.filter(row => 
+            syncSettings.includedDepartments.includes(row.department_name)
+          )
+        }
+        
+        if (syncSettings.includedLocations && syncSettings.includedLocations.length > 0) {
+          filteredRows = filteredRows.filter(row => 
+            syncSettings.includedLocations.includes(row.location_name)
+          )
+        }
+        
+        externalData = filteredRows
+        console.log(`✅ Filtered to ${externalData.length} records from external DB`)
+      }
+    } catch (externalError) {
+      console.warn('⚠️ Error fetching external data, continuing with existing data:', externalError.message)
+      externalData = [] // Empty array if error
+    }
+    
+    // Step 3: Combine and deduplicate
+    console.log('📊 Step 3: Combining and deduplicating data...')
+    
+    // Create a map for existing records (by unique key: date + amount + location + department + type)
+    const existingMap = new Map()
+    existingData.forEach(record => {
+      const key = `${record.operational_date}|${record.amount}|${record.location_name}|${record.department_name}|${record.expenditure_type}`
+      existingMap.set(key, record)
+    })
+    
+    // Get location mapping
+    const mappingResult = await localPool.query('SELECT * FROM expenditure_location_mapping')
+    const mapping = {}
+    mappingResult.rows.forEach(row => {
+      mapping[row.external_location_name] = row.local_location_id
+    })
+    
+    // Process external data and check for duplicates
+    let imported = 0
+    let skipped = 0
+    let errors = 0
+    
+    for (const row of externalData) {
+      try {
+        const key = `${row.operational_date}|${row.amount || 0}|${row.location_name || 'Unknown'}|${row.department_name || 'Unknown'}|${row.expenditure_type || 'Unknown'}`
+        
+        // Skip if already exists
+        if (existingMap.has(key)) {
+          skipped++
+          continue
+        }
+        
+        // Insert new record
+        const mappedLocationId = mapping[row.location_name] || null
+        
+        await localPool.query(`
+          INSERT INTO expenditures_sync (
+            location_name, department_name, expenditure_type, amount, 
+            operational_date, synced_at, mapped_location_id, data_source
+          ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7)
+        `, [
+          row.location_name || 'Unknown',
+          row.department_name || 'Unknown',
+          row.expenditure_type || 'Unknown',
+          row.amount || 0,
+          row.operational_date,
+          mappedLocationId,
+          'api_sync'
+        ])
+        
+        existingMap.set(key, row) // Add to map to prevent future duplicates
+        imported++
+        
+        if (imported % 100 === 0) {
+          console.log(`📝 Imported ${imported}/${externalData.length} records...`)
+        }
+      } catch (insertError) {
+        errors++
+        console.error('❌ Error inserting record:', insertError.message)
+      }
+    }
+    
+    console.log(`✅ Import completed: ${imported} new, ${skipped} duplicate, ${errors} errors`)
+    
+    // Get final count
+    const finalCount = await localPool.query('SELECT COUNT(*) as total FROM expenditures_sync')
+    const totalRecords = parseInt(finalCount.rows[0].total)
+    
+    res.json({
+      success: true,
+      message: `Import completat! ${imported} noi, ${skipped} duplicate, ${errors} erori`,
+      total: totalRecords,
+      imported: imported,
+      skipped: skipped,
+      errors: errors,
+      existing: existingData.length,
+      fromExternal: externalData.length || 0
+    })
+  } catch (error) {
+    console.error('❌ Error importing all expenditures:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    })
+  }
+})
+
 // Get synced expenditures data
 router.get('/data', async (req, res) => {
   try {
