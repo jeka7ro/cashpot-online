@@ -1143,25 +1143,42 @@ router.post('/import-all', authenticateToken, async (req, res) => {
       if (googleSheetsUrl) {
         try {
           console.log('📊 Step 4: Importing data from Google Sheets...')
+          console.log('🔗 Google Sheets URL:', googleSheetsUrl)
           
           let csvUrl = googleSheetsUrl
           if (googleSheetsUrl.includes('/edit')) {
             const sheetId = googleSheetsUrl.match(/\/d\/(.*?)\//)?.[1]
             const gid = googleSheetsUrl.match(/gid=(\d+)/)?.[1] || '0'
             csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`
+            console.log('📋 Converted to CSV URL:', csvUrl)
+            console.log('📋 Sheet ID:', sheetId, 'GID:', gid)
           }
           
           console.log('📥 Fetching CSV from Google Sheets...')
           const csvResponse = await fetch(csvUrl)
+          console.log('📥 CSV Response status:', csvResponse.status, csvResponse.statusText)
+          
           if (!csvResponse.ok) {
-            throw new Error(`Failed to fetch CSV: ${csvResponse.statusText}`)
+            const errorText = await csvResponse.text()
+            console.error('❌ CSV Response error:', errorText.substring(0, 500))
+            throw new Error(`Failed to fetch CSV: ${csvResponse.status} ${csvResponse.statusText}`)
           }
           
           const csvText = await csvResponse.text()
+          console.log('📄 CSV text length:', csvText.length, 'characters')
+          console.log('📄 First 500 chars of CSV:', csvText.substring(0, 500))
+          
           const lines = csvText.split('\n').filter(line => line.trim())
+          console.log('📊 Total lines in CSV:', lines.length)
           
           if (lines.length >= 2) {
+            console.log('📋 Header line:', lines[0])
             const rows = lines.slice(1) // Skip header
+            console.log('📊 Rows to process:', rows.length)
+            
+            let parsedRows = 0
+            let skippedRows = 0
+            let errorRows = 0
             
             for (const row of rows) {
               try {
@@ -1182,26 +1199,40 @@ router.post('/import-all', authenticateToken, async (req, res) => {
                 }
                 values.push(current.trim())
                 
-                if (values.length < 5) continue
+                if (values.length < 5) {
+                  skippedRows++
+                  if (parsedRows === 0 && skippedRows <= 3) {
+                    console.warn(`⚠️ Skipping row with ${values.length} columns (need 5+):`, values)
+                  }
+                  continue
+                }
                 
                 const [dateStr, explanation, amountStr, location, department, expenditureType] = values
                 
                 let operationalDate
-                if (dateStr.includes('.')) {
-                  const dateParts = dateStr.split('.')
-                  if (dateParts.length === 3) {
-                    operationalDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`
+                if (dateStr && dateStr.trim()) {
+                  if (dateStr.includes('.')) {
+                    const dateParts = dateStr.split('.')
+                    if (dateParts.length === 3) {
+                      operationalDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`
+                    }
+                  } else if (dateStr.includes('/')) {
+                    const dateParts = dateStr.split('/')
+                    if (dateParts.length === 3) {
+                      operationalDate = `${dateParts[2]}-${dateParts[0].padStart(2, '0')}-${dateParts[1].padStart(2, '0')}`
+                    }
+                  } else if (dateStr.includes('-')) {
+                    operationalDate = dateStr.split('T')[0] // Take only date part if datetime
                   }
-                } else if (dateStr.includes('/')) {
-                  const dateParts = dateStr.split('/')
-                  if (dateParts.length === 3) {
-                    operationalDate = `${dateParts[2]}-${dateParts[0].padStart(2, '0')}-${dateParts[1].padStart(2, '0')}`
-                  }
-                } else if (dateStr.includes('-')) {
-                  operationalDate = dateStr
                 }
                 
-                if (!operationalDate) continue
+                if (!operationalDate) {
+                  skippedRows++
+                  if (parsedRows === 0 && skippedRows <= 3) {
+                    console.warn(`⚠️ Skipping row - invalid date format:`, dateStr, '| Values:', values.slice(0, 3))
+                  }
+                  continue
+                }
                 
                 let amount
                 if (amountStr) {
@@ -1209,7 +1240,17 @@ router.post('/import-all', authenticateToken, async (req, res) => {
                   amount = parseFloat(cleanAmount)
                 }
                 
-                if (!amount || isNaN(amount) || !location || !department) continue
+                if (!amount || isNaN(amount) || !location || !department) {
+                  skippedRows++
+                  if (parsedRows === 0 && skippedRows <= 3) {
+                    console.warn(`⚠️ Skipping row - invalid amount/location/department:`, {
+                      amount: amountStr,
+                      location,
+                      department
+                    })
+                  }
+                  continue
+                }
                 
                 googleSheetsData.push({
                   operational_date: operationalDate,
@@ -1220,16 +1261,29 @@ router.post('/import-all', authenticateToken, async (req, res) => {
                   description: explanation || null,
                   data_source: 'google_sheets'
                 })
+                parsedRows++
               } catch (rowError) {
-                console.warn('⚠️ Error parsing Google Sheets row:', rowError.message)
+                errorRows++
+                if (errorRows <= 3) {
+                  console.error('❌ Error parsing Google Sheets row:', rowError.message, '| Row:', row.substring(0, 200))
+                }
               }
             }
             
             _importAllProgress.fromGoogleSheets = googleSheetsData.length
-            console.log(`✅ Fetched ${googleSheetsData.length} records from Google Sheets`)
+            console.log(`✅ Google Sheets: Parsed ${parsedRows} valid rows, skipped ${skippedRows}, errors ${errorRows}`)
+            console.log(`✅ Total fetched ${googleSheetsData.length} records from Google Sheets`)
+            
+            if (googleSheetsData.length === 0 && rows.length > 0) {
+              console.error('⚠️ WARNING: No valid data parsed from Google Sheets!')
+              console.error('⚠️ Check CSV format - first few rows:', rows.slice(0, 3))
+            }
           }
         } catch (gsError) {
-          console.warn('⚠️ Error importing from Google Sheets, continuing with other sources:', gsError.message)
+          console.error('❌ Error importing from Google Sheets:', gsError.message)
+          console.error('❌ Stack:', gsError.stack)
+          _importAllProgress.currentStep = `❌ Eroare Google Sheets: ${gsError.message}`
+          // Continue with other sources but log the error clearly
         }
       }
       
