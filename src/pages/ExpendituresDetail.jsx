@@ -42,6 +42,8 @@ const ExpendituresDetail = () => {
   const [loading, setLoading] = useState(false)
   const [categoryFilter, setCategoryFilter] = useState(category || 'all')
   const [summaryGranularity, setSummaryGranularity] = useState('month') // 'day', 'month', 'quarter', 'year'
+  const [currentPage, setCurrentPage] = useState(1)
+  const [rowsPerPage, setRowsPerPage] = useState(25)
 
   // Load expenditures data
   const loadExpendituresData = async () => {
@@ -91,6 +93,35 @@ const ExpendituresDetail = () => {
     })
     return Array.from(set).sort()
   }, [filteredData])
+
+  // Pagination calculations
+  const paginatedData = useMemo(() => {
+    if (rowsPerPage === 'all') {
+      return filteredData
+    }
+    const startIndex = (currentPage - 1) * rowsPerPage
+    const endIndex = startIndex + rowsPerPage
+    return filteredData.slice(startIndex, endIndex)
+  }, [filteredData, currentPage, rowsPerPage])
+
+  const totalPages = useMemo(() => {
+    if (rowsPerPage === 'all') return 1
+    return Math.ceil(filteredData.length / rowsPerPage)
+  }, [filteredData.length, rowsPerPage])
+
+  const startIndex = rowsPerPage === 'all' ? 0 : (currentPage - 1) * rowsPerPage
+  const endIndex = rowsPerPage === 'all' ? filteredData.length : Math.min(startIndex + rowsPerPage, filteredData.length)
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [categoryFilter, dateRange, department])
+
+  // Reset to page 1 when rowsPerPage changes
+  const handleRowsPerPageChange = (value) => {
+    setRowsPerPage(value)
+    setCurrentPage(1)
+  }
 
   const availableDays = useMemo(() => {
     const daysSet = new Set()
@@ -587,9 +618,25 @@ const ExpendituresDetail = () => {
 
         {/* Detailed table pe fiecare înregistrare */}
         <div className="card p-5">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-3">
-            Înregistrări detaliate ({filteredData.length})
-          </h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+              Înregistrări detaliate ({filteredData.length})
+            </h2>
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Afișare:</span>
+              <select 
+                value={rowsPerPage} 
+                onChange={(e) => handleRowsPerPageChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                className="border-2 border-slate-200 dark:border-slate-600 rounded-2xl px-4 py-2 text-sm font-medium bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all duration-200 shadow-lg text-slate-900 dark:text-slate-100"
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+                <option value="all">Toate</option>
+              </select>
+            </div>
+          </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="bg-slate-100 dark:bg-slate-800">
@@ -602,24 +649,24 @@ const ExpendituresDetail = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredData.map((item) => (
+                {paginatedData.map((item) => (
                   <tr
                     key={item.id}
                     className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60"
                   >
-                    <td className="px-3 py-2 whitespace-nowrap">
+                    <td className="px-3 py-2 whitespace-nowrap text-slate-900 dark:text-slate-100">
                       {item.operational_date
                         ? new Date(item.operational_date).toLocaleDateString('ro-RO')
                         : '-'}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap">
+                    <td className="px-3 py-2 whitespace-nowrap text-slate-900 dark:text-slate-100">
                       {item.location_name || '-'}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap">
+                    <td className="px-3 py-2 whitespace-nowrap text-slate-900 dark:text-slate-100">
                       {item.expenditure_type || '-'}
                     </td>
-                    <td className="px-3 py-2">
-                      {item.description || <span className="text-slate-400">N/A</span>}
+                    <td className="px-3 py-2 text-slate-900 dark:text-slate-100">
+                      {item.description || <span className="text-slate-400 dark:text-slate-500">N/A</span>}
                     </td>
                     <td className="px-3 py-2 text-right font-semibold text-slate-900 dark:text-slate-100">
                       {formatCurrency(item.amount)}
@@ -629,6 +676,45 @@ const ExpendituresDetail = () => {
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination Controls */}
+          {rowsPerPage !== 'all' && totalPages > 1 && (
+            <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-slate-600 dark:text-slate-300 font-medium">
+                  {startIndex + 1}-{endIndex} din {filteredData.length}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} 
+                  disabled={currentPage === 1} 
+                  className="px-4 py-2 border-2 border-slate-200 dark:border-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl text-slate-700 dark:text-slate-200"
+                >
+                  Înapoi
+                </button>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-slate-600 dark:text-slate-200 font-bold bg-white/80 dark:bg-slate-800/80 px-4 py-2 rounded-2xl shadow-lg">
+                    Pag {currentPage}/{totalPages}
+                  </span>
+                </div>
+                <button 
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} 
+                  disabled={currentPage === totalPages} 
+                  className="px-4 py-2 border-2 border-slate-200 dark:border-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl text-slate-700 dark:text-slate-200"
+                >
+                  Înainte
+                </button>
+              </div>
+            </div>
+          )}
+          {rowsPerPage === 'all' && (
+            <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+              <span className="text-sm text-slate-600 dark:text-slate-300 font-medium">
+                Afișate toate {filteredData.length} înregistrări
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </Layout>
