@@ -186,8 +186,14 @@ const ExpendituresSQLTable = () => {
 
     // Dacă showAll e activ, NU trimitem NICIUN filtru (doar sort + paginare)
     if (!showAll) {
-      if (filters.startDate) params.startDate = filters.startDate
-      if (filters.endDate) params.endDate = filters.endDate
+      if (filters.startDate) {
+        // Asigurăm formatul corect YYYY-MM-DD
+        params.startDate = filters.startDate.split('T')[0]
+      }
+      if (filters.endDate) {
+        // Asigurăm formatul corect YYYY-MM-DD
+        params.endDate = filters.endDate.split('T')[0]
+      }
       if (filters.department && filters.department !== 'all') params.department = filters.department
       if (filters.type && filters.type !== 'all') params.type = filters.type
       if (filters.location && filters.location !== 'all') params.location = filters.location
@@ -201,6 +207,11 @@ const ExpendituresSQLTable = () => {
     if (includePagination) {
       params.page = pagination.page
       params.pageSize = pagination.pageSize
+    }
+
+    // Log pentru debugging
+    if (params.startDate || params.endDate) {
+      console.log('📅 Filtru dată trimis backend:', { startDate: params.startDate, endDate: params.endDate })
     }
 
     return { ...params, ...extra }

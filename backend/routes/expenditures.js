@@ -109,12 +109,14 @@ const buildSqlTableWhereClause = (query, includedFilters) => {
   }
 
   if (startDate) {
-    filters.push(`operational_date >= $${paramIndex++}`)
+    // Convertim la DATE pentru comparație corectă (evită probleme cu timezone/time)
+    filters.push(`DATE(operational_date) >= DATE($${paramIndex++}::text)`)
     values.push(startDate)
   }
 
   if (endDate) {
-    filters.push(`operational_date <= $${paramIndex++}`)
+    // Convertim la DATE pentru comparație corectă (evită probleme cu timezone/time)
+    filters.push(`DATE(operational_date) <= DATE($${paramIndex++}::text)`)
     values.push(endDate)
   }
 
