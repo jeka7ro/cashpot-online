@@ -1521,11 +1521,12 @@ router.post('/import-all', authenticateToken, async (req, res) => {
               })
             }
           }
-        } else {
-          console.error('⚠️⚠️⚠️ CRITICAL: externalPool is NULL! Cannot fetch data from external DB!')
-          console.error('⚠️ Connection to external DB failed or was not established!')
         }
-      } catch (externalError) {
+      } else {
+        console.error('⚠️⚠️⚠️ CRITICAL: externalPool is NULL! Cannot fetch data from external DB!')
+        console.error('⚠️ Connection to external DB failed or was not established!')
+      }
+    } catch (externalError) {
         console.error('❌ CRITICAL ERROR: Failed to fetch external data!')
         console.error('❌ Error message:', externalError.message)
         console.error('❌ Error stack:', externalError.stack)
