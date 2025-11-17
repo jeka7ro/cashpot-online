@@ -1436,14 +1436,38 @@ router.post('/import-all', authenticateToken, async (req, res) => {
       _importAllProgress.currentStep = 'Se combină și se verifică duplicatele...'
       console.log('📊 Step 5: Combining and deduplicating data...')
       
+      // Combine all external data
       externalData = [...externalData, ...googleSheetsData]
+      console.log(`📊 Total external data before deduplication: ${externalData.length}`)
+      
+      // CRITICAL: Deduplicate externalData ÎNAINTE de procesare!
+      // Există duplicate în externalData (de ex. aceeași înregistrare din batch-uri diferite sau din surse diferite)
+      const externalDataMap = new Map()
+      const deduplicatedExternalData = []
+      let externalDuplicates = 0
+      
+      for (const row of externalData) {
+        const key = `${row.operational_date}|${row.amount || 0}|${row.location_name || 'Unknown'}|${row.department_name || 'Unknown'}|${row.expenditure_type || 'Unknown'}`
+        
+        if (!externalDataMap.has(key)) {
+          externalDataMap.set(key, row)
+          deduplicatedExternalData.push(row)
+        } else {
+          externalDuplicates++
+        }
+      }
+      
+      console.log(`✅ Deduplicated external data: ${externalData.length} → ${deduplicatedExternalData.length} (removed ${externalDuplicates} duplicates)`)
+      externalData = deduplicatedExternalData
       _importAllProgress.totalFound = externalData.length
       
+      // Build existing map from database
       const existingMap = new Map()
       existingData.forEach(record => {
         const key = `${record.operational_date}|${record.amount}|${record.location_name}|${record.department_name}|${record.expenditure_type}`
         existingMap.set(key, record)
       })
+      console.log(`📊 Existing records in database: ${existingMap.size}`)
       
       const mappingResult = await localPool.query('SELECT * FROM expenditure_location_mapping')
       const mapping = {}
@@ -1451,7 +1475,7 @@ router.post('/import-all', authenticateToken, async (req, res) => {
         mapping[row.external_location_name] = row.local_location_id
       })
       
-      // Process external data and check for duplicates
+      // Process external data and check for duplicates ÎNAINTE de insert!
       let imported = 0
       let skipped = 0
       let errors = 0
@@ -1463,9 +1487,35 @@ router.post('/import-all', authenticateToken, async (req, res) => {
         try {
           const key = `${row.operational_date}|${row.amount || 0}|${row.location_name || 'Unknown'}|${row.department_name || 'Unknown'}|${row.expenditure_type || 'Unknown'}`
           
+          // Verificăm duplicate ÎNAINTE de insert - CRITICAL!
           if (existingMap.has(key)) {
             skipped++
             _importAllProgress.skipped = skipped
+            continue
+          }
+          
+          // Verificăm duplicate în baza de date CU QUERY - CRITICAL pentru siguranță!
+          const duplicateCheck = await localPool.query(`
+            SELECT id FROM expenditures_sync
+            WHERE operational_date = $1 
+              AND amount = $2 
+              AND location_name = $3 
+              AND department_name = $4
+              AND expenditure_type = $5
+            LIMIT 1
+          `, [
+            row.operational_date,
+            row.amount || 0,
+            row.location_name || 'Unknown',
+            row.department_name || 'Unknown',
+            row.expenditure_type || 'Unknown'
+          ])
+          
+          if (duplicateCheck.rows.length > 0) {
+            skipped++
+            _importAllProgress.skipped = skipped
+            // Update existing map pentru următoarele verificări în același import
+            existingMap.set(key, duplicateCheck.rows[0])
             continue
           }
           
@@ -1506,6 +1556,7 @@ router.post('/import-all', authenticateToken, async (req, res) => {
             ])
           }
           
+          // Update existing map pentru următoarele verificări în același import
           existingMap.set(key, row)
           imported++
           _importAllProgress.imported = imported
@@ -1513,7 +1564,7 @@ router.post('/import-all', authenticateToken, async (req, res) => {
           
           // Update progress every 50 records
           if ((i + 1) % 50 === 0) {
-            _importAllProgress.currentStep = `Se procesează... ${i + 1}/${externalData.length}`
+            _importAllProgress.currentStep = `Se procesează... ${i + 1}/${externalData.length} (${imported} noi, ${skipped} duplicate)`
           }
         } catch (insertError) {
           errors++
@@ -2685,6 +2736,85 @@ router.delete('/sql-table/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error deleting expenditure row:', error)
     res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// POST /api/expenditures/clean-duplicates - Remove duplicate records from expenditures_sync
+router.post('/clean-duplicates', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+    
+    console.log('🧹 Starting duplicate cleanup in expenditures_sync...')
+    
+    // Find duplicates
+    const duplicateQuery = `
+      SELECT 
+        operational_date,
+        amount,
+        location_name,
+        department_name,
+        expenditure_type,
+        COUNT(*) as duplicate_count,
+        ARRAY_AGG(id ORDER BY id) as ids
+      FROM expenditures_sync
+      GROUP BY operational_date, amount, location_name, department_name, expenditure_type
+      HAVING COUNT(*) > 1
+    `
+    
+    const duplicateResult = await pool.query(duplicateQuery)
+    const duplicates = duplicateResult.rows
+    
+    console.log(`📊 Found ${duplicates.length} groups with duplicates`)
+    
+    let totalDuplicatesRemoved = 0
+    let totalRecordsAfter = 0
+    
+    if (duplicates.length > 0) {
+      // Keep first ID from each group, delete the rest
+      for (const dup of duplicates) {
+        const ids = dup.ids
+        const keepId = ids[0] // Keep first ID
+        const deleteIds = ids.slice(1) // Delete the rest
+        
+        if (deleteIds.length > 0) {
+          await pool.query(`
+            DELETE FROM expenditures_sync
+            WHERE id = ANY($1::int[])
+          `, [deleteIds])
+          
+          totalDuplicatesRemoved += deleteIds.length
+          console.log(`🧹 Removed ${deleteIds.length} duplicates for ${dup.operational_date}, ${dup.location_name}, ${dup.department_name}`)
+        }
+      }
+      
+      // Get final count
+      const finalCountResult = await pool.query('SELECT COUNT(*) as total FROM expenditures_sync')
+      totalRecordsAfter = parseInt(finalCountResult.rows[0].total)
+    } else {
+      const countResult = await pool.query('SELECT COUNT(*) as total FROM expenditures_sync')
+      totalRecordsAfter = parseInt(countResult.rows[0].total)
+    }
+    
+    console.log(`✅ Cleanup complete: Removed ${totalDuplicatesRemoved} duplicate records`)
+    console.log(`📊 Total records after cleanup: ${totalRecordsAfter}`)
+    
+    res.json({
+      success: true,
+      message: `Curățare duplicate completă: ${totalDuplicatesRemoved} duplicate eliminate`,
+      duplicatesRemoved: totalDuplicatesRemoved,
+      totalRecordsAfter: totalRecordsAfter,
+      duplicateGroups: duplicates.length
+    })
+  } catch (error) {
+    console.error('❌ Error cleaning duplicates:', error)
+    res.status(500).json({
+      success: false,
+      error: error.message
+    })
   }
 })
 
