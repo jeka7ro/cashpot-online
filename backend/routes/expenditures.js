@@ -920,7 +920,10 @@ router.post('/import-all', authenticateToken, async (req, res) => {
     const existingData = existingResult.rows
     console.log(`✅ Found ${existingData.length} existing records in expenditures_sync`)
     
-    // Step 2: Get Google Sheets URL from settings or environment
+    // Step 2: Get Google Sheets URL from settings, environment, or use default
+    // DEFAULT Google Sheets URL for cheltuieli
+    const DEFAULT_GOOGLE_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1Z9kCL17y4RrI_tjuG8AipY1Hn7RdF4rbWD0bz0oKwQE/edit?gid=828539440#gid=828539440'
+    
     let googleSheetsUrl = null
     try {
       console.log('🔍 Step 2: Looking for Google Sheets URL...')
@@ -955,14 +958,14 @@ router.post('/import-all', authenticateToken, async (req, res) => {
         }
       }
       
+      // If still not found, use DEFAULT URL
       if (!googleSheetsUrl) {
-        console.log('❌ NO Google Sheets URL configured! Skipping Google Sheets import.')
-        console.log('💡 To enable Google Sheets import, set one of:')
-        console.log('   1. GOOGLE_SHEETS_URL environment variable')
-        console.log('   2. global_settings.expenditures_sync_config.googleSheetsUrl')
+        googleSheetsUrl = DEFAULT_GOOGLE_SHEETS_URL
+        console.log('✅ Using DEFAULT Google Sheets URL:', googleSheetsUrl.substring(0, 50) + '...')
       }
     } catch (urlError) {
-      console.warn('⚠️ Error getting Google Sheets URL:', urlError.message)
+      console.warn('⚠️ Error getting Google Sheets URL, using default:', urlError.message)
+      googleSheetsUrl = DEFAULT_GOOGLE_SHEETS_URL
     }
     
     // Step 3: Try to get data from external DB (API sync source)
