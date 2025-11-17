@@ -264,6 +264,35 @@ const Expenditures = () => {
       const response = await axios.get('/api/expenditures/data')
       setExpendituresData(response.data)
       console.log('✅ Expenditures data loaded:', response.data.length)
+      
+      // Verifică dacă există date pentru toate lunile din intervalul selectat
+      if (response.data.length > 0 && dateRange.startDate && dateRange.endDate) {
+        const startDate = new Date(dateRange.startDate)
+        const endDate = new Date(dateRange.endDate)
+        const monthsWithData = new Set()
+        
+        response.data.forEach(item => {
+          const itemDate = new Date(item.operational_date)
+          if (itemDate >= startDate && itemDate <= endDate) {
+            const monthKey = `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}`
+            monthsWithData.add(monthKey)
+          }
+        })
+        
+        // Detectează luni lipsă
+        const missingMonths = []
+        for (let d = new Date(startDate); d <= endDate; d.setMonth(d.getMonth() + 1)) {
+          const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+          if (!monthsWithData.has(monthKey)) {
+            missingMonths.push(monthKey)
+          }
+        }
+        
+        if (missingMonths.length > 0) {
+          console.warn('⚠️ Luni fără date detectate:', missingMonths)
+          console.warn('💡 Sfat: Folosește butonul "Import Toate Datele" pentru a aduce toate datele din toate sursele (SQL, API, Google Sheets)')
+        }
+      }
     } catch (error) {
       console.error('Error loading expenditures:', error)
       toast.error('Eroare la încărcarea cheltuielilor')
