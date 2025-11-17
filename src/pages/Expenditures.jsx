@@ -4,7 +4,7 @@ import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import axios from 'axios'
-import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp, TrendingDown, Table2, MapPin, Maximize2, Minimize2, Clock, CalendarDays, CalendarRange, Database } from 'lucide-react'
+import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp, TrendingDown, Table2, MapPin, Maximize2, Minimize2, Clock, CalendarDays, CalendarRange, Database, X, CheckCircle, AlertCircle } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
@@ -157,6 +157,7 @@ const Expenditures = () => {
   const [locationFilter, setLocationFilter] = useState(savedPrefs?.locationFilter || 'all') // NEW!
   const [selectedDateFilter, setSelectedDateFilter] = useState(savedPrefs?.selectedDateFilter || 'anul-curent')
   const [allDepartmentsExpanded, setAllDepartmentsExpanded] = useState(false)
+  const [importProgress, setImportProgress] = useState(null) // Progress state for modal
   
   // Save preferences whenever filters change
   useEffect(() => {
@@ -370,7 +371,7 @@ const Expenditures = () => {
       }
     }
   }
-
+  
   // Sync data from external DB
   const handleSync = async () => {
     try {
@@ -439,33 +440,11 @@ const Expenditures = () => {
       const response = await axios.get('/api/expenditures/import-all-status')
       const progress = response.data
       
+      // Update progress state for modal
+      setImportProgress(progress)
+      
       if (progress && progress.status === 'running') {
-        const duration = Math.round((new Date() - new Date(progress.startTime)) / 1000)
-        const remaining = progress.totalFound > 0 
-          ? Math.max(0, progress.totalFound - progress.totalProcessed)
-          : 0
-        const progressPercent = progress.totalFound > 0
-          ? Math.round((progress.totalProcessed / progress.totalFound) * 100)
-          : 0
-        
-        let message = `📊 Import în curs... (${duration}s)\n`
-        message += `📋 Pas: ${progress.currentStep}\n`
-        message += `🔍 Total găsite: ${progress.totalFound}\n`
-        message += `⚙️ Procesate: ${progress.totalProcessed}/${progress.totalFound} (${progressPercent}%)\n`
-        message += `📝 Importate noi: ${progress.imported}\n`
-        message += `🔄 Duplicate (skip): ${progress.skipped}\n`
-        if (progress.errors > 0) {
-          message += `❌ Erori: ${progress.errors}\n`
-        }
-        if (remaining > 0) {
-          message += `⏳ Rămân: ${remaining}`
-        }
-        message += `\n📊 Surse: SQL(${progress.existing}) | API(${progress.fromExternalAPI}) | Google Sheets(${progress.fromGoogleSheets})`
-        
-        toast.loading(message, { 
-          id: 'import-all',
-          duration: 2000 
-        })
+        // Modal will show progress, no need for toast
       } else if (progress && (progress.status === 'completed' || progress.status === 'failed')) {
         // Stop polling
         if (importAllProgressIntervalRef.current) {
@@ -474,31 +453,18 @@ const Expenditures = () => {
         }
         
         if (progress.status === 'completed') {
-          const duration = Math.round((new Date(progress.endTime) - new Date(progress.startTime)) / 1000)
-          const finalMessage = `✅ Import completat!\n` +
-            `📊 Total găsite: ${progress.totalFound || 0}\n` +
-            `⚙️ Procesate: ${progress.totalProcessed || 0}/${progress.totalFound || 0}\n` +
-            `📝 Noi adăugate: ${progress.imported || 0}\n` +
-            `🔄 Duplicate: ${progress.skipped || 0}\n` +
-            `${progress.errors > 0 ? `❌ Erori: ${progress.errors}\n` : ''}` +
-            `📊 Surse: SQL(${progress.existing}) | API(${progress.fromExternalAPI}) | Google Sheets(${progress.fromGoogleSheets})\n` +
-            `⏱️ Durata: ${duration}s`
-          
-          toast.success(finalMessage, { 
-            id: 'import-all',
-            duration: 10000 
-          })
-          
-          // Reload data
-          await loadExpendituresData()
-        } else {
-          toast.error(`❌ Import eșuat: ${progress.currentStep || 'Eroare necunoscută'}`, { 
-            id: 'import-all',
-            duration: 5000 
-          })
+          // Reload data after 2 seconds to show final state
+          setTimeout(async () => {
+      await loadExpendituresData()
+          }, 2000)
         }
         
         setSyncing(false)
+        
+        // Auto-close modal after 5 seconds
+        setTimeout(() => {
+          setImportProgress(null)
+        }, 5000)
       }
     } catch (error) {
       if (error.response?.status === 404) {
@@ -1003,7 +969,7 @@ const Expenditures = () => {
                 ].map((btn) => {
                   const IconComponent = btn.icon
                   return (
-                    <button
+              <button
                       key={btn.id}
                       onClick={() => applyQuickDateFilter(btn.id)}
                       className="relative inline-flex items-center justify-center gap-2 px-3 py-2 rounded-2xl text-white text-xs font-semibold transition-all overflow-hidden border hover:scale-105 active:scale-95"
@@ -1021,7 +987,7 @@ const Expenditures = () => {
                     >
                       <IconComponent className="w-3.5 h-3.5 relative z-10" style={{ color: 'white' }} />
                       <span className="relative z-10">{btn.label}</span>
-                    </button>
+              </button>
                   )
                 })}
             </div>
@@ -1055,7 +1021,7 @@ const Expenditures = () => {
                     </option>
                   ))}
                 </select>
-              </div>
+          </div>
 
               <div className="relative">
                 <select
@@ -1084,8 +1050,8 @@ const Expenditures = () => {
                     </option>
                   ))}
                 </select>
-              </div>
-
+        </div>
+        
               {uniqueLocations.length > 0 && (
                 <div className="relative">
                   <select
@@ -1114,31 +1080,31 @@ const Expenditures = () => {
                       </option>
                     ))}
                   </select>
-                </div>
+            </div>
               )}
             </div>
           </div>
-
+          
           {/* Rând 2: DateRangeSelector + Text Perioadă pe același rând + Export Buttons la capătul din dreapta */}
           <div className="flex items-center gap-3 mb-2">
             <div className="min-w-[260px] max-w-md">
-              <DateRangeSelector
-                startDate={dateRange.startDate}
-                endDate={dateRange.endDate}
+                <DateRangeSelector
+                  startDate={dateRange.startDate}
+                  endDate={dateRange.endDate}
                 availableDays={availableDays}
-                onChange={(newRange) => {
-                  setDateRange(newRange)
-                  setSelectedDateFilter('custom')
-                }}
-              />
-            </div>
-            
+                  onChange={(newRange) => {
+                    setDateRange(newRange)
+                    setSelectedDateFilter('custom')
+                  }}
+                />
+              </div>
+              
             {/* Text Perioadă pe același rând cu DateRangeSelector, centrat vertical cu săgețile < > */}
             <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center">
               Perioadă: <span className="font-semibold ml-1">{dateRange.startDate}</span> –{' '}
               <span className="font-semibold">{dateRange.endDate}</span>
-            </div>
-            
+              </div>
+              
             {/* Export Buttons - la capătul din dreapta pe rândul 2 */}
             <div className="flex items-center gap-3 ml-auto">
               <button
@@ -1292,9 +1258,9 @@ const Expenditures = () => {
         <div id="matrix-table" className="card p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center">
-              <Table2 className="w-6 h-6 mr-2 text-blue-500" />
-              Cheltuieli per Departament / Categorie / Locație
-            </h2>
+            <Table2 className="w-6 h-6 mr-2 text-blue-500" />
+            Cheltuieli per Departament / Categorie / Locație
+          </h2>
             
             {matrix.length > 0 && (
               <button
