@@ -1154,12 +1154,30 @@ router.post('/import-all', authenticateToken, async (req, res) => {
               const yearStart = `${year}-01-01`
               const yearEnd = `${year}-12-31`
               
-              console.log(`📅 Fetching year ${year}...`)
+              console.log(`\n📅 ========== FETCHING YEAR ${year} ==========`)
+              console.log(`📅 Year range: ${yearStart} to ${yearEnd}`)
               _importAllProgress.currentStep = `Se preiau datele pentru anul ${year}...`
+              
+              // First, check how many records exist for this year
+              try {
+                const yearCountQuery = `
+                  SELECT COUNT(*) as total
+                  FROM public.casino_payments p
+                  WHERE ${whereClause}
+                    AND p.operational_date >= $1
+                    AND p.operational_date <= $2
+                `
+                const yearCountResult = await externalPool.query(yearCountQuery, [yearStart, yearEnd])
+                const yearTotal = parseInt(yearCountResult.rows[0].total || 0)
+                console.log(`📊 Year ${year}: Total records in external DB: ${yearTotal}`)
+              } catch (countError) {
+                console.warn(`⚠️ Could not get count for year ${year}:`, countError.message)
+              }
               
               let yearOffset = 0
               let yearHasMore = true
               let yearBatchNumber = 0
+              let yearTotalFetched = 0
               
               while (yearHasMore && yearBatchNumber < 1000) { // Max 1000 batches per year
                 yearBatchNumber++
@@ -1195,15 +1213,23 @@ router.post('/import-all', authenticateToken, async (req, res) => {
                     batchRows = batchResult.rows
                     batchSuccess = true
                     
-                    console.log(`✅ Year ${year}, Batch ${yearBatchNumber}: Fetched ${batchRows.length} records`)
+                    if (batchRows.length > 0) {
+                      const firstDate = batchRows[0].operational_date
+                      const lastDate = batchRows[batchRows.length - 1].operational_date
+                      console.log(`✅ Year ${year}, Batch ${yearBatchNumber}: Fetched ${batchRows.length} records (${firstDate} to ${lastDate})`)
+                    } else {
+                      console.log(`✅ Year ${year}, Batch ${yearBatchNumber}: Fetched 0 records (no more data)`)
+                    }
                     
                   } catch (batchError) {
                     retryCount++
                     console.error(`❌ Year ${year}, Batch ${yearBatchNumber} failed (attempt ${retryCount}/${maxRetries}):`, batchError.message)
+                    console.error(`❌ Error details:`, batchError.stack)
                     
                     if (retryCount < maxRetries) {
                       await new Promise(resolve => setTimeout(resolve, retryDelay))
                     } else {
+                      console.error(`❌ Year ${year} FAILED after ${maxRetries} attempts - continuing to next year`)
                       yearHasMore = false
                       break
                     }
@@ -1215,6 +1241,7 @@ router.post('/import-all', authenticateToken, async (req, res) => {
                 } else {
                   allExternalRows = allExternalRows.concat(batchRows)
                   yearOffset += batchRows.length
+                  yearTotalFetched += batchRows.length
                   _importAllProgress.fromExternalAPI = allExternalRows.length
                   
                   if (batchRows.length < batchSize) {
@@ -1223,7 +1250,25 @@ router.post('/import-all', authenticateToken, async (req, res) => {
                 }
               }
               
-              console.log(`✅ Year ${year} complete: ${yearOffset} records fetched. Total so far: ${allExternalRows.length}`)
+              console.log(`✅ Year ${year} complete: ${yearTotalFetched} records fetched (offset: ${yearOffset})`)
+              console.log(`📊 Year ${year} total so far: ${allExternalRows.length} records`)
+              
+              // Log date range for this year
+              const yearData = allExternalRows.filter(r => {
+                if (!r.operational_date) return false
+                const rowYear = new Date(r.operational_date).getFullYear()
+                return rowYear === year
+              })
+              if (yearData.length > 0) {
+                const yearDates = yearData.map(r => r.operational_date).filter(d => d)
+                const yearMinDate = new Date(Math.min(...yearDates.map(d => new Date(d))))
+                const yearMaxDate = new Date(Math.max(...yearDates.map(d => new Date(d))))
+                console.log(`📅 Year ${year} date range: ${yearMinDate.toISOString().split('T')[0]} to ${yearMaxDate.toISOString().split('T')[0]}`)
+              } else {
+                console.error(`⚠️⚠️⚠️ WARNING: Year ${year} has NO data in allExternalRows!`)
+              }
+              
+              console.log(`📅 =========================================\n`)
             }
             
             // Final summary by year - CRITICAL FOR DEBUGGING!
