@@ -490,13 +490,20 @@ const Expenditures = () => {
       toast.loading('Pornire import...', { id: 'import-all', duration: 1000 })
       
       // Start the import (non-blocking)
-      const response = await axios.post('/api/expenditures/import-all').catch((error) => {
+      const response = await axios.post('/api/expenditures/import-all', {}, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }).catch((error) => {
         // If import already running, start polling
-        if (error.response?.status === 400) {
+        if (error.response?.status === 400 && error.response?.data?.alreadyRunning) {
+          console.log('⚠️ Import already running, starting polling...')
           importAllProgressIntervalRef.current = setInterval(fetchImportAllProgress, 1500)
           setTimeout(fetchImportAllProgress, 500)
           return { data: { success: true, alreadyRunning: true } }
         }
+        // Other 400 errors should be thrown
+        console.error('❌ Error starting import:', error.response?.data || error.message)
         throw error
       })
       
@@ -519,11 +526,24 @@ const Expenditures = () => {
       setSyncing(false)
       console.error('Error importing all expenditures:', error)
       
+      // Extract detailed error message
       const errorMessage = error.response?.data?.error || error.message || 'Eroare la importul tuturor datelor'
-      toast.error(`❌ ${errorMessage}`, { 
-        id: 'import-all',
-        duration: 5000 
-      })
+      const errorDetails = error.response?.data?.message || ''
+      
+      if (error.response?.status === 400 && error.response?.data?.alreadyRunning) {
+        // Import already running - start polling
+        importAllProgressIntervalRef.current = setInterval(fetchImportAllProgress, 1500)
+        setTimeout(fetchImportAllProgress, 500)
+        toast.loading('Import deja în curs. Se verifică progresul...', { 
+          id: 'import-all',
+          duration: 2000 
+        })
+      } else {
+        toast.error(`❌ ${errorMessage}${errorDetails ? `\n${errorDetails}` : ''}`, { 
+          id: 'import-all',
+          duration: 5000 
+        })
+      }
     }
   }
   

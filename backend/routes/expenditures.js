@@ -938,12 +938,24 @@ router.get('/import-all-status', authenticateToken, async (req, res) => {
 // POST /api/expenditures/import-all - Import TOATE datele din toate sursele (SQL, Google Sheets, BAT) - fără dubluri
 router.post('/import-all', authenticateToken, async (req, res) => {
   // Check if already importing
-  if (_importAllProgress && _importAllProgress.status === 'running') {
+  // Also check if progress is older than 5 minutes (stale) - allow restart
+  const isRunning = _importAllProgress && _importAllProgress.status === 'running'
+  const isStale = isRunning && _importAllProgress.startTime && 
+    (new Date() - new Date(_importAllProgress.startTime)) > 5 * 60 * 1000 // 5 minutes
+  
+  if (isRunning && !isStale) {
+    console.log('⚠️ Import already running, cannot start new one')
     return res.status(400).json({ 
       success: false, 
       error: 'Import deja în curs. Vă rugăm să așteptați finalizarea.',
       alreadyRunning: true
     })
+  }
+  
+  // If stale, clear it and allow new import
+  if (isStale) {
+    console.log('⚠️ Stale import progress detected, clearing and allowing new import')
+    _importAllProgress = null
   }
   
   // Return immediately (non-blocking)
