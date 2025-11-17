@@ -1061,12 +1061,9 @@ router.post('/import-all', authenticateToken, async (req, res) => {
         }
         
         if (externalPool) {
-          let syncSettings = {
-            includedExpenditureTypes: [],
-            includedDepartments: [],
-            includedLocations: [],
-            excludeDeleted: true
-          }
+          // IMPORT-ALL: NU ÎNCĂRCĂM syncSettings PENTRU IMPORT-ALL!
+          // Import-all aduce TOATE datele, fără nicio filtrare (nici pe date, nici pe tipuri, nici pe departamente, nici pe locații)
+          // Doar pentru URL Google Sheets citim setările, dar ignorăm complet filtrele!
           
           try {
             const settingsResult = await localPool.query(`
@@ -1077,27 +1074,24 @@ router.post('/import-all', authenticateToken, async (req, res) => {
             
             if (settingsResult.rows.length > 0 && settingsResult.rows[0].setting_value) {
               const settingValue = settingsResult.rows[0].setting_value
-              if (typeof settingValue === 'string') {
-                const parsed = JSON.parse(settingValue)
-                syncSettings = { ...syncSettings, ...parsed }
-                if (!googleSheetsUrl && parsed.googleSheetsUrl) {
-                  googleSheetsUrl = parsed.googleSheetsUrl
-                }
-              } else if (typeof settingValue === 'object') {
-                syncSettings = { ...syncSettings, ...settingValue }
-                if (!googleSheetsUrl && settingValue.googleSheetsUrl) {
-                  googleSheetsUrl = settingValue.googleSheetsUrl
-                }
+              const parsed = typeof settingValue === 'string' ? JSON.parse(settingValue) : settingValue
+              
+              // Doar pentru Google Sheets URL, ignorăm toate celelalte setări!
+              if (!googleSheetsUrl && parsed.googleSheetsUrl) {
+                googleSheetsUrl = parsed.googleSheetsUrl
               }
             }
           } catch (settingsError) {
-            console.warn('⚠️ Error loading sync settings, using defaults:', settingsError.message)
+            console.warn('⚠️ Error loading settings for Google Sheets URL:', settingsError.message)
           }
           
-          // IMPORT-ALL: Aducem TOATE datele din API extern, FĂRĂ filtre!
-          // Nu aplicăm filtre pentru că vrem TOATE datele pentru import
+          // IMPORT-ALL: Aducem TOATE datele din API extern, FĂRĂ FILTRE ABSOLUT NICIUNUL!
+          // NU aplicăm filtre pe date, tipuri, departamente, locații - DOAR is_deleted = false
           let whereConditions = ['p.is_deleted = false']
           const whereClause = whereConditions.join(' AND ')
+          
+          console.log('🔍 IMPORT-ALL: NO FILTERS - Only filtering is_deleted = false')
+          console.log('🔍 IMPORT-ALL: Will fetch ALL records from external DB (no date limits, no type filters, no department filters, no location filters)')
           
           const query = `
             SELECT 
