@@ -15,6 +15,16 @@ export const syncProgressManager = {
   clearProgress: () => { _syncProgress = null }
 }
 
+// Global variable to track import-all progress
+let _importAllProgress = null
+
+// Progress manager for import-all
+export const importAllProgressManager = {
+  getProgress: () => _importAllProgress,
+  setProgress: (progress) => { _importAllProgress = progress },
+  clearProgress: () => { _importAllProgress = null }
+}
+
 const SQL_TABLE_SORT_COLUMNS = {
   operational_date: 'operational_date',
   amount: 'amount',
@@ -904,395 +914,437 @@ router.post('/sync', async (req, res) => {
   }
 })
 
-// POST /api/expenditures/import-all - Import TOATE datele din toate sursele (SQL, Google Sheets, BAT) - fără dubluri
-router.post('/import-all', authenticateToken, async (req, res) => {
+// GET /api/expenditures/import-all-status - Get import-all progress
+router.get('/import-all-status', authenticateToken, async (req, res) => {
   try {
-    const localPool = req.app.get('pool')
-    
-    console.log('🔄 Starting import ALL expenditures from all sources...')
-    
-    // Step 1: Get all data from SQL table (toate datele existente)
-    console.log('📊 Step 1: Getting all existing data from expenditures_sync...')
-    const existingResult = await localPool.query(`
-      SELECT * FROM expenditures_sync
-      ORDER BY operational_date DESC
-    `)
-    const existingData = existingResult.rows
-    console.log(`✅ Found ${existingData.length} existing records in expenditures_sync`)
-    
-    // Step 2: Get Google Sheets URL from settings, environment, or use default
-    // DEFAULT Google Sheets URL for cheltuieli
-    const DEFAULT_GOOGLE_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1Z9kCL17y4RrI_tjuG8AipY1Hn7RdF4rbWD0bz0oKwQE/edit?gid=828539440#gid=828539440'
-    
-    let googleSheetsUrl = null
-    try {
-      console.log('🔍 Step 2: Looking for Google Sheets URL...')
-      
-      // Try to get from global_settings first
-      const settingsResult = await localPool.query(`
-        SELECT setting_value 
-        FROM global_settings 
-        WHERE setting_key = 'expenditures_sync_config'
-      `)
-      
-      if (settingsResult.rows.length > 0 && settingsResult.rows[0].setting_value) {
-        const settingValue = settingsResult.rows[0].setting_value
-        const settings = typeof settingValue === 'string' ? JSON.parse(settingValue) : settingValue
-        googleSheetsUrl = settings.googleSheetsUrl || null
-        if (googleSheetsUrl) {
-          console.log('✅ Found Google Sheets URL in global_settings:', googleSheetsUrl.substring(0, 50) + '...')
-        } else {
-          console.log('⚠️ Google Sheets URL NOT found in global_settings.expenditures_sync_config.googleSheetsUrl')
-        }
-      } else {
-        console.log('⚠️ No expenditures_sync_config found in global_settings')
-      }
-      
-      // If not found, try environment variable
-      if (!googleSheetsUrl) {
-        googleSheetsUrl = process.env.GOOGLE_SHEETS_URL || null
-        if (googleSheetsUrl) {
-          console.log('✅ Found Google Sheets URL in environment variable GOOGLE_SHEETS_URL:', googleSheetsUrl.substring(0, 50) + '...')
-        } else {
-          console.log('⚠️ Google Sheets URL NOT found in environment variable GOOGLE_SHEETS_URL')
-        }
-      }
-      
-      // If still not found, use DEFAULT URL
-      if (!googleSheetsUrl) {
-        googleSheetsUrl = DEFAULT_GOOGLE_SHEETS_URL
-        console.log('✅ Using DEFAULT Google Sheets URL:', googleSheetsUrl.substring(0, 50) + '...')
-      }
-    } catch (urlError) {
-      console.warn('⚠️ Error getting Google Sheets URL, using default:', urlError.message)
-      googleSheetsUrl = DEFAULT_GOOGLE_SHEETS_URL
+    if (!_importAllProgress) {
+      return res.json({
+        status: 'idle',
+        message: 'Nu există import în curs'
+      })
     }
     
-    // Step 3: Try to get data from external DB (API sync source)
-    let externalData = []
-    try {
-      console.log('📊 Step 3: Getting data from external DB (API sync)...')
-      let externalPool
-      try {
-        externalPool = getExternalPool()
-        const testResult = await externalPool.query('SELECT NOW() as current_time')
-        console.log('✅ External DB connection successful')
-      } catch (poolError) {
-        console.warn('⚠️ Cannot connect to external DB, skipping API sync source:', poolError.message)
-        externalPool = null
-      }
-      
-      if (externalPool) {
-        // Load sync settings
-        let syncSettings = {
-          includedExpenditureTypes: [],
-          includedDepartments: [],
-          includedLocations: [],
-          excludeDeleted: true
-        }
-        
-        try {
-          const settingsResult = await localPool.query(`
-            SELECT setting_value 
-            FROM global_settings 
-            WHERE setting_key = 'expenditures_sync_config'
-          `)
-          
-          if (settingsResult.rows.length > 0 && settingsResult.rows[0].setting_value) {
-            const settingValue = settingsResult.rows[0].setting_value
-            if (typeof settingValue === 'string') {
-              const parsed = JSON.parse(settingValue)
-              syncSettings = { ...syncSettings, ...parsed }
-              // Also get Google Sheets URL if not already set
-              if (!googleSheetsUrl && parsed.googleSheetsUrl) {
-                googleSheetsUrl = parsed.googleSheetsUrl
-              }
-            } else if (typeof settingValue === 'object') {
-              syncSettings = { ...syncSettings, ...settingValue }
-              // Also get Google Sheets URL if not already set
-              if (!googleSheetsUrl && settingValue.googleSheetsUrl) {
-                googleSheetsUrl = settingValue.googleSheetsUrl
-              }
-            }
-          }
-        } catch (settingsError) {
-          console.warn('⚠️ Error loading sync settings, using defaults:', settingsError.message)
-        }
-        
-        // Build WHERE clause
-        let whereConditions = ['p.is_deleted = false']
-        const queryParams = []
-        
-        const whereClause = whereConditions.join(' AND ')
-        
-        // Fetch ALL data from external DB (no date filter)
-        const query = `
-          SELECT 
-            l.id as location_id,
-            l.name as location_name,
-            d.name as department_name,
-            et.name as expenditure_type,
-            p.amount,
-            p.operational_date,
-            p.id as payment_id
-          FROM public.casino_payments p
-          LEFT JOIN public.casino_locations l ON p.location_id = l.id
-          LEFT JOIN public.casino_departments d ON p.department_id = d.id
-          LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
-          WHERE ${whereClause}
-          ORDER BY p.operational_date DESC
-        `
-        
-        const externalResult = await externalPool.query(query, queryParams)
-        console.log(`✅ Fetched ${externalResult.rows.length} records from external DB`)
-        
-        // Filter by sync settings
-        let filteredRows = externalResult.rows
-        
-        if (syncSettings.includedExpenditureTypes && syncSettings.includedExpenditureTypes.length > 0) {
-          filteredRows = filteredRows.filter(row => 
-            syncSettings.includedExpenditureTypes.includes(row.expenditure_type)
-          )
-        }
-        
-        if (syncSettings.includedDepartments && syncSettings.includedDepartments.length > 0) {
-          filteredRows = filteredRows.filter(row => 
-            syncSettings.includedDepartments.includes(row.department_name)
-          )
-        }
-        
-        if (syncSettings.includedLocations && syncSettings.includedLocations.length > 0) {
-          filteredRows = filteredRows.filter(row => 
-            syncSettings.includedLocations.includes(row.location_name)
-          )
-        }
-        
-        externalData = filteredRows
-        console.log(`✅ Filtered to ${externalData.length} records from external DB`)
-      }
-    } catch (externalError) {
-      console.warn('⚠️ Error fetching external data, continuing with existing data:', externalError.message)
-      externalData = [] // Empty array if error
-    }
-    
-    // Step 4: Import from Google Sheets if URL is available
-    let googleSheetsData = []
-    if (googleSheetsUrl) {
-      try {
-        console.log('📊 Step 4: Importing data from Google Sheets...')
-        
-        // Convert Google Sheets URL to CSV export URL
-        let csvUrl = googleSheetsUrl
-        if (googleSheetsUrl.includes('/edit')) {
-          const sheetId = googleSheetsUrl.match(/\/d\/(.*?)\//)?.[1]
-          const gid = googleSheetsUrl.match(/gid=(\d+)/)?.[1] || '0'
-          csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`
-        }
-        
-        console.log('📥 Fetching CSV from Google Sheets...')
-        const csvResponse = await fetch(csvUrl)
-        if (!csvResponse.ok) {
-          throw new Error(`Failed to fetch CSV: ${csvResponse.statusText}`)
-        }
-        
-        const csvText = await csvResponse.text()
-        const lines = csvText.split('\n').filter(line => line.trim())
-        
-        if (lines.length >= 2) {
-          const rows = lines.slice(1) // Skip header
-          
-          for (const row of rows) {
-            try {
-              // Parse CSV with proper quote handling
-              const values = []
-              let current = ''
-              let inQuotes = false
-              
-              for (let i = 0; i < row.length; i++) {
-                const char = row[i]
-                if (char === '"') {
-                  inQuotes = !inQuotes
-                } else if (char === ',' && !inQuotes) {
-                  values.push(current.trim())
-                  current = ''
-                } else {
-                  current += char
-                }
-              }
-              values.push(current.trim()) // Last value
-              
-              if (values.length < 5) continue
-              
-              // Map columns (A=date, B=explanation, C=amount, D=location, E=department, F=expenditureType)
-              const [dateStr, explanation, amountStr, location, department, expenditureType] = values
-              
-              // Parse date
-              let operationalDate
-              if (dateStr.includes('.')) {
-                const dateParts = dateStr.split('.')
-                if (dateParts.length === 3) {
-                  operationalDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`
-                }
-              } else if (dateStr.includes('/')) {
-                const dateParts = dateStr.split('/')
-                if (dateParts.length === 3) {
-                  operationalDate = `${dateParts[2]}-${dateParts[0].padStart(2, '0')}-${dateParts[1].padStart(2, '0')}`
-                }
-              } else if (dateStr.includes('-')) {
-                operationalDate = dateStr
-              }
-              
-              if (!operationalDate) continue
-              
-              // Parse amount
-              let amount
-              if (amountStr) {
-                const cleanAmount = amountStr.replace(/\s/g, '').replace(/\./g, '').replace(',', '.')
-                amount = parseFloat(cleanAmount)
-              }
-              
-              if (!amount || isNaN(amount) || !location || !department) continue
-              
-              googleSheetsData.push({
-                operational_date: operationalDate,
-                amount: amount,
-                location_name: location || 'Unknown',
-                department_name: department || 'Unknown',
-                expenditure_type: expenditureType || 'Unknown',
-                description: explanation || null,
-                data_source: 'google_sheets'
-              })
-            } catch (rowError) {
-              console.warn('⚠️ Error parsing Google Sheets row:', rowError.message)
-            }
-          }
-          
-          console.log(`✅ Fetched ${googleSheetsData.length} records from Google Sheets`)
-        }
-      } catch (gsError) {
-        console.warn('⚠️ Error importing from Google Sheets, continuing with other sources:', gsError.message)
-      }
-    } else {
-      console.log('⚠️ No Google Sheets URL configured, skipping Google Sheets import')
-      console.log('💡 To enable Google Sheets import, configure GOOGLE_SHEETS_URL environment variable or set googleSheetsUrl in global_settings')
-    }
-    
-    // Step 5: Combine and deduplicate
-    console.log('📊 Step 5: Combining and deduplicating data...')
-    
-    // Add Google Sheets data to externalData for processing
-    externalData = [...externalData, ...googleSheetsData]
-    
-    // Create a map for existing records (by unique key: date + amount + location + department + type)
-    const existingMap = new Map()
-    existingData.forEach(record => {
-      const key = `${record.operational_date}|${record.amount}|${record.location_name}|${record.department_name}|${record.expenditure_type}`
-      existingMap.set(key, record)
-    })
-    
-    // Get location mapping
-    const mappingResult = await localPool.query('SELECT * FROM expenditure_location_mapping')
-    const mapping = {}
-    mappingResult.rows.forEach(row => {
-      mapping[row.external_location_name] = row.local_location_id
-    })
-    
-    // Process external data and check for duplicates
-    let imported = 0
-    let skipped = 0
-    let errors = 0
-    
-    for (const row of externalData) {
-      try {
-        const key = `${row.operational_date}|${row.amount || 0}|${row.location_name || 'Unknown'}|${row.department_name || 'Unknown'}|${row.expenditure_type || 'Unknown'}`
-        
-        // Skip if already exists
-        if (existingMap.has(key)) {
-          skipped++
-          continue
-        }
-        
-        // Insert new record
-        const mappedLocationId = mapping[row.location_name] || null
-        
-        // Determine data_source and description
-        const dataSource = row.data_source || 'api_sync'
-        const description = row.description || null
-        
-        // Build INSERT query based on data_source
-        if (dataSource === 'google_sheets' && description) {
-          // Google Sheets has description
-          await localPool.query(`
-            INSERT INTO expenditures_sync (
-              location_name, department_name, expenditure_type, amount, 
-              operational_date, synced_at, mapped_location_id, data_source, description
-            ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7, $8)
-          `, [
-            row.location_name || 'Unknown',
-            row.department_name || 'Unknown',
-            row.expenditure_type || 'Unknown',
-            row.amount || 0,
-            row.operational_date,
-            mappedLocationId,
-            dataSource,
-            description
-          ])
-        } else {
-          // API sync or other sources
-          await localPool.query(`
-            INSERT INTO expenditures_sync (
-              location_name, department_name, expenditure_type, amount, 
-              operational_date, synced_at, mapped_location_id, data_source
-            ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7)
-          `, [
-            row.location_name || 'Unknown',
-            row.department_name || 'Unknown',
-            row.expenditure_type || 'Unknown',
-            row.amount || 0,
-            row.operational_date,
-            mappedLocationId,
-            dataSource
-          ])
-        }
-        
-        existingMap.set(key, row) // Add to map to prevent future duplicates
-        imported++
-        
-        if (imported % 100 === 0) {
-          console.log(`📝 Imported ${imported}/${externalData.length} records...`)
-        }
-      } catch (insertError) {
-        errors++
-        console.error('❌ Error inserting record:', insertError.message)
-      }
-    }
-    
-    console.log(`✅ Import completed: ${imported} new, ${skipped} duplicate, ${errors} errors`)
-    
-    // Get final count
-    const finalCount = await localPool.query('SELECT COUNT(*) as total FROM expenditures_sync')
-    const totalRecords = parseInt(finalCount.rows[0].total)
-    
-    res.json({
-      success: true,
-      message: `Import completat! ${imported} noi, ${skipped} duplicate, ${errors} erori`,
-      total: totalRecords,
-      imported: imported,
-      skipped: skipped,
-      errors: errors,
-      existing: existingData.length,
-      fromExternal: (externalData.length - googleSheetsData.length) || 0,
-      fromGoogleSheets: googleSheetsData.length || 0,
-      googleSheetsUrl: googleSheetsUrl ? 'configured' : 'not configured'
-    })
+    res.json(_importAllProgress)
   } catch (error) {
-    console.error('❌ Error importing all expenditures:', error)
-    res.status(500).json({
-      success: false,
+    console.error('Error getting import-all status:', error)
+    res.status(500).json({ 
+      success: false, 
       error: error.message,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      status: 'error'
     })
   }
+})
+
+// POST /api/expenditures/import-all - Import TOATE datele din toate sursele (SQL, Google Sheets, BAT) - fără dubluri
+router.post('/import-all', authenticateToken, async (req, res) => {
+  // Check if already importing
+  if (_importAllProgress && _importAllProgress.status === 'running') {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Import deja în curs. Vă rugăm să așteptați finalizarea.',
+      alreadyRunning: true
+    })
+  }
+  
+  // Return immediately (non-blocking)
+  res.json({ 
+    success: true, 
+    message: 'Import început. Verifică progresul la /api/expenditures/import-all-status',
+    started: true
+  })
+  
+  // Start import in background (non-blocking)
+  const startImport = async () => {
+    try {
+      const localPool = req.app.get('pool')
+      
+      const startTime = new Date()
+      
+      // Initialize progress
+      _importAllProgress = {
+        status: 'running',
+        currentStep: 'Inițializare...',
+        totalFound: 0,
+        totalProcessed: 0,
+        imported: 0,
+        skipped: 0,
+        errors: 0,
+        fromExternalAPI: 0,
+        fromGoogleSheets: 0,
+        existing: 0,
+        startTime: startTime.toISOString(),
+        endTime: null
+      }
+      
+      console.log('🔄 Starting import ALL expenditures from all sources...')
+      
+      // Step 1: Get all data from SQL table (toate datele existente)
+      _importAllProgress.currentStep = 'Se încarcă datele existente din SQL...'
+      console.log('📊 Step 1: Getting all existing data from expenditures_sync...')
+      const existingResult = await localPool.query(`
+        SELECT * FROM expenditures_sync
+        ORDER BY operational_date DESC
+      `)
+      const existingData = existingResult.rows
+      _importAllProgress.existing = existingData.length
+      console.log(`✅ Found ${existingData.length} existing records in expenditures_sync`)
+    
+      // Step 2: Get Google Sheets URL from settings, environment, or use default
+      _importAllProgress.currentStep = 'Se caută URL Google Sheets...'
+      const DEFAULT_GOOGLE_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1Z9kCL17y4RrI_tjuG8AipY1Hn7RdF4rbWD0bz0oKwQE/edit?gid=828539440#gid=828539440'
+      
+      let googleSheetsUrl = null
+      try {
+        console.log('🔍 Step 2: Looking for Google Sheets URL...')
+        
+        const settingsResult = await localPool.query(`
+          SELECT setting_value 
+          FROM global_settings 
+          WHERE setting_key = 'expenditures_sync_config'
+        `)
+        
+        if (settingsResult.rows.length > 0 && settingsResult.rows[0].setting_value) {
+          const settingValue = settingsResult.rows[0].setting_value
+          const settings = typeof settingValue === 'string' ? JSON.parse(settingValue) : settingValue
+          googleSheetsUrl = settings.googleSheetsUrl || null
+        }
+        
+        if (!googleSheetsUrl) {
+          googleSheetsUrl = process.env.GOOGLE_SHEETS_URL || null
+        }
+        
+        if (!googleSheetsUrl) {
+          googleSheetsUrl = DEFAULT_GOOGLE_SHEETS_URL
+        }
+      } catch (urlError) {
+        console.warn('⚠️ Error getting Google Sheets URL, using default:', urlError.message)
+        googleSheetsUrl = DEFAULT_GOOGLE_SHEETS_URL
+      }
+      
+      // Step 3: Try to get data from external DB (API sync source)
+      _importAllProgress.currentStep = 'Se conectează la baza de date externă (API)...'
+      let externalData = []
+      try {
+        console.log('📊 Step 3: Getting data from external DB (API sync)...')
+        let externalPool
+        try {
+          externalPool = getExternalPool()
+          const testResult = await externalPool.query('SELECT NOW() as current_time')
+          console.log('✅ External DB connection successful')
+        } catch (poolError) {
+          console.warn('⚠️ Cannot connect to external DB, skipping API sync source:', poolError.message)
+          externalPool = null
+        }
+        
+        if (externalPool) {
+          let syncSettings = {
+            includedExpenditureTypes: [],
+            includedDepartments: [],
+            includedLocations: [],
+            excludeDeleted: true
+          }
+          
+          try {
+            const settingsResult = await localPool.query(`
+              SELECT setting_value 
+              FROM global_settings 
+              WHERE setting_key = 'expenditures_sync_config'
+            `)
+            
+            if (settingsResult.rows.length > 0 && settingsResult.rows[0].setting_value) {
+              const settingValue = settingsResult.rows[0].setting_value
+              if (typeof settingValue === 'string') {
+                const parsed = JSON.parse(settingValue)
+                syncSettings = { ...syncSettings, ...parsed }
+                if (!googleSheetsUrl && parsed.googleSheetsUrl) {
+                  googleSheetsUrl = parsed.googleSheetsUrl
+                }
+              } else if (typeof settingValue === 'object') {
+                syncSettings = { ...syncSettings, ...settingValue }
+                if (!googleSheetsUrl && settingValue.googleSheetsUrl) {
+                  googleSheetsUrl = settingValue.googleSheetsUrl
+                }
+              }
+            }
+          } catch (settingsError) {
+            console.warn('⚠️ Error loading sync settings, using defaults:', settingsError.message)
+          }
+          
+          let whereConditions = ['p.is_deleted = false']
+          const whereClause = whereConditions.join(' AND ')
+          
+          const query = `
+            SELECT 
+              l.id as location_id,
+              l.name as location_name,
+              d.name as department_name,
+              et.name as expenditure_type,
+              p.amount,
+              p.operational_date,
+              p.id as payment_id
+            FROM public.casino_payments p
+            LEFT JOIN public.casino_locations l ON p.location_id = l.id
+            LEFT JOIN public.casino_departments d ON p.department_id = d.id
+            LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
+            WHERE ${whereClause}
+            ORDER BY p.operational_date DESC
+          `
+          
+          _importAllProgress.currentStep = 'Se preiau datele din API extern...'
+          const externalResult = await externalPool.query(query)
+          console.log(`✅ Fetched ${externalResult.rows.length} records from external DB`)
+          
+          let filteredRows = externalResult.rows
+          
+          if (syncSettings.includedExpenditureTypes && syncSettings.includedExpenditureTypes.length > 0) {
+            filteredRows = filteredRows.filter(row => 
+              syncSettings.includedExpenditureTypes.includes(row.expenditure_type)
+            )
+          }
+          
+          if (syncSettings.includedDepartments && syncSettings.includedDepartments.length > 0) {
+            filteredRows = filteredRows.filter(row => 
+              syncSettings.includedDepartments.includes(row.department_name)
+            )
+          }
+          
+          if (syncSettings.includedLocations && syncSettings.includedLocations.length > 0) {
+            filteredRows = filteredRows.filter(row => 
+              syncSettings.includedLocations.includes(row.location_name)
+            )
+          }
+          
+          externalData = filteredRows
+          _importAllProgress.fromExternalAPI = filteredRows.length
+          console.log(`✅ Filtered to ${externalData.length} records from external DB`)
+        }
+      } catch (externalError) {
+        console.warn('⚠️ Error fetching external data, continuing with existing data:', externalError.message)
+        externalData = []
+      }
+    
+      // Step 4: Import from Google Sheets if URL is available
+      _importAllProgress.currentStep = 'Se importă datele din Google Sheets...'
+      let googleSheetsData = []
+      if (googleSheetsUrl) {
+        try {
+          console.log('📊 Step 4: Importing data from Google Sheets...')
+          
+          let csvUrl = googleSheetsUrl
+          if (googleSheetsUrl.includes('/edit')) {
+            const sheetId = googleSheetsUrl.match(/\/d\/(.*?)\//)?.[1]
+            const gid = googleSheetsUrl.match(/gid=(\d+)/)?.[1] || '0'
+            csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`
+          }
+          
+          console.log('📥 Fetching CSV from Google Sheets...')
+          const csvResponse = await fetch(csvUrl)
+          if (!csvResponse.ok) {
+            throw new Error(`Failed to fetch CSV: ${csvResponse.statusText}`)
+          }
+          
+          const csvText = await csvResponse.text()
+          const lines = csvText.split('\n').filter(line => line.trim())
+          
+          if (lines.length >= 2) {
+            const rows = lines.slice(1) // Skip header
+            
+            for (const row of rows) {
+              try {
+                const values = []
+                let current = ''
+                let inQuotes = false
+                
+                for (let i = 0; i < row.length; i++) {
+                  const char = row[i]
+                  if (char === '"') {
+                    inQuotes = !inQuotes
+                  } else if (char === ',' && !inQuotes) {
+                    values.push(current.trim())
+                    current = ''
+                  } else {
+                    current += char
+                  }
+                }
+                values.push(current.trim())
+                
+                if (values.length < 5) continue
+                
+                const [dateStr, explanation, amountStr, location, department, expenditureType] = values
+                
+                let operationalDate
+                if (dateStr.includes('.')) {
+                  const dateParts = dateStr.split('.')
+                  if (dateParts.length === 3) {
+                    operationalDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`
+                  }
+                } else if (dateStr.includes('/')) {
+                  const dateParts = dateStr.split('/')
+                  if (dateParts.length === 3) {
+                    operationalDate = `${dateParts[2]}-${dateParts[0].padStart(2, '0')}-${dateParts[1].padStart(2, '0')}`
+                  }
+                } else if (dateStr.includes('-')) {
+                  operationalDate = dateStr
+                }
+                
+                if (!operationalDate) continue
+                
+                let amount
+                if (amountStr) {
+                  const cleanAmount = amountStr.replace(/\s/g, '').replace(/\./g, '').replace(',', '.')
+                  amount = parseFloat(cleanAmount)
+                }
+                
+                if (!amount || isNaN(amount) || !location || !department) continue
+                
+                googleSheetsData.push({
+                  operational_date: operationalDate,
+                  amount: amount,
+                  location_name: location || 'Unknown',
+                  department_name: department || 'Unknown',
+                  expenditure_type: expenditureType || 'Unknown',
+                  description: explanation || null,
+                  data_source: 'google_sheets'
+                })
+              } catch (rowError) {
+                console.warn('⚠️ Error parsing Google Sheets row:', rowError.message)
+              }
+            }
+            
+            _importAllProgress.fromGoogleSheets = googleSheetsData.length
+            console.log(`✅ Fetched ${googleSheetsData.length} records from Google Sheets`)
+          }
+        } catch (gsError) {
+          console.warn('⚠️ Error importing from Google Sheets, continuing with other sources:', gsError.message)
+        }
+      }
+      
+      // Step 5: Combine and deduplicate
+      _importAllProgress.currentStep = 'Se combină și se verifică duplicatele...'
+      console.log('📊 Step 5: Combining and deduplicating data...')
+      
+      externalData = [...externalData, ...googleSheetsData]
+      _importAllProgress.totalFound = externalData.length
+      
+      const existingMap = new Map()
+      existingData.forEach(record => {
+        const key = `${record.operational_date}|${record.amount}|${record.location_name}|${record.department_name}|${record.expenditure_type}`
+        existingMap.set(key, record)
+      })
+      
+      const mappingResult = await localPool.query('SELECT * FROM expenditure_location_mapping')
+      const mapping = {}
+      mappingResult.rows.forEach(row => {
+        mapping[row.external_location_name] = row.local_location_id
+      })
+      
+      // Process external data and check for duplicates
+      let imported = 0
+      let skipped = 0
+      let errors = 0
+      
+      _importAllProgress.currentStep = 'Se procesează și se inserează datele...'
+      
+      for (let i = 0; i < externalData.length; i++) {
+        const row = externalData[i]
+        try {
+          const key = `${row.operational_date}|${row.amount || 0}|${row.location_name || 'Unknown'}|${row.department_name || 'Unknown'}|${row.expenditure_type || 'Unknown'}`
+          
+          if (existingMap.has(key)) {
+            skipped++
+            _importAllProgress.skipped = skipped
+            continue
+          }
+          
+          const mappedLocationId = mapping[row.location_name] || null
+          const dataSource = row.data_source || 'api_sync'
+          const description = row.description || null
+          
+          if (dataSource === 'google_sheets' && description) {
+            await localPool.query(`
+              INSERT INTO expenditures_sync (
+                location_name, department_name, expenditure_type, amount, 
+                operational_date, synced_at, mapped_location_id, data_source, description
+              ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7, $8)
+            `, [
+              row.location_name || 'Unknown',
+              row.department_name || 'Unknown',
+              row.expenditure_type || 'Unknown',
+              row.amount || 0,
+              row.operational_date,
+              mappedLocationId,
+              dataSource,
+              description
+            ])
+          } else {
+            await localPool.query(`
+              INSERT INTO expenditures_sync (
+                location_name, department_name, expenditure_type, amount, 
+                operational_date, synced_at, mapped_location_id, data_source
+              ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7)
+            `, [
+              row.location_name || 'Unknown',
+              row.department_name || 'Unknown',
+              row.expenditure_type || 'Unknown',
+              row.amount || 0,
+              row.operational_date,
+              mappedLocationId,
+              dataSource
+            ])
+          }
+          
+          existingMap.set(key, row)
+          imported++
+          _importAllProgress.imported = imported
+          _importAllProgress.totalProcessed = i + 1
+          
+          // Update progress every 50 records
+          if ((i + 1) % 50 === 0) {
+            _importAllProgress.currentStep = `Se procesează... ${i + 1}/${externalData.length}`
+          }
+        } catch (insertError) {
+          errors++
+          _importAllProgress.errors = errors
+          console.error('❌ Error inserting record:', insertError.message)
+        }
+      }
+      
+      console.log(`✅ Import completed: ${imported} new, ${skipped} duplicate, ${errors} errors`)
+      
+      const finalCount = await localPool.query('SELECT COUNT(*) as total FROM expenditures_sync')
+      const totalRecords = parseInt(finalCount.rows[0].total)
+      
+      const endTime = new Date()
+      _importAllProgress.status = 'completed'
+      _importAllProgress.currentStep = 'Import completat!'
+      _importAllProgress.endTime = endTime.toISOString()
+      _importAllProgress.total = totalRecords
+      
+      // Clear progress after 5 seconds
+      setTimeout(() => {
+        _importAllProgress = null
+      }, 5000)
+      
+    } catch (error) {
+      console.error('❌ Error importing all expenditures:', error)
+      const endTime = new Date()
+      _importAllProgress = {
+        status: 'failed',
+        currentStep: `Eroare: ${error.message}`,
+        endTime: endTime.toISOString(),
+        error: error.message
+      }
+      
+      setTimeout(() => {
+        _importAllProgress = null
+      }, 5000)
+    }
+  }
+  
+  // Start import in background
+  startImport().catch(err => {
+    console.error('❌ Fatal error in import-all background process:', err)
+  })
 })
 
 // Get synced expenditures data

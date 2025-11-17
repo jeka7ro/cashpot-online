@@ -35,6 +35,7 @@ const Expenditures = () => {
   const [syncing, setSyncing] = useState(false)
   const [showMappingModal, setShowMappingModal] = useState(false)
   const progressIntervalRef = useRef(null)
+  const importAllProgressIntervalRef = useRef(null)
   
   // Chart sizes from localStorage - ACTUALIZARE LIVE!
   const [chartSizes, setChartSizes] = useState(() => {
@@ -403,33 +404,118 @@ const Expenditures = () => {
     }
   }
   
+  // Fetch import-all progress
+  const fetchImportAllProgress = async () => {
+    try {
+      const response = await axios.get('/api/expenditures/import-all-status')
+      const progress = response.data
+      
+      if (progress && progress.status === 'running') {
+        const duration = Math.round((new Date() - new Date(progress.startTime)) / 1000)
+        const remaining = progress.totalFound > 0 
+          ? Math.max(0, progress.totalFound - progress.totalProcessed)
+          : 0
+        const progressPercent = progress.totalFound > 0
+          ? Math.round((progress.totalProcessed / progress.totalFound) * 100)
+          : 0
+        
+        let message = `📊 Import în curs... (${duration}s)\n`
+        message += `📋 Pas: ${progress.currentStep}\n`
+        message += `🔍 Total găsite: ${progress.totalFound}\n`
+        message += `⚙️ Procesate: ${progress.totalProcessed}/${progress.totalFound} (${progressPercent}%)\n`
+        message += `📝 Importate noi: ${progress.imported}\n`
+        message += `🔄 Duplicate (skip): ${progress.skipped}\n`
+        if (progress.errors > 0) {
+          message += `❌ Erori: ${progress.errors}\n`
+        }
+        if (remaining > 0) {
+          message += `⏳ Rămân: ${remaining}`
+        }
+        message += `\n📊 Surse: SQL(${progress.existing}) | API(${progress.fromExternalAPI}) | Google Sheets(${progress.fromGoogleSheets})`
+        
+        toast.loading(message, { 
+          id: 'import-all',
+          duration: 2000 
+        })
+      } else if (progress && (progress.status === 'completed' || progress.status === 'failed')) {
+        // Stop polling
+        if (importAllProgressIntervalRef.current) {
+          clearInterval(importAllProgressIntervalRef.current)
+          importAllProgressIntervalRef.current = null
+        }
+        
+        if (progress.status === 'completed') {
+          const duration = Math.round((new Date(progress.endTime) - new Date(progress.startTime)) / 1000)
+          const finalMessage = `✅ Import completat!\n` +
+            `📊 Total găsite: ${progress.totalFound || 0}\n` +
+            `⚙️ Procesate: ${progress.totalProcessed || 0}/${progress.totalFound || 0}\n` +
+            `📝 Noi adăugate: ${progress.imported || 0}\n` +
+            `🔄 Duplicate: ${progress.skipped || 0}\n` +
+            `${progress.errors > 0 ? `❌ Erori: ${progress.errors}\n` : ''}` +
+            `📊 Surse: SQL(${progress.existing}) | API(${progress.fromExternalAPI}) | Google Sheets(${progress.fromGoogleSheets})\n` +
+            `⏱️ Durata: ${duration}s`
+          
+          toast.success(finalMessage, { 
+            id: 'import-all',
+            duration: 10000 
+          })
+          
+          // Reload data
+          await loadExpendituresData()
+        } else {
+          toast.error(`❌ Import eșuat: ${progress.currentStep || 'Eroare necunoscută'}`, { 
+            id: 'import-all',
+            duration: 5000 
+          })
+        }
+        
+        setSyncing(false)
+      }
+    } catch (error) {
+      if (error.response?.status === 404) {
+        // Continue polling
+      } else {
+        console.error('Error fetching import-all progress:', error)
+      }
+    }
+  }
+  
   // Import TOATE datele din toate sursele (SQL, Google Sheets, BAT) - fără dubluri
   const handleImportAll = async () => {
     try {
       setSyncing(true)
-      toast.loading('Import TOATE datele din toate sursele...', { id: 'import-all', duration: 2000 })
+      importAllProgressIntervalRef.current = null
       
-      const response = await axios.post('/api/expenditures/import-all')
+      // Show initial toast immediately
+      toast.loading('Pornire import...', { id: 'import-all', duration: 1000 })
       
-      const { total, imported, skipped, errors } = response.data
-      let message = `✅ Import completat!\n`
-      message += `📊 Total găsite: ${total}\n`
-      message += `📝 Importate noi: ${imported}\n`
-      if (skipped > 0) {
-        message += `🔄 Duplicate (skip): ${skipped}\n`
-      }
-      if (errors > 0) {
-        message += `❌ Erori: ${errors}\n`
-      }
-      
-      toast.success(message, { 
-        id: 'import-all',
-        duration: 8000 
+      // Start the import (non-blocking)
+      const response = await axios.post('/api/expenditures/import-all').catch((error) => {
+        // If import already running, start polling
+        if (error.response?.status === 400) {
+          importAllProgressIntervalRef.current = setInterval(fetchImportAllProgress, 1500)
+          setTimeout(fetchImportAllProgress, 500)
+          return { data: { success: true, alreadyRunning: true } }
+        }
+        throw error
       })
       
-      // Reload data
-      await loadExpendituresData()
+      if (response.data?.success && !response.data?.alreadyRunning) {
+        // Import started successfully, start polling for progress
+        importAllProgressIntervalRef.current = setInterval(fetchImportAllProgress, 1500)
+        setTimeout(fetchImportAllProgress, 500)
+      } else if (response.data?.alreadyRunning) {
+        // Already running, just start polling
+        importAllProgressIntervalRef.current = setInterval(fetchImportAllProgress, 1500)
+        setTimeout(fetchImportAllProgress, 500)
+      }
     } catch (error) {
+      // Stop progress updates
+      if (importAllProgressIntervalRef.current) {
+        clearInterval(importAllProgressIntervalRef.current)
+        importAllProgressIntervalRef.current = null
+      }
+      
       setSyncing(false)
       console.error('Error importing all expenditures:', error)
       
@@ -438,17 +524,19 @@ const Expenditures = () => {
         id: 'import-all',
         duration: 5000 
       })
-    } finally {
-      setSyncing(false)
     }
   }
   
-  // Cleanup progress interval on unmount
+  // Cleanup progress intervals on unmount
   useEffect(() => {
     return () => {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current)
         progressIntervalRef.current = null
+      }
+      if (importAllProgressIntervalRef.current) {
+        clearInterval(importAllProgressIntervalRef.current)
+        importAllProgressIntervalRef.current = null
       }
     }
   }, [])
