@@ -184,9 +184,9 @@ const getExternalPool = () => {
   
   // Credențiale pentru baza de date externă
   // Pot fi suprascrise din variabilele de mediu EXPENDITURES_DB_USER și EXPENDITURES_DB_PASSWORD
-  const dbUser = process.env.EXPENDITURES_DB_USER || 'Jeka'
-  const dbPassword = process.env.EXPENDITURES_DB_PASSWORD || '31ianurie!'
-  const dbPort = parseInt(process.env.EXPENDITURES_DB_PORT || '26257')
+  const dbUser = process.env.EXPENDITURES_DB_USER || 'jeka'
+  const dbPassword = process.env.EXPENDITURES_DB_PASSWORD || '31Ianuarie'
+  const dbPort = parseInt(process.env.EXPENDITURES_DB_PORT || '9858')
   const dbName = process.env.EXPENDITURES_DB_NAME || 'cashpot'
   
   console.log(`🔌 Creating NEW external DB pool:`)
@@ -202,10 +202,10 @@ const getExternalPool = () => {
     host: dbHost, // FORȚĂM IP EXTERN: 82.76.35.50
     port: dbPort,
     database: dbName,
-    ssl: false,
+    ssl: process.env.EXPENDITURES_DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
     max: 5,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 15000 // Mărim timeout-ul pentru conexiuni externe
+    connectionTimeoutMillis: 20000 // Mărim timeout-ul pentru conexiuni externe
   })
   
   externalPool.on('error', (err) => {
