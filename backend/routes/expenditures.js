@@ -923,6 +923,8 @@ router.post('/import-all', authenticateToken, async (req, res) => {
     // Step 2: Get Google Sheets URL from settings or environment
     let googleSheetsUrl = null
     try {
+      console.log('🔍 Step 2: Looking for Google Sheets URL...')
+      
       // Try to get from global_settings first
       const settingsResult = await localPool.query(`
         SELECT setting_value 
@@ -934,15 +936,30 @@ router.post('/import-all', authenticateToken, async (req, res) => {
         const settingValue = settingsResult.rows[0].setting_value
         const settings = typeof settingValue === 'string' ? JSON.parse(settingValue) : settingValue
         googleSheetsUrl = settings.googleSheetsUrl || null
+        if (googleSheetsUrl) {
+          console.log('✅ Found Google Sheets URL in global_settings:', googleSheetsUrl.substring(0, 50) + '...')
+        } else {
+          console.log('⚠️ Google Sheets URL NOT found in global_settings.expenditures_sync_config.googleSheetsUrl')
+        }
+      } else {
+        console.log('⚠️ No expenditures_sync_config found in global_settings')
       }
       
       // If not found, try environment variable
       if (!googleSheetsUrl) {
         googleSheetsUrl = process.env.GOOGLE_SHEETS_URL || null
+        if (googleSheetsUrl) {
+          console.log('✅ Found Google Sheets URL in environment variable GOOGLE_SHEETS_URL:', googleSheetsUrl.substring(0, 50) + '...')
+        } else {
+          console.log('⚠️ Google Sheets URL NOT found in environment variable GOOGLE_SHEETS_URL')
+        }
       }
       
-      if (googleSheetsUrl) {
-        console.log('📊 Found Google Sheets URL:', googleSheetsUrl.substring(0, 50) + '...')
+      if (!googleSheetsUrl) {
+        console.log('❌ NO Google Sheets URL configured! Skipping Google Sheets import.')
+        console.log('💡 To enable Google Sheets import, set one of:')
+        console.log('   1. GOOGLE_SHEETS_URL environment variable')
+        console.log('   2. global_settings.expenditures_sync_config.googleSheetsUrl')
       }
     } catch (urlError) {
       console.warn('⚠️ Error getting Google Sheets URL:', urlError.message)
@@ -1154,6 +1171,7 @@ router.post('/import-all', authenticateToken, async (req, res) => {
       }
     } else {
       console.log('⚠️ No Google Sheets URL configured, skipping Google Sheets import')
+      console.log('💡 To enable Google Sheets import, configure GOOGLE_SHEETS_URL environment variable or set googleSheetsUrl in global_settings')
     }
     
     // Step 5: Combine and deduplicate
