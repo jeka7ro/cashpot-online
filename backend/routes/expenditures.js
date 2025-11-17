@@ -1481,11 +1481,6 @@ router.post('/import-all', authenticateToken, async (req, res) => {
                 date: filteredRows[filteredRows.length - 1].operational_date
               })
             }
-          } else {
-            console.error(`⚠️⚠️⚠️ CRITICAL: NO ROWS FETCHED FROM EXTERNAL DB!`)
-          }
-          
-          console.log(`📊 ================================================\n`)
             
             // WARNING dacă cel mai vechi record este după 13.11
             if (minDate && new Date(minDate) > new Date('2024-11-13')) {
@@ -1493,8 +1488,10 @@ router.post('/import-all', authenticateToken, async (req, res) => {
               console.error(`⚠️ Oldest date: ${minDate.toISOString().split('T')[0]}, Expected: before 2024-11-13`)
             }
           } else {
-            console.log(`⚠️ WARNING: No rows fetched from external DB!`)
+            console.error(`⚠️⚠️⚠️ CRITICAL: NO ROWS FETCHED FROM EXTERNAL DB!`)
           }
+          
+          console.log(`📊 ================================================\n`)
           
           // NU FILTRĂM! Aducem TOATE datele pentru import-all
           // Filtrele din syncSettings sunt pentru sincronizare normală, nu pentru import-all
