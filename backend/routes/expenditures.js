@@ -1097,79 +1097,171 @@ router.post('/import-all', authenticateToken, async (req, res) => {
           console.log('🔍 IMPORT-ALL: NO FILTERS - Only filtering is_deleted = false')
           console.log('🔍 IMPORT-ALL: Will fetch ALL records from external DB in batches (no date limits, no type filters, no department filters, no location filters)')
           
-          const batchSize = 2000 // Batch mai mare de 2000 înregistrări pentru performanță mai bună
-          let allExternalRows = []
-          let offset = 0
-          let hasMore = true
-          let batchNumber = 0
-          const maxRetries = 3
-          const retryDelay = 1000 // 1 secundă între retry-uri
-          const maxBatches = 1000 // Limita maximă de batch-uri pentru a preveni infinite loops (1000 * 2000 = 2M înregistrări)
+          // NOUĂ ABORDARE: Fetch pe intervale de timp (year-by-year) pentru a aduce TOATE datele
+          // ORDER BY DESC aduce doar date noi, ORDER BY ASC + query pe ani = toate datele
           
-          console.log('🔍 IMPORT-ALL: Starting batch processing with NO DATE LIMITS')
-          console.log(`🔍 IMPORT-ALL: Batch size: ${batchSize}, Max batches: ${maxBatches} (total: ${maxBatches * batchSize} records max)`)
+          console.log('🔍 IMPORT-ALL: Starting DATE-RANGE based fetching (NEW APPROACH - year-by-year)')
           
-          // First, get total count to verify we process all records
+          // First, get date range and total count
+          let totalRecords = 0
+          let minDateInDB = null
+          let maxDateInDB = null
+          
           try {
             const countQuery = `
-              SELECT COUNT(*) as total
+              SELECT 
+                COUNT(*) as total,
+                MIN(p.operational_date) as min_date,
+                MAX(p.operational_date) as max_date
               FROM public.casino_payments p
               WHERE ${whereClause}
             `
-            console.log('🔍 IMPORT-ALL: Getting total record count from external DB...')
+            console.log('🔍 IMPORT-ALL: Getting date range and total count from external DB...')
             const countResult = await externalPool.query(countQuery)
-            const totalRecords = parseInt(countResult.rows[0].total || 0)
-            console.log(`📊 IMPORT-ALL: Total records in external DB (is_deleted = false): ${totalRecords}`)
-            console.log(`📊 IMPORT-ALL: Estimated batches needed: ${Math.ceil(totalRecords / batchSize)}`)
+            totalRecords = parseInt(countResult.rows[0].total || 0)
+            minDateInDB = countResult.rows[0].min_date
+            maxDateInDB = countResult.rows[0].max_date
+            
+            console.log(`📊 IMPORT-ALL: Total records: ${totalRecords}`)
+            console.log(`📅 IMPORT-ALL: Date range in DB: ${minDateInDB} to ${maxDateInDB}`)
             _importAllProgress.totalFound = totalRecords
           } catch (countError) {
-            console.warn('⚠️ Could not get total count, continuing with batch processing:', countError.message)
+            console.warn('⚠️ Could not get date range, using fallback approach:', countError.message)
           }
           
-          _importAllProgress.currentStep = 'Se preiau datele din API extern (batch 0)...'
+          let allExternalRows = []
+          const batchSize = 2000
+          const maxRetries = 3
+          const retryDelay = 1000
           
-          while (hasMore && batchNumber < maxBatches) {
-            batchNumber++
-            let batchRows = []
-            let batchSuccess = false
-            let retryCount = 0
+          // Strategy: Fetch by year chunks (most reliable)
+          if (minDateInDB && maxDateInDB) {
+            const startDate = new Date(minDateInDB)
+            const endDate = new Date(maxDateInDB)
+            const startYear = startDate.getFullYear()
+            const endYear = endDate.getFullYear()
             
-            // Retry logic pentru fiecare batch
-            while (!batchSuccess && retryCount < maxRetries) {
-              try {
-                const query = `
-                  SELECT 
-                    l.id as location_id,
-                    l.name as location_name,
-                    d.name as department_name,
-                    et.name as expenditure_type,
-                    p.amount,
-                    p.operational_date,
-                    p.id as payment_id
-                  FROM public.casino_payments p
-                  LEFT JOIN public.casino_locations l ON p.location_id = l.id
-                  LEFT JOIN public.casino_departments d ON p.department_id = d.id
-                  LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
-                  WHERE ${whereClause}
-                  ORDER BY p.operational_date DESC
-                  LIMIT $1 OFFSET $2
-                `
+            console.log(`📅 Fetching data year by year: ${startYear} to ${endYear}`)
+            
+            for (let year = startYear; year <= endYear; year++) {
+              const yearStart = `${year}-01-01`
+              const yearEnd = `${year}-12-31`
+              
+              console.log(`📅 Fetching year ${year}...`)
+              _importAllProgress.currentStep = `Se preiau datele pentru anul ${year}...`
+              
+              let yearOffset = 0
+              let yearHasMore = true
+              let yearBatchNumber = 0
+              
+              while (yearHasMore && yearBatchNumber < 1000) { // Max 1000 batches per year
+                yearBatchNumber++
+                let batchRows = []
+                let batchSuccess = false
+                let retryCount = 0
                 
-                console.log(`📊 Executing batch ${batchNumber} on external DB: LIMIT ${batchSize} OFFSET ${offset} (attempt ${retryCount + 1}/${maxRetries})`)
-                _importAllProgress.currentStep = `Se preiau datele din API extern (batch ${batchNumber}, ${offset} înregistrări procesate)...`
-                
-                const batchResult = await externalPool.query(query, [batchSize, offset])
-                batchRows = batchResult.rows
-                batchSuccess = true
-                
-                console.log(`✅ Batch ${batchNumber}: Fetched ${batchRows.length} records (offset ${offset})`)
-                
-                // Log date range for first and last record in this batch
-                if (batchRows.length > 0) {
-                  const firstDate = batchRows[0].operational_date
-                  const lastDate = batchRows[batchRows.length - 1].operational_date
-                  console.log(`📅 Batch ${batchNumber} date range: ${firstDate} (first) to ${lastDate} (last)`)
+                while (!batchSuccess && retryCount < maxRetries) {
+                  try {
+                    const yearQuery = `
+                      SELECT 
+                        l.id as location_id,
+                        l.name as location_name,
+                        d.name as department_name,
+                        et.name as expenditure_type,
+                        p.amount,
+                        p.operational_date,
+                        p.id as payment_id
+                      FROM public.casino_payments p
+                      LEFT JOIN public.casino_locations l ON p.location_id = l.id
+                      LEFT JOIN public.casino_departments d ON p.department_id = d.id
+                      LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
+                      WHERE ${whereClause}
+                        AND p.operational_date >= $1
+                        AND p.operational_date <= $2
+                      ORDER BY p.operational_date ASC, p.id ASC
+                      LIMIT $3 OFFSET $4
+                    `
+                    
+                    console.log(`📊 Year ${year}, Batch ${yearBatchNumber}: LIMIT ${batchSize} OFFSET ${yearOffset}`)
+                    
+                    const batchResult = await externalPool.query(yearQuery, [yearStart, yearEnd, batchSize, yearOffset])
+                    batchRows = batchResult.rows
+                    batchSuccess = true
+                    
+                    console.log(`✅ Year ${year}, Batch ${yearBatchNumber}: Fetched ${batchRows.length} records`)
+                    
+                  } catch (batchError) {
+                    retryCount++
+                    console.error(`❌ Year ${year}, Batch ${yearBatchNumber} failed (attempt ${retryCount}/${maxRetries}):`, batchError.message)
+                    
+                    if (retryCount < maxRetries) {
+                      await new Promise(resolve => setTimeout(resolve, retryDelay))
+                    } else {
+                      yearHasMore = false
+                      break
+                    }
+                  }
                 }
+                
+                if (batchRows.length === 0) {
+                  yearHasMore = false
+                } else {
+                  allExternalRows = allExternalRows.concat(batchRows)
+                  yearOffset += batchRows.length
+                  _importAllProgress.fromExternalAPI = allExternalRows.length
+                  
+                  if (batchRows.length < batchSize) {
+                    yearHasMore = false
+                  }
+                }
+              }
+              
+              console.log(`✅ Year ${year} complete: ${yearOffset} records fetched. Total so far: ${allExternalRows.length}`)
+            }
+          } else {
+            // Fallback: Original approach with ASC ordering
+            console.log('⚠️ Fallback: Using batch approach with ASC ordering')
+            let offset = 0
+            let hasMore = true
+            let batchNumber = 0
+            const maxBatches = 1000
+            
+            _importAllProgress.currentStep = 'Se preiau datele din API extern (batch 0)...'
+            
+            while (hasMore && batchNumber < maxBatches) {
+              batchNumber++
+              let batchRows = []
+              let batchSuccess = false
+              let retryCount = 0
+              
+              while (!batchSuccess && retryCount < maxRetries) {
+                try {
+                  const query = `
+                    SELECT 
+                      l.id as location_id,
+                      l.name as location_name,
+                      d.name as department_name,
+                      et.name as expenditure_type,
+                      p.amount,
+                      p.operational_date,
+                      p.id as payment_id
+                    FROM public.casino_payments p
+                    LEFT JOIN public.casino_locations l ON p.location_id = l.id
+                    LEFT JOIN public.casino_departments d ON p.department_id = d.id
+                    LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
+                    WHERE ${whereClause}
+                    ORDER BY p.operational_date ASC, p.id ASC
+                    LIMIT $1 OFFSET $2
+                  `
+                  
+                  console.log(`📊 Fallback Batch ${batchNumber}: LIMIT ${batchSize} OFFSET ${offset}`)
+                  _importAllProgress.currentStep = `Se preiau datele din API extern (batch ${batchNumber}, ${offset} înregistrări)...`
+                  
+                  const batchResult = await externalPool.query(query, [batchSize, offset])
+                  batchRows = batchResult.rows
+                  batchSuccess = true
+                  
+                  console.log(`✅ Fallback Batch ${batchNumber}: Fetched ${batchRows.length} records`)
                 
               } catch (batchError) {
                 retryCount++
