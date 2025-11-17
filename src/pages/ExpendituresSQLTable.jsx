@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import axios from 'axios'
 import { toast } from 'react-hot-toast'
 import Layout from '../components/Layout'
@@ -78,10 +78,16 @@ const ExpendituresSQLTable = () => {
   })
   const [settingsReady, setSettingsReady] = useState(false)
 
+  const locationHook = useLocation()
+  const initialFilters = locationHook.state?.initialFilters || {}
+
+  const baseRange = defaultDateRange()
+
   const [filters, setFilters] = useState({
-    ...defaultDateRange(),
-    department: 'all',
-    type: 'all',
+    startDate: initialFilters.startDate || baseRange.startDate,
+    endDate: initialFilters.endDate || baseRange.endDate,
+    department: initialFilters.department || 'all',
+    type: initialFilters.type || 'all',
     location: 'all',
     dataSource: 'all',
     search: ''
@@ -178,7 +184,7 @@ const ExpendituresSQLTable = () => {
   const buildQueryParamObject = (extra = {}, includePagination = true) => {
     const params = {}
 
-    // Dacă showAll e activ, NU trimitem filtrele (doar sort și pagination)
+    // Dacă showAll e activ, NU trimitem NICIUN filtru (doar sort + paginare)
     if (!showAll) {
       if (filters.startDate) params.startDate = filters.startDate
       if (filters.endDate) params.endDate = filters.endDate
@@ -440,9 +446,9 @@ const ExpendituresSQLTable = () => {
             </h2>
           </div>
 
-          {/* Rând 1: Quick Date Buttons + Filtre + Toggle - TOATE ÎN ACELAȘI RÂND CU ACEEAȘI ÎNĂLȚIME */}
+          {/* Rând 1: Quick Date Buttons (stânga) + Filtre & Toggle (aliniate la dreapta) */}
           <div className="flex flex-wrap items-end gap-3 mb-4">
-            {/* Quick Date Buttons - fără label, doar butoanele */}
+            {/* Quick Date Buttons - stânga, fără label, doar butoanele */}
             <div className="flex items-center gap-2">
               {[
                 { id: 'today', label: 'Azi' },
@@ -491,207 +497,152 @@ const ExpendituresSQLTable = () => {
                   <button
                     key={action.id}
                     onClick={handleQuickAction}
-                    className="relative px-3 py-2 rounded-xl text-slate-700 dark:text-slate-300 text-xs font-semibold transition-all overflow-hidden border"
+                    className="relative px-3 py-2 rounded-2xl text-white text-xs font-semibold transition-all overflow-hidden border hover:scale-105 active:scale-95"
                     style={{
                       height: '40px',
                       minWidth: '80px',
-                      background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%)',
-                      borderColor: 'rgba(255, 255, 255, 0.2)',
-                      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.4), inset 0 -1px 1px rgba(0, 0, 0, 0.05)',
-                      WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-                      backdropFilter: 'blur(20px) saturate(180%)'
+                      background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                      borderColor: 'rgba(255, 255, 255, 0.25)',
+                      boxShadow: '0 6px 18px rgba(37, 99, 235, 0.35)'
                     }}
                   >
-                    {/* Glass reflection */}
-                    <div 
-                      className="absolute inset-0 rounded-xl opacity-30"
-                      style={{
-                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, transparent 50%, rgba(0, 0, 0, 0.1) 100%)',
-                        pointerEvents: 'none'
-                      }}
-                    />
                     <span className="relative z-10">{action.label}</span>
                   </button>
                 )
               })}
             </div>
-            
-            {/* Filtre Departament, Tip, Locație, Sursă - ACEEAȘI ÎNĂLȚIME ȘI ROTUNJIME, LĂȚIME DINAMICĂ */}
-            <div className="relative">
-              <select
-                value={filters.department}
-                onChange={(e) => handleFilterChange('department', e.target.value)}
-                className="rounded-xl text-slate-700 dark:text-slate-300 text-sm font-medium border transition-all"
-                disabled={showAll}
-                style={{
-                  height: '40px',
-                  paddingLeft: '12px',
-                  paddingRight: '32px',
-                  width: 'auto',
-                  minWidth: '140px',
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%)',
-                  borderColor: 'rgba(255, 255, 255, 0.2)',
-                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.4), inset 0 -1px 1px rgba(0, 0, 0, 0.05)',
-                  WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-                  backdropFilter: 'blur(20px) saturate(180%)',
-                  opacity: showAll ? 0.5 : 1
-                }}
-              >
-                <option value="all">Departament: Toate</option>
-                {departments.map((dept) => (
-                  <option key={dept} value={dept}>{dept}</option>
-                ))}
-              </select>
-            </div>
-            <div className="relative">
-              <select
-                value={filters.type}
-                onChange={(e) => handleFilterChange('type', e.target.value)}
-                className="rounded-xl text-slate-700 dark:text-slate-300 text-sm font-medium border transition-all"
-                disabled={showAll}
-                style={{
-                  height: '40px',
-                  paddingLeft: '12px',
-                  paddingRight: '32px',
-                  width: 'auto',
-                  minWidth: '140px',
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%)',
-                  borderColor: 'rgba(255, 255, 255, 0.2)',
-                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.4), inset 0 -1px 1px rgba(0, 0, 0, 0.05)',
-                  WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-                  backdropFilter: 'blur(20px) saturate(180%)',
-                  opacity: showAll ? 0.5 : 1
-                }}
-              >
-                <option value="all">Tip: Toate</option>
-                {types.map((type) => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-            </div>
-            <div className="relative">
-              <select
-                value={filters.location}
-                onChange={(e) => handleFilterChange('location', e.target.value)}
-                className="rounded-xl text-slate-700 dark:text-slate-300 text-sm font-medium border transition-all"
-                disabled={showAll}
-                style={{
-                  height: '40px',
-                  paddingLeft: '12px',
-                  paddingRight: '32px',
-                  width: 'auto',
-                  minWidth: '140px',
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%)',
-                  borderColor: 'rgba(255, 255, 255, 0.2)',
-                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.4), inset 0 -1px 1px rgba(0, 0, 0, 0.05)',
-                  WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-                  backdropFilter: 'blur(20px) saturate(180%)',
-                  opacity: showAll ? 0.5 : 1
-                }}
-              >
-                <option value="all">Locație: Toate</option>
-                {locations.map((loc) => (
-                  <option key={loc} value={loc}>{loc}</option>
-                ))}
-              </select>
-            </div>
-            <div className="relative">
-              <select
-                value={filters.dataSource}
-                onChange={(e) => handleFilterChange('dataSource', e.target.value)}
-                className="rounded-xl text-slate-700 dark:text-slate-300 text-sm font-medium border transition-all"
-                disabled={showAll}
-                style={{
-                  height: '40px',
-                  paddingLeft: '12px',
-                  paddingRight: '32px',
-                  width: 'auto',
-                  minWidth: '140px',
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%)',
-                  borderColor: 'rgba(255, 255, 255, 0.2)',
-                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.4), inset 0 -1px 1px rgba(0, 0, 0, 0.05)',
-                  WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-                  backdropFilter: 'blur(20px) saturate(180%)',
-                  opacity: showAll ? 0.5 : 1
-                }}
-              >
-                {dataSourceOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
-            
-            {/* Toggle "Afișează toate" - Apple Liquid Glass Style */}
-            <button
-              onClick={() => {
-                setShowAll(!showAll)
-                setPagination((prev) => ({ ...prev, page: 1 }))
-              }}
-              className={`
-                relative px-5 py-2.5 rounded-2xl font-semibold text-sm
-                transition-all duration-300 ease-out overflow-hidden
-                ${showAll 
-                  ? 'text-white' 
-                  : 'text-slate-700 dark:text-slate-300'
-                }
-                backdrop-blur-2xl
-                hover:scale-105 active:scale-95
-                border
-              `}
-              style={{
-                height: '40px',
-                background: showAll 
-                  ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.85) 0%, rgba(6, 182, 212, 0.85) 100%)'
-                  : 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%)',
-                borderColor: showAll 
-                  ? 'rgba(255, 255, 255, 0.3)'
-                  : 'rgba(255, 255, 255, 0.2)',
-                boxShadow: showAll 
-                  ? '0 8px 32px rgba(59, 130, 246, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.3), inset 0 -1px 1px rgba(0, 0, 0, 0.1)' 
-                  : '0 4px 20px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.4), inset 0 -1px 1px rgba(0, 0, 0, 0.05)',
-                WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-                backdropFilter: 'blur(20px) saturate(180%)'
-              }}
-            >
-              {/* Glass reflection effect */}
-              <div 
-                className="absolute inset-0 rounded-2xl opacity-30"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, transparent 50%, rgba(0, 0, 0, 0.1) 100%)',
-                  pointerEvents: 'none'
-                }}
-              />
-              {/* Animated shimmer when active */}
-              {showAll && (
-                <div 
-                  className="absolute inset-0 rounded-2xl animate-pulse"
+            {/* Filtre + Toggle - grupate și împinse spre dreapta */}
+            <div className="flex items-end gap-3 ml-auto">
+              {/* Filtre Departament, Tip, Locație, Sursă - același stil cu butonul principal */}
+              <div className="relative">
+                <select
+                  value={filters.department}
+                  onChange={(e) => handleFilterChange('department', e.target.value)}
+                  className="rounded-2xl text-white text-sm font-semibold border transition-all"
                   style={{
-                    background: 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.2) 50%, transparent 100%)',
-                    animation: 'shimmer 2s infinite',
-                    pointerEvents: 'none'
+                    height: '40px',
+                    paddingLeft: '12px',
+                    paddingRight: '32px',
+                    width: 'auto',
+                    minWidth: '140px',
+                    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                    borderColor: 'rgba(255, 255, 255, 0.25)',
+                    boxShadow: '0 6px 18px rgba(37, 99, 235, 0.35)'
                   }}
-                />
-              )}
-              <span className="relative z-10 flex items-center space-x-2">
-                <Database className={`w-4 h-4 ${showAll ? 'drop-shadow-lg' : ''}`} />
-                <span className="drop-shadow-sm">{showAll ? 'Afișează toate' : 'Filtre active'}</span>
-              </span>
-            </button>
+                >
+                  <option value="all">Departament: Toate</option>
+                  {departments.map((dept) => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="relative">
+                <select
+                  value={filters.type}
+                  onChange={(e) => handleFilterChange('type', e.target.value)}
+                  className="rounded-2xl text-white text-sm font-semibold border transition-all"
+                  style={{
+                    height: '40px',
+                    paddingLeft: '12px',
+                    paddingRight: '32px',
+                    width: 'auto',
+                    minWidth: '140px',
+                    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                    borderColor: 'rgba(255, 255, 255, 0.25)',
+                    boxShadow: '0 6px 18px rgba(37, 99, 235, 0.35)'
+                  }}
+                >
+                  <option value="all">Tip: Toate</option>
+                  {types.map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="relative">
+                <select
+                  value={filters.location}
+                  onChange={(e) => handleFilterChange('location', e.target.value)}
+                  className="rounded-2xl text-white text-sm font-semibold border transition-all"
+                  style={{
+                    height: '40px',
+                    paddingLeft: '12px',
+                    paddingRight: '32px',
+                    width: 'auto',
+                    minWidth: '140px',
+                    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                    borderColor: 'rgba(255, 255, 255, 0.25)',
+                    boxShadow: '0 6px 18px rgba(37, 99, 235, 0.35)'
+                  }}
+                >
+                  <option value="all">Locație: Toate</option>
+                  {locations.map((loc) => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="relative">
+                <select
+                  value={filters.dataSource}
+                  onChange={(e) => handleFilterChange('dataSource', e.target.value)}
+                  className="rounded-2xl text-white text-sm font-semibold border transition-all"
+                  style={{
+                    height: '40px',
+                    paddingLeft: '12px',
+                    paddingRight: '32px',
+                    width: 'auto',
+                    minWidth: '140px',
+                    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                    borderColor: 'rgba(255, 255, 255, 0.25)',
+                    boxShadow: '0 6px 18px rgba(37, 99, 235, 0.35)'
+                  }}
+                >
+                  {dataSourceOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Toggle "Afișează toate" - la capătul din dreapta al grupului */}
+              <button
+                onClick={() => {
+                  setShowAll(!showAll)
+                  setPagination((prev) => ({ ...prev, page: 1 }))
+                }}
+                className={`
+                  relative px-5 py-2.5 rounded-2xl font-semibold text-sm
+                  transition-all duration-300 ease-out overflow-hidden
+                  text-white
+                  hover:scale-105 active:scale-95
+                  border
+                `}
+                style={{
+                  height: '40px',
+                  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                  borderColor: 'rgba(255, 255, 255, 0.3)',
+                  boxShadow: showAll
+                    ? '0 10px 28px rgba(37, 99, 235, 0.6)'
+                    : '0 6px 18px rgba(37, 99, 235, 0.45)'
+                }}
+              >
+                <span className="relative z-10 flex items-center space-x-2">
+                  <Database className={`w-4 h-4 ${showAll ? 'drop-shadow-lg' : ''}`} />
+                  <span className="drop-shadow-sm">{showAll ? 'Afișează toate' : 'Filtre active'}</span>
+                </span>
+              </button>
+            </div>
           </div>
 
-          {/* Rând 2: Perioadă (DateRangeSelector) */}
-          <div className="mb-4">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Perioadă</label>
-            <DateRangeSelector
-              startDate={filters.startDate}
-              endDate={filters.endDate}
-              onChange={handleDateChange}
-            />
-          </div>
-
-          {/* Rând 3: Căutare + Info + Export Buttons */}
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex-1 min-w-[300px]">
+          {/* Rând 2: Perioadă + Căutare + Info + Export - aliniate frumos pe un singur rând */}
+          <div className="flex flex-wrap items-end gap-4 mb-4">
+            <div className="flex-1 min-w-[260px] max-w-md">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Perioadă</label>
+              <DateRangeSelector
+                startDate={filters.startDate}
+                endDate={filters.endDate}
+                onChange={handleDateChange}
+              />
+            </div>
+            <div className="flex-[2] min-w-[320px]">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Căutare</label>
               <div className="relative">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -704,14 +655,20 @@ const ExpendituresSQLTable = () => {
                 />
               </div>
             </div>
-            <div className="text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
-              {pagination.total.toLocaleString('ro-RO')} înregistrări • {tableSummary.totalAmount.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON
-            </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex-1 min-w-[260px] flex items-end justify-end gap-3">
+              <div className="text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap mr-3 hidden lg:block">
+                {pagination.total.toLocaleString('ro-RO')} înregistrări • {tableSummary.totalAmount.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON
+              </div>
               <button
                 onClick={() => handleExport('csv')}
                 disabled={exportingFormat !== null}
-                className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold flex items-center space-x-2"
+                className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-xs font-semibold border transition-all hover:scale-105 active:scale-95"
+                style={{
+                  height: '40px',
+                  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                  borderColor: 'rgba(255, 255, 255, 0.3)',
+                  boxShadow: '0 6px 18px rgba(37, 99, 235, 0.45)'
+                }}
               >
                 {exportingFormat === 'csv' ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -723,7 +680,14 @@ const ExpendituresSQLTable = () => {
               <button
                 onClick={() => handleExport('xlsx')}
                 disabled={exportingFormat !== null}
-                className="px-3 py-2 rounded-lg border border-blue-400/40 text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-xs font-semibold flex items-center space-x-2"
+                className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-xs font-semibold border transition-all hover:scale-105 active:scale-95"
+                style={{
+                  height: '40px',
+                  // Gradient verde tip „Excel”
+                  background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+                  borderColor: 'rgba(255, 255, 255, 0.35)',
+                  boxShadow: '0 8px 28px rgba(22, 163, 74, 0.5)'
+                }}
               >
                 {exportingFormat === 'xlsx' ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -819,21 +783,24 @@ const ExpendituresSQLTable = () => {
                         <div className="flex items-center justify-center space-x-2">
                           <button
                             onClick={() => setEditingRecord(row)}
-                            className="px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-300 hover:bg-blue-500/20 transition-colors text-xs font-semibold"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-500/10 border border-blue-500/40 text-blue-600 dark:text-blue-300 hover:bg-blue-500/20 transition-colors"
+                            title="Editează"
                           >
-                            <Pencil className="w-3.5 h-3.5 inline mr-2" /> Editează
+                            <Pencil className="w-3.5 h-3.5" />
+                            <span className="sr-only">Editează</span>
                           </button>
                           <button
                             onClick={() => handleDelete(row)}
-                            className="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 transition-colors text-xs font-semibold"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-red-500/10 border border-red-500/40 text-red-500 hover:bg-red-500/20 transition-colors"
                             disabled={deletingId === row.id}
+                            title="Șterge"
                           >
                             {deletingId === row.id ? (
-                              <Loader2 className="w-3.5 h-3.5 inline mr-2 animate-spin" />
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
                             ) : (
-                              <Trash2 className="w-3.5 h-3.5 inline mr-2" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             )}
-                            Șterge
+                            <span className="sr-only">Șterge</span>
                           </button>
                         </div>
                       </td>

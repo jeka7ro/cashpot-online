@@ -167,26 +167,39 @@ const attachUserNames = async (pool, rows) => {
 }
 
 // External DB connection pool (for expenditures)
+// FORȚĂM IP EXTERN 82.76.35.50 pentru acces din afara biroului
 let externalPool = null
 
 const getExternalPool = () => {
-  if (!externalPool) {
-    externalPool = new Pool({
-      user: process.env.EXPENDITURES_DB_USER || 'cashpot',
-      password: process.env.EXPENDITURES_DB_PASSWORD || '129hj8oahwd7yaw3e21321',
-      host: process.env.EXPENDITURES_DB_HOST || '192.168.1.39',
-      port: process.env.EXPENDITURES_DB_PORT || 26257,
-      database: process.env.EXPENDITURES_DB_NAME || 'cashpot',
-      ssl: false,
-      max: 5,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000
-    })
-    
-    externalPool.on('error', (err) => {
-      console.error('❌ External DB pool error:', err)
-    })
+  // IP EXTERN pentru acces de oriunde - NU mai folosim IP intern 192.168.1.39!
+  const dbHost = process.env.EXPENDITURES_DB_HOST || '82.76.35.50'
+  
+  // Întotdeauna resetăm pool-ul pentru a folosi IP-ul extern
+  if (externalPool) {
+    try {
+      externalPool.end().catch(() => {})
+    } catch (e) {}
+    externalPool = null
   }
+  
+  console.log(`🔌 Creating NEW external DB pool with EXTERNAL host: ${dbHost}`)
+  externalPool = new Pool({
+    user: process.env.EXPENDITURES_DB_USER || 'cashpot',
+    password: process.env.EXPENDITURES_DB_PASSWORD || '129hj8oahwd7yaw3e21321',
+    host: dbHost, // FORȚĂM IP EXTERN: 82.76.35.50
+    port: parseInt(process.env.EXPENDITURES_DB_PORT || '26257'),
+    database: process.env.EXPENDITURES_DB_NAME || 'cashpot',
+    ssl: false,
+    max: 5,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 15000 // Mărim timeout-ul pentru conexiuni externe
+  })
+  
+  externalPool.on('error', (err) => {
+    console.error('❌ External DB pool error:', err.message)
+    externalPool = null // Reset pool on error
+  })
+  
   return externalPool
 }
 
@@ -432,12 +445,6 @@ router.post('/sync', async (req, res) => {
     console.log('🔄 Starting expenditures sync...', { startDate, endDate, filters })
     
     // Load settings to get included items
-    const settingsResult = await localPool.query(`
-      SELECT setting_value 
-      FROM global_settings 
-      WHERE setting_key = 'expenditures_sync_config'
-    `)
-    
     let syncSettings = {
       includedExpenditureTypes: [],
       includedDepartments: [],
@@ -446,8 +453,25 @@ router.post('/sync', async (req, res) => {
       showInExpenditures: null
     }
     
-    if (settingsResult.rows.length > 0) {
-      syncSettings = { ...syncSettings, ...JSON.parse(settingsResult.rows[0].setting_value) }
+    try {
+      const settingsResult = await localPool.query(`
+        SELECT setting_value 
+        FROM global_settings 
+        WHERE setting_key = 'expenditures_sync_config'
+      `)
+      
+      if (settingsResult.rows.length > 0 && settingsResult.rows[0].setting_value) {
+        const settingValue = settingsResult.rows[0].setting_value
+        // Handle both string JSON and already parsed object
+        if (typeof settingValue === 'string') {
+          syncSettings = { ...syncSettings, ...JSON.parse(settingValue) }
+        } else if (typeof settingValue === 'object') {
+          syncSettings = { ...syncSettings, ...settingValue }
+        }
+      }
+    } catch (settingsError) {
+      console.warn('⚠️ Error loading sync settings, using defaults:', settingsError.message)
+      // Continue with default settings
     }
     
     console.log('📋 Sync settings:', syncSettings)
@@ -462,10 +486,11 @@ router.post('/sync', async (req, res) => {
       whereConditions.push('p.is_deleted = false')
     }
     
-    // show_in_expenditures filter
-    if (syncSettings.showInExpenditures !== null) {
-      whereConditions.push(`p.show_in_expenditures = ${syncSettings.showInExpenditures}`)
-    }
+    // show_in_expenditures filter - verifică dacă coloana există înainte
+    // Nu aplicăm acest filter dacă coloana nu există în baza de date
+    // if (syncSettings.showInExpenditures !== null) {
+    //   whereConditions.push(`p.show_in_expenditures = ${syncSettings.showInExpenditures}`)
+    // }
     
     if (startDate) {
       whereConditions.push(`p.operational_date >= $${paramCounter}`)
@@ -546,18 +571,19 @@ router.post('/sync', async (req, res) => {
     for (const row of filteredRows) {
       const mappedLocationId = mapping[row.location_name] || null
       
+      // Nu salvăm original_location_id dacă este UUID (externul folosește UUID, localul integer)
+      // Folosim doar mapped_location_id și location_name
       await localPool.query(`
         INSERT INTO expenditures_sync (
           location_name, department_name, expenditure_type, amount, 
-          operational_date, synced_at, original_location_id, mapped_location_id
-        ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7)
+          operational_date, synced_at, mapped_location_id
+        ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6)
       `, [
         row.location_name,
         row.department_name,
         row.expenditure_type,
         row.amount,
         row.operational_date,
-        row.location_id,
         mappedLocationId
       ])
       inserted++

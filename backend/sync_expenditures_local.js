@@ -35,7 +35,7 @@ dotenv.config()
 const externalPool = new Pool({
   user: process.env.EXPENDITURES_DB_USER || 'cashpot',
   password: process.env.EXPENDITURES_DB_PASSWORD || '129hj8oahwd7yaw3e21321',
-  host: process.env.EXPENDITURES_DB_HOST || '192.168.1.39',
+  host: process.env.EXPENDITURES_DB_HOST || '82.76.35.50', // IP EXTERN pentru acces de oriunde
   port: parseInt(process.env.EXPENDITURES_DB_PORT || '26257'),
   database: process.env.EXPENDITURES_DB_NAME || 'cashpot',
   ssl: false

@@ -51,6 +51,7 @@ import Expenditures from './pages/Expenditures'
 import ExpendituresSettings from './pages/ExpendituresSettings'
 import ExpendituresPOS from './pages/ExpendituresPOS'
 import ExpendituresSQLTable from './pages/ExpendituresSQLTable'
+import ExpendituresDetail from './pages/ExpendituresDetail'
 import POSBancaAIAnalysis from './pages/POSBancaAIAnalysis'
 import AdvancedAnalytics from './pages/AdvancedAnalytics'
 import AIInsights from './pages/AIInsights'
@@ -120,6 +121,7 @@ function App() {
             <Route path="/expenditures/pos-banca/ai-analysis" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><POSBancaAIAnalysis /></RoleProtectedRoute>} />
             <Route path="/expenditures/advanced-analytics" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><AdvancedAnalytics /></RoleProtectedRoute>} />
             <Route path="/expenditures/sql-table" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><ExpendituresSQLTable /></RoleProtectedRoute>} />
+            <Route path="/expenditures/detail" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><ExpendituresDetail /></RoleProtectedRoute>} />
             <Route path="/ai-insights" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><AIInsights /></RoleProtectedRoute>} />
             <Route path="/marketing" element={<RoleProtectedRoute module={MODULES.MARKETING}><Marketing /></RoleProtectedRoute>} />
             <Route path="/marketing-ai" element={<RoleProtectedRoute module={MODULES.MARKETING}><MarketingAI /></RoleProtectedRoute>} />

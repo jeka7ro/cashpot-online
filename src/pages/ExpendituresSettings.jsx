@@ -758,9 +758,10 @@ const ExpendituresSettings = () => {
           {activeTab === 'charts' && (
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Setări Grafice</h3>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">Setări Grafice</h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Configurează vizibilitatea și dimensiunea graficelor
+                  Configurează vizibilitatea și dimensiunea graficelor din pagina{' '}
+                  <span className="font-semibold">Cheltuieli</span> (dashboard principal).
                 </p>
               </div>
 

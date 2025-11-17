@@ -1411,16 +1411,11 @@ const ExpendituresPOS = () => {
         
         {/* POS & Bancă Table */}
         <div id="pos-banca-table" className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center">
-                <Table2 className="w-6 h-6 mr-2 text-emerald-500" />
-                Încasări POS & Bancă per Locație
-              </h2>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
-                💡 <strong>Click pe departament</strong> pentru a vedea detalii pe luni
-              </p>
-            </div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center">
+              <Table2 className="w-6 h-6 mr-2 text-emerald-500" />
+              Încasări POS & Bancă per Locație
+            </h2>
           </div>
           
           {matrix.length === 0 ? (

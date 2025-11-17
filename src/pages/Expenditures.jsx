@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
+import { useTheme } from '../contexts/ThemeContext'
 import axios from 'axios'
-import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp, TrendingDown, Table2, MapPin } from 'lucide-react'
+import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp, TrendingDown, Table2, MapPin, Maximize2, Minimize2, Clock, CalendarDays, CalendarRange } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
@@ -11,11 +12,13 @@ import ExpendituresMappingModal from '../components/modals/ExpendituresMappingMo
 import ExpendituresCharts from '../components/ExpendituresCharts'
 import ExpendituresAdvancedCharts from '../components/ExpendituresAdvancedCharts'
 import ExpendituresTable from '../components/ExpendituresTable'
-import DateRangeSelector, { QuickDateButtons } from '../components/DateRangeSelector'
+import DateRangeSelector from '../components/DateRangeSelector'
 import { generateAIInsights } from '../utils/aiInsights'
 
 const Expenditures = () => {
   const { user } = useAuth()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
   const navigate = useNavigate()
   const exportRef = useRef(null) // Ref pentru export PDF
   
@@ -150,6 +153,7 @@ const Expenditures = () => {
   const [expenditureTypeFilter, setExpenditureTypeFilter] = useState(savedPrefs?.expenditureTypeFilter || 'all')
   const [locationFilter, setLocationFilter] = useState(savedPrefs?.locationFilter || 'all') // NEW!
   const [selectedDateFilter, setSelectedDateFilter] = useState(savedPrefs?.selectedDateFilter || 'anul-curent')
+  const [allDepartmentsExpanded, setAllDepartmentsExpanded] = useState(false)
   
   // Save preferences whenever filters change
   useEffect(() => {
@@ -464,6 +468,18 @@ const Expenditures = () => {
     
     return filtered
   }, [expendituresData, dateRange, departmentFilter, locationFilter])
+
+  // Zile disponibile în sistem pentru selectorul de zile (doar date care chiar există)
+  const availableDays = React.useMemo(() => {
+    const daysSet = new Set()
+    filteredExpendituresForCharts.forEach((item) => {
+      if (item.operational_date) {
+        const day = item.operational_date.split('T')[0]
+        daysSet.add(day)
+      }
+    })
+    return Array.from(daysSet).sort()
+  }, [filteredExpendituresForCharts])
   
   // Generate AI Insights (using filtered data)
   const aiInsights = React.useMemo(() => {
@@ -544,6 +560,9 @@ const Expenditures = () => {
   // Get unique expenditure types for filter
   const uniqueExpenditureTypes = [...new Set(expendituresData.map(item => item.expenditure_type))].filter(Boolean).sort()
   
+  // Get unique locations for filter
+  const uniqueLocations = [...new Set(expendituresData.map(item => item.location_name))].filter(Boolean).sort()
+  
   // Format currency
   const formatCurrency = (amount) => {
     if (!amount || amount === 0) return '-'
@@ -579,10 +598,31 @@ const Expenditures = () => {
             </p>
           </div>
           
-          <div className="flex space-x-3">
+          <div className="flex space-x-3 ml-auto">
+            {/* Buton Sincronizare - ADUCERE DATE DIN BIROU */}
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className={`inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-sm font-semibold border transition-all hover:scale-105 active:scale-95 ${
+                syncing 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : ''
+              }`}
+              style={{
+                background: isDark 
+                  ? 'linear-gradient(135deg, #059669 0%, #047857 100%)'
+                  : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                borderColor: 'rgba(255, 255, 255, 0.25)',
+                boxShadow: '0 6px 18px rgba(16, 185, 129, 0.35)'
+              }}
+            >
+              <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+              <span>{syncing ? 'Sincronizare...' : 'Sincronizare Date'}</span>
+            </button>
+            
             <button
               onClick={() => navigate('/expenditures/settings')}
-              className="btn-secondary flex items-center space-x-2"
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-slate-800 dark:text-slate-100 text-sm font-semibold border transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 border-slate-300 dark:border-slate-500"
             >
               <Settings className="w-4 h-4" />
               <span>Setări</span>
@@ -590,7 +630,7 @@ const Expenditures = () => {
             
             <button
               onClick={() => setShowMappingModal(true)}
-              className="btn-secondary flex items-center space-x-2"
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-slate-800 dark:text-slate-100 text-sm font-semibold border transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 border-slate-300 dark:border-slate-500"
             >
               <MapPin className="w-4 h-4" />
               <span>Mapping Locații</span>
@@ -598,7 +638,7 @@ const Expenditures = () => {
 
             <button
               onClick={() => navigate('/expenditures/sql-table')}
-              className="btn-secondary flex items-center space-x-2"
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-slate-800 dark:text-slate-100 text-sm font-semibold border transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 border-slate-300 dark:border-slate-500"
             >
               <Table2 className="w-4 h-4" />
               <span>Tabel SQL</span>
@@ -606,143 +646,203 @@ const Expenditures = () => {
             
             <button
               onClick={() => navigate('/expenditures/advanced-analytics')}
-              className="btn-secondary flex items-center space-x-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 hover:from-purple-500/20 hover:to-pink-500/20 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300"
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-slate-800 dark:text-slate-100 text-sm font-semibold border transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 border-slate-300 dark:border-slate-500"
             >
-              <BarChart3 className="w-4 h-4" />
-              <span>📊 Analiză Avansată</span>
+              <span>Analiză Avansată</span>
             </button>
             
             <button
               onClick={() => navigate('/expenditures/pos-banca')}
-              className="btn-secondary flex items-center space-x-2 bg-gradient-to-r from-emerald-500/10 to-green-500/10 hover:from-emerald-500/20 hover:to-green-500/20 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300"
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-slate-800 dark:text-slate-100 text-sm font-semibold border transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 border-slate-300 dark:border-slate-500"
             >
               <Building2 className="w-4 h-4" />
-              <span>🏦 POS & Bancă</span>
-            </button>
-            
-            {aiInsights.length > 0 && (
-              <button
-                onClick={() => navigate('/ai-insights')}
-                className="btn-secondary flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white border-purple-600 dark:border-pink-600 relative"
-                title={`${aiInsights.length} insights • ${aiInsights.filter(i => i.severity === 'error' || i.severity === 'warning').length} alerte`}
-              >
-                <Brain className="w-4 h-4 animate-pulse" />
-                <span>🤖 AI Insights</span>
-                {aiInsights.filter(i => i.severity === 'error' || i.severity === 'warning').length > 0 && (
-                  <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full text-xs font-bold flex items-center justify-center">
-                    {aiInsights.filter(i => i.severity === 'error' || i.severity === 'warning').length}
-                  </span>
-                )}
-              </button>
-            )}
-            
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className="btn-primary flex items-center space-x-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-              <span>{syncing ? 'Sincronizare...' : 'Sincronizare Date'}</span>
+              <span>POS & Bancă</span>
             </button>
           </div>
         </div>
         
-        {/* Filters - MUTAT ÎN VÂRFUL PAGINII! */}
-        <div className="card p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center space-x-4">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center">
-                <Filter className="w-4 h-4 mr-2 text-blue-500" />
-                Filtre
-              </h2>
-              {/* Butoane Rapide Perioadă */}
-              <QuickDateButtons 
+        {/* Filters - ordine corectă */}
+        <div className="card p-5 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-2xl shadow-xl border border-transparent backdrop-blur-2xl">
+          {/* Rând 1: Quick Date Buttons + Filtre Departament/Tip/Locație + Export */}
+          <div className="flex flex-wrap items-end gap-3 mb-4">
+            {/* Quick Date Buttons (Azi / Săpt / Luna curentă / Luna trecută / Anul curent) */}
+            <div className="flex items-center gap-2">
+              {[
+                { id: 'azi', label: 'Azi', icon: Clock },
+                { id: 'saptamana-curenta', label: 'Săpt', icon: CalendarDays },
+                { id: 'luna-curenta', label: 'Luna curentă', icon: Calendar },
+                { id: 'luna-anterioara', label: 'Luna trecută', icon: CalendarRange },
+                { id: 'anul-curent', label: 'Anul curent', icon: Calendar }
+                ].map((btn) => {
+                  const IconComponent = btn.icon
+                  return (
+                    <button
+                      key={btn.id}
+                      onClick={() => applyQuickDateFilter(btn.id)}
+                      className="relative inline-flex items-center justify-center gap-2 px-3 py-2 rounded-2xl text-white text-xs font-semibold transition-all overflow-hidden border hover:scale-105 active:scale-95"
+                      style={{
+                        height: '40px',
+                        minWidth: '80px',
+                        background: isDark 
+                          ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
+                          : 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)',
+                        borderColor: 'rgba(255, 255, 255, 0.25)',
+                        boxShadow: isDark
+                          ? '0 6px 18px rgba(15, 23, 42, 0.5)'
+                          : '0 6px 18px rgba(30, 58, 138, 0.35)'
+                      }}
+                    >
+                      <IconComponent className="w-3.5 h-3.5 relative z-10" style={{ color: 'white' }} />
+                      <span className="relative z-10">{btn.label}</span>
+                    </button>
+                  )
+                })}
+            </div>
+
+            {/* Filtre Departament, Tip, Locație - după "Anul curent", mutat cât mai aproape de capătul din dreapta */}
+            <div className="flex items-end gap-3 ml-auto">
+              <div className="relative">
+                <select
+                  value={departmentFilter}
+                  onChange={(e) => setDepartmentFilter(e.target.value)}
+                  className="rounded-2xl text-white text-sm font-semibold border transition-all"
+                  style={{
+                    height: '40px',
+                    paddingLeft: '12px',
+                    paddingRight: '32px',
+                    width: 'auto',
+                    minWidth: '180px',
+                    background: isDark 
+                      ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
+                      : 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)',
+                    borderColor: 'rgba(255, 255, 255, 0.25)',
+                    boxShadow: isDark
+                      ? '0 6px 18px rgba(15, 23, 42, 0.5)'
+                      : '0 6px 18px rgba(30, 58, 138, 0.35)'
+                  }}
+                >
+                  <option value="all">Departament: Toate</option>
+                  {uniqueDepartments.map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="relative">
+                <select
+                  value={expenditureTypeFilter}
+                  onChange={(e) => setExpenditureTypeFilter(e.target.value)}
+                  className="rounded-2xl text-white text-sm font-semibold border transition-all"
+                  style={{
+                    height: '40px',
+                    paddingLeft: '12px',
+                    paddingRight: '32px',
+                    width: 'auto',
+                    minWidth: '180px',
+                    background: isDark 
+                      ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
+                      : 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)',
+                    borderColor: 'rgba(255, 255, 255, 0.25)',
+                    boxShadow: isDark
+                      ? '0 6px 18px rgba(15, 23, 42, 0.5)'
+                      : '0 6px 18px rgba(30, 58, 138, 0.35)'
+                  }}
+                >
+                  <option value="all">Tip: Toate</option>
+                  {uniqueExpenditureTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {uniqueLocations.length > 0 && (
+                <div className="relative">
+                  <select
+                    value={locationFilter}
+                    onChange={(e) => setLocationFilter(e.target.value)}
+                    className="rounded-2xl text-white text-sm font-semibold border transition-all"
+                    style={{
+                      height: '40px',
+                      paddingLeft: '12px',
+                      paddingRight: '32px',
+                      width: 'auto',
+                      minWidth: '180px',
+                      background: isDark 
+                        ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
+                        : 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)',
+                      borderColor: 'rgba(255, 255, 255, 0.25)',
+                      boxShadow: isDark
+                        ? '0 6px 18px rgba(15, 23, 42, 0.5)'
+                        : '0 6px 18px rgba(30, 58, 138, 0.35)'
+                    }}
+                  >
+                    <option value="all">Locație: Toate</option>
+                    {uniqueLocations.map((loc) => (
+                      <option key={loc} value={loc}>
+                        {loc}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Rând 2: DateRangeSelector + Text Perioadă pe același rând + Export Buttons la capătul din dreapta */}
+          <div className="flex items-center gap-3 mb-2">
+            <div className="min-w-[260px] max-w-md">
+              <DateRangeSelector
+                startDate={dateRange.startDate}
+                endDate={dateRange.endDate}
+                availableDays={availableDays}
                 onChange={(newRange) => {
                   setDateRange(newRange)
                   setSelectedDateFilter('custom')
                 }}
               />
             </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
-              💾 Auto-save
+            
+            {/* Text Perioadă pe același rând cu DateRangeSelector, centrat vertical cu săgețile < > */}
+            <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center">
+              Perioadă: <span className="font-semibold ml-1">{dateRange.startDate}</span> –{' '}
+              <span className="font-semibold">{dateRange.endDate}</span>
             </div>
-          </div>
-          
-          <div className="space-y-3">
-              {/* Filters Grid - 4 coloane: Perioada, Departament, Tip */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              {/* Date Range Selector - mai îngust */}
-              <div className="space-y-1 md:col-span-2">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  📅 Perioadă
-                </label>
-                <DateRangeSelector
-                  startDate={dateRange.startDate}
-                  endDate={dateRange.endDate}
-                  onChange={(newRange) => {
-                    setDateRange(newRange)
-                    setSelectedDateFilter('custom')
-                  }}
-                />
-              </div>
-              
-              {/* Department Filter - îngust */}
-              <div className="space-y-1">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  <Briefcase className="w-3 h-3 inline mr-1" />
-                  Departament
-                </label>
-                <select
-                  value={departmentFilter}
-                  onChange={(e) => setDepartmentFilter(e.target.value)}
-                  className="input-field"
-                >
-                  <option value="all">Toate</option>
-                  {uniqueDepartments.map(dept => (
-                    <option key={dept} value={dept}>{dept}</option>
-                  ))}
-                </select>
-              </div>
-              
-              {/* Expenditure Type Filter - îngust */}
-              <div className="space-y-1">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  <Filter className="w-3 h-3 inline mr-1" />
-                  Tip Cheltuială
-                </label>
-                <select
-                  value={expenditureTypeFilter}
-                  onChange={(e) => setExpenditureTypeFilter(e.target.value)}
-                  className="input-field"
-                >
-                  <option value="all">Toate</option>
-                  {uniqueExpenditureTypes.map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-          
-          {/* Quick Actions */}
-          <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-            <div className="text-sm text-slate-600 dark:text-slate-400">
-              Perioadă: <span className="font-semibold">{dateRange.startDate}</span> - <span className="font-semibold">{dateRange.endDate}</span>
-            </div>
-            <div className="flex space-x-2">
+            
+            {/* Export Buttons - la capătul din dreapta pe rândul 2 */}
+            <div className="flex items-center gap-3 ml-auto">
               <button
                 onClick={handleExportExcel}
-                className="btn-secondary flex items-center space-x-2 text-sm"
+                className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-xs font-semibold border transition-all hover:scale-105 active:scale-95"
+                style={{
+                  height: '40px',
+                  background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+                  borderColor: 'rgba(255, 255, 255, 0.35)',
+                  boxShadow: '0 8px 28px rgba(22, 163, 74, 0.5)'
+                }}
               >
                 <FileSpreadsheet className="w-4 h-4" />
-                <span>Excel</span>
+                <span>Export Excel</span>
               </button>
               <button
                 onClick={handleExportPDF}
-                className="btn-secondary flex items-center space-x-2 text-sm"
+                className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-xs font-semibold border transition-all hover:scale-105 active:scale-95"
+                style={{
+                  height: '40px',
+                  background: isDark 
+                    ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
+                    : 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)',
+                  borderColor: 'rgba(255, 255, 255, 0.25)',
+                  boxShadow: isDark
+                    ? '0 6px 18px rgba(15, 23, 42, 0.5)'
+                    : '0 6px 18px rgba(30, 58, 138, 0.35)'
+                }}
               >
                 <FileText className="w-4 h-4" />
-                <span>PDF</span>
+                <span>Export PDF</span>
               </button>
             </div>
           </div>
@@ -752,6 +852,7 @@ const Expenditures = () => {
         <div ref={exportRef} className="space-y-6">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Toate cardurile folosesc același fundal albastru light */}
           <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-6 rounded-2xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>
@@ -766,7 +867,7 @@ const Expenditures = () => {
             </div>
           </div>
           
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-green-900/20 dark:to-emerald-900/20 p-6 rounded-2xl shadow-lg">
+          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-6 rounded-2xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Locații</p>
@@ -778,7 +879,7 @@ const Expenditures = () => {
             </div>
           </div>
           
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-purple-900/20 dark:to-pink-900/20 p-6 rounded-2xl shadow-lg">
+          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-6 rounded-2xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Zile Selectate</p>
@@ -798,7 +899,7 @@ const Expenditures = () => {
             </div>
           </div>
           
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-orange-900/20 dark:to-amber-900/20 p-6 rounded-2xl shadow-lg">
+          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-6 rounded-2xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Diferența față de luna trecută</p>
@@ -862,13 +963,39 @@ const Expenditures = () => {
         
         {/* Matrix Table */}
         <div id="matrix-table" className="card p-6">
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center">
-            <Table2 className="w-6 h-6 mr-2 text-blue-500" />
-            Cheltuieli per Departament / Categorie / Locație
-          </h2>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-            💡 <strong>Click pe departament</strong> pentru a expanda categoriile
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center">
+              <Table2 className="w-6 h-6 mr-2 text-blue-500" />
+              Cheltuieli per Departament / Categorie / Locație
+            </h2>
+            
+            {matrix.length > 0 && (
+              <button
+                onClick={() => {
+                  setAllDepartmentsExpanded(!allDepartmentsExpanded)
+                }}
+                className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-xs font-semibold border transition-all hover:scale-105 active:scale-95"
+                style={{
+                  height: '40px',
+                  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                  borderColor: 'rgba(255, 255, 255, 0.25)',
+                  boxShadow: '0 6px 18px rgba(37, 99, 235, 0.35)'
+                }}
+              >
+                {allDepartmentsExpanded ? (
+                  <>
+                    <Minimize2 className="w-4 h-4" />
+                    <span>Închide toate</span>
+                  </>
+                ) : (
+                  <>
+                    <Maximize2 className="w-4 h-4" />
+                    <span>Deschide toate</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
           
           {matrix.length === 0 ? (
             <div className="text-center py-12 text-slate-500 dark:text-slate-400">
@@ -890,31 +1017,21 @@ const Expenditures = () => {
               expenditureTypes={expenditureTypes}
               totalsRow={totalsRow}
               expendituresData={filteredExpendituresForCharts}
+              allExpanded={allDepartmentsExpanded}
+              onToggleAll={() => setAllDepartmentsExpanded(!allDepartmentsExpanded)}
+              onAmountClick={({ department, category }) => {
+                navigate('/expenditures/detail', {
+                  state: {
+                    department,
+                    category,
+                    dateRange
+                  }
+                })
+              }}
             />
           )}
         </div>
         
-        {/* Sync Info */}
-        <div className="card p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center space-x-4">
-              <span className="text-slate-600 dark:text-slate-400">
-                <strong>Auto-sincronizare:</strong> {syncSettings.autoSync ? `✅ Activ (la fiecare ${syncSettings.syncInterval}h)` : '❌ Dezactivat'}
-              </span>
-              {syncSettings.autoSync && (
-                <span className="text-slate-600 dark:text-slate-400">
-                  <strong>Ora:</strong> {syncSettings.syncTime}
-                </span>
-              )}
-            </div>
-            <button
-              onClick={() => navigate('/expenditures/settings')}
-              className="text-blue-600 dark:text-blue-400 hover:underline font-semibold"
-            >
-              Configurare Setări
-            </button>
-          </div>
-        </div>
         </div>
         {/* ZONA EXPORTABILĂ PDF - END */}
       </div>

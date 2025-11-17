@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { 
   ChevronDown, ChevronRight, Maximize2, Minimize2,
   Users, Coffee, Home, Sparkles, ShieldCheck, Box, Music, Briefcase,
@@ -7,10 +7,11 @@ import {
   ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react'
 
-const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, expendituresData }) => {
+const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, expendituresData, onAmountClick, allExpanded, onToggleAll }) => {
   const [expandedDepartments, setExpandedDepartments] = useState(new Set())
-  const [allExpanded, setAllExpanded] = useState(false)
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' }) // SORTARE!
+  const prevAllExpandedRef = useRef(undefined)
+  const prevDepartmentNamesKeyRef = useRef('')
   
   // ICONIȚE PENTRU FIECARE DEPARTAMENT!
   const getDepartmentIcon = (deptName) => {
@@ -43,9 +44,13 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
     return <IconComponent className="w-5 h-5" />
   }
   
-  // Group categories by department
-  const groupByDepartment = () => {
+  // Group categories by department - MEMOIZED to prevent infinite loops
+  const departments = useMemo(() => {
     const deptMap = {}
+    
+    if (!expendituresData || expendituresData.length === 0) {
+      return []
+    }
     
     expendituresData.forEach(item => {
       const dept = item.department_name || 'Unknown'
@@ -97,9 +102,7 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
     })
     
     return Object.values(deptMap).sort((a, b) => b.total - a.total)
-  }
-  
-  const departments = groupByDepartment()
+  }, [expendituresData])
   
   // === SORTARE LOGIC ===
   const handleSort = (key) => {
@@ -154,18 +157,49 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
     setExpandedDepartments(newExpanded)
   }
   
+  // Folosim funcția primită ca prop sau funcție locală
   const toggleAllDepartments = () => {
-    if (allExpanded) {
-      // Collapse all
-      setExpandedDepartments(new Set())
-      setAllExpanded(false)
+    if (onToggleAll) {
+      onToggleAll()
     } else {
-      // Expand all
+      // Fallback: funcționalitate locală
       const allDepts = new Set(departments.map(d => d.name))
-      setExpandedDepartments(allDepts)
-      setAllExpanded(true)
+      if (allExpanded) {
+        // Collapse all
+        setExpandedDepartments(new Set())
+      } else {
+        // Expand all
+        setExpandedDepartments(allDepts)
+      }
     }
   }
+  
+  // Sincronizează expandedDepartments cu allExpanded prop
+  // Memoize department names string to prevent infinite loops
+  const departmentNamesKey = useMemo(() => {
+    return departments.map(d => d.name).sort().join(',')
+  }, [departments])
+  
+  useEffect(() => {
+    if (allExpanded === undefined || !departments || departments.length === 0) {
+      return
+    }
+    
+    // Only update if allExpanded or departmentNamesKey actually changed
+    if (prevAllExpandedRef.current === allExpanded && prevDepartmentNamesKeyRef.current === departmentNamesKey) {
+      return
+    }
+    
+    prevAllExpandedRef.current = allExpanded
+    prevDepartmentNamesKeyRef.current = departmentNamesKey
+    
+    if (allExpanded) {
+      const allDepts = new Set(departments.map(d => d.name))
+      setExpandedDepartments(allDepts)
+    } else {
+      setExpandedDepartments(new Set())
+    }
+  }, [allExpanded, departmentNamesKey, departments]) // Use departments for the actual logic
   
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)
@@ -173,29 +207,6 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
   
   return (
     <div>
-      {/* Expand/Collapse All Button */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="text-sm text-slate-600 dark:text-slate-400">
-          📊 <strong>{departments.length}</strong> departamente • Click pentru a expanda categoriile
-        </div>
-        <button
-          onClick={toggleAllDepartments}
-          className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white rounded-lg text-sm font-semibold transition-all shadow-lg hover:shadow-xl"
-        >
-          {allExpanded ? (
-            <>
-              <Minimize2 className="w-4 h-4" />
-              <span>Collapse All</span>
-            </>
-          ) : (
-            <>
-              <Maximize2 className="w-4 h-4" />
-              <span>Expand All</span>
-            </>
-          )}
-        </button>
-      </div>
-      
       <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
         <thead className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 sticky top-0 z-10">
@@ -258,12 +269,26 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
                   </div>
                 </td>
                 {locations.map(loc => (
-                  <td key={loc} className="px-4 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  <td
+                    key={loc}
+                    className="px-4 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300"
+                  >
                     {formatCurrency(dept.byLocation[loc] || 0)}
                   </td>
                 ))}
                 <td className="px-4 py-4 text-right text-sm font-bold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20">
-                  {formatCurrency(dept.total)}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (onAmountClick) {
+                        onAmountClick({ department: dept.name, category: null })
+                      }
+                    }}
+                    className="underline-offset-2 hover:underline"
+                  >
+                    {formatCurrency(dept.total)}
+                  </button>
                 </td>
               </tr>
               
@@ -287,7 +312,18 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
                     </td>
                   ))}
                   <td className="px-4 py-3 text-right text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800">
-                    {formatCurrency(category.total)}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (onAmountClick) {
+                          onAmountClick({ department: dept.name, category: category.name })
+                        }
+                      }}
+                      className="underline-offset-2 hover:underline"
+                    >
+                      {formatCurrency(category.total)}
+                    </button>
                   </td>
                 </tr>
               ))}

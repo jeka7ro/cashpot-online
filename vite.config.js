@@ -6,15 +6,16 @@ export default defineConfig({
   plugins: [react()],
   base: '/',
   server: {
-    port: 5173,
+    host: process.env.VITE_HOST || '0.0.0.0', // Allow external access when needed
+    port: parseInt(process.env.VITE_PORT || '5173'), // Default 5173, can override with VITE_PORT=9858
     proxy: {
       '/api': {
-        target: 'http://localhost:5001',
+        target: process.env.VITE_API_URL || 'http://localhost:3001',
         changeOrigin: true,
         secure: false,
       },
       '/uploads': {
-        target: 'http://localhost:5001',
+        target: process.env.VITE_API_URL || 'http://localhost:3001',
         changeOrigin: true,
         secure: false,
       }

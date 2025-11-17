@@ -1,8 +1,12 @@
-import React from 'react'
+import React, { useState, useMemo } from 'react'
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList, Label } from 'recharts'
 import { TrendingUp, TrendingDown, DollarSign, Building2, Briefcase } from 'lucide-react'
+import { useTheme } from '../contexts/ThemeContext'
 
 const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, onLocationClick }) => {
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
+  const [hoveredDepartment, setHoveredDepartment] = useState(null)
   // Process data for charts
   const processDepartmentData = () => {
     const deptMap = {}
@@ -124,6 +128,215 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('ro-RO', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)
   }
+
+  // Calculează distribuția pe locații pentru fiecare departament
+  const departmentLocationDistribution = useMemo(() => {
+    const distribution = {}
+    departmentData.forEach((dept) => {
+      const deptExpenditures = expendituresData.filter(
+        (item) => item.department_name === dept.name
+      )
+      const locMap = {}
+      deptExpenditures.forEach((item) => {
+        const loc = item.location_name || 'Fără locație'
+        if (!locMap[loc]) {
+          locMap[loc] = 0
+        }
+        locMap[loc] += parseFloat(item.amount || 0)
+      })
+      distribution[dept.name] = Object.entries(locMap)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value)
+    })
+    return distribution
+  }, [departmentData, expendituresData])
+
+  // Calculează distribuția pe locații și departamente pentru fiecare perioadă din trend
+  const periodDistribution = useMemo(() => {
+    const distribution = {}
+    
+    trendData.forEach((period) => {
+      const originalDate = period.originalDate // Format: "YYYY-MM" sau "YYYY-MM-DD"
+      
+      // Filtrează datele pentru această perioadă
+      const periodExpenditures = expendituresData.filter((item) => {
+        const itemDate = new Date(item.operational_date)
+        const itemDateStr = item.operational_date.split('T')[0] // "YYYY-MM-DD"
+        
+        if (originalDate.length === 7) {
+          // Perioadă lunară "YYYY-MM"
+          const itemMonthStr = `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}`
+          return itemMonthStr === originalDate
+        } else {
+          // Perioadă zilnică "YYYY-MM-DD"
+          return itemDateStr === originalDate
+        }
+      })
+      
+      // Calculează distribuția pe locații
+      const locationMap = {}
+      const departmentMap = {}
+      
+      periodExpenditures.forEach((item) => {
+        const dept = (item.department_name || '').trim()
+        
+        // SKIP "Unknown" (user NU vrea să-l vadă!)
+        if (dept.toLowerCase() === 'unknown' || dept === '') {
+          return
+        }
+        
+        // SKIP 4 DEPARTAMENTE DEBIFATE (POS, Registru de Casă, Bancă, Alte Cheltuieli)
+        const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
+        if (excludedDepartments.includes(dept)) {
+          return
+        }
+        
+        const loc = item.location_name || 'Fără locație'
+        const amount = parseFloat(item.amount || 0)
+        
+        // Distribuție pe locații
+        if (!locationMap[loc]) {
+          locationMap[loc] = 0
+        }
+        locationMap[loc] += amount
+        
+        // Distribuție pe departamente
+        if (!departmentMap[dept]) {
+          departmentMap[dept] = 0
+        }
+        departmentMap[dept] += amount
+      })
+      
+      distribution[originalDate] = {
+        locations: Object.entries(locationMap)
+          .map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 5), // Top 5 locații
+        departments: Object.entries(departmentMap)
+          .map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 5) // Top 5 departamente
+      }
+    })
+    
+    return distribution
+  }, [trendData, expendituresData])
+
+  // Tooltip custom pentru departamente cu distribuție pe locații
+  const CustomDepartmentTooltip = ({ active, payload }) => {
+    if (!active || !payload || !payload[0]) return null
+
+    const departmentName = payload[0].payload.name
+    const departmentValue = payload[0].value
+    const locationBreakdown = departmentLocationDistribution[departmentName] || []
+
+    return (
+      <div
+        className="bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-600 rounded-2xl shadow-2xl p-4 max-w-xs"
+        style={{ zIndex: 1400, backgroundColor: '#1e293b', background: '#1e293b' }}
+      >
+        <div className="mb-3 border-b border-slate-700 dark:border-slate-600 pb-2">
+          <p className="font-bold text-white text-sm">{departmentName}</p>
+          <p className="text-blue-400 text-xs mt-1">
+            Total: {formatCurrency(departmentValue)} RON
+          </p>
+        </div>
+        {locationBreakdown.length > 0 && (
+          <div>
+            <p className="text-xs text-slate-400 mb-2 font-semibold">Distribuție pe locații:</p>
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {locationBreakdown.map((loc, idx) => {
+                const percentage = ((loc.value / departmentValue) * 100).toFixed(1)
+                return (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between text-xs py-1"
+                  >
+                    <span className="text-slate-300 truncate flex-1 mr-2">{loc.name}</span>
+                    <span className="text-slate-400 font-semibold">
+                      {formatCurrency(loc.value)} ({percentage}%)
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Tooltip custom pentru graficul de evoluție cu distribuție pe locații și departamente
+  const CustomTrendTooltip = ({ active, payload }) => {
+    if (!active || !payload || !payload[0]) return null
+
+    const periodData = payload[0].payload
+    const periodValue = payload[0].value
+    const originalDate = periodData.originalDate
+    const distribution = periodDistribution[originalDate] || { locations: [], departments: [] }
+
+    return (
+      <div
+        className="bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-600 rounded-2xl shadow-2xl p-4 max-w-sm"
+        style={{ zIndex: 1400, backgroundColor: '#1e293b', background: '#1e293b' }}
+      >
+        <div className="mb-3 border-b border-slate-700 dark:border-slate-600 pb-2">
+          <p className="font-bold text-white text-sm">{periodData.date}</p>
+          <p className="text-blue-400 text-xs mt-1">
+            Total: {formatCurrency(periodValue)} RON
+          </p>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4">
+          {/* Distribuție pe locații */}
+          {distribution.locations.length > 0 && (
+            <div>
+              <p className="text-xs text-slate-400 mb-2 font-semibold">Top Locații:</p>
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {distribution.locations.map((loc, idx) => {
+                  const percentage = ((loc.value / periodValue) * 100).toFixed(1)
+                  return (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between text-xs py-0.5"
+                    >
+                      <span className="text-slate-300 truncate flex-1 mr-2 text-[10px]">{loc.name}</span>
+                      <span className="text-slate-400 font-semibold text-[10px]">
+                        {formatCurrency(loc.value)} ({percentage}%)
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          
+          {/* Distribuție pe departamente */}
+          {distribution.departments.length > 0 && (
+            <div>
+              <p className="text-xs text-slate-400 mb-2 font-semibold">Top Departamente:</p>
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {distribution.departments.map((dept, idx) => {
+                  const percentage = ((dept.value / periodValue) * 100).toFixed(1)
+                  return (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between text-xs py-0.5"
+                    >
+                      <span className="text-slate-300 truncate flex-1 mr-2 text-[10px]">{dept.name}</span>
+                      <span className="text-slate-400 font-semibold text-[10px]">
+                        {formatCurrency(dept.value)} ({percentage}%)
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
   
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -160,13 +373,23 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
               tickFormatter={(value) => formatCurrency(value)}
             />
             <Tooltip 
-              contentStyle={{ 
-                backgroundColor: '#1e293b', 
-                border: 'none', 
-                borderRadius: '12px',
-                color: '#fff'
+              content={<CustomTrendTooltip />}
+              wrapperStyle={{ 
+                backgroundColor: 'transparent',
+                background: 'transparent',
+                border: 'none',
+                boxShadow: 'none',
+                padding: 0,
+                margin: 0
               }}
-              formatter={(value) => [`${formatCurrency(value)} RON`, 'Cheltuieli']}
+              contentStyle={{ 
+                backgroundColor: 'transparent',
+                background: 'transparent',
+                border: 'none',
+                boxShadow: 'none',
+                padding: 0,
+                margin: 0
+              }}
             />
             <Line 
               type="monotone" 
@@ -180,7 +403,7 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
                 dataKey="value" 
                 position="top" 
                 formatter={(value) => formatCurrency(value)}
-                style={{ fontSize: '10px', fontWeight: 'bold', fill: '#1e40af' }}
+                style={{ fontSize: '10px', fontWeight: 'bold', fill: isDark ? '#60a5fa' : '#1e40af' }}
               />
             </Line>
           </LineChart>
@@ -210,23 +433,42 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
               width={100}
             />
             <Tooltip 
-              contentStyle={{ 
-                backgroundColor: '#1e293b', 
-                border: 'none', 
-                borderRadius: '12px',
-                color: '#fff'
+              content={<CustomDepartmentTooltip />}
+              wrapperStyle={{ 
+                backgroundColor: 'transparent',
+                background: 'transparent',
+                border: 'none',
+                boxShadow: 'none',
+                padding: 0,
+                margin: 0
               }}
-              formatter={(value) => [`${formatCurrency(value)} RON`, 'Cheltuieli']}
+              contentStyle={{ 
+                backgroundColor: 'transparent',
+                background: 'transparent',
+                border: 'none',
+                boxShadow: 'none',
+                padding: 0,
+                margin: 0
+              }}
             />
             <Bar 
               dataKey="value" 
               radius={[0, 8, 8, 0]}
+              onMouseEnter={(data) => {
+                if (data && data.name) {
+                  setHoveredDepartment(data.name)
+                }
+              }}
+              onMouseLeave={() => setHoveredDepartment(null)}
               onClick={(data) => {
                 if (onDepartmentClick && data && data.name) {
                   onDepartmentClick(data.name)
                 }
               }}
               cursor="pointer"
+              style={{ 
+                cursor: 'pointer'
+              }}
             >
               {departmentData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -251,7 +493,7 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
                     <text
                       x={isSmall ? x + width + 5 : x + width - 5}
                       y={y + height / 2}
-                      fill={isSmall ? '#1e40af' : '#ffffff'}
+                      fill={isSmall ? (isDark ? '#60a5fa' : '#1e40af') : '#ffffff'}
                       fontSize="14px"
                       fontWeight="bold"
                       textAnchor={isSmall ? 'start' : 'end'}

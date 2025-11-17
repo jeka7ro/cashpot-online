@@ -1,7 +1,10 @@
 import React, { useState } from 'react'
 import { Calendar, ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Clock, Timer, CalendarCheck, CalendarX } from 'lucide-react'
+import { useTheme } from '../contexts/ThemeContext'
 
-const DateRangeSelector = ({ startDate, endDate, onChange, availableYears }) => {
+const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, availableDays }) => {
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
   const [isOpen, setIsOpen] = useState(false)
   const [granularity, setGranularity] = useState('M') // Y, Q, M, D
   const [selectedMonths, setSelectedMonths] = useState([]) // Pentru multi-select luni
@@ -30,6 +33,9 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears }) => 
   const formatRange = () => {
     return `${start.toLocaleDateString('ro-RO')} - ${end.toLocaleDateString('ro-RO')}`
   }
+
+  // Număr zile în luna curentă (fallback pentru "Zile disponibile" când nu primim zile din sistem)
+  const daysInCurrentMonth = new Date(end.getFullYear(), end.getMonth() + 1, 0).getDate()
   
   const handlePrevPeriod = () => {
     let newStart, newEnd
@@ -247,12 +253,20 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears }) => 
   }
   
   return (
-    <div className="relative">
+    <div className="relative z-[2000]">
       {/* Trigger Button */}
       <div className="flex items-center space-x-2">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-xl font-semibold transition-all shadow-lg"
+          className="flex items-center space-x-2 px-4 py-2 text-white rounded-xl font-semibold text-sm transition-all shadow-md hover:shadow-lg"
+          style={{
+            background: isDark 
+              ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
+              : 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)',
+            boxShadow: isDark
+              ? '0 6px 18px rgba(15, 23, 42, 0.5)'
+              : '0 6px 18px rgba(30, 58, 138, 0.35)'
+          }}
         >
           <Calendar className="w-4 h-4" />
           <span>{formatRange()}</span>
@@ -275,14 +289,14 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears }) => 
       {/* Backdrop Overlay */}
       {isOpen && (
         <div 
-          className="fixed inset-0 z-[999]" 
+          className="fixed inset-0 z-[1999]" 
           onClick={() => setIsOpen(false)}
         />
       )}
       
       {/* DROPDOWN (ABSOLUTE) - Cade peste conținut */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-5 z-[1000] w-[480px]">
+        <div className="absolute top-full left-0 mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4 z-[2000] w-[480px]">
           {/* Header */}
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200 dark:border-slate-700">
             <div className="flex items-center space-x-3">
@@ -470,7 +484,9 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears }) => 
             {granularity === 'D' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Selectează Interval Zile</h3>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    Interval zile
+                  </h3>
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => setSelectedYear(selectedYear - 1)}
@@ -490,8 +506,8 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears }) => 
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                      Data început:
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Data început
                     </label>
                     <input
                       type="date"
@@ -501,8 +517,8 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears }) => 
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                      Data sfârșit:
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Data sfârșit
                     </label>
                     <input
                       type="date"
@@ -512,12 +528,45 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears }) => 
                     />
                   </div>
                 </div>
-                
-                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <p className="text-sm text-blue-700 dark:text-blue-300 font-semibold">
-                    💡 Selectează data început și data sfârșit pentru interval custom
-                  </p>
-                </div>
+
+                {/* Zile disponibile ca butoane sub interval */}
+                {(
+                  (Array.isArray(availableDays) && availableDays.length > 0) ||
+                  daysInCurrentMonth > 0
+                ) && (
+                  <div className="mt-3">
+                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2">
+                      Zile disponibile
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {(Array.isArray(availableDays) && availableDays.length > 0
+                        ? availableDays
+                        : Array.from({ length: daysInCurrentMonth }).map((_, idx) =>
+                            formatDateLocal(new Date(end.getFullYear(), end.getMonth(), idx + 1))
+                          )
+                      ).map((value) => {
+                        const d = new Date(value)
+                        const label = String(d.getDate()).padStart(2, '0')
+                        const isActive = startDate === value && endDate === value
+                        return (
+                          <button
+                            key={value}
+                            onClick={() =>
+                              onChange({ startDate: value, endDate: value })
+                            }
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border transition-all ${
+                              isActive
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-blue-50 hover:border-blue-300'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             

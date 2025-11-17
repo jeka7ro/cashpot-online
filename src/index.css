@@ -605,3 +605,33 @@
   border-radius: 8px !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
 }
+
+/* Remove white/gray background from Recharts tooltip wrappers - FIXED */
+.recharts-tooltip-wrapper,
+.recharts-default-tooltip {
+  background-color: transparent !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Allow custom tooltips with explicit backgroundColor to show their dark background */
+.recharts-tooltip-wrapper > div[style*="#1e293b"],
+.recharts-default-tooltip > div[style*="#1e293b"] {
+  background-color: #1e293b !important;
+  background: #1e293b !important;
+}
+
+/* Remove any default Recharts tooltip background on hover */
+.recharts-active-bar,
+.recharts-bar-rectangle:hover {
+  opacity: 1 !important;
+}
+
+/* Remove any line/stripe background on hover in bar charts */
+.recharts-bar-rectangle:hover {
+  background-color: transparent !important;
+  fill-opacity: 1 !important;
+}

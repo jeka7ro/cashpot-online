@@ -1431,8 +1431,10 @@ try {
 // 🚀 START SERVER IMMEDIATELY - DON'T WAIT FOR DB!
 // This ensures Render health checks pass even if DB is slow
 console.log('🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...')
-const server = app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`)
+// Allow external access: listen on all interfaces (0.0.0.0) instead of just localhost
+const HOST = process.env.HOST || '0.0.0.0'
+const server = app.listen(PORT, HOST, () => {
+  console.log(`🚀 Server running on ${HOST}:${PORT}`)
   console.log(`📊 Database: PostgreSQL`)
   console.log(`🌐 Environment: ${process.env.NODE_ENV || 'production'}`)
   console.log(`📅 Build: ${BUILD_NUMBER} (${BUILD_DATE})`)
