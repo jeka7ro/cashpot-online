@@ -182,13 +182,24 @@ const getExternalPool = () => {
     externalPool = null
   }
   
-  console.log(`🔌 Creating NEW external DB pool with EXTERNAL host: ${dbHost}`)
+  const dbUser = process.env.EXPENDITURES_DB_USER || 'cashpot'
+  const dbPassword = process.env.EXPENDITURES_DB_PASSWORD || '129hj8oahwd7yaw3e21321'
+  const dbPort = parseInt(process.env.EXPENDITURES_DB_PORT || '26257')
+  const dbName = process.env.EXPENDITURES_DB_NAME || 'cashpot'
+  
+  console.log(`🔌 Creating NEW external DB pool:`)
+  console.log(`   Host: ${dbHost}`)
+  console.log(`   Port: ${dbPort}`)
+  console.log(`   Database: ${dbName}`)
+  console.log(`   User: ${dbUser}`)
+  console.log(`   Password: ${dbPassword ? '***' + dbPassword.slice(-3) : 'NOT SET'}`)
+  
   externalPool = new Pool({
-    user: process.env.EXPENDITURES_DB_USER || 'cashpot',
-    password: process.env.EXPENDITURES_DB_PASSWORD || '129hj8oahwd7yaw3e21321',
+    user: dbUser,
+    password: dbPassword,
     host: dbHost, // FORȚĂM IP EXTERN: 82.76.35.50
-    port: parseInt(process.env.EXPENDITURES_DB_PORT || '26257'),
-    database: process.env.EXPENDITURES_DB_NAME || 'cashpot',
+    port: dbPort,
+    database: dbName,
     ssl: false,
     max: 5,
     idleTimeoutMillis: 30000,
@@ -432,13 +443,42 @@ router.post('/sync', async (req, res) => {
     // Try to get external pool - catch error if connection fails
     let externalPool
     try {
+      console.log('🔌 Attempting to create external DB connection...')
       externalPool = getExternalPool()
+      
+      // Test connection immediately
+      console.log('🧪 Testing external DB connection...')
+      const testResult = await externalPool.query('SELECT NOW() as current_time, current_database() as db_name')
+      console.log('✅ External DB connection test successful!')
+      console.log(`   Database: ${testResult.rows[0].db_name}`)
+      console.log(`   Time: ${testResult.rows[0].current_time}`)
     } catch (poolError) {
-      console.error('❌ Cannot create external DB pool:', poolError.message)
+      console.error('❌ Cannot create/connect to external DB pool:', poolError.message)
+      console.error('❌ Error code:', poolError.code)
+      console.error('❌ Error stack:', poolError.stack)
+      
+      let errorMessage = 'Nu se poate conecta la baza de date externă'
+      let errorHint = ''
+      
+      if (poolError.code === 'ECONNREFUSED') {
+        errorMessage = `Nu se poate conecta la ${process.env.EXPENDITURES_DB_HOST || '82.76.35.50'}:${process.env.EXPENDITURES_DB_PORT || '26257'}`
+        errorHint = 'Verifică dacă IP-ul și portul sunt corecte și dacă baza de date acceptă conexiuni externe'
+      } else if (poolError.code === 'ENETUNREACH' || poolError.message?.includes('network')) {
+        errorMessage = 'Nu se poate ajunge la baza de date externă (probleme de rețea)'
+        errorHint = 'Verifică firewall-ul și configurația rețelei. Serverul Render poate să nu poată accesa IP-uri private/externe'
+      } else if (poolError.message?.includes('password') || poolError.message?.includes('authentication')) {
+        errorMessage = 'Eroare de autentificare la baza de date externă'
+        errorHint = 'Verifică username-ul și parola în variabilele de mediu (EXPENDITURES_DB_USER, EXPENDITURES_DB_PASSWORD)'
+      } else if (poolError.message?.includes('timeout')) {
+        errorMessage = 'Timeout la conectare la baza de date externă'
+        errorHint = 'Verifică dacă baza de date este accesibilă și dacă firewall-ul permite conexiuni'
+      }
+      
       return res.status(500).json({
         success: false,
-        error: 'Nu se poate conecta la DB extern. Folosește LOCAL sync script când ești conectat remote la birou!',
-        hint: 'cd backend && npm run sync-expenditures'
+        error: errorMessage,
+        hint: errorHint || 'Verifică log-urile backend-ului pentru detalii',
+        errorCode: poolError.code
       })
     }
     
