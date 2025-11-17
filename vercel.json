@@ -40,6 +40,11 @@
   ],
   "env": {
     "VITE_API_URL": "https://cashpot-backend.onrender.com"
+  },
+  "build": {
+    "env": {
+      "FORCE_REBUILD": "2025-11-17T16:47:00Z-BUILD-65"
+    }
   }
 }
 
