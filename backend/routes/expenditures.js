@@ -920,10 +920,38 @@ router.post('/import-all', authenticateToken, async (req, res) => {
     const existingData = existingResult.rows
     console.log(`✅ Found ${existingData.length} existing records in expenditures_sync`)
     
-    // Step 2: Try to get data from external DB (API sync source)
+    // Step 2: Get Google Sheets URL from settings or environment
+    let googleSheetsUrl = null
+    try {
+      // Try to get from global_settings first
+      const settingsResult = await localPool.query(`
+        SELECT setting_value 
+        FROM global_settings 
+        WHERE setting_key = 'expenditures_sync_config'
+      `)
+      
+      if (settingsResult.rows.length > 0 && settingsResult.rows[0].setting_value) {
+        const settingValue = settingsResult.rows[0].setting_value
+        const settings = typeof settingValue === 'string' ? JSON.parse(settingValue) : settingValue
+        googleSheetsUrl = settings.googleSheetsUrl || null
+      }
+      
+      // If not found, try environment variable
+      if (!googleSheetsUrl) {
+        googleSheetsUrl = process.env.GOOGLE_SHEETS_URL || null
+      }
+      
+      if (googleSheetsUrl) {
+        console.log('📊 Found Google Sheets URL:', googleSheetsUrl.substring(0, 50) + '...')
+      }
+    } catch (urlError) {
+      console.warn('⚠️ Error getting Google Sheets URL:', urlError.message)
+    }
+    
+    // Step 3: Try to get data from external DB (API sync source)
     let externalData = []
     try {
-      console.log('📊 Step 2: Getting data from external DB (API sync)...')
+      console.log('📊 Step 3: Getting data from external DB (API sync)...')
       let externalPool
       try {
         externalPool = getExternalPool()
@@ -953,9 +981,18 @@ router.post('/import-all', authenticateToken, async (req, res) => {
           if (settingsResult.rows.length > 0 && settingsResult.rows[0].setting_value) {
             const settingValue = settingsResult.rows[0].setting_value
             if (typeof settingValue === 'string') {
-              syncSettings = { ...syncSettings, ...JSON.parse(settingValue) }
+              const parsed = JSON.parse(settingValue)
+              syncSettings = { ...syncSettings, ...parsed }
+              // Also get Google Sheets URL if not already set
+              if (!googleSheetsUrl && parsed.googleSheetsUrl) {
+                googleSheetsUrl = parsed.googleSheetsUrl
+              }
             } else if (typeof settingValue === 'object') {
               syncSettings = { ...syncSettings, ...settingValue }
+              // Also get Google Sheets URL if not already set
+              if (!googleSheetsUrl && settingValue.googleSheetsUrl) {
+                googleSheetsUrl = settingValue.googleSheetsUrl
+              }
             }
           }
         } catch (settingsError) {
@@ -1018,8 +1055,112 @@ router.post('/import-all', authenticateToken, async (req, res) => {
       externalData = [] // Empty array if error
     }
     
-    // Step 3: Combine and deduplicate
-    console.log('📊 Step 3: Combining and deduplicating data...')
+    // Step 4: Import from Google Sheets if URL is available
+    let googleSheetsData = []
+    if (googleSheetsUrl) {
+      try {
+        console.log('📊 Step 4: Importing data from Google Sheets...')
+        
+        // Convert Google Sheets URL to CSV export URL
+        let csvUrl = googleSheetsUrl
+        if (googleSheetsUrl.includes('/edit')) {
+          const sheetId = googleSheetsUrl.match(/\/d\/(.*?)\//)?.[1]
+          const gid = googleSheetsUrl.match(/gid=(\d+)/)?.[1] || '0'
+          csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`
+        }
+        
+        console.log('📥 Fetching CSV from Google Sheets...')
+        const csvResponse = await fetch(csvUrl)
+        if (!csvResponse.ok) {
+          throw new Error(`Failed to fetch CSV: ${csvResponse.statusText}`)
+        }
+        
+        const csvText = await csvResponse.text()
+        const lines = csvText.split('\n').filter(line => line.trim())
+        
+        if (lines.length >= 2) {
+          const rows = lines.slice(1) // Skip header
+          
+          for (const row of rows) {
+            try {
+              // Parse CSV with proper quote handling
+              const values = []
+              let current = ''
+              let inQuotes = false
+              
+              for (let i = 0; i < row.length; i++) {
+                const char = row[i]
+                if (char === '"') {
+                  inQuotes = !inQuotes
+                } else if (char === ',' && !inQuotes) {
+                  values.push(current.trim())
+                  current = ''
+                } else {
+                  current += char
+                }
+              }
+              values.push(current.trim()) // Last value
+              
+              if (values.length < 5) continue
+              
+              // Map columns (A=date, B=explanation, C=amount, D=location, E=department, F=expenditureType)
+              const [dateStr, explanation, amountStr, location, department, expenditureType] = values
+              
+              // Parse date
+              let operationalDate
+              if (dateStr.includes('.')) {
+                const dateParts = dateStr.split('.')
+                if (dateParts.length === 3) {
+                  operationalDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`
+                }
+              } else if (dateStr.includes('/')) {
+                const dateParts = dateStr.split('/')
+                if (dateParts.length === 3) {
+                  operationalDate = `${dateParts[2]}-${dateParts[0].padStart(2, '0')}-${dateParts[1].padStart(2, '0')}`
+                }
+              } else if (dateStr.includes('-')) {
+                operationalDate = dateStr
+              }
+              
+              if (!operationalDate) continue
+              
+              // Parse amount
+              let amount
+              if (amountStr) {
+                const cleanAmount = amountStr.replace(/\s/g, '').replace(/\./g, '').replace(',', '.')
+                amount = parseFloat(cleanAmount)
+              }
+              
+              if (!amount || isNaN(amount) || !location || !department) continue
+              
+              googleSheetsData.push({
+                operational_date: operationalDate,
+                amount: amount,
+                location_name: location || 'Unknown',
+                department_name: department || 'Unknown',
+                expenditure_type: expenditureType || 'Unknown',
+                description: explanation || null,
+                data_source: 'google_sheets'
+              })
+            } catch (rowError) {
+              console.warn('⚠️ Error parsing Google Sheets row:', rowError.message)
+            }
+          }
+          
+          console.log(`✅ Fetched ${googleSheetsData.length} records from Google Sheets`)
+        }
+      } catch (gsError) {
+        console.warn('⚠️ Error importing from Google Sheets, continuing with other sources:', gsError.message)
+      }
+    } else {
+      console.log('⚠️ No Google Sheets URL configured, skipping Google Sheets import')
+    }
+    
+    // Step 5: Combine and deduplicate
+    console.log('📊 Step 5: Combining and deduplicating data...')
+    
+    // Add Google Sheets data to externalData for processing
+    externalData = [...externalData, ...googleSheetsData]
     
     // Create a map for existing records (by unique key: date + amount + location + department + type)
     const existingMap = new Map()
@@ -1053,20 +1194,45 @@ router.post('/import-all', authenticateToken, async (req, res) => {
         // Insert new record
         const mappedLocationId = mapping[row.location_name] || null
         
-        await localPool.query(`
-          INSERT INTO expenditures_sync (
-            location_name, department_name, expenditure_type, amount, 
-            operational_date, synced_at, mapped_location_id, data_source
-          ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7)
-        `, [
-          row.location_name || 'Unknown',
-          row.department_name || 'Unknown',
-          row.expenditure_type || 'Unknown',
-          row.amount || 0,
-          row.operational_date,
-          mappedLocationId,
-          'api_sync'
-        ])
+        // Determine data_source and description
+        const dataSource = row.data_source || 'api_sync'
+        const description = row.description || null
+        
+        // Build INSERT query based on data_source
+        if (dataSource === 'google_sheets' && description) {
+          // Google Sheets has description
+          await localPool.query(`
+            INSERT INTO expenditures_sync (
+              location_name, department_name, expenditure_type, amount, 
+              operational_date, synced_at, mapped_location_id, data_source, description
+            ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7, $8)
+          `, [
+            row.location_name || 'Unknown',
+            row.department_name || 'Unknown',
+            row.expenditure_type || 'Unknown',
+            row.amount || 0,
+            row.operational_date,
+            mappedLocationId,
+            dataSource,
+            description
+          ])
+        } else {
+          // API sync or other sources
+          await localPool.query(`
+            INSERT INTO expenditures_sync (
+              location_name, department_name, expenditure_type, amount, 
+              operational_date, synced_at, mapped_location_id, data_source
+            ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7)
+          `, [
+            row.location_name || 'Unknown',
+            row.department_name || 'Unknown',
+            row.expenditure_type || 'Unknown',
+            row.amount || 0,
+            row.operational_date,
+            mappedLocationId,
+            dataSource
+          ])
+        }
         
         existingMap.set(key, row) // Add to map to prevent future duplicates
         imported++
@@ -1094,7 +1260,9 @@ router.post('/import-all', authenticateToken, async (req, res) => {
       skipped: skipped,
       errors: errors,
       existing: existingData.length,
-      fromExternal: externalData.length || 0
+      fromExternal: (externalData.length - googleSheetsData.length) || 0,
+      fromGoogleSheets: googleSheetsData.length || 0,
+      googleSheetsUrl: googleSheetsUrl ? 'configured' : 'not configured'
     })
   } catch (error) {
     console.error('❌ Error importing all expenditures:', error)
