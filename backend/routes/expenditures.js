@@ -5,6 +5,16 @@ import { authenticateToken } from '../middleware/auth.js'
 const router = express.Router()
 const { Pool } = pg
 
+// Global variable to track sync progress
+let _syncProgress = null
+
+// Progress manager for sync
+export const syncProgressManager = {
+  getProgress: () => _syncProgress,
+  setProgress: (progress) => { _syncProgress = progress },
+  clearProgress: () => { _syncProgress = null }
+}
+
 const SQL_TABLE_SORT_COLUMNS = {
   operational_date: 'operational_date',
   amount: 'amount',
@@ -470,8 +480,36 @@ router.post('/upload', async (req, res) => {
   }
 })
 
+// GET /api/expenditures/sync-status - Get current sync progress
+router.get('/sync-status', async (req, res) => {
+  try {
+    if (!_syncProgress) {
+      return res.json({
+        status: 'idle',
+        message: 'Nu există sincronizare în curs'
+      })
+    }
+    
+    res.json(_syncProgress)
+  } catch (error) {
+    console.error('Error getting sync status:', error)
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      status: 'error'
+    })
+  }
+})
+
 // Sync expenditures data from external DB
 router.post('/sync', async (req, res) => {
+  // Check if already syncing
+  if (_syncProgress && _syncProgress.status === 'running') {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Sincronizare deja în curs. Vă rugăm să așteptați finalizarea.' 
+    })
+  }
   try {
     const { startDate, endDate, filters } = req.body
     const localPool = req.app.get('pool')
@@ -559,6 +597,19 @@ router.post('/sync', async (req, res) => {
     
     console.log('🔄 Starting expenditures sync...', { startDate, endDate, filters })
     
+    // Initialize progress tracking
+    _syncProgress = {
+      status: 'running',
+      currentStep: 'Pornire sincronizare...',
+      totalFetched: 0,
+      totalFiltered: 0,
+      processed: 0,
+      inserted: 0,
+      skipped: 0,
+      errors: 0,
+      startTime: new Date()
+    }
+    
     // Load settings to get included items
     let syncSettings = {
       includedExpenditureTypes: [],
@@ -639,10 +690,14 @@ router.post('/sync', async (req, res) => {
       ORDER BY p.operational_date DESC, l.name, et.name
     `
     
+    _syncProgress.currentStep = 'Preluare date din baza externă...'
     const result = await externalPool.query(query, queryParams)
     console.log(`✅ Fetched ${result.rows.length} expenditure records from external DB`)
     
+    _syncProgress.totalFetched = result.rows.length
+    
     // Filter data based on included items
+    _syncProgress.currentStep = 'Filtrare date...'
     let filteredRows = result.rows
     
     // Filter by expenditure types (only if list is not empty)
@@ -671,7 +726,12 @@ router.post('/sync', async (req, res) => {
     
     console.log(`✅ Final filtered data: ${filteredRows.length} records`)
     
+    _syncProgress.totalFiltered = filteredRows.length
+    _syncProgress.currentStep = `Verificare duplicate și inserare înregistrări noi... (${filteredRows.length} de procesat)`
+    
     if (filteredRows.length === 0) {
+      _syncProgress.status = 'completed'
+      _syncProgress.currentStep = 'Nu există date de sincronizat'
       console.warn('⚠️ No records to sync after filtering')
       return res.json({
         success: true,
@@ -704,8 +764,15 @@ router.post('/sync', async (req, res) => {
     
     for (let i = 0; i < filteredRows.length; i += batchSize) {
       const batch = filteredRows.slice(i, i + batchSize)
-      const currentIndex = i + 1
+      const currentIndex = i + batch.length
       const progress = Math.round((currentIndex / totalRecords) * 100)
+      
+      // Update progress
+      _syncProgress.processed = currentIndex
+      _syncProgress.inserted = inserted
+      _syncProgress.skipped = skipped
+      _syncProgress.errors = errors
+      _syncProgress.currentStep = `Procesare: ${currentIndex}/${totalRecords} (${progress}%) | Noi: ${inserted} | Duplicate: ${skipped} | Erori: ${errors}`
       
       console.log(`📝 Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(totalRecords / batchSize)}: ${currentIndex}/${totalRecords} (${progress}%) - Inserted: ${inserted}, Skipped: ${skipped}, Errors: ${errors}`)
       
@@ -772,7 +839,16 @@ router.post('/sync', async (req, res) => {
       console.warn(`⚠️ Sync completed with ${errors} errors out of ${filteredRows.length} total records`)
     }
     
-    res.json({
+    // Update final progress
+    _syncProgress.status = 'completed'
+    _syncProgress.processed = filteredRows.length
+    _syncProgress.inserted = inserted
+    _syncProgress.skipped = skipped
+    _syncProgress.errors = errors
+    _syncProgress.currentStep = `Completat! ${inserted} noi, ${skipped} duplicate, ${errors} erori`
+    _syncProgress.endTime = new Date()
+    
+    const response = {
       success: true,
       message: `Sincronizate ${inserted} înregistrări noi${skipped > 0 ? ` (${skipped} deja existente)` : ''}${errors > 0 ? ` (${errors} erori)` : ''}`,
       records: inserted,
@@ -781,7 +857,14 @@ router.post('/sync', async (req, res) => {
       totalFetched: result.rows.length,
       totalFiltered: filteredRows.length,
       dateRange: { startDate, endDate }
-    })
+    }
+    
+    // Clear progress after 5 seconds
+    setTimeout(() => {
+      _syncProgress = null
+    }, 5000)
+    
+    res.json(response)
   } catch (error) {
     console.error('❌ Error syncing expenditures:', error)
     console.error('❌ Error stack:', error.stack)
@@ -800,6 +883,16 @@ router.post('/sync', async (req, res) => {
     } else if (error.message?.includes('password') || error.message?.includes('authentication')) {
       errorMessage = 'Eroare de autentificare la baza de date externă'
       errorHint = 'Verifică credențialele în configurarea backend-ului'
+    }
+    
+    // Update progress on error
+    if (_syncProgress) {
+      _syncProgress.status = 'failed'
+      _syncProgress.currentStep = `Eroare: ${errorMessage}`
+      _syncProgress.endTime = new Date()
+      setTimeout(() => {
+        _syncProgress = null
+      }, 10000)
     }
     
     res.status(500).json({ 

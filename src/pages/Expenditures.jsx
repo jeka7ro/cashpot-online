@@ -34,6 +34,7 @@ const Expenditures = () => {
   const [loading, setLoading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [showMappingModal, setShowMappingModal] = useState(false)
+  const progressIntervalRef = useRef(null)
   
   // Chart sizes from localStorage - ACTUALIZARE LIVE!
   const [chartSizes, setChartSizes] = useState(() => {
@@ -273,58 +274,110 @@ const Expenditures = () => {
     loadExpendituresData()
   }, [])
   
+  // Function to fetch progress
+  const fetchProgress = async () => {
+    try {
+      const response = await axios.get('/api/expenditures/sync-status')
+      const progress = response.data
+      
+      if (progress && progress.status === 'running') {
+        // Update toast with detailed progress
+        const progressPercent = progress.totalFiltered > 0 
+          ? Math.round((progress.processed / progress.totalFiltered) * 100)
+          : 0
+        
+        const progressMessage = `${progress.currentStep}\n` +
+          `📊 Total găsite: ${progress.totalFetched || 0} | ` +
+          `După filtre: ${progress.totalFiltered || 0}\n` +
+          `✅ Procesate: ${progress.processed || 0}/${progress.totalFiltered || 0} (${progressPercent}%)\n` +
+          `📝 Noi: ${progress.inserted || 0} | ` +
+          `🔄 Duplicate: ${progress.skipped || 0} | ` +
+          `❌ Erori: ${progress.errors || 0}`
+        
+        toast.loading(progressMessage, { 
+          id: 'sync',
+          duration: 2000 
+        })
+      } else if (progress && (progress.status === 'completed' || progress.status === 'failed')) {
+        // Stop polling
+        if (progressIntervalRef.current) {
+          clearInterval(progressIntervalRef.current)
+          progressIntervalRef.current = null
+        }
+        
+        if (progress.status === 'completed') {
+          const finalMessage = `✅ Sincronizare completă!\n` +
+            `📊 Total găsite: ${progress.totalFetched || 0}\n` +
+            `✅ Procesate: ${progress.processed || 0}/${progress.totalFiltered || 0}\n` +
+            `📝 Noi adăugate: ${progress.inserted || 0}\n` +
+            `🔄 Duplicate: ${progress.skipped || 0}\n` +
+            `${progress.errors > 0 ? `❌ Erori: ${progress.errors}\n` : ''}` +
+            `⏱️ Durata: ${Math.round((new Date(progress.endTime) - new Date(progress.startTime)) / 1000)}s`
+          
+          toast.success(finalMessage, { 
+            id: 'sync',
+            duration: 8000 
+          })
+          
+          // Reload data
+          await loadExpendituresData()
+        } else {
+          toast.error(`❌ Sincronizare eșuată: ${progress.currentStep || 'Eroare necunoscută'}`, { 
+            id: 'sync',
+            duration: 5000 
+          })
+        }
+        
+        setSyncing(false)
+      }
+    } catch (error) {
+      // If 404 error (endpoint not available), keep progress but update status
+      if (error.response?.status === 404) {
+        // Continue polling
+      } else {
+        console.error('Error fetching sync progress:', error)
+      }
+    }
+  }
+
   // Sync data from external DB
   const handleSync = async () => {
     try {
       setSyncing(true)
-      let progressInterval
+      progressIntervalRef.current = null
       
-      // Start progress updates
-      let progressCount = 0
-      progressInterval = setInterval(() => {
-        progressCount++
-        toast.loading(`Sincronizare în curs... (${progressCount}s)`, { 
-          id: 'sync',
-          duration: 1000 
-        })
-      }, 1000)
-      
-      // NU trimitem dateRange - vrem TOATE datele, nu doar cele din perioada selectată
+      // Start the sync (non-blocking)
       const response = await axios.post('/api/expenditures/sync', {
         // startDate și endDate NU se trimit - vrem TOATE datele disponibile
         filters: syncSettings.filters
+      }).catch((error) => {
+        // If sync already running, start polling
+        if (error.response?.status === 400) {
+          // Start polling immediately
+          progressIntervalRef.current = setInterval(fetchProgress, 1500) // Poll every 1.5 seconds
+          setTimeout(fetchProgress, 500) // Initial fetch
+          return { data: { success: true, alreadyRunning: true } }
+        }
+        throw error
       })
       
-      // Stop progress updates
-      if (progressInterval) {
-        clearInterval(progressInterval)
+      if (response.data?.success && !response.data?.alreadyRunning) {
+        // Sync started successfully, start polling for progress
+        progressIntervalRef.current = setInterval(fetchProgress, 1500) // Poll every 1.5 seconds
+        setTimeout(fetchProgress, 500) // Initial fetch after 500ms
+      } else if (response.data?.alreadyRunning) {
+        // Already running, just start polling
+        progressIntervalRef.current = setInterval(fetchProgress, 1500)
+        setTimeout(fetchProgress, 500)
       }
-      
-      const { records, skipped, errors, totalFetched, totalFiltered } = response.data
-      let message = `✅ ${records} înregistrări noi sincronizate`
-      if (skipped > 0) {
-        message += ` (${skipped} deja existente)`
-      }
-      if (errors > 0) {
-        message += ` (${errors} erori)`
-      }
-      if (totalFetched) {
-        message += `\n📊 Total găsite: ${totalFetched}, După filtre: ${totalFiltered}`
-      }
-      
-      toast.success(message, { 
-        id: 'sync',
-        duration: 6000 
-      })
-      
-      // Reload data
-      await loadExpendituresData()
     } catch (error) {
       // Stop progress updates
-      if (progressInterval) {
-        clearInterval(progressInterval)
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current)
+        progressIntervalRef.current = null
       }
       
+      setSyncing(false)
       console.error('Error syncing expenditures:', error)
       
       // Extract detailed error message from response
@@ -343,10 +396,18 @@ const Expenditures = () => {
           duration: 5000 
         })
       }
-    } finally {
-      setSyncing(false)
     }
   }
+  
+  // Cleanup progress interval on unmount
+  useEffect(() => {
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current)
+        progressIntervalRef.current = null
+      }
+    }
+  }, [])
   
   // Process data into matrix format (expenditure_types × locations)
   const processDataToMatrix = () => {
