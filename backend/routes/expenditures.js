@@ -184,8 +184,9 @@ const getExternalPool = () => {
   
   // Credențiale pentru baza de date externă
   // Pot fi suprascrise din variabilele de mediu EXPENDITURES_DB_USER și EXPENDITURES_DB_PASSWORD
-  const dbUser = process.env.EXPENDITURES_DB_USER || 'jeka'
-  const dbPassword = process.env.EXPENDITURES_DB_PASSWORD || '31Ianuarie'
+  // NOTĂ: jeka/31Ianuarie pe port 9858 sunt pentru LOGARE PC, nu pentru baza de date!
+  const dbUser = process.env.EXPENDITURES_DB_USER || 'cashpot'
+  const dbPassword = process.env.EXPENDITURES_DB_PASSWORD || '129hj8oahwd7yaw3e21321'
   const dbPort = parseInt(process.env.EXPENDITURES_DB_PORT || '26257')
   const dbName = process.env.EXPENDITURES_DB_NAME || 'cashpot'
   
