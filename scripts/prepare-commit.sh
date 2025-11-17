@@ -15,8 +15,11 @@ BUILD_NUMBER=$(node -e "const v = require('./version.json'); console.log(v.build
 # Add all changes including version.json
 git add -A
 
-# Create commit message with build number
-COMMIT_MESSAGE="$MESSAGE - Build #$BUILD_NUMBER"
+# Get build date and time in format DD.MM.YYYY HH:mm (același format ca getBuildWithDateTime!)
+BUILD_DATE_TIME=$(node -e "const v = require('./version.json'); const d = new Date(v.buildDate); const day = String(d.getDate()).padStart(2, '0'); const month = String(d.getMonth() + 1).padStart(2, '0'); const year = d.getFullYear(); const hours = String(d.getHours()).padStart(2, '0'); const minutes = String(d.getMinutes()).padStart(2, '0'); console.log(\`\${day}.\${month}.\${year} \${hours}:\${minutes}\`);")
+
+# Create commit message with build number and date/time (format ca în header bar!)
+COMMIT_MESSAGE="$MESSAGE - Build #$BUILD_NUMBER - $BUILD_DATE_TIME"
 
 echo "📝 Commit message: $COMMIT_MESSAGE"
 echo "🔢 Build number: $BUILD_NUMBER"
