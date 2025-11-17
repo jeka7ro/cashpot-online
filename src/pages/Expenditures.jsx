@@ -144,10 +144,11 @@ const Expenditures = () => {
   const savedPrefs = loadSavedPreferences()
   
   // Filters with saved preferences
+  // Default date range: 2020-2026 pentru a afișa TOATE datele disponibile (inclusiv cele vechi din BAT/Google Sheets)
   const [dateRange, setDateRange] = useState(
     savedPrefs?.dateRange || {
-      startDate: new Date(new Date().getFullYear() - 2, 0, 1).toISOString().split('T')[0], // Jan 1, 2023
-      endDate: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0]  // Dec 31, 2025
+      startDate: '2020-01-01', // Data foarte veche pentru a include TOATE datele vechi
+      endDate: new Date(new Date().getFullYear() + 1, 11, 31).toISOString().split('T')[0]  // Anul viitor pentru a include toate datele viitoare
     }
   )
   const [departmentFilter, setDepartmentFilter] = useState(savedPrefs?.departmentFilter || 'all')

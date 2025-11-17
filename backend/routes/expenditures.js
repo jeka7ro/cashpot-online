@@ -782,6 +782,7 @@ router.post('/sync', async (req, res) => {
           
           // Verificăm dacă înregistrarea există deja (duplicat)
           // Verificăm după: operational_date, amount, location_name, department_name, expenditure_type
+          // NU verificăm după data_source - datele pot veni din multiple surse (BAT, Google Sheets, API)
           const existingCheck = await localPool.query(`
             SELECT id 
             FROM expenditures_sync
@@ -790,7 +791,6 @@ router.post('/sync', async (req, res) => {
               AND location_name = $3 
               AND department_name = $4
               AND expenditure_type = $5
-              AND data_source = 'api_sync'
             LIMIT 1
           `, [
             row.operational_date,
