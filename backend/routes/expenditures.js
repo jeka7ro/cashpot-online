@@ -1107,6 +1107,23 @@ router.post('/import-all', authenticateToken, async (req, res) => {
           console.log('🔍 IMPORT-ALL: Starting batch processing with NO DATE LIMITS')
           console.log(`🔍 IMPORT-ALL: Batch size: ${batchSize}, Max batches: ${maxBatches} (total: ${maxBatches * batchSize} records max)`)
           
+          // First, get total count to verify we process all records
+          try {
+            const countQuery = `
+              SELECT COUNT(*) as total
+              FROM public.casino_payments p
+              WHERE ${whereClause}
+            `
+            console.log('🔍 IMPORT-ALL: Getting total record count from external DB...')
+            const countResult = await externalPool.query(countQuery)
+            const totalRecords = parseInt(countResult.rows[0].total || 0)
+            console.log(`📊 IMPORT-ALL: Total records in external DB (is_deleted = false): ${totalRecords}`)
+            console.log(`📊 IMPORT-ALL: Estimated batches needed: ${Math.ceil(totalRecords / batchSize)}`)
+            _importAllProgress.totalFound = totalRecords
+          } catch (countError) {
+            console.warn('⚠️ Could not get total count, continuing with batch processing:', countError.message)
+          }
+          
           _importAllProgress.currentStep = 'Se preiau datele din API extern (batch 0)...'
           
           while (hasMore && batchNumber < maxBatches) {
