@@ -556,8 +556,21 @@ router.post('/sync', async (req, res) => {
     
     console.log(`✅ Final filtered data: ${filteredRows.length} records`)
     
+    if (filteredRows.length === 0) {
+      console.warn('⚠️ No records to sync after filtering')
+      return res.json({
+        success: true,
+        message: 'No records to sync after filtering',
+        records: 0,
+        dateRange: { startDate, endDate },
+        warning: 'Toate datele au fost filtrate. Verifică setările de sincronizare!'
+      })
+    }
+    
     // Clear existing sync data
+    console.log('🗑️ Clearing existing sync data...')
     await localPool.query('DELETE FROM expenditures_sync')
+    console.log('✅ Existing sync data cleared')
     
     // Get location mapping
     const mappingResult = await localPool.query('SELECT * FROM expenditure_location_mapping')
@@ -565,36 +578,63 @@ router.post('/sync', async (req, res) => {
     mappingResult.rows.forEach(row => {
       mapping[row.external_location_name] = row.local_location_id
     })
+    console.log(`📍 Loaded ${mappingResult.rows.length} location mappings`)
     
-    // Insert synced data
+    // Insert synced data - batch insert pentru performanță mai bună
     let inserted = 0
-    for (const row of filteredRows) {
-      const mappedLocationId = mapping[row.location_name] || null
+    let errors = 0
+    const batchSize = 50 // Insert în batch-uri de 50
+    
+    for (let i = 0; i < filteredRows.length; i += batchSize) {
+      const batch = filteredRows.slice(i, i + batchSize)
       
-      // Nu salvăm original_location_id dacă este UUID (externul folosește UUID, localul integer)
-      // Folosim doar mapped_location_id și location_name
-      await localPool.query(`
-        INSERT INTO expenditures_sync (
-          location_name, department_name, expenditure_type, amount, 
-          operational_date, synced_at, mapped_location_id
-        ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6)
-      `, [
-        row.location_name,
-        row.department_name,
-        row.expenditure_type,
-        row.amount,
-        row.operational_date,
-        mappedLocationId
-      ])
-      inserted++
+      for (const row of batch) {
+        try {
+          const mappedLocationId = mapping[row.location_name] || null
+          
+          // Nu salvăm original_location_id dacă este UUID (externul folosește UUID, localul integer)
+          // Folosim doar mapped_location_id și location_name
+          await localPool.query(`
+            INSERT INTO expenditures_sync (
+              location_name, department_name, expenditure_type, amount, 
+              operational_date, synced_at, mapped_location_id, data_source
+            ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7)
+          `, [
+            row.location_name || 'Unknown',
+            row.department_name || 'Unknown',
+            row.expenditure_type || 'Unknown',
+            row.amount || 0,
+            row.operational_date,
+            mappedLocationId,
+            'api_sync'
+          ])
+          inserted++
+          
+          if (inserted % 10 === 0) {
+            console.log(`📝 Inserted ${inserted}/${filteredRows.length} records...`)
+          }
+        } catch (insertError) {
+          errors++
+          console.error(`❌ Error inserting record ${i + batch.indexOf(row) + 1}:`, insertError.message)
+          console.error('   Record data:', JSON.stringify(row))
+          // Continuă cu următoarea înregistrare
+        }
+      }
     }
     
-    console.log(`✅ Synced ${inserted} expenditure records to local DB`)
+    console.log(`✅ Synced ${inserted} expenditure records to local DB (${errors} errors)`)
+    
+    if (errors > 0) {
+      console.warn(`⚠️ Sync completed with ${errors} errors out of ${filteredRows.length} total records`)
+    }
     
     res.json({
       success: true,
-      message: `Synchronized ${inserted} records`,
+      message: `Synchronized ${inserted} records${errors > 0 ? ` (${errors} errors)` : ''}`,
       records: inserted,
+      errors: errors,
+      totalFetched: result.rows.length,
+      totalFiltered: filteredRows.length,
       dateRange: { startDate, endDate }
     })
   } catch (error) {
