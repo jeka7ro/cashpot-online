@@ -59,6 +59,13 @@ const Layout = ({ children }) => {
   // Cache pentru logo-ul persistent - nu se refresh-ează la schimbarea paginii
   const [cachedLogo, setCachedLogo] = React.useState(null)
 
+  // Flag-uri pentru a preveni cereri repetate
+  const isSettingsLoadAttempted = React.useRef(false)
+  const settingsLoadFailures = React.useRef(0)
+  const lastSettingsFailureTime = React.useRef(0)
+  const SETTINGS_CIRCUIT_BREAKER_THRESHOLD = 3
+  const SETTINGS_CIRCUIT_BREAKER_RESET_TIME = 60000 // 1 minut
+
   React.useEffect(() => {
     // Load cached logo first for instant display
     const cachedLogoUrl = localStorage.getItem('cachedLogo')
@@ -66,8 +73,10 @@ const Layout = ({ children }) => {
       setCachedLogo(cachedLogoUrl)
     }
     
-    // Load settings from server first, then localStorage as fallback
+    // Load settings from server first, then localStorage as fallback - DOAR O DATĂ!
+    if (!isSettingsLoadAttempted.current) {
     loadSettingsFromServer()
+    }
   }, [])
 
   // Ensure data loads after auth on any page (not just Dashboard)
@@ -79,19 +88,51 @@ const Layout = ({ children }) => {
   }, [user])
 
   const loadSettingsFromServer = async () => {
+    // Prevenim cereri repetate
+    if (isSettingsLoadAttempted.current) {
+      console.log('⚠️ Settings load already attempted, skipping...')
+      return
+    }
+
+    isSettingsLoadAttempted.current = true
+
+    // Circuit breaker pentru settings
+    const now = Date.now()
+    if (settingsLoadFailures.current >= SETTINGS_CIRCUIT_BREAKER_THRESHOLD) {
+      if (now - lastSettingsFailureTime.current < SETTINGS_CIRCUIT_BREAKER_RESET_TIME) {
+        console.warn('🚫 CIRCUIT BREAKER ACTIV pentru settings în Layout - Backend-ul este DOWN!')
+        // Folosim doar localStorage
+        loadSettingsFromLocalStorage()
+        return
+      } else {
+        // Reset circuit breaker după 1 minut
+        console.log('🔄 Circuit breaker RESET pentru settings în Layout - încerc din nou...')
+        settingsLoadFailures.current = 0
+      }
+    }
+
     let globalLoginSettings = {}
     let personalSettings = {}
 
     try {
       // Încarcă setările globale de login
-      const globalResponse = await axios.get('/api/global-settings')
+      const globalResponse = await axios.get('/api/global-settings', { timeout: 10000 })
       if (globalResponse.data.login_settings) {
         globalLoginSettings = globalResponse.data.login_settings
         console.log('✅ Loaded global login settings in Layout from server')
+        settingsLoadFailures.current = 0 // Reset failures on success
       }
     } catch (error) {
-      console.log('⚠️ Could not load global login settings in Layout')
+      settingsLoadFailures.current++
+      lastSettingsFailureTime.current = Date.now()
+      console.log('⚠️ Could not load global login settings in Layout', error.message)
     }
+
+    loadSettingsFromLocalStorage(globalLoginSettings)
+    }
+
+  const loadSettingsFromLocalStorage = (globalLoginSettings = {}) => {
+    let personalSettings = {}
 
     // OPTIMIZARE: Nu mai facem request la /api/auth/verify aici!
     // Setările personale sunt deja încărcate în AuthContext
@@ -226,14 +267,6 @@ const Layout = ({ children }) => {
       module: MODULES.SLOTS
     },
     { 
-      id: 'warehouse', 
-      label: 'Depozit', 
-      icon: Package, 
-      path: '/warehouse',
-      count: warehouse.length,
-      module: MODULES.WAREHOUSE
-    },
-    { 
       id: 'metrology', 
       label: 'Metrologie CVT', 
       icon: Activity, 
@@ -264,6 +297,14 @@ const Layout = ({ children }) => {
       path: '/expenditures',
       count: null,
       module: MODULES.EXPENDITURES
+    },
+    { 
+      id: 'incasari', 
+      label: 'Încasări', 
+      icon: BarChart3, 
+      path: '/incasari',
+      count: null,
+      module: MODULES.INCASARI
     },
     { 
       id: 'onjn-reports', 

@@ -49,6 +49,13 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
     locations: []
   })
   
+  const formatDateLocal = (date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   // Settings
   const [settings, setSettings] = useState({
     // Auto-sync settings
@@ -66,8 +73,8 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
     includedLocations: [],
     
     // Date range defaults
-    defaultStartDate: new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0],
-    defaultEndDate: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0]
+    defaultStartDate: formatDateLocal(new Date(new Date().getFullYear(), 0, 1)),
+    defaultEndDate: formatDateLocal(new Date(new Date().getFullYear(), 11, 31))
   })
   
   const [activeTab, setActiveTab] = useState('departments') // 'departments' PRIMUL! (user vrea departamente prima)
@@ -85,6 +92,11 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
   const [forceImport, setForceImport] = useState(false) // Force import toggle
   const [previewData, setPreviewData] = useState(null) // Preview data before import
   const [loadingPreview, setLoadingPreview] = useState(false)
+  
+  // Import All Data progress
+  const [importingAllManual, setImportingAllManual] = useState(false)
+  const [importAllProgress, setImportAllProgress] = useState(null)
+  const [importAllProgressIntervalRef, setImportAllProgressIntervalRef] = useState(null)
   
   useEffect(() => {
     loadData()
@@ -413,6 +425,7 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
               { id: 'locations', label: 'Locații', count: locations.length },
               { id: 'charts', label: '📊 Grafice', count: 8 }, // Charts visibility + size
               { id: 'mapping', label: '🗺️ Mapping Locații' }, // Mapping locații POS-Bancă
+              { id: 'manual-actions', label: '⚙️ Acțiuni Manuale' }, // Acțiuni manuale cheltuieli
               { id: 'powerbi-config', label: '🔌 Power BI Config' }, // Configurare Power BI
               { id: 'powerbi-sync', label: '☁️ Power BI Sync' }, // Sincronizare Power BI
               { id: 'google-sheets', label: '📊 Google Sheets' }, // Import din Google Sheets!
@@ -1053,9 +1066,16 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                       
                       setImportProgress(response.data)
                       
+                      const { imported, skipped, errors, orphanCount } = response.data
+                      
+                      let baseMessage = `✅ Import finalizat!\n📥 ${imported} importate\n⏭️ ${skipped} duplicate\n❌ ${errors} erori`
+                      if (typeof orphanCount === 'number' && orphanCount > 0) {
+                        baseMessage += `\n🧹 ${orphanCount} rânduri există DOAR în SQL (au dispărut din Google Sheet)`
+                      }
+                      
                       toast.success(
-                        `✅ Import finalizat!\n📥 ${response.data.imported} importate\n⏭️ ${response.data.skipped} duplicate\n❌ ${response.data.errors} erori`,
-                        { id: 'google-sheets-import', duration: 5000 }
+                        baseMessage,
+                        { id: 'google-sheets-import', duration: 6000 }
                       )
                       
                       // Refresh data AND status
@@ -1139,6 +1159,16 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                         <p className="text-2xl font-bold text-red-700 dark:text-red-300">{importProgress.errors}</p>
                         <p className="text-xs text-red-600 dark:text-red-400 mt-1">❌ Erori</p>
                       </div>
+                      {typeof importProgress.orphanCount === 'number' && importProgress.orphanCount > 0 && (
+                        <div className="bg-amber-100 dark:bg-amber-900/40 rounded-lg p-3 col-span-3 mt-2">
+                          <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                            🧹 {importProgress.orphanCount} rânduri există în SQL dar NU mai există în Google Sheet.
+                          </p>
+                          <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                            Poți folosi pagina „Tabel SQL Cheltuieli” pentru a le selecta și șterge în bloc.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1173,6 +1203,204 @@ const ExpendituresSettingsModal = ({ onClose, onSave }) => {
                   <p className="text-sm text-yellow-800 dark:text-yellow-200">
                     🚧 <strong>În dezvoltare</strong> - Funcționalitatea va fi adăugată în versiunea viitoare.
                   </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* MANUAL ACTIONS TAB */}
+          {activeTab === 'manual-actions' && (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl p-6 border-2 border-purple-200 dark:border-purple-800">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-3 flex items-center">
+                  <Database className="w-5 h-5 mr-2 text-purple-600" />
+                  ⚙️ Acțiuni Manuale Cheltuieli
+                </h3>
+                <p className="text-sm text-slate-700 dark:text-slate-300 mb-4">
+                  Acțiuni manuale pentru gestionarea datelor de cheltuieli.
+                </p>
+                
+                <div className="space-y-4">
+                  {/* Sincronizare Date Button - TOATE DATELE 2024-2025 */}
+                  <button
+                    onClick={async () => {
+                      try {
+                        toast.loading('Sincronizare în curs pentru 2024-2025... Aceasta poate dura câteva minute.', { id: 'sync-manual', duration: 10000 })
+                        
+                        // Sincronizează pentru TOATE datele din 2024 și 2025
+                        const startDate = '2024-01-01'
+                        const endDate = '2025-12-31'
+                        
+                        const response = await axios.post('/api/expenditures/sync', {
+                          startDate: startDate,
+                          endDate: endDate,
+                          filters: {}
+                        }, {
+                          headers: {
+                            Authorization: `Bearer ${localStorage.getItem('token')}`
+                          },
+                          timeout: 300000 // 5 minute timeout pentru sincronizare mare
+                        })
+                        
+                        toast.success(`✅ ${response.data.records || 0} înregistrări sincronizate pentru 2024-2025!`, { id: 'sync-manual', duration: 5000 })
+                        
+                        // Reload page data if callback exists
+                        if (onDataReload) {
+                          onDataReload()
+                        }
+                      } catch (error) {
+                        console.error('Error syncing expenditures:', error)
+                        toast.error(`❌ Eroare la sincronizare: ${error.response?.data?.error || error.message}`, { id: 'sync-manual', duration: 5000 })
+                      }
+                    }}
+                    className="w-full px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg flex items-center justify-center space-x-2 font-semibold text-lg"
+                  >
+                    <RefreshCw className="w-5 h-5" />
+                    <span>🔄 Sincronizare TOATE Datele (2024-2025: 01.01.2024 - 31.12.2025)</span>
+                  </button>
+                  
+                  {/* Import Toate Datele Button */}
+                  <button
+                    onClick={async () => {
+                      if (importingAllManual) {
+                        toast.error('Import deja în curs!')
+                        return
+                      }
+                      
+                      setImportingAllManual(true)
+                      setImportAllProgress({
+                        status: 'running',
+                        currentStep: 'Pornire import...',
+                        startTime: new Date().toISOString()
+                      })
+                      
+                      // Start polling for progress
+                      const intervalId = setInterval(async () => {
+                        try {
+                          const response = await axios.get('/api/expenditures/import-all-status', {
+                            headers: {
+                              Authorization: `Bearer ${localStorage.getItem('token')}`
+                            }
+                          })
+                          setImportAllProgress(response.data)
+                          
+                          if (response.data.status === 'completed' || response.data.status === 'error') {
+                            clearInterval(intervalId)
+                            setImportAllProgressIntervalRef(null)
+                            setImportingAllManual(false)
+                            
+                            if (response.data.status === 'completed') {
+                              toast.success('✅ Import completat cu succes!')
+                            } else {
+                              toast.error('❌ Eroare la import!')
+                            }
+                          }
+                        } catch (error) {
+                          console.error('Error fetching import progress:', error)
+                        }
+                      }, 2000)
+                      
+                      setImportAllProgressIntervalRef(intervalId)
+                      
+                      try {
+                        await axios.post('/api/expenditures/import-all', {}, {
+                          headers: {
+                            Authorization: `Bearer ${localStorage.getItem('token')}`
+                          }
+                        })
+                        toast.success('🚀 Import început! Verifică progresul mai jos.')
+                      } catch (error) {
+                        console.error('Error starting import:', error)
+                        clearInterval(intervalId)
+                        setImportAllProgressIntervalRef(null)
+                        setImportingAllManual(false)
+                        toast.error(`❌ Eroare: ${error.response?.data?.error || error.message}`)
+                      }
+                    }}
+                    disabled={importingAllManual}
+                    className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-lg"
+                  >
+                    <Database className="w-5 h-5" />
+                    <span>{importingAllManual ? 'Import în curs...' : '📥 Import Toate Datele'}</span>
+                  </button>
+                  
+                  {/* Progress Display */}
+                  {importAllProgress && (
+                    <div className="bg-white dark:bg-slate-800 rounded-lg p-6 border border-slate-200 dark:border-slate-700">
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                            Status: {importAllProgress.status === 'running' ? '🔄 În curs...' : importAllProgress.status === 'completed' ? '✅ Completat' : '❌ Eroare'}
+                          </span>
+                          {importAllProgress.startTime && (
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                              Start: {new Date(importAllProgress.startTime).toLocaleTimeString('ro-RO')}
+                            </span>
+                          )}
+                        </div>
+                        
+                        {importAllProgress.currentStep && (
+                          <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
+                            {importAllProgress.currentStep}
+                          </p>
+                        )}
+                        
+                        {/* Progress Bar */}
+                        {importAllProgress.status === 'running' && (
+                          <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 mb-4">
+                            <div 
+                              className="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                              style={{ 
+                                width: importAllProgress.totalProcessed && importAllProgress.totalFound 
+                                  ? `${(importAllProgress.totalProcessed / importAllProgress.totalFound) * 100}%`
+                                  : '0%'
+                              }}
+                            />
+                          </div>
+                        )}
+                        
+                        {/* Stats */}
+                        {importAllProgress.totalFound && (
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <span className="text-slate-500 dark:text-slate-400">Total găsite:</span>
+                              <p className="font-bold text-slate-900 dark:text-slate-100">{importAllProgress.totalFound.toLocaleString('ro-RO')}</p>
+                            </div>
+                            {importAllProgress.imported !== undefined && (
+                              <div>
+                                <span className="text-slate-500 dark:text-slate-400">Importate:</span>
+                                <p className="font-bold text-green-600 dark:text-green-400">{importAllProgress.imported.toLocaleString('ro-RO')}</p>
+                              </div>
+                            )}
+                            {importAllProgress.skipped !== undefined && (
+                              <div>
+                                <span className="text-slate-500 dark:text-slate-400">Duplicate:</span>
+                                <p className="font-bold text-orange-600 dark:text-orange-400">{importAllProgress.skipped.toLocaleString('ro-RO')}</p>
+                              </div>
+                            )}
+                            {importAllProgress.errors !== undefined && (
+                              <div>
+                                <span className="text-slate-500 dark:text-slate-400">Erori:</span>
+                                <p className="font-bold text-red-600 dark:text-red-400">{importAllProgress.errors.toLocaleString('ro-RO')}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Log Output */}
+                      {importAllProgress.log && importAllProgress.log.length > 0 && (
+                        <div className="mt-4">
+                          <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">Log (ultimele 20 linii):</p>
+                          <div className="bg-slate-900 text-green-400 p-3 rounded font-mono text-xs max-h-40 overflow-y-auto">
+                            {importAllProgress.log.slice(-20).map((line, idx) => (
+                              <div key={idx}>{line}</div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

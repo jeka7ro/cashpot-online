@@ -41,7 +41,7 @@ export const geocodeAddress = async (address) => {
   const addressUpper = address.toUpperCase()
   for (const [city, coords] of Object.entries(CITY_COORDS)) {
     if (addressUpper.includes(city)) {
-      console.log(`✅ HARDCODED coords pentru ${city}:`, coords)
+      // console.log(`✅ HARDCODED coords pentru ${city}:`, coords)
       return { lat: coords[0], lng: coords[1] }
     }
   }
@@ -66,7 +66,7 @@ export const geocodeAddress = async (address) => {
     const data = await response.json()
     
     if (data && data.length > 0) {
-      console.log('✅ Nominatim găsit pentru adresa completă:', data[0])
+      // console.log('✅ Nominatim găsit pentru adresa completă:', data[0])
       return {
         lat: parseFloat(data[0].lat),
         lng: parseFloat(data[0].lon)
@@ -76,7 +76,7 @@ export const geocodeAddress = async (address) => {
     // FALLBACK 3: Încearcă doar cu ORAȘUL (fără stradă/bloc)
     const city = extractCityFromAddress(address)
     if (city && city !== address) {
-      console.log(`🔄 Retry geocoding doar cu orașul: ${city}`)
+      // console.log(`🔄 Retry geocoding doar cu orașul: ${city}`)
       const cityResponse = await fetch(
         `${NOMINATIM_BASE_URL}/search?` + new URLSearchParams({
           q: `${city}, Romania`,
@@ -93,7 +93,7 @@ export const geocodeAddress = async (address) => {
       
       const cityData = await cityResponse.json()
       if (cityData && cityData.length > 0) {
-        console.log('✅ Nominatim găsit pentru oraș:', cityData[0])
+        // console.log('✅ Nominatim găsit pentru oraș:', cityData[0])
         return {
           lat: parseFloat(cityData[0].lat),
           lng: parseFloat(cityData[0].lon)

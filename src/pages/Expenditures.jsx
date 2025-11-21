@@ -149,7 +149,14 @@ const Expenditures = () => {
   const [dateRange, setDateRange] = useState(
     savedPrefs?.dateRange || {
       startDate: '2020-01-01', // Data foarte veche pentru a include TOATE datele vechi
-      endDate: new Date(new Date().getFullYear() + 1, 11, 31).toISOString().split('T')[0]  // Anul viitor pentru a include toate datele viitoare
+      endDate: (() => {
+        const today = new Date()
+        const end = new Date(today.getFullYear() + 1, 11, 31)
+        const year = end.getFullYear()
+        const month = String(end.getMonth() + 1).padStart(2, '0')
+        const day = String(end.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}` // Anul viitor pentru a include toate datele viitoare
+      })()
     }
   )
   const [departmentFilter, setDepartmentFilter] = useState(savedPrefs?.departmentFilter || 'all')
@@ -246,23 +253,35 @@ const Expenditures = () => {
   
   // Load settings
   useEffect(() => {
-    loadSettings()
-  }, [])
-  
-  const loadSettings = async () => {
-    try {
-      const response = await axios.get('/api/expenditures/settings')
-      setSyncSettings(response.data)
-    } catch (error) {
-      console.error('Error loading sync settings:', error)
+    const abortController = new AbortController()
+    
+    const loadSettings = async () => {
+      try {
+        const response = await axios.get('/api/expenditures/settings', {
+          signal: abortController.signal
+        })
+        setSyncSettings(response.data)
+      } catch (error) {
+        if (error.name !== 'CanceledError' && error.code !== 'ECONNABORTED') {
+          console.error('Error loading sync settings:', error)
+        }
+      }
     }
-  }
+    
+    loadSettings()
+    
+    return () => {
+      abortController.abort()
+    }
+  }, [])
   
   // Load expenditures data
   const loadExpendituresData = async () => {
     try {
       setLoading(true)
-      const response = await axios.get('/api/expenditures/data')
+      const response = await axios.get('/api/expenditures/data', {
+        signal: new AbortController().signal // Creează un nou controller pentru fiecare apel
+      })
       setExpendituresData(response.data)
       console.log('✅ Expenditures data loaded:', response.data.length)
       
@@ -295,15 +314,71 @@ const Expenditures = () => {
         }
       }
     } catch (error) {
-      console.error('Error loading expenditures:', error)
-      toast.error('Eroare la încărcarea cheltuielilor')
+      if (error.name !== 'CanceledError' && error.code !== 'ECONNABORTED') {
+        console.error('Error loading expenditures:', error)
+        toast.error('Eroare la încărcarea cheltuielilor')
+      }
     } finally {
       setLoading(false)
     }
   }
   
   useEffect(() => {
-    loadExpendituresData()
+    const abortController = new AbortController()
+    
+    // Wrapper pentru loadExpendituresData cu AbortController
+    const loadWithAbort = async () => {
+      try {
+        setLoading(true)
+        const response = await axios.get('/api/expenditures/data', {
+          signal: abortController.signal
+        })
+        setExpendituresData(response.data)
+        console.log('✅ Expenditures data loaded:', response.data.length)
+        
+        // Verifică dacă există date pentru toate lunile din intervalul selectat
+        if (response.data.length > 0 && dateRange.startDate && dateRange.endDate) {
+          const startDate = new Date(dateRange.startDate)
+          const endDate = new Date(dateRange.endDate)
+          const monthsWithData = new Set()
+          
+          response.data.forEach(item => {
+            const itemDate = new Date(item.operational_date)
+            if (itemDate >= startDate && itemDate <= endDate) {
+              const monthKey = `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}`
+              monthsWithData.add(monthKey)
+            }
+          })
+          
+          // Detectează luni lipsă
+          const missingMonths = []
+          for (let d = new Date(startDate); d <= endDate; d.setMonth(d.getMonth() + 1)) {
+            const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+            if (!monthsWithData.has(monthKey)) {
+              missingMonths.push(monthKey)
+            }
+          }
+          
+          if (missingMonths.length > 0) {
+            console.warn('⚠️ Luni fără date detectate:', missingMonths)
+            console.warn('💡 Sfat: Folosește butonul "Import Toate Datele" pentru a aduce toate datele din toate sursele (SQL, API, Google Sheets)')
+          }
+        }
+      } catch (error) {
+        if (error.name !== 'CanceledError' && error.code !== 'ECONNABORTED') {
+          console.error('Error loading expenditures:', error)
+          toast.error('Eroare la încărcarea cheltuielilor')
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    loadWithAbort()
+    
+    return () => {
+      abortController.abort()
+    }
   }, [])
   
   // Function to fetch progress
@@ -730,21 +805,39 @@ const Expenditures = () => {
     }
   }, [expendituresData])
 
-  // Filter data by date range for charts and cards (SAME FILTERS as matrix!)
+  // Filter data by date range pentru grafice și carduri
+  // IMPORTANT: respectă setările din pagina de Setări (includedDepartments / Types / Locations)
   const filteredExpendituresForCharts = React.useMemo(() => {
-    let filtered = expendituresData
+    let filtered = expendituresData || []
+
+    const includedDepartments = syncSettings?.includedDepartments
+    const includedTypes = syncSettings?.includedExpenditureTypes
+    const includedLocations = syncSettings?.includedLocations
     
-    // EXCLUDE "Unknown" FORȚAT (user nu vrea să-l vadă NICIODATĂ!)
-    filtered = filtered.filter(item => {
+    // EXCLUDE „Unknown” forțat (user nu vrea să-l vadă NICIODATĂ)
+    filtered = filtered.filter((item) => {
       const dept = (item.department_name || '').toLowerCase().trim()
       return dept !== 'unknown' && dept !== '' && dept !== 'null'
     })
     
-    // EXCLUDE 4 DEPARTAMENTE DEBIFATE (POS, Registru de Casă, Bancă, Alte Cheltuieli)
-    const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
-    filtered = filtered.filter(item => {
-      return !excludedDepartments.includes(item.department_name)
-    })
+    // Aplică listele „INCLUDE” din setări, dacă există
+    if (Array.isArray(includedDepartments) && includedDepartments.length > 0) {
+      filtered = filtered.filter((item) =>
+        includedDepartments.includes(item.department_name || '')
+      )
+    }
+
+    if (Array.isArray(includedTypes) && includedTypes.length > 0) {
+      filtered = filtered.filter((item) =>
+        includedTypes.includes(item.expenditure_type || '')
+      )
+    }
+
+    if (Array.isArray(includedLocations) && includedLocations.length > 0) {
+      filtered = filtered.filter((item) =>
+        includedLocations.includes(item.location_name || '')
+      )
+    }
     
     // Filter by date range
     if (dateRange.startDate && dateRange.endDate) {
@@ -767,7 +860,7 @@ const Expenditures = () => {
     }
     
     return filtered
-  }, [expendituresData, dateRange, departmentFilter, locationFilter])
+  }, [expendituresData, dateRange, departmentFilter, locationFilter, syncSettings])
 
   // Zile disponibile în sistem pentru selectorul de zile (doar date care chiar există)
   const availableDays = React.useMemo(() => {
@@ -899,70 +992,12 @@ const Expenditures = () => {
           </div>
           
           <div className="flex space-x-3 ml-auto">
-            {/* Buton Sincronizare - ADUCERE DATE DIN BIROU */}
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className={`inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-sm font-semibold border transition-all hover:scale-105 active:scale-95 ${
-                syncing 
-                  ? 'opacity-50 cursor-not-allowed' 
-                  : ''
-              }`}
-              style={{
-                background: isDark 
-                  ? 'linear-gradient(135deg, #059669 0%, #047857 100%)'
-                  : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                borderColor: 'rgba(255, 255, 255, 0.25)',
-                boxShadow: '0 6px 18px rgba(16, 185, 129, 0.35)'
-              }}
-            >
-              <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-              <span>{syncing ? 'Sincronizare...' : 'Sincronizare Date'}</span>
-            </button>
-            
-            <button
-              onClick={handleImportAll}
-              disabled={syncing}
-              className={`inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-sm font-semibold border transition-all hover:scale-105 active:scale-95 ${
-                syncing 
-                  ? 'opacity-50 cursor-not-allowed' 
-                  : ''
-              }`}
-              style={{
-                background: isDark 
-                  ? 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)'
-                  : 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
-                borderColor: 'rgba(255, 255, 255, 0.25)',
-                boxShadow: '0 6px 18px rgba(37, 99, 235, 0.35)'
-              }}
-              title="Importă TOATE datele din toate sursele (SQL, Google Sheets, BAT, API) - fără dubluri"
-            >
-              <Database className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-              <span>{syncing ? 'Import...' : 'Import Toate Datele'}</span>
-            </button>
-            
-            <button
-              onClick={handleCleanDuplicates}
-              className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-sm font-semibold border transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-red-500 to-red-600 border-red-400 shadow-lg"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span>Curăță Duplicate</span>
-            </button>
-            
             <button
               onClick={() => navigate('/expenditures/settings')}
               className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-slate-800 dark:text-slate-100 text-sm font-semibold border transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 border-slate-300 dark:border-slate-500"
             >
               <Settings className="w-4 h-4" />
               <span>Setări</span>
-            </button>
-            
-            <button
-              onClick={() => setShowMappingModal(true)}
-              className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-slate-800 dark:text-slate-100 text-sm font-semibold border transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 border-slate-300 dark:border-slate-500"
-            >
-              <MapPin className="w-4 h-4" />
-              <span>Mapping Locații</span>
             </button>
 
             <button
@@ -1264,6 +1299,12 @@ const Expenditures = () => {
           <ExpendituresCharts 
             expendituresData={filteredExpendituresForCharts}
             dateRange={dateRange}
+            onTrendRangeSelect={({ startDate, endDate }) => {
+              // Când dai click pe un punct/lună în „Evoluție Cheltuieli”,
+              // actualizăm intervalul global de pe pagină
+              setDateRange({ startDate, endDate })
+              setSelectedDateFilter('custom-trend')
+            }}
             onDepartmentClick={(deptName) => {
               // Toggle filter (click din nou = reset)
               if (departmentFilter === deptName) {
@@ -1495,9 +1536,12 @@ const Expenditures = () => {
                   </div>
                   <p className="text-3xl font-bold text-slate-600 dark:text-slate-400">
                     {importProgress.startTime 
-                      ? Math.round((new Date(importProgress.endTime || new Date()) - new Date(importProgress.startTime)) / 1000)
-                      : 0}s
-                    }
+                      ? `${Math.round(
+                          (new Date(importProgress.endTime || new Date()) -
+                            new Date(importProgress.startTime)) /
+                            1000
+                        )}s`
+                      : '0s'}
                   </p>
                 </div>
               </div>

@@ -4,6 +4,7 @@ import { ArrowLeft, Calendar, TrendingUp, TrendingDown, Brain, Sun, Snowflake, P
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, LabelList } from 'recharts'
 import DateRangeSelector from '../components/DateRangeSelector'
 import Layout from '../components/Layout'
+import axios from 'axios'
 
 const POSBancaAIAnalysis = () => {
   const navigate = useNavigate()
@@ -17,29 +18,57 @@ const POSBancaAIAnalysis = () => {
   const [sortDirection, setSortDirection] = useState('desc')
   const [activeTab, setActiveTab] = useState('toate') // 'toate', 'pos', 'banca'
 
+  // Încarcă datele din backend
+  const loadExpendituresData = async () => {
+    try {
+      setLoading(true)
+      const response = await axios.get('/api/expenditures/data')
+      setExpendituresData(response.data || [])
+      console.log('✅ Expenditures data loaded:', response.data?.length || 0)
+    } catch (error) {
+      console.error('Error loading expenditures:', error)
+      // Fallback la initialData dacă există
+      if (initialData.length > 0) {
+        setExpendituresData(initialData)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (!initialData.length) {
-      navigate('/expenditures/pos-banca')
-      return
+      // Dacă nu avem date inițiale, încercăm să le încărcăm
+      loadExpendituresData()
+    } else {
+      setExpendituresData(initialData)
+      setLoading(false)
     }
-    setExpendituresData(initialData)
-    setLoading(false)
-  }, [initialData, navigate])
+  }, [initialData])
 
-  // FILTRARE DATE CÂND SE SCHIMBĂ PERIOADA
+  // REÎNCĂRCARE DATE CÂND SE SCHIMBĂ PERIOADA
   useEffect(() => {
     if (!dateRange.startDate || !dateRange.endDate) return
     
-    const startDate = new Date(dateRange.startDate)
-    const endDate = new Date(dateRange.endDate)
+    // Reîncărcăm datele din backend pentru noua perioadă
+    loadExpendituresData()
+  }, [dateRange])
+
+  // FILTRARE DATE DUPĂ dateRange (după ce sunt încărcate)
+  const filteredExpendituresData = useMemo(() => {
+    if (!dateRange.startDate || !dateRange.endDate) return expendituresData
     
-    const filtered = initialData.filter(item => {
+    const startDate = new Date(dateRange.startDate)
+    startDate.setHours(0, 0, 0, 0)
+    const endDate = new Date(dateRange.endDate)
+    endDate.setHours(23, 59, 59, 999)
+    
+    return expendituresData.filter(item => {
+      if (!item.operational_date) return false
       const itemDate = new Date(item.operational_date)
       return itemDate >= startDate && itemDate <= endDate
     })
-    
-    setExpendituresData(filtered)
-  }, [dateRange, initialData])
+  }, [expendituresData, dateRange])
 
   // HELPER FUNCTIONS (TREBUIE ÎNAINTE DE useMemo!)
   const formatCurrency = (value) => {
@@ -65,17 +94,17 @@ const POSBancaAIAnalysis = () => {
 
   // EXTRAGE LOCAȚII UNICE
   const locations = useMemo(() => {
-    return [...new Set(expendituresData.map(item => item.location_name))].filter(Boolean).sort()
-  }, [expendituresData])
+    return [...new Set(filteredExpendituresData.map(item => item.location_name))].filter(Boolean).sort()
+  }, [filteredExpendituresData])
 
   // FILTRARE DATE POS & BANCĂ
   const posData = useMemo(() => {
-    return expendituresData.filter(item => item.department_name === 'POS')
-  }, [expendituresData])
+    return filteredExpendituresData.filter(item => item.department_name === 'POS')
+  }, [filteredExpendituresData])
 
   const bancaData = useMemo(() => {
-    return expendituresData.filter(item => item.department_name === 'Bancă')
-  }, [expendituresData])
+    return filteredExpendituresData.filter(item => item.department_name === 'Bancă')
+  }, [filteredExpendituresData])
 
   // ANALIZĂ ZILE SĂPTĂMÂNĂ (Luni-Duminică) CU LOCAȚII
   const weekdayAnalysis = useMemo(() => {
@@ -223,8 +252,51 @@ const POSBancaAIAnalysis = () => {
     })).sort((a, b) => b.total - a.total)
   }, [posData, bancaData])
 
-  // EVOLUȚIE LUNARĂ POS VS BANCĂ
+  // Detectează dacă este o singură lună selectată
+  const isSingleMonth = useMemo(() => {
+    if (!dateRange.startDate || !dateRange.endDate) return false
+    const start = new Date(dateRange.startDate)
+    const end = new Date(dateRange.endDate)
+    const startMonth = start.getFullYear() * 12 + start.getMonth()
+    const endMonth = end.getFullYear() * 12 + end.getMonth()
+    return startMonth === endMonth
+  }, [dateRange])
+
+  // EVOLUȚIE LUNARĂ/ZILNICĂ POS VS BANCĂ
   const monthlyTrend = useMemo(() => {
+    // Dacă este o singură lună, agregăm pe zile
+    if (isSingleMonth) {
+      const dailyData = {}
+
+      posData.forEach(item => {
+        const date = new Date(item.operational_date)
+        const dayKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+        const dayLabel = `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}`
+        
+        if (!dailyData[dayKey]) {
+          dailyData[dayKey] = { month: dayLabel, pos: 0, banca: 0, sortKey: dayKey }
+        }
+        dailyData[dayKey].pos += parseFloat(item.amount || 0)
+      })
+
+      bancaData.forEach(item => {
+        const date = new Date(item.operational_date)
+        const dayKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+        const dayLabel = `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}`
+        
+        if (!dailyData[dayKey]) {
+          dailyData[dayKey] = { month: dayLabel, pos: 0, banca: 0, sortKey: dayKey }
+        }
+        dailyData[dayKey].banca += parseFloat(item.amount || 0)
+      })
+
+      const historicalData = Object.values(dailyData).sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+      
+      // Pentru o singură lună, nu generăm predicție AI (prea puține date)
+      return historicalData
+    }
+
+    // Agregare pe luni (logica originală)
     const monthlyData = {}
 
     posData.forEach(item => {
@@ -252,7 +324,8 @@ const POSBancaAIAnalysis = () => {
     const historicalData = Object.values(monthlyData).sort((a, b) => a.sortKey.localeCompare(b.sortKey))
     
     // ===== PREDICȚIE AI - SMART TREND ANALYSIS =====
-    if (historicalData.length >= 3) {
+    // Predicție doar pentru agregare lunară (nu pentru zile)
+    if (!isSingleMonth && historicalData.length >= 3) {
       const lastMonths = historicalData.slice(-3) // Ultimele 3 luni pentru trend recent
       
       // Calculăm SCHIMBAREA MEDIE LUNARĂ (nu slope absolut!)
@@ -306,7 +379,7 @@ const POSBancaAIAnalysis = () => {
     }
     
     return historicalData
-  }, [posData, bancaData])
+  }, [posData, bancaData, isSingleMonth])
 
   // AI INSIGHTS - DEDICATE PE TAB
   const aiInsights = useMemo(() => {
@@ -613,11 +686,18 @@ const POSBancaAIAnalysis = () => {
       {/* EVOLUȚIE LUNARĂ - CONDITIONAL PE TAB */}
       {(activeTab === 'toate' || activeTab === 'pos' || activeTab === 'banca') && (
       <div className="card p-6">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center">
-          <TrendingUp className="w-6 h-6 mr-2 text-blue-500" />
-          📈 Evoluție Lunară: {activeTab === 'pos' ? 'POS' : activeTab === 'banca' ? 'Bancă' : 'POS vs Bancă'}
-          <span className="ml-3 text-sm font-normal text-purple-600 dark:text-purple-400">🤖 cu Predicție AI</span>
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center">
+            <TrendingUp className="w-6 h-6 mr-2 text-blue-500" />
+            📈 Evoluție {isSingleMonth ? 'Zilnică' : 'Lunară'}: {activeTab === 'pos' ? 'POS' : activeTab === 'banca' ? 'Bancă' : 'POS vs Bancă'}
+            {!isSingleMonth && <span className="ml-3 text-sm font-normal text-purple-600 dark:text-purple-400">🤖 cu Predicție AI</span>}
+          </h2>
+          {posData.length === 0 && activeTab === 'pos' && (
+            <div className="text-sm text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 px-3 py-1 rounded-lg border border-yellow-300 dark:border-yellow-700">
+              ⚠️ Nu există date POS pentru perioada selectată. Rulează sincronizarea pentru {dateRange.startDate && dateRange.endDate ? `${dateRange.startDate} - ${dateRange.endDate}` : 'perioada selectată'}.
+            </div>
+          )}
+        </div>
         <ResponsiveContainer width="100%" height={400}>
           <LineChart data={monthlyTrend}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />

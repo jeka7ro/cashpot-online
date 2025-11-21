@@ -124,7 +124,7 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
         break
       case 'thisMonth':
         newStart = new Date(now.getFullYear(), now.getMonth(), 1)
-        // TOATĂ luna curentă (1 nov - 30 nov), NU doar până azi!
+        // TOATĂ luna curentă (1 nov - 30 nov)
         const lastDayThisMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
         newEnd = lastDayThisMonth
         break
@@ -614,8 +614,9 @@ export const QuickDateButtons = ({ onChange }) => {
         break
       case 'thisMonth':
         newStart = new Date(now.getFullYear(), now.getMonth(), 1)
-        const lastDayThisMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-        newEnd = lastDayThisMonth
+        // TOATĂ luna curentă (1 nov - 30 nov)
+        const lastDayThisMonth2 = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+        newEnd = lastDayThisMonth2
         break
       case 'lastMonth':
         newStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
@@ -642,7 +643,7 @@ export const QuickDateButtons = ({ onChange }) => {
         <button
           key={id}
           onClick={() => handleQuickAction(id)}
-          className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-slate-700 dark:text-slate-300 hover:text-blue-700 dark:hover:text-blue-300 rounded-lg font-medium text-xs transition-all flex items-center space-x-2"
+          className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-2xl bg-slate-900/60 text-slate-100 text-xs border border-slate-700 hover:bg-slate-800/80 hover:border-slate-500 transition-all h-[38px]"
           title={label}
         >
           <span className="text-blue-500">{icon}</span>

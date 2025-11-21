@@ -24,6 +24,7 @@ const AdvancedAnalytics = () => {
   
   const [expendituresData, setExpendituresData] = useState([])
   const [loading, setLoading] = useState(false)
+  const [syncSettings, setSyncSettings] = useState(null)
   
   // Filters din modal-ul vechi (PĂSTRĂM TOT!)
   const [selectedDepartment, setSelectedDepartment] = useState('all')
@@ -52,9 +53,13 @@ const AdvancedAnalytics = () => {
   const loadExpendituresData = async () => {
     try {
       setLoading(true)
-      const response = await axios.get('/api/expenditures/data')
-      setExpendituresData(response.data)
-      console.log('✅ Advanced Analytics: data loaded:', response.data.length)
+      const [dataRes, settingsRes] = await Promise.all([
+        axios.get('/api/expenditures/data'),
+        axios.get('/api/expenditures/settings')
+      ])
+      setExpendituresData(dataRes.data)
+      setSyncSettings(settingsRes.data)
+      console.log('✅ Advanced Analytics: data loaded:', dataRes.data.length)
     } catch (error) {
       console.error('Error loading expenditures:', error)
       toast.error('Eroare la încărcarea cheltuielilor')
@@ -251,13 +256,36 @@ const AdvancedAnalytics = () => {
   
   // Filter data pentru graficele NOI
   const filteredExpenditures = useMemo(() => {
-    let filtered = expendituresData
+    let filtered = expendituresData || []
+
+    const includedDepartments = syncSettings?.includedDepartments
+    const includedTypes = syncSettings?.includedExpenditureTypes
+    const includedLocations = syncSettings?.includedLocations
     
     // EXCLUDE "Unknown"
     filtered = filtered.filter(item => {
       const dept = (item.department_name || '').toLowerCase().trim()
       return dept !== 'unknown' && dept !== '' && dept !== 'null'
     })
+
+    // Aplică setările de includere din Expenditures Settings
+    if (Array.isArray(includedDepartments) && includedDepartments.length > 0) {
+      filtered = filtered.filter(item =>
+        includedDepartments.includes(item.department_name || '')
+      )
+    }
+
+    if (Array.isArray(includedTypes) && includedTypes.length > 0) {
+      filtered = filtered.filter(item =>
+        includedTypes.includes(item.expenditure_type || '')
+      )
+    }
+
+    if (Array.isArray(includedLocations) && includedLocations.length > 0) {
+      filtered = filtered.filter(item =>
+        includedLocations.includes(item.location_name || '')
+      )
+    }
     
     // DATE RANGE FILTER pentru graficele NOI
     if (dateRange.startDate && dateRange.endDate) {
@@ -270,7 +298,7 @@ const AdvancedAnalytics = () => {
     }
     
     return filtered
-  }, [expendituresData, dateRange])
+  }, [expendituresData, dateRange, syncSettings])
   
   return (
     <Layout>

@@ -189,12 +189,13 @@ const attachUserNames = async (pool, rows) => {
 }
 
 // External DB connection pool (for expenditures)
-// FORȚĂM IP EXTERN 82.76.35.50 pentru acces din afara biroului
+// FORȚĂM HOST extern cp.cashpot.online (la fel ca în Power BI / alte tool-uri)
 let externalPool = null
 
 const getExternalPool = () => {
-  // IP EXTERN pentru acces de oriunde - NU mai folosim IP intern 192.168.1.39!
-  const dbHost = process.env.EXPENDITURES_DB_HOST || '82.76.35.50'
+  // Host extern pentru acces de oriunde - NU mai folosim IP intern 192.168.1.39!
+  // Dacă vrei IP direct, setezi EXPENDITURES_DB_HOST=82.76.35.50 în .env.
+  const dbHost = process.env.EXPENDITURES_DB_HOST || 'cp.cashpot.online'
   
   // Întotdeauna resetăm pool-ul pentru a folosi IP-ul extern
   if (externalPool) {
@@ -655,22 +656,14 @@ router.post('/sync', async (req, res) => {
     
     console.log('📋 Sync settings:', syncSettings)
     
-    // Build WHERE clause based on filters
+    // Build WHERE clause DOAR pe interval de date!
+    // IMPORTANT: la sync NU mai aplicăm niciun filtru funcție de setări
+    // (departament, tip, locație, is_deleted etc). Importăm TOT ce există
+    // în intervalul [startDate, endDate], iar filtrele se aplică DOAR în UI.
     let whereConditions = []
     const queryParams = []
     let paramCounter = 1
-    
-    // is_deleted filter
-    if (syncSettings.excludeDeleted) {
-      whereConditions.push('p.is_deleted = false')
-    }
-    
-    // show_in_expenditures filter - verifică dacă coloana există înainte
-    // Nu aplicăm acest filter dacă coloana nu există în baza de date
-    // if (syncSettings.showInExpenditures !== null) {
-    //   whereConditions.push(`p.show_in_expenditures = ${syncSettings.showInExpenditures}`)
-    // }
-    
+
     if (startDate) {
       whereConditions.push(`p.operational_date >= $${paramCounter}`)
       queryParams.push(startDate)
@@ -709,35 +702,14 @@ router.post('/sync', async (req, res) => {
     
     _syncProgress.totalFetched = result.rows.length
     
-    // Filter data based on included items
-    _syncProgress.currentStep = 'Filtrare date...'
+    // IMPORTANT: NU FILTRĂM DATELE LA SINCRONIZARE!
+    // Importăm TOATE datele, indiferent de setări.
+    // Filtrarea se face doar la afișare în UI.
+    _syncProgress.currentStep = 'Pregătire date pentru import...'
     let filteredRows = result.rows
     
-    // Filter by expenditure types (only if list is not empty)
-    if (syncSettings.includedExpenditureTypes && syncSettings.includedExpenditureTypes.length > 0) {
-      filteredRows = filteredRows.filter(row => 
-        syncSettings.includedExpenditureTypes.includes(row.expenditure_type)
-      )
-      console.log(`📊 Filtered by expenditure types: ${filteredRows.length} records remaining`)
-    }
-    
-    // Filter by departments (only if list is not empty)
-    if (syncSettings.includedDepartments && syncSettings.includedDepartments.length > 0) {
-      filteredRows = filteredRows.filter(row => 
-        syncSettings.includedDepartments.includes(row.department_name)
-      )
-      console.log(`📊 Filtered by departments: ${filteredRows.length} records remaining`)
-    }
-    
-    // Filter by locations (only if list is not empty)
-    if (syncSettings.includedLocations && syncSettings.includedLocations.length > 0) {
-      filteredRows = filteredRows.filter(row => 
-        syncSettings.includedLocations.includes(row.location_name)
-      )
-      console.log(`📊 Filtered by locations: ${filteredRows.length} records remaining`)
-    }
-    
-    console.log(`✅ Final filtered data: ${filteredRows.length} records`)
+    console.log(`✅ Importăm TOATE datele (${filteredRows.length} înregistrări) - fără filtre!`)
+    console.log(`ℹ️ Filtrarea se face doar la afișare în UI, nu la import.`)
     
     _syncProgress.totalFiltered = filteredRows.length
     _syncProgress.currentStep = `Verificare duplicate și inserare înregistrări noi... (${filteredRows.length} de procesat)`
@@ -745,13 +717,12 @@ router.post('/sync', async (req, res) => {
     if (filteredRows.length === 0) {
       _syncProgress.status = 'completed'
       _syncProgress.currentStep = 'Nu există date de sincronizat'
-      console.warn('⚠️ No records to sync after filtering')
+      console.warn('⚠️ No records to sync')
       return res.json({
         success: true,
-        message: 'No records to sync after filtering',
+        message: 'No records to sync',
         records: 0,
-        dateRange: { startDate, endDate },
-        warning: 'Toate datele au fost filtrate. Verifică setările de sincronizare!'
+        dateRange: { startDate, endDate }
       })
     }
     
@@ -914,7 +885,8 @@ router.post('/sync', async (req, res) => {
       success: false, 
       error: errorMessage,
       hint: errorHint || undefined,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      // Trim item queries; pentru debug avem întotdeauna stack-ul complet
+      details: error.stack
     })
   }
 })
@@ -2119,6 +2091,195 @@ router.get('/settings', authenticateToken, async (req, res) => {
   }
 })
 
+// ===== CHELTUIELI BACKUP RULES (SERVER-SIDE) =====
+
+// GET /api/expenditures/backup-rules - list all rules
+router.get('/backup-rules', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not initialized' })
+    }
+
+    const result = await pool.query(
+      `
+        SELECT
+          id,
+          name,
+          schedule_type,
+          schedule_time,
+          day_of_week,
+          day_of_month,
+          start_date,
+          end_date,
+          retention_days,
+          is_active,
+          created_by,
+          created_at,
+          updated_at
+        FROM expenditures_backup_rules
+        ORDER BY created_at DESC
+      `
+    )
+
+    res.json({ success: true, rules: result.rows })
+  } catch (error) {
+    console.error('Error fetching expenditures backup rules:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// POST /api/expenditures/backup-rules - create rule
+router.post('/backup-rules', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not initialized' })
+    }
+
+    const userId = req.user?.userId || req.user?.id
+    const {
+      name,
+      schedule_type,
+      schedule_time,
+      day_of_week,
+      day_of_month,
+      start_date,
+      end_date,
+      retention_days,
+      is_active = true
+    } = req.body || {}
+
+    if (!name || !schedule_type) {
+      return res.status(400).json({ success: false, error: 'name și schedule_type sunt obligatorii' })
+    }
+
+    const result = await pool.query(
+      `
+        INSERT INTO expenditures_backup_rules (
+          name,
+          schedule_type,
+          schedule_time,
+          day_of_week,
+          day_of_month,
+          start_date,
+          end_date,
+          retention_days,
+          is_active,
+          created_by
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, 30), $9, $10)
+        RETURNING *
+      `,
+      [
+        name,
+        schedule_type,
+        schedule_time || null,
+        day_of_week || null,
+        day_of_month || null,
+        start_date || null,
+        end_date || null,
+        retention_days,
+        is_active,
+        userId || null
+      ]
+    )
+
+    res.json({ success: true, rule: result.rows[0] })
+  } catch (error) {
+    console.error('Error creating expenditures backup rule:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// PUT /api/expenditures/backup-rules/:id - update rule
+router.put('/backup-rules/:id', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not initialized' })
+    }
+
+    const { id } = req.params
+    const {
+      name,
+      schedule_type,
+      schedule_time,
+      day_of_week,
+      day_of_month,
+      start_date,
+      end_date,
+      retention_days,
+      is_active
+    } = req.body || {}
+
+    const result = await pool.query(
+      `
+        UPDATE expenditures_backup_rules
+        SET
+          name = COALESCE($1, name),
+          schedule_type = COALESCE($2, schedule_type),
+          schedule_time = COALESCE($3, schedule_time),
+          day_of_week = COALESCE($4, day_of_week),
+          day_of_month = COALESCE($5, day_of_month),
+          start_date = COALESCE($6, start_date),
+          end_date = COALESCE($7, end_date),
+          retention_days = COALESCE($8, retention_days),
+          is_active = COALESCE($9, is_active),
+          updated_at = NOW()
+        WHERE id = $10
+        RETURNING *
+      `,
+      [
+        name || null,
+        schedule_type || null,
+        schedule_time || null,
+        day_of_week || null,
+        typeof day_of_month === 'number' ? day_of_month : null,
+        start_date || null,
+        end_date || null,
+        typeof retention_days === 'number' ? retention_days : null,
+        typeof is_active === 'boolean' ? is_active : null,
+        id
+      ]
+    )
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Regulă de backup nu a fost găsită' })
+    }
+
+    res.json({ success: true, rule: result.rows[0] })
+  } catch (error) {
+    console.error('Error updating expenditures backup rule:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// DELETE /api/expenditures/backup-rules/:id - delete rule
+router.delete('/backup-rules/:id', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not initialized' })
+    }
+
+    const { id } = req.params
+    const result = await pool.query(
+      'DELETE FROM expenditures_backup_rules WHERE id = $1 RETURNING id',
+      [id]
+    )
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Regulă de backup nu a fost găsită' })
+    }
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Error deleting expenditures backup rule:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 // Update sync settings (PER USER!)
 router.put('/settings', authenticateToken, async (req, res) => {
   try {
@@ -2503,6 +2664,11 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
     let imported = 0
     let skipped = 0
     let errors = 0
+
+    // Set cu "chei" pentru rândurile curente din Google Sheets
+    // Cheia folosește exact combinația din UNIQUE INDEX:
+    // operational_date, amount, location_name, department_name, expenditure_type, data_source='google_sheets'
+    const currentKeys = new Set()
     
     for (const row of rows) {
       try {
@@ -2536,18 +2702,18 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
         
         // Parse date - accept multiple formats
         let operationalDate
-        if (dateStr.includes('.')) {
+        if (dateStr && dateStr.includes('.')) {
           const dateParts = dateStr.split('.')
           if (dateParts.length === 3) {
             operationalDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`
           }
-        } else if (dateStr.includes('/')) {
+        } else if (dateStr && dateStr.includes('/')) {
           const dateParts = dateStr.split('/')
           if (dateParts.length === 3) {
             operationalDate = `${dateParts[2]}-${dateParts[0].padStart(2, '0')}-${dateParts[1].padStart(2, '0')}`
           }
-        } else if (dateStr.includes('-')) {
-          operationalDate = dateStr
+        } else if (dateStr && dateStr.includes('-')) {
+          operationalDate = dateStr.split('T')[0]
         }
         
         if (!operationalDate) {
@@ -2568,6 +2734,21 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
           skipped++
           continue
         }
+
+        const normalizedLocation = (location || 'Unknown').trim()
+        const normalizedDepartment = (department || 'Unknown').trim()
+        const normalizedType = (expenditureType || 'Unknown').trim()
+
+        // Construim cheia pentru comparații ulterioare (detectare rânduri dispărute)
+        const key = [
+          operationalDate,
+          amount.toFixed(2),
+          normalizedLocation,
+          normalizedDepartment,
+          normalizedType,
+          'google_sheets'
+        ].join('||')
+        currentKeys.add(key)
         
         // Check if already exists (to avoid duplicates)
         if (!force) {
@@ -2578,8 +2759,9 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
               AND location_name = $3 
               AND department_name = $4
               AND expenditure_type = $5
+              AND data_source = 'google_sheets'
             LIMIT 1
-          `, [operationalDate, amount, location, department, expenditureType])
+          `, [operationalDate, amount, normalizedLocation, normalizedDepartment, normalizedType])
           
           if (existing.rows.length > 0) {
             skipped++
@@ -2600,7 +2782,16 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
             created_by,
             synced_at
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-        `, [operationalDate, amount, location, department, expenditureType, explanation, 'google_sheets', createdBy])
+        `, [
+          operationalDate,
+          amount,
+          normalizedLocation,
+          normalizedDepartment,
+          normalizedType,
+          explanation,
+          'google_sheets',
+          createdBy
+        ])
         
         imported++
         
@@ -2614,15 +2805,62 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
       }
     }
     
+    // După import: detectăm înregistrările care există în SQL cu data_source='google_sheets'
+    // dar NU mai există în Google Sheets (au fost șterse din sheet)
+    console.log('🔍 Checking for records that exist in SQL but not in current Google Sheet...')
+    const existingGsResult = await pool.query(`
+      SELECT 
+        id,
+        operational_date,
+        amount,
+        location_name,
+        department_name,
+        expenditure_type
+      FROM expenditures_sync
+      WHERE data_source = 'google_sheets'
+    `)
+
+    const orphanIds = []
+    let orphanSample = []
+
+    for (const row of existingGsResult.rows) {
+      const key = [
+        row.operational_date ? row.operational_date.toISOString().split('T')[0] : null,
+        Number(row.amount || 0).toFixed(2),
+        (row.location_name || 'Unknown').trim(),
+        (row.department_name || 'Unknown').trim(),
+        (row.expenditure_type || 'Unknown').trim(),
+        'google_sheets'
+      ].join('||')
+
+      if (!currentKeys.has(key)) {
+        orphanIds.push(row.id)
+        if (orphanSample.length < 5) {
+          orphanSample.push({
+            id: row.id,
+            operational_date: row.operational_date,
+            amount: row.amount,
+            location_name: row.location_name,
+            department_name: row.department_name,
+            expenditure_type: row.expenditure_type
+          })
+        }
+      }
+    }
+
     await pool.end()
     
     console.log(`🎉 Import completed: ${imported} imported, ${skipped} skipped, ${errors} errors`)
+    console.log(`🧹 Found ${orphanIds.length} records present in SQL but missing from current Google Sheet`)
     
     res.json({ 
       success: true, 
       imported, 
       skipped, 
       errors,
+      orphanCount: orphanIds.length,
+      orphanIds,
+      orphanSample,
       message: `Successfully imported ${imported} expenditures from Google Sheets`
     })
     
@@ -3047,7 +3285,7 @@ router.delete('/sql-table/:id', authenticateToken, async (req, res) => {
 
     const { id } = req.params
     const deleteResult = await pool.query(
-      'DELETE FROM expenditures_sync WHERE id = $1 RETURNING id',
+      'DELETE FROM expenditures_sync WHERE id = $1 RETURNING id, amount',
       [id]
     )
 
@@ -3055,9 +3293,60 @@ router.delete('/sql-table/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ success: false, error: 'Record not found' })
     }
 
-    res.json({ success: true })
+    res.json({ success: true, deleted: deleteResult.rows })
   } catch (error) {
     console.error('Error deleting expenditure row:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// BULK DELETE pentru SQL TABLE (ștergere multiplă după id-uri)
+router.post('/sql-table/bulk-delete', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not initialized' })
+    }
+
+    const { ids } = req.body || {}
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, error: 'Lista de ID-uri este goală sau invalidă' })
+    }
+
+    // Asigură-te că toate valorile sunt numere întregi
+    const normalizedIds = ids
+      .map((id) => Number.parseInt(id, 10))
+      .filter((id) => Number.isInteger(id))
+
+    if (normalizedIds.length === 0) {
+      return res.status(400).json({ success: false, error: 'Niciun ID valid pentru ștergere' })
+    }
+
+    const deleteResult = await pool.query(
+      `
+        DELETE FROM expenditures_sync
+        WHERE id = ANY($1::int[])
+        RETURNING id, amount
+      `,
+      [normalizedIds]
+    )
+
+    const deletedCount = deleteResult.rowCount
+    const deletedIds = deleteResult.rows.map((row) => row.id)
+    const deletedTotalAmount = deleteResult.rows.reduce(
+      (sum, row) => sum + Number(row.amount || 0),
+      0
+    )
+
+    res.json({
+      success: true,
+      deletedCount,
+      deletedIds,
+      deletedTotalAmount
+    })
+  } catch (error) {
+    console.error('Error bulk deleting expenditure rows:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })

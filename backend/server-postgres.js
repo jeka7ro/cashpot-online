@@ -45,6 +45,7 @@ import tasksRoutes from './routes/tasks.js'
 import messagesRoutes from './routes/messages.js'
 import notificationsRoutes from './routes/notifications.js'
 import expendituresRoutes from './routes/expenditures.js'
+import incasariRoutes from './routes/incasari.js'
 import { scheduleBackups } from './backup.js'
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
@@ -762,10 +763,17 @@ const initializeDatabase = async () => {
     if (adminCheck.rows.length === 0) {
       const hashedPassword = await bcrypt.hash('admin123', 10)
       await pool.query(
-        'INSERT INTO users (username, password, full_name, email, role, avatar) VALUES ($1, $2, $3, $4, $5, $6)',
-        ['admin', hashedPassword, 'Eugeniu Cazmal', 'eugeniu@cashpot.com', 'admin', '/assets/default-avatar.svg']
+        'INSERT INTO users (username, password, full_name, email, role, avatar, status) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+        ['admin', hashedPassword, 'Eugeniu Cazmal', 'eugeniu@cashpot.com', 'admin', '/assets/default-avatar.svg', 'active']
       )
       console.log('✅ Admin user created')
+    } else {
+      // Ensure admin user is active
+      await pool.query(
+        'UPDATE users SET status = $1 WHERE username = $2',
+        ['active', 'admin']
+      )
+      console.log('✅ Admin user status updated to active')
     }
 
     // Create additional users
@@ -1261,6 +1269,30 @@ const initializeDatabase = async () => {
       console.log('⚠️ Expenditure location mapping table may already exist:', error.message)
     }
 
+    // Expenditures backup rules table (for cheltuieli backup/schedule)
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS expenditures_backup_rules (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          schedule_type VARCHAR(50) NOT NULL, -- 'manual', 'daily', 'weekly', 'monthly'
+          schedule_time VARCHAR(10),          -- 'HH:MM'
+          day_of_week VARCHAR(10),            -- 'Mon', 'Tue', ... (for weekly)
+          day_of_month INTEGER,               -- 1-31 (for monthly)
+          start_date DATE,
+          end_date DATE,
+          retention_days INTEGER DEFAULT 30,
+          is_active BOOLEAN DEFAULT TRUE,
+          created_by INTEGER,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+      console.log('✅ Expenditures backup rules table created')
+    } catch (error) {
+      console.log('⚠️ Expenditures backup rules table may already exist:', error.message)
+    }
+
     // Migrate existing promotions to new prizes format
     try {
       // Check if old columns exist
@@ -1385,17 +1417,32 @@ app.get('/health/detailed', async (req, res) => {
 // Global settings endpoints
 app.get('/api/global-settings', async (req, res) => {
   try {
+    const pool = req.app.get('pool')
+    // Verifică dacă pool-ul este disponibil
+    if (!pool) {
+      console.error('❌ Database pool not available in global-settings endpoint')
+      return res.json({ login_settings: {} }) // Return empty settings instead of 500
+    }
+
     // Try to query global_settings table
     const result = await pool.query('SELECT * FROM global_settings ORDER BY setting_key')
     const settings = {}
     result.rows.forEach(row => {
       settings[row.setting_key] = row.setting_value
     })
-    res.json(settings)
+    
+    // Return format expected by frontend: { login_settings: {...} }
+    res.json({
+      login_settings: settings.login_settings || {}
+    })
   } catch (error) {
-    console.error('Error fetching global settings:', error)
+    console.error('❌ Error fetching global settings:', error.message)
+    console.error('Error details:', error.code, error.detail)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error stack:', error.stack)
+    }
     // Return empty settings instead of 500 - don't crash the app!
-    res.json({})
+    res.json({ login_settings: {} })
   }
 })
 
@@ -1440,6 +1487,8 @@ try {
   app.use('/api/notifications', authenticateUser, notificationsRoutes)
   console.log('📋 Registering /api/expenditures IMMEDIATELY...')
   app.use('/api/expenditures', authenticateUser, expendituresRoutes)
+  console.log('📋 Registering /api/incasari IMMEDIATELY...')
+  app.use('/api/incasari', authenticateUser, incasariRoutes)
   console.log('✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅')
 } catch (error) {
   console.error('❌❌❌ IMMEDIATE ERROR during route registration:', error)
@@ -1855,26 +1904,68 @@ app.get('/debug/users', async (req, res) => {
 // Auth Routes
 app.post('/api/auth/login', async (req, res) => {
   try {
+    // Verifică dacă pool-ul este disponibil
+    if (!pool) {
+      console.error('❌ Database pool not available in login endpoint')
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Database connection not available. Please check backend logs.',
+        details: 'Pool is null or undefined'
+      })
+    }
+
     const { username, password } = req.body
+    
+    if (!username || !password) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Username and password are required' 
+      })
+    }
+
+    console.log(`🔐 Login attempt for username: ${username}`)
     
     const result = await pool.query('SELECT * FROM users WHERE username = $1', [username])
     
     if (result.rows.length === 0) {
+      console.log(`⚠️ User not found: ${username}`)
       return res.status(401).json({ success: false, message: 'Invalid credentials' })
     }
     
     const user = result.rows[0]
+    
+    // Verifică dacă parola există
+    if (!user.password) {
+      console.error(`❌ User ${username} has no password set`)
+      return res.status(500).json({ 
+        success: false, 
+        message: 'User account error. Please contact administrator.' 
+      })
+    }
+
     const isValid = await bcrypt.compare(password, user.password)
     
     if (!isValid) {
+      console.log(`⚠️ Invalid password for user: ${username}`)
       return res.status(401).json({ success: false, message: 'Invalid credentials' })
+    }
+
+    // Verifică dacă utilizatorul este activ
+    if (user.status !== 'active') {
+      console.log(`⚠️ Inactive user attempted login: ${username}`)
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Account is inactive. Please contact administrator.' 
+      })
     }
     
     const token = jwt.sign(
       { userId: user.id, username: user.username },
       process.env.JWT_SECRET || 'cashpot-secret-key-2024',
-      { expiresIn: '7d' } // Extend to 7 days to avoid frequent re-logins
+      { expiresIn: '7d' }
     )
+    
+    console.log(`✅ Login successful for user: ${username} (ID: ${user.id})`)
     
     res.json({
       success: true,
@@ -1892,14 +1983,37 @@ app.post('/api/auth/login', async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
+    console.error('❌ Login error:', error)
+    console.error('Error stack:', error.stack)
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    })
   }
 })
 
 // Verify token
 app.get('/api/auth/verify', async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1]
+    const pool = req.app.get('pool')
+    if (!pool) {
+      console.error('❌ [verify] Database pool not available')
+      return res.status(500).json({
+        success: false,
+        message: 'Database connection not available'
+      })
+    }
+
+    const authHeader = req.headers.authorization
+    if (!authHeader) {
+      return res.status(401).json({
+        success: false,
+        message: 'No authorization header provided'
+      })
+    }
+
+    const token = authHeader.split(' ')[1]
     
     if (!token) {
       return res.status(401).json({
@@ -1908,10 +2022,28 @@ app.get('/api/auth/verify', async (req, res) => {
       })
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'cashpot-secret-key-2024')
+    let decoded
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'cashpot-secret-key-2024')
+    } catch (jwtError) {
+      console.error('❌ [verify] JWT verification error:', jwtError.message)
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired token'
+      })
+    }
+
+    if (!decoded || !decoded.userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid token payload'
+      })
+    }
+
     const result = await pool.query('SELECT * FROM users WHERE id = $1', [decoded.userId])
     
     if (result.rows.length === 0) {
+      console.warn(`⚠️ [verify] User not found for ID: ${decoded.userId}`)
       return res.status(401).json({
         success: false,
         message: 'User not found'
@@ -2043,10 +2175,31 @@ app.get('/api/auth/verify', async (req, res) => {
       }
     })
   } catch (error) {
-    console.error('Token verification error:', error)
-    res.status(401).json({
+    console.error('❌ Token verification error:', error.message)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error stack:', error.stack)
+    }
+    
+    // Different error types
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired token'
+      })
+    }
+    
+    // Database errors
+    if (error.code === 'ECONNREFUSED' || error.message?.includes('Connection')) {
+      return res.status(503).json({
+        success: false,
+        message: 'Database connection error'
+      })
+    }
+    
+    res.status(500).json({
       success: false,
-      message: 'Invalid token'
+      message: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     })
   }
 })
@@ -4987,6 +5140,208 @@ app.get('/api/restore-dashboard/:userId', authenticateUser, async (req, res) => 
   } catch (error) {
     console.error('Error getting dashboard config:', error)
     res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Import all data from external database - DIRECT IMPORT (no script file)
+app.post('/api/import/all-data', authenticateUser, async (req, res) => {
+  // Return immediately - import runs in background
+  res.json({ 
+    success: true, 
+    message: 'Import started in background. Check /api/import/status for progress.',
+    note: 'This may take several minutes depending on data size.'
+  })
+  
+  // Run import in background (don't await)
+  importAllDataDirect(pool).catch(error => {
+    console.error('❌ Import error:', error)
+  })
+})
+
+// Direct import function (no external script)
+async function importAllDataDirect(localPool) {
+  const pkg = await import('pg')
+  const { Pool } = pkg
+  
+  // Try LAN first, then external
+  let externalPool = null
+  let externalDbHost = '192.168.1.39'
+  
+  try {
+    console.log('🚀 Starting DIRECT data import from external database...')
+    console.log(`🔌 Trying LAN connection: ${externalDbHost}:26257`)
+    
+    externalPool = new Pool({
+      user: process.env.EXPENDITURES_DB_USER || 'cashpot',
+      password: process.env.EXPENDITURES_DB_PASSWORD || '129hj8oahwd7yaw3e21321',
+      host: externalDbHost,
+      port: 26257,
+      database: process.env.EXPENDITURES_DB_NAME || 'cashpot',
+      ssl: false,
+      max: 5,
+      connectionTimeoutMillis: 10000 // Quick timeout
+    })
+    
+    await externalPool.query('SELECT NOW()')
+    console.log(`✅ Connected to LAN DB: ${externalDbHost}`)
+  } catch (lanError) {
+    console.log(`⚠️ LAN failed, trying external IP: 82.76.35.50`)
+    if (externalPool) {
+      await externalPool.end().catch(() => {})
+    }
+    
+    externalPool = new Pool({
+      user: process.env.EXPENDITURES_DB_USER || 'cashpot',
+      password: process.env.EXPENDITURES_DB_PASSWORD || '129hj8oahwd7yaw3e21321',
+      host: '82.76.35.50',
+      port: 26257,
+      database: process.env.EXPENDITURES_DB_NAME || 'cashpot',
+      ssl: false,
+      max: 5,
+      connectionTimeoutMillis: 30000
+    })
+    
+    await externalPool.query('SELECT NOW()')
+    console.log(`✅ Connected to External DB: 82.76.35.50`)
+  }
+  
+  try {
+    // Get table list
+    const tablesResult = await externalPool.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_type = 'BASE TABLE'
+      AND table_name NOT LIKE 'pg_%'
+      ORDER BY table_name
+    `)
+    
+    const tables = tablesResult.rows.map(r => r.table_name)
+    console.log(`📋 Found ${tables.length} tables to import`)
+    
+    let totalImported = 0
+    let totalSkipped = 0
+    
+    // Import each table
+    for (const tableName of tables) {
+      try {
+        console.log(`\n📊 Importing: ${tableName}`)
+        
+        // Get data from external
+        const externalData = await externalPool.query(`SELECT * FROM ${tableName} LIMIT 10000`) // Limit pentru viteză
+        console.log(`   Found ${externalData.rows.length} rows`)
+        
+        if (externalData.rows.length === 0) continue
+        
+        const columns = externalData.fields.map(f => f.name)
+        const columnsStr = columns.join(', ')
+        const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ')
+        
+        // Import with ON CONFLICT for duplicates
+        let imported = 0
+        let skipped = 0
+        
+        for (const row of externalData.rows) {
+          try {
+            const values = columns.map(col => row[col])
+            
+            // Special handling for expenditures_sync
+            if (tableName === 'expenditures_sync' || tableName === 'casino_payments') {
+              // Skip if importing to expenditures_sync - use sync endpoint instead
+              continue
+            }
+            
+            let insertSQL = `INSERT INTO ${tableName} (${columnsStr}) VALUES (${placeholders})`
+            
+            // Add ON CONFLICT if id exists
+            if (columns.includes('id')) {
+              insertSQL += ` ON CONFLICT (id) DO UPDATE SET ${columns
+                .filter(c => c !== 'id')
+                .map(c => `${c} = EXCLUDED.${c}`)
+                .join(', ')}`
+            } else {
+              insertSQL += ` ON CONFLICT DO NOTHING`
+            }
+            
+            const result = await localPool.query(insertSQL, values)
+            if (result.rowCount > 0) imported++
+            else skipped++
+          } catch (rowError) {
+            if (rowError.code === '23505') skipped++
+            else console.error(`   Error row:`, rowError.message)
+          }
+        }
+        
+        totalImported += imported
+        totalSkipped += skipped
+        console.log(`   ✅ ${imported} imported, ${skipped} skipped`)
+        
+      } catch (tableError) {
+        console.error(`❌ Error importing ${tableName}:`, tableError.message)
+      }
+    }
+    
+    console.log(`\n✅ IMPORT COMPLETE: ${totalImported} imported, ${totalSkipped} skipped`)
+    
+  } finally {
+    if (externalPool) {
+      await externalPool.end()
+    }
+  }
+}
+
+// Get import status (check if tables exist and have data)
+app.get('/api/import/status', authenticateUser, async (req, res) => {
+  try {
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database not available' })
+    }
+    
+    // Get all tables and their row counts
+    const tablesResult = await pool.query(`
+      SELECT 
+        table_name,
+        (SELECT COUNT(*) FROM information_schema.columns WHERE table_name = t.table_name) as column_count
+      FROM information_schema.tables t
+      WHERE table_schema = 'public' 
+      AND table_type = 'BASE TABLE'
+      ORDER BY table_name
+    `)
+    
+    const tablesWithCounts = await Promise.all(
+      tablesResult.rows.map(async (table) => {
+        try {
+          const countResult = await pool.query(`SELECT COUNT(*) as count FROM ${table.table_name}`)
+          return {
+            name: table.table_name,
+            rowCount: parseInt(countResult.rows[0].count),
+            columnCount: parseInt(table.column_count)
+          }
+        } catch (error) {
+          return {
+            name: table.table_name,
+            rowCount: 0,
+            columnCount: parseInt(table.column_count),
+            error: error.message
+          }
+        }
+      })
+    )
+    
+    const totalRows = tablesWithCounts.reduce((sum, table) => sum + table.rowCount, 0)
+    
+    res.json({
+      success: true,
+      totalTables: tablesWithCounts.length,
+      totalRows: totalRows,
+      tables: tablesWithCounts
+    })
+  } catch (error) {
+    console.error('❌ Error getting import status:', error)
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    })
   }
 })
 

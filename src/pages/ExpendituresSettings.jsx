@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
-import { X, Save, Filter, RefreshCw, Eye, EyeOff, CheckSquare, Square, Cloud, Download, MapPin, Database, ArrowLeft, Settings, AlertCircle, CheckCircle } from 'lucide-react'
+import { X, Save, Filter, RefreshCw, Eye, EyeOff, CheckSquare, Square, Cloud, Download, MapPin, Database, ArrowLeft, Settings, AlertCircle, CheckCircle, Trash2 } from 'lucide-react'
 import axios from 'axios'
 import { toast } from 'react-hot-toast'
 
@@ -91,6 +91,30 @@ const ExpendituresSettings = () => {
   const [forceImport, setForceImport] = useState(false) // Force import toggle
   const [previewData, setPreviewData] = useState(null) // Preview data before import
   const [loadingPreview, setLoadingPreview] = useState(false)
+
+  // Manual actions state (sync / import-all / clean-duplicates)
+  const [syncingManual, setSyncingManual] = useState(false)
+  const [importingAllManual, setImportingAllManual] = useState(false)
+  const [cleaningDuplicates, setCleaningDuplicates] = useState(false)
+  const [importAllProgress, setImportAllProgress] = useState(null)
+  const importAllProgressIntervalRef = useRef(null)
+
+  const fetchImportAllProgress = async () => {
+    try {
+      const response = await axios.get('/api/expenditures/import-all-status')
+      const progress = response.data
+      setImportAllProgress(progress)
+
+      if (progress && (progress.status === 'completed' || progress.status === 'failed')) {
+        if (importAllProgressIntervalRef.current) {
+          clearInterval(importAllProgressIntervalRef.current)
+          importAllProgressIntervalRef.current = null
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching import-all progress (settings):', error)
+    }
+  }
   
   // Reset loading state dacă rămâne blocat
   useEffect(() => {
@@ -122,6 +146,109 @@ const ExpendituresSettings = () => {
       loadGoogleSheetsStatus()
     }
   }, [activeTab])
+
+  // Cleanup import-all interval la unmount
+  useEffect(() => {
+    return () => {
+      if (importAllProgressIntervalRef.current) {
+        clearInterval(importAllProgressIntervalRef.current)
+        importAllProgressIntervalRef.current = null
+      }
+    }
+  }, [])
+
+  // Manual sync from settings (same endpoints ca în pagina principală de Cheltuieli)
+  const handleManualSync = async () => {
+    try {
+      setSyncingManual(true)
+      toast.loading('Pornire sincronizare cheltuieli...', { id: 'sync-manual', duration: 1500 })
+      const response = await axios.post('/api/expenditures/sync', {
+        filters: settings.filters || settings
+      })
+      if (response.data?.success) {
+        toast.success('✅ Sincronizare pornită. Verifică progresul în pagina Cheltuieli.', {
+          id: 'sync-manual',
+          duration: 4000
+        })
+      } else {
+        toast.error('❌ Nu am putut porni sincronizarea.', { id: 'sync-manual', duration: 4000 })
+      }
+    } catch (error) {
+      console.error('Error syncing expenditures (settings):', error)
+      const msg = error.response?.data?.error || error.message || 'Eroare la sincronizare'
+      toast.error(`❌ ${msg}`, { id: 'sync-manual', duration: 5000 })
+    } finally {
+      setSyncingManual(false)
+    }
+  }
+
+  const handleManualImportAll = async () => {
+    try {
+      setImportingAllManual(true)
+      toast.loading('Pornire import complet cheltuieli...', { id: 'import-all-manual', duration: 1500 })
+
+      const response = await axios.post('/api/expenditures/import-all').catch((error) => {
+        // Dacă importul este deja pornit, backend-ul poate întoarce 400 cu alreadyRunning
+        if (error.response?.status === 400 && error.response?.data?.alreadyRunning) {
+          return { data: { success: true, alreadyRunning: true } }
+        }
+        throw error
+      })
+
+      if (response.data?.success || response.data?.alreadyRunning) {
+        toast.success('✅ Import pornit. Vezi progresul mai jos.', {
+          id: 'import-all-manual',
+          duration: 4000
+        })
+
+        // Pornește polling pentru progres direct din SETĂRI
+        if (importAllProgressIntervalRef.current) {
+          clearInterval(importAllProgressIntervalRef.current)
+        }
+        importAllProgressIntervalRef.current = setInterval(fetchImportAllProgress, 1500)
+        setTimeout(fetchImportAllProgress, 500)
+      } else {
+        toast.error('❌ Nu am putut porni importul complet.', { id: 'import-all-manual', duration: 5000 })
+      }
+    } catch (error) {
+      console.error('Error starting import-all (settings):', error)
+      const msg = error.response?.data?.error || error.message || 'Eroare la import'
+      toast.error(`❌ ${msg}`, { id: 'import-all-manual', duration: 5000 })
+    } finally {
+      setImportingAllManual(false)
+    }
+  }
+
+  const handleManualCleanDuplicates = async () => {
+    try {
+      const confirmed = window.confirm(
+        '⚠️ Ești sigur că vrei să cureți duplicatele din cheltuieli?\nAceastă acțiune nu poate fi anulată.'
+      )
+      if (!confirmed) return
+
+      setCleaningDuplicates(true)
+      toast.loading('Se curăță duplicatele din cheltuieli...', { id: 'clean-duplicates-manual' })
+      const response = await axios.post('/api/expenditures/clean-duplicates')
+      if (response.data?.success) {
+        toast.success(
+          `✅ ${response.data.message}\n📊 După curățare: ${response.data.totalRecordsAfter} înregistrări`,
+          { id: 'clean-duplicates-manual', duration: 6000 }
+        )
+      } else {
+        toast.error('❌ Nu am putut curăța duplicatele.', {
+          id: 'clean-duplicates-manual',
+          duration: 5000
+        })
+      }
+    } catch (error) {
+      console.error('Error cleaning duplicates (settings):', error)
+      const msg =
+        error.response?.data?.error || error.response?.data?.message || error.message || 'Eroare la curățare'
+      toast.error(`❌ ${msg}`, { id: 'clean-duplicates-manual', duration: 5000 })
+    } finally {
+      setCleaningDuplicates(false)
+    }
+  }
   
   const loadGoogleSheetsStatus = async () => {
     try {
@@ -1408,6 +1535,97 @@ const ExpendituresSettings = () => {
                 </div>
               </div>
               
+              {/* Acțiuni manuale (mutate din pagina principală Cheltuieli) */}
+              <div className="bg-slate-50 dark:bg-slate-900/40 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-3">
+                  Acțiuni Manuale Cheltuieli
+                </h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                  Aici sunt butoanele pentru <strong>Sincronizare Date</strong>, <strong>Import Toate Datele</strong> și <strong>Curăță Duplicate</strong>, mutate din pagina principală de Cheltuieli.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={handleManualSync}
+                    disabled={syncingManual}
+                    className={`inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-sm font-semibold border transition-all hover:scale-105 active:scale-95 ${
+                      syncingManual ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    style={{
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      borderColor: 'rgba(255, 255, 255, 0.25)',
+                      boxShadow: '0 6px 18px rgba(16, 185, 129, 0.35)'
+                    }}
+                  >
+                    <RefreshCw className={`w-4 h-4 ${syncingManual ? 'animate-spin' : ''}`} />
+                    <span>{syncingManual ? 'Sincronizare...' : 'Sincronizare Date'}</span>
+                  </button>
+
+                  <button
+                    onClick={handleManualImportAll}
+                    disabled={importingAllManual}
+                    className={`inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-sm font-semibold border transition-all hover:scale-105 active:scale-95 ${
+                      importingAllManual ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    style={{
+                      background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
+                      borderColor: 'rgba(255, 255, 255, 0.25)',
+                      boxShadow: '0 6px 18px rgba(37, 99, 235, 0.35)'
+                    }}
+                    title="Importă TOATE datele din toate sursele (SQL, Google Sheets, BAT, API) - fără dubluri"
+                  >
+                    <Database className={`w-4 h-4 ${importingAllManual ? 'animate-spin' : ''}`} />
+                    <span>{importingAllManual ? 'Import...' : 'Import Toate Datele'}</span>
+                  </button>
+
+                  <button
+                    onClick={handleManualCleanDuplicates}
+                    disabled={cleaningDuplicates}
+                    className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-sm font-semibold border transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-red-500 to-red-600 border-red-400 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>{cleaningDuplicates ? 'Curățare...' : 'Curăță Duplicate'}</span>
+                  </button>
+                </div>
+
+                {/* Progres Import Toate Datele - vizibil direct în Setări */}
+                {importAllProgress && (
+                  <div className="mt-4 bg-slate-900/40 border border-slate-700 rounded-xl p-4 text-xs text-slate-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">Progres Import Toate Datele</span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                          importAllProgress.status === 'completed'
+                            ? 'bg-emerald-500/20 text-emerald-300'
+                            : importAllProgress.status === 'failed'
+                            ? 'bg-red-500/20 text-red-300'
+                            : 'bg-sky-500/20 text-sky-300'
+                        }`}
+                      >
+                        {importAllProgress.status === 'running'
+                          ? 'În curs...'
+                          : importAllProgress.status === 'completed'
+                          ? 'Finalizat'
+                          : importAllProgress.status === 'failed'
+                          ? 'Eroare'
+                          : importAllProgress.status || 'Necunoscut'}
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="h-2 bg-sky-400 transition-all"
+                        style={{ width: `${Math.min(importAllProgress.progress || 0, 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Mesaj: {importAllProgress.message || '-'}</span>
+                      <span>
+                        {importAllProgress.totalImported || 0}/{importAllProgress.totalRows || 0} rânduri
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-4">Setări Sincronizare Automată</h3>
                 

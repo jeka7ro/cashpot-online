@@ -3,7 +3,14 @@ import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { TrendingUp, TrendingDown, DollarSign, Building2, Briefcase } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
 
-const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, onLocationClick }) => {
+const formatDateLocal = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, onLocationClick, onTrendRangeSelect }) => {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const [hoveredDepartment, setHoveredDepartment] = useState(null)
@@ -252,6 +259,42 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
     return distribution
   }, [trendData, expendituresData])
 
+  const handleTrendClick = (state) => {
+    if (!onTrendRangeSelect) return
+    if (!state || !state.activePayload || !state.activePayload[0]) return
+
+    const payload = state.activePayload[0].payload
+    const originalDate = payload.originalDate
+    if (!originalDate) return
+
+    let startDate
+    let endDate
+
+    if (originalDate.length === 7) {
+      // Format "YYYY-MM" → toată luna
+      const [yearStr, monthStr] = originalDate.split('-')
+      const year = parseInt(yearStr, 10)
+      const month = parseInt(monthStr, 10) - 1
+      const start = new Date(year, month, 1)
+      const end = new Date(year, month + 1, 0)
+      startDate = formatDateLocal(start)
+      endDate = formatDateLocal(end)
+    } else if (originalDate.length === 10) {
+      // Format "YYYY-MM-DD" → o singură zi
+      const [yearStr, monthStr, dayStr] = originalDate.split('-')
+      const year = parseInt(yearStr, 10)
+      const month = parseInt(monthStr, 10) - 1
+      const day = parseInt(dayStr, 10)
+      const d = new Date(year, month, day)
+      startDate = formatDateLocal(d)
+      endDate = formatDateLocal(d)
+    } else {
+      return
+    }
+
+    onTrendRangeSelect({ startDate, endDate, originalDate })
+  }
+
   // Tooltip custom pentru departamente cu distribuție pe locații
   const CustomDepartmentTooltip = ({ active, payload }) => {
     if (!active || !payload || !payload[0]) return null
@@ -390,7 +433,7 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
           </div>
         </div>
         <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={trendData}>
+          <LineChart data={trendData} onClick={handleTrendClick}>
             <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
             <XAxis 
               dataKey="date" 

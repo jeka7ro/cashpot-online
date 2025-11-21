@@ -50,10 +50,15 @@ export const AuthProvider = ({ children }) => {
     }
 
     // CIRCUIT BREAKER: Dacă backend-ul e down, NU mai încerca!
+    // BUT: Allow verification attempts to reset the circuit breaker if backend is back
     if (backendFailures.current >= CIRCUIT_BREAKER_THRESHOLD) {
       if (now - lastFailureTime.current < CIRCUIT_BREAKER_RESET_TIME) {
         console.warn('🚫 CIRCUIT BREAKER ACTIV - Backend-ul este DOWN! Opresc request-urile...')
-        throw new Error('Backend unavailable - circuit breaker active')
+        // Still allow ONE attempt to check if backend is back online
+        // This prevents permanent blocking if backend recovers
+        if (backendFailures.current > CIRCUIT_BREAKER_THRESHOLD + 1) {
+          throw new Error('Backend unavailable - circuit breaker active')
+        }
       } else {
         // Reset circuit breaker după 1 minut
         console.log('🔄 Circuit breaker RESET - încerc din nou...')
@@ -216,15 +221,33 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true)
       
-      // NU mai trezesc backend-ul - pierdere de timp și request-uri extra!
+      // Reset circuit breaker before login attempt - allow fresh attempts
+      backendFailures.current = 0
+      lastFailureTime.current = 0
+      
+      // Clear token verification cache to force fresh verification
+      tokenVerificationCache.current = {
+        token: null,
+        data: null,
+        timestamp: 0,
+        CACHE_DURATION: 5 * 60 * 1000
+      }
 
       const response = await axios.post(
         '/api/auth/login',
         { username, password },
-        { timeout: 15000 } // Redus la 15s (era 30s!)
+        { timeout: 15000 }
       )
 
+      if (!response.data || !response.data.success) {
+        throw new Error(response.data?.message || 'Login failed')
+      }
+
       const { token: newToken } = response.data
+      
+      if (!newToken) {
+        throw new Error('No token received from server')
+      }
       
       // Store token in sessionStorage
       sessionStorage.setItem('authToken', newToken)
@@ -252,25 +275,38 @@ export const AuthProvider = ({ children }) => {
         toast.success(`Bun venit, ${userData.fullName}!`)
         // Reset circuit breaker on successful login
         backendFailures.current = 0
+        lastFailureTime.current = 0
         return { success: true }
       } else {
         throw new Error('No user data received after login')
       }
     } catch (error) {
+      console.error('Login error:', error)
+      
       const isTimeout = error.code === 'ECONNABORTED'
       const is503 = error.response?.status === 503
+      const is500 = error.response?.status === 500
+      const is401 = error.response?.status === 401
+      const isNetworkError = !error.response && error.message?.includes('Network')
       
       let message
-      if (is503) {
-        message = '🔴 Backend-ul este CĂZUT (503). Contactează echipa tehnică!'
-        backendFailures.current = CIRCUIT_BREAKER_THRESHOLD // Activează circuit breaker
-      } else if (isTimeout) {
-        message = '⏱️ Timeout la autentificare. Backend-ul răspunde greu - încearcă din nou în 1 minut.'
+      if (is503 || is500) {
+        message = '🔴 Backend-ul are probleme tehnice. Te rugăm să încerci din nou în câteva momente.'
+        backendFailures.current++
+        lastFailureTime.current = Date.now()
+      } else if (isTimeout || isNetworkError) {
+        message = '⏱️ Nu s-a putut conecta la server. Verifică conexiunea la internet.'
+        backendFailures.current++
+        lastFailureTime.current = Date.now()
+      } else if (is401) {
+        message = error.response?.data?.message || 'Nume de utilizator sau parolă incorectă'
+        // Don't increment failures for auth errors - these are user errors, not server errors
       } else {
-        message = error.response?.data?.message || 'Eroare la autentificare'
+        message = error.response?.data?.message || error.message || 'Eroare la autentificare'
       }
       
-      toast.error(message, { duration: 8000, id: 'login-error' })
+      // Only show one toast per login attempt
+      toast.error(message, { duration: 5000, id: 'login-error' })
       return { success: false, error: message }
     } finally {
       setLoading(false)

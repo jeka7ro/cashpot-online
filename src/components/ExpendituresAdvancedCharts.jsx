@@ -193,6 +193,10 @@ const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts
       monthMap[monthKey] += parseFloat(item.amount || 0)
     })
     
+    const today = new Date()
+    const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+
+    // Ultimele 6 luni (inclusiv luna curentă dacă are date)
     const historical = Object.entries(monthMap)
       .sort((a, b) => a[0].localeCompare(b[0]))
       .slice(-6)
@@ -200,18 +204,27 @@ const ExpendituresAdvancedCharts = ({ expendituresData, dateRange, visibleCharts
         const [year, month] = monthKey.split('-')
         const date = new Date(parseInt(year), parseInt(month) - 1, 1)
         return {
+          key: monthKey,
           month: date.toLocaleDateString('ro-RO', { month: 'short' }),
           actual: Math.round(value),
           predicted: null
         }
       })
     
-    // Simple prediction: average of last 3 months
-    const lastThree = historical.slice(-3).map(d => d.actual)
+    // Pentru PREDICȚIE folosim DOAR lunile COMPLETE (excludem luna curentă, care nu e încheiată)
+    const completedMonths = historical.filter((m) => m.key !== currentMonthKey && m.actual != null)
+    const lastThree = completedMonths.slice(-3).map(d => d.actual)
+
+    if (lastThree.length === 0) {
+      // Nu avem suficiente date pentru predicție – întoarcem doar istoricul
+      return historical
+    }
+
+    // Simple prediction: average of last 3 completed months
     const avgLast3 = lastThree.reduce((a, b) => a + b, 0) / lastThree.length
     
     // Trend slope
-    const slope = (lastThree[2] - lastThree[0]) / 2
+    const slope = lastThree.length >= 3 ? (lastThree[lastThree.length - 1] - lastThree[0]) / (lastThree.length - 1) : 0
     
     // Predict next 3 months
     const predictions = []

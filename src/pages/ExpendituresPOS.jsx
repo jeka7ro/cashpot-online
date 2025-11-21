@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
-import { DollarSign, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, TrendingUp, TrendingDown, Table2, ArrowLeft, Coins, Brain, Briefcase, BarChart3, RefreshCw } from 'lucide-react'
+import { DollarSign, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, TrendingUp, TrendingDown, Table2, ArrowLeft, Coins, Brain, Briefcase, BarChart3, RefreshCw, Settings } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
@@ -138,12 +138,19 @@ const ExpendituresPOS = () => {
   }
   
   const savedPrefs = loadSavedPreferences()
+
+  const formatDateLocal = (date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
   
   // Filters with saved preferences
   const [dateRange, setDateRange] = useState(
     savedPrefs?.dateRange || {
-      startDate: new Date(new Date().getFullYear() - 2, 0, 1).toISOString().split('T')[0], // Jan 1, 2023
-      endDate: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0]  // Dec 31, 2025
+      startDate: formatDateLocal(new Date(new Date().getFullYear() - 2, 0, 1)), // Jan 1, acum 2 ani
+      endDate: formatDateLocal(new Date(new Date().getFullYear(), 11, 31))  // Dec 31, anul curent
     }
   )
   const [departmentFilter, setDepartmentFilter] = useState(savedPrefs?.departmentFilter || 'all')
@@ -170,38 +177,48 @@ const ExpendituresPOS = () => {
     
     switch (filterType) {
       case 'azi':
-        startDate = today.toISOString().split('T')[0]
-        endDate = today.toISOString().split('T')[0]
+        startDate = formatDateLocal(today)
+        endDate = formatDateLocal(today)
         break
       
-      case 'saptamana-curenta':
+      case 'saptamana-curenta': {
         const dayOfWeek = today.getDay()
         const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek // Monday as start
         const monday = new Date(today)
         monday.setDate(today.getDate() + mondayOffset)
-        startDate = monday.toISOString().split('T')[0]
-        endDate = today.toISOString().split('T')[0]
+        startDate = formatDateLocal(monday)
+        endDate = formatDateLocal(today)
         break
+      }
       
-      case 'luna-curenta':
-        startDate = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
-        endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0]
+      case 'luna-curenta': {
+        const start = new Date(today.getFullYear(), today.getMonth(), 1)
+        const end = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+        startDate = formatDateLocal(start)
+        endDate = formatDateLocal(end)
         break
+      }
       
-      case 'luna-anterioara':
-        startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString().split('T')[0]
-        endDate = new Date(today.getFullYear(), today.getMonth(), 0).toISOString().split('T')[0]
+      case 'luna-anterioara': {
+        const start = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+        const end = new Date(today.getFullYear(), today.getMonth(), 0)
+        startDate = formatDateLocal(start)
+        endDate = formatDateLocal(end)
         break
+      }
       
-      case 'anul-curent':
-        startDate = new Date(today.getFullYear(), 0, 1).toISOString().split('T')[0]
-        endDate = new Date(today.getFullYear(), 11, 31).toISOString().split('T')[0]
+      case 'anul-curent': {
+        const start = new Date(today.getFullYear(), 0, 1)
+        const end = new Date(today.getFullYear(), 11, 31)
+        startDate = formatDateLocal(start)
+        endDate = formatDateLocal(end)
         break
+      }
       
       case 'toate':
         // All time - set very broad range
         startDate = '2020-01-01'
-        endDate = new Date(today.getFullYear() + 1, 11, 31).toISOString().split('T')[0]
+        endDate = formatDateLocal(new Date(today.getFullYear() + 1, 11, 31))
         break
       
       default:
@@ -1422,13 +1439,15 @@ const ExpendituresPOS = () => {
             <div className="text-center py-12 text-slate-500 dark:text-slate-400">
               <BarChart3 className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p className="text-lg font-semibold">Nu există date disponibile</p>
-              <p className="text-sm mt-2">Sincronizați datele pentru a vedea cheltuielile</p>
+              <p className="text-sm mt-2">
+                Datele se sincronizează din <strong>Setări &gt; Cheltuieli</strong>.
+              </p>
               <button
-                onClick={handleSync}
-                className="btn-primary mt-4"
+                onClick={() => navigate('/expenditures/settings')}
+                className="btn-secondary mt-4"
               >
-                <RefreshCw className="w-4 h-4 inline mr-2" />
-                Sincronizare Date
+                <Settings className="w-4 h-4 inline mr-2" />
+                Deschide Setări Cheltuieli
               </button>
             </div>
           ) : (

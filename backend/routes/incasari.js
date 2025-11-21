@@ -1,0 +1,2861 @@
+import express from 'express'
+import pg from 'pg'
+import fs from 'fs'
+import path from 'path'
+import mysql from 'mysql2/promise'
+import { fileURLToPath } from 'url'
+import { authenticateToken } from '../middleware/auth.js'
+import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, HeadObjectCommand } from '@aws-sdk/client-s3'
+
+const router = express.Router()
+const { Pool } = pg
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+// Config MariaDB Cyber (la fel ca în import-incasari-from-cyber.js)
+const CYBER_CONFIG = {
+  host: process.env.CYBER_DB_HOST || '161.97.133.165',
+  port: Number(process.env.CYBER_DB_PORT || 3306),
+  user: process.env.CYBER_DB_USER || 'eugen',
+  password: process.env.CYBER_DB_PASSWORD || '(@Ee0wRHVohZww33',
+  database: process.env.CYBER_DB_NAME || 'cyberslot_dbn'
+}
+
+let cyberPool = null
+const getCyberPool = async () => {
+  if (cyberPool) return cyberPool
+  cyberPool = mysql.createPool({
+    ...CYBER_CONFIG,
+    waitForConnections: true,
+    connectionLimit: 5,
+    queueLimit: 0
+  })
+  console.log('✅ [INCASARI] Pool MariaDB (Cyber) creat pentru debug/compare')
+  return cyberPool
+}
+
+// JSON fallback loader (la fel ca în routes/cyber.js)
+const loadExportedData = (filename) => {
+  try {
+    const filePath = path.join(__dirname, '..', 'cyber-data', filename)
+    if (fs.existsSync(filePath)) {
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+      console.log(`✅ [INCASARI] Loaded ${data.length} items from ${filename} (fallback JSON)`)
+      return data
+    }
+  } catch (error) {
+    console.error(`[INCASARI] Error loading ${filename}:`, error.message)
+  }
+  return []
+}
+
+// Helper: normalizează numele de locație (ex: „Craiova E.S” → „Craiova”)
+const normalizeLocationName = (name) => {
+  if (!name) return ''
+  let n = name.toString().trim()
+  // Elimină sufixe de tip E.S / E.S. / ES
+  n = n.replace(/\s+E\.?S\.?$/i, '')
+  return n.trim()
+}
+
+// Cache pentru lista de sloturi din slots.json
+// IMPORTANT: momentan NU mai filtrăm pe "active", ca să putem replica exact
+// valorile din Cyber (inclusiv locații fără sloturi marcate ca active).
+let activeSlotsCache = null
+
+const getActiveSlots = () => {
+  if (activeSlotsCache) return activeSlotsCache
+
+  try {
+    const slotsData = loadExportedData('slots.json')
+    const all = []
+
+    if (Array.isArray(slotsData)) {
+      slotsData.forEach((slot) => {
+        if (!slot || typeof slot.id === 'undefined') return
+        all.push(slot)
+      })
+    } else {
+      console.warn('⚠️ [INCASARI] slots.json nu este un array, folosim array gol')
+    }
+
+    activeSlotsCache = all
+    console.log(
+      `✅ [INCASARI] Loaded ${activeSlotsCache.length} slots (TOATE statusurile) pentru analize încasări`
+    )
+    return activeSlotsCache
+  } catch (error) {
+    console.error('❌ [INCASARI] Eroare la încărcarea slots.json:', error)
+    activeSlotsCache = []
+    return []
+  }
+}
+
+// Sloturi ACTIVE (după status) pentru număr de aparate unice
+// Folosit DOAR pentru numărătoare (card "Număr sloturi", coloana "Sloturi"),
+// nu și pentru sume (IN/OUT/GGR) ca să nu stricăm egalitatea cu Cyber.
+const getActiveMachineIdsForCounts = ({ includeLocations } = {}) => {
+  const slots = getActiveSlots()
+  const allowedLocations =
+    Array.isArray(includeLocations) && includeLocations.length > 0
+      ? new Set(includeLocations.map((loc) => normalizeLocationName(loc)))
+      : null
+
+  const filtered = slots.filter((slot) => {
+    if (!slot || typeof slot.id === 'undefined') return false
+
+    const rawStatus = (slot.status || '').toString().toLowerCase().trim()
+
+    // Excludem explicit statusuri care conțin "inactiv"
+    if (rawStatus.includes('inactiv')) return false
+
+    // Considerăm active statusurile care conțin "activ" sau "active"
+    if (!rawStatus.includes('activ')) return false
+
+    const slotLocation = slot.location || ''
+    const normalizedSlotLocation = normalizeLocationName(slotLocation)
+    if (allowedLocations && !allowedLocations.has(normalizedSlotLocation)) return false
+    return true
+  })
+
+  return filtered
+    .map((slot) => Number(slot.id))
+    .filter((id) => Number.isFinite(id))
+}
+
+// Helper function to format game mix: remove everything before "-" if "-" exists
+const formatGameMix = (gameMix) => {
+  if (!gameMix) return gameMix
+  const dashIndex = gameMix.indexOf('-')
+  if (dashIndex !== -1 && dashIndex < gameMix.length - 1) {
+    return gameMix.substring(dashIndex + 1).trim()
+  }
+  return gameMix
+}
+
+// Returnează lista de machine_id ACTIVE, filtrate opțional după locație / provider / cabinet / game_mix
+// includeLocations: listă de locații permise (dacă este setată, se folosește în loc de "location" simplu)
+const getActiveMachineIds = ({ location, provider, cabinet, gameMix, includeLocations } = {}) => {
+  const slots = getActiveSlots()
+  const allowedLocations =
+    Array.isArray(includeLocations) && includeLocations.length > 0
+      ? new Set(includeLocations.map((loc) => normalizeLocationName(loc)))
+      : null
+  const normalizedLocation = location ? normalizeLocationName(location) : null
+
+  const filtered = slots.filter((slot) => {
+    const slotLocation = slot.location || ''
+    const normalizedSlotLocation = normalizeLocationName(slotLocation)
+
+    if (allowedLocations && !allowedLocations.has(normalizedSlotLocation)) {
+      return false
+    }
+    if (!allowedLocations && normalizedLocation && normalizedSlotLocation !== normalizedLocation) {
+      return false
+    }
+    if (provider && (slot.provider || '') !== provider) return false
+    if (cabinet && (slot.cabinet || '') !== cabinet) return false
+    if (gameMix) {
+      const slotGameMix = slot.game_mix || ''
+      const formattedSlotGameMix = formatGameMix(slotGameMix)
+      // Compară atât formatat cât și original (pentru compatibilitate)
+      if (formattedSlotGameMix !== gameMix && slotGameMix !== gameMix) {
+        return false
+      }
+    }
+    return true
+  })
+
+  return filtered.map((slot) => Number(slot.id))
+}
+
+// Helper: date range validation utilitar pentru floorplan
+const ensureDateRange = (startDate, endDate) => {
+  if (!startDate || !endDate) {
+    throw new Error('Lipsește startDate sau endDate')
+  }
+}
+
+// Endpoint pentru meta-datele de filtre (locații / provideri / cabinete / game-mix)
+router.get('/filters-metadata', authenticateToken, async (req, res) => {
+  try {
+    const slots = getActiveSlots()
+
+    const locationsSet = new Set()
+    const providersSet = new Set()
+    const cabinetsSet = new Set()
+    const mixesSet = new Set()
+
+    slots.forEach((slot) => {
+      if (slot.location) {
+        const normLoc = normalizeLocationName(slot.location)
+        if (normLoc) locationsSet.add(normLoc)
+      }
+      if (slot.provider) providersSet.add(slot.provider)
+      if (slot.cabinet) cabinetsSet.add(slot.cabinet)
+      if (slot.game_mix) {
+        const formatted = formatGameMix(slot.game_mix)
+        if (formatted) mixesSet.add(formatted)
+      }
+    })
+
+    return res.json({
+      success: true,
+      locations: Array.from(locationsSet).sort(),
+      providers: Array.from(providersSet).sort(),
+      cabinets: Array.from(cabinetsSet).sort(),
+      gameMixes: Array.from(mixesSet).sort()
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/filters-metadata:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la încărcarea meta-datelor pentru filtre încasări'
+    })
+  }
+})
+
+// GET /api/incasari/cyber-preview
+// Returnează datele din tabelul local incasari_daily (importate din Cyber),
+// împreună cu lista de coloane. Filtrarea pe perioadă se face în frontend.
+router.get('/cyber-preview', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available pentru incasari_daily'
+      })
+    }
+
+    const sql = `
+      SELECT
+        audit_date AS date,
+        location_id,
+        machine_id,
+        machine_type_id,
+        machine_reset_id,
+        audit_id_start,
+        audit_id_end,
+        in_m,
+        out_m,
+        in_amount AS in,
+        out_amount AS out,
+        bet,
+        win,
+        credits,
+        games,
+        jackpot,
+        hh,
+        cb_real,
+        cb_birthday,
+        cb_daily,
+        cb_raffle,
+        cb_9a_deductible,
+        cashback,
+        profit,
+        serial_number
+      FROM incasari_daily
+      ORDER BY audit_date, machine_id
+    `
+
+    const dataResult = await pool.query(sql)
+
+    const columns = [
+      'date',
+      'location_id',
+      'machine_id',
+      'machine_type_id',
+      'machine_reset_id',
+      'audit_id_start',
+      'audit_id_end',
+      'in_m',
+      'out_m',
+      'in',
+      'out',
+      'bet',
+      'win',
+      'credits',
+      'games',
+      'jackpot',
+      'hh',
+      'cb_real',
+      'cb_birthday',
+      'cb_daily',
+      'cb_raffle',
+      'cb_9a_deductible',
+      'cashback',
+      'profit',
+      'serial_number'
+    ].map((name) => ({
+      name,
+      dataType: 'number',
+      isNullable: true,
+      default: null
+    }))
+
+    return res.json({
+      success: true,
+      mode: 'pg',
+      columns,
+      rows: dataResult.rows,
+      rowCount: dataResult.rowCount
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/cyber-preview (PG incasari_daily):', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la citirea datelor din incasari_daily'
+    })
+  }
+})
+
+// GET /api/incasari/summary?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+// Returnează total IN, OUT, PROFIT și număr zile distincte pentru pagina de Încasări
+router.get('/summary', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available pentru incasari_daily'
+      })
+    }
+
+    const { startDate, endDate, location, provider, cabinet, gameMix, includeLocations } =
+      req.query
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        error: 'Lipsește startDate sau endDate'
+      })
+    }
+
+    // Filtrare pe locații/providers/cabinete/game mix folosind getActiveMachineIds
+    const activeIds = getActiveMachineIds({
+      location,
+      provider,
+      cabinet,
+      gameMix,
+      includeLocations
+    })
+
+    let summarySql
+    let params
+    
+    // Dacă avem activeIds, folosim filtrarea pe machine_id
+    if (activeIds && activeIds.length > 0) {
+      summarySql = `
+        SELECT
+          COALESCE(SUM(in_amount), 0) AS total_in,
+          COALESCE(SUM(out_amount), 0) AS total_out,
+          COALESCE(SUM(profit), 0) AS total_profit,
+          COALESCE(SUM(bet), 0) AS total_bet,
+          COALESCE(SUM(win), 0) AS total_win,
+          COUNT(DISTINCT audit_date) AS days_count
+        FROM incasari_daily
+        WHERE audit_date BETWEEN $1 AND $2
+          AND machine_id = ANY($3)
+      `
+      params = [startDate, endDate, activeIds]
+    } else {
+      // Dacă nu avem activeIds, afișăm toate datele disponibile (fără filtrare pe machine_id)
+      summarySql = `
+        SELECT
+          COALESCE(SUM(in_amount), 0) AS total_in,
+          COALESCE(SUM(out_amount), 0) AS total_out,
+          COALESCE(SUM(profit), 0) AS total_profit,
+          COALESCE(SUM(bet), 0) AS total_bet,
+          COALESCE(SUM(win), 0) AS total_win,
+          COUNT(DISTINCT audit_date) AS days_count
+        FROM incasari_daily
+        WHERE audit_date BETWEEN $1 AND $2
+      `
+      params = [startDate, endDate]
+    }
+
+    const result = await pool.query(summarySql, params)
+    const row = result.rows[0] || {
+      total_in: 0,
+      total_out: 0,
+      total_profit: 0,
+      total_bet: 0,
+      total_win: 0,
+      days_count: 0
+    }
+
+    // Folosim activeSlotsCount pentru consistență cu overview
+    let locationsArray
+    if (typeof includeLocations === 'string' && includeLocations.length > 0) {
+      locationsArray = includeLocations
+        .split(',')
+        .map((s) => normalizeLocationName(s))
+        .filter(Boolean)
+    }
+    const activeIdsForCounts = getActiveMachineIdsForCounts({
+      includeLocations: locationsArray
+    })
+    const slots = activeIdsForCounts.length // Număr de sloturi active (consistent cu overview)
+
+    const days = Number(row.days_count || 0)
+    const totalIn = Number(row.total_in || 0)
+    const totalBet = Number(row.total_bet || 0)
+    const totalWin = Number(row.total_win || 0)
+    // Average Drop corect: SUM(IN) / număr zile / număr sloturi active
+    const avgDrop = days > 0 && slots > 0 ? totalIn / days / slots : 0
+    const winBetPercent = totalBet > 0 ? (totalWin / totalBet) * 100 : 0
+
+    return res.json({
+      success: true,
+      startDate,
+      endDate,
+      totalIn,
+      totalOut: Number(row.total_out || 0),
+      totalProfit: Number(row.total_profit || 0),
+      totalBet,
+      totalWin,
+      winBetPercent,
+      daysCount: days,
+      slotsCount: slots,
+      averageDrop: avgDrop
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/summary:', error)
+    console.error('Stack trace:', error.stack)
+    console.error('Request params:', { startDate, endDate, location, provider, cabinet, gameMix, includeLocations })
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la calculul sumarului de încasări',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    })
+  }
+})
+
+// GET /api/incasari/daily-stats?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+// Date zilnice agregate pentru grafice (total pe zi)
+router.get('/daily-stats', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available pentru incasari_daily'
+      })
+    }
+
+    const { startDate, endDate, location, provider, cabinet, gameMix, includeLocations } = req.query
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        error: 'Lipsește startDate sau endDate'
+      })
+    }
+
+    const locationsArray =
+      typeof includeLocations === 'string' && includeLocations.length > 0
+        ? includeLocations.split(',').map((s) => normalizeLocationName(s)).filter(Boolean)
+        : undefined
+
+    const activeIds = getActiveMachineIds({
+      location,
+      provider,
+      cabinet,
+      gameMix,
+      includeLocations: locationsArray
+    })
+    
+    let sql
+    let params
+    
+    // Dacă avem activeIds, folosim filtrarea pe machine_id
+    if (activeIds && activeIds.length > 0) {
+      sql = `
+        SELECT
+          audit_date AS date,
+          COALESCE(SUM(in_amount), 0) AS total_in,
+          COALESCE(SUM(out_amount), 0) AS total_out,
+          COALESCE(SUM(profit), 0) AS total_profit,
+          COUNT(DISTINCT serial_number) AS slots_count
+        FROM incasari_daily
+        WHERE audit_date BETWEEN $1 AND $2
+          AND machine_id = ANY($3)
+          AND serial_number IS NOT NULL
+          AND serial_number != ''
+        GROUP BY audit_date
+        ORDER BY audit_date
+      `
+      params = [startDate, endDate, activeIds]
+    } else {
+      // Dacă nu avem activeIds, afișăm toate datele disponibile (fără filtrare pe machine_id)
+      sql = `
+        SELECT
+          audit_date AS date,
+          COALESCE(SUM(in_amount), 0) AS total_in,
+          COALESCE(SUM(out_amount), 0) AS total_out,
+          COALESCE(SUM(profit), 0) AS total_profit,
+          COUNT(DISTINCT serial_number) AS slots_count
+        FROM incasari_daily
+        WHERE audit_date BETWEEN $1 AND $2
+          AND serial_number IS NOT NULL
+          AND serial_number != ''
+        GROUP BY audit_date
+        ORDER BY audit_date
+      `
+      params = [startDate, endDate]
+    }
+
+    const result = await pool.query(sql, params)
+
+    return res.json({
+      success: true,
+      startDate,
+      endDate,
+      rows: result.rows || []
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/daily-stats:', error)
+    console.error('Stack trace:', error.stack)
+    console.error('Request params:', { startDate, endDate, location, provider, cabinet, gameMix, includeLocations })
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la calculul statisticilor zilnice de încasări',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    })
+  }
+})
+
+// GET /api/incasari/avg-in-by-location?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+// IN total și IN mediu pe săli (pentru pie chart pe locații)
+router.get('/avg-in-by-location', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available pentru incasari_daily'
+      })
+    }
+
+    const { startDate, endDate, location, provider, cabinet, gameMix, includeLocations } = req.query
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        error: 'Lipsește startDate sau endDate'
+      })
+    }
+
+    const locationsArray =
+      typeof includeLocations === 'string' && includeLocations.length > 0
+        ? includeLocations.split(',').map((s) => normalizeLocationName(s)).filter(Boolean)
+        : undefined
+
+    const activeIds = getActiveMachineIds({
+      location,
+      provider,
+      cabinet,
+      gameMix,
+      includeLocations: locationsArray
+    })
+    
+    let sql
+    let params
+    
+    // Dacă avem activeIds, folosim filtrarea pe machine_id
+    if (activeIds && activeIds.length > 0) {
+      sql = `
+        SELECT
+          location_id,
+          COALESCE(SUM(profit), 0) AS total_profit,
+          COALESCE(SUM(in_amount), 0) AS total_in,
+          COALESCE(SUM(bet), 0) AS total_bet,
+          COALESCE(SUM(jackpot), 0) AS total_jackpot,
+          COALESCE(SUM(hh), 0) AS total_hh,
+          COALESCE(SUM(cb_real), 0) AS total_cb_real,
+          COALESCE(SUM(cb_birthday), 0) AS total_cb_birthday,
+          COALESCE(SUM(cb_raffle), 0) AS total_cb_raffle,
+          COUNT(DISTINCT serial_number) AS slots_count
+        FROM incasari_daily
+        WHERE audit_date BETWEEN $1 AND $2
+          AND machine_id = ANY($3)
+          AND serial_number IS NOT NULL
+          AND serial_number != ''
+        GROUP BY location_id
+        ORDER BY location_id
+      `
+      params = [startDate, endDate, activeIds]
+    } else {
+      // Dacă nu avem activeIds, afișăm toate datele disponibile (fără filtrare pe machine_id)
+      sql = `
+        SELECT
+          location_id,
+          COALESCE(SUM(profit), 0) AS total_profit,
+          COALESCE(SUM(in_amount), 0) AS total_in,
+          COALESCE(SUM(bet), 0) AS total_bet,
+          COALESCE(SUM(jackpot), 0) AS total_jackpot,
+          COALESCE(SUM(hh), 0) AS total_hh,
+          COALESCE(SUM(cb_real), 0) AS total_cb_real,
+          COALESCE(SUM(cb_birthday), 0) AS total_cb_birthday,
+          COALESCE(SUM(cb_raffle), 0) AS total_cb_raffle,
+          COUNT(DISTINCT serial_number) AS slots_count
+        FROM incasari_daily
+        WHERE audit_date BETWEEN $1 AND $2
+          AND serial_number IS NOT NULL
+          AND serial_number != ''
+        GROUP BY location_id
+        ORDER BY location_id
+      `
+      params = [startDate, endDate]
+    }
+
+    const result = await pool.query(sql, params)
+
+    // Încarcă datele pentru locații (folosind fallback dacă fișierul nu există)
+    let locationsData = []
+    try {
+      locationsData = loadExportedData('locations.json')
+      if (!Array.isArray(locationsData)) {
+        console.warn('⚠️ locations.json nu este un array, folosim array gol')
+        locationsData = []
+      }
+    } catch (error) {
+      console.error('❌ Eroare la încărcarea locations.json:', error)
+      locationsData = []
+    }
+    
+    const locationMap = new Map()
+    locationsData.forEach((loc) => {
+      if (loc && typeof loc.id !== 'undefined') {
+        locationMap.set(String(loc.id), loc.name || loc.location || `Loc ${loc.id}`)
+      }
+    })
+
+    const rows = (result.rows || []).map((row) => {
+      const locationId = row.location_id
+      const key =
+        locationId === null || typeof locationId === 'undefined' ? null : String(locationId)
+      const locationName = key ? locationMap.get(key) || `Loc ${key}` : 'Nesetat'
+      const totalIn = Number(row.total_in || 0)
+      const slotsCount = Number(row.slots_count || 0)
+      const averageIn = slotsCount > 0 ? totalIn / slotsCount : 0
+      return {
+        locationId,
+        locationName,
+        totalProfit: Number(row.total_profit || 0),
+        totalIn,
+        totalBet: Number(row.total_bet || 0),
+        totalJackpot: Number(row.total_jackpot || 0),
+        totalHh: Number(row.total_hh || 0),
+        totalCbReal: Number(row.total_cb_real || 0),
+        totalCbBirthday: Number(row.total_cb_birthday || 0),
+        totalCbRaffle: Number(row.total_cb_raffle || 0),
+        slotsCount,
+        averageIn
+      }
+    })
+
+    return res.json({
+      success: true,
+      startDate,
+      endDate,
+      rows
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/avg-in-by-location:', error)
+    console.error('Stack trace:', error.stack)
+    console.error('Request params:', { startDate, endDate, location, provider, cabinet, gameMix, includeLocations })
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la calculul IN mediu pe săli',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    })
+  }
+})
+
+// GET /api/incasari/daily-by-location?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+router.get('/daily-by-location', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available pentru incasari_daily'
+      })
+    }
+
+    const { startDate, endDate, location, provider, cabinet, gameMix, includeLocations } = req.query
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        error: 'Lipsește startDate sau endDate'
+      })
+    }
+
+    const locationsArray =
+      typeof includeLocations === 'string' && includeLocations.length > 0
+        ? includeLocations.split(',').map((s) => normalizeLocationName(s)).filter(Boolean)
+        : undefined
+
+    const activeIds = getActiveMachineIds({
+      location,
+      provider,
+      cabinet,
+      gameMix,
+      includeLocations: locationsArray
+    })
+    
+    let sql
+    let params
+    
+    if (activeIds && activeIds.length > 0) {
+      sql = `
+        SELECT
+          audit_date AS date,
+          location_id,
+          COALESCE(SUM(in_amount), 0) AS total_in,
+          COALESCE(SUM(out_amount), 0) AS total_out,
+          COALESCE(SUM(profit), 0) AS total_profit,
+          COUNT(DISTINCT serial_number) AS slots_count
+        FROM incasari_daily
+        WHERE audit_date BETWEEN $1 AND $2
+          AND machine_id = ANY($3)
+          AND serial_number IS NOT NULL
+          AND serial_number != ''
+        GROUP BY audit_date, location_id
+        ORDER BY audit_date, location_id
+      `
+      params = [startDate, endDate, activeIds]
+    } else {
+      sql = `
+        SELECT
+          audit_date AS date,
+          location_id,
+          COALESCE(SUM(in_amount), 0) AS total_in,
+          COALESCE(SUM(out_amount), 0) AS total_out,
+          COALESCE(SUM(profit), 0) AS total_profit,
+          COUNT(DISTINCT serial_number) AS slots_count
+        FROM incasari_daily
+        WHERE audit_date BETWEEN $1 AND $2
+          AND serial_number IS NOT NULL
+          AND serial_number != ''
+        GROUP BY audit_date, location_id
+        ORDER BY audit_date, location_id
+      `
+      params = [startDate, endDate]
+    }
+
+    const result = await pool.query(sql, params)
+
+    return res.json({
+      success: true,
+      startDate,
+      endDate,
+      rows: result.rows || []
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/daily-by-location:', error)
+    console.error('Stack trace:', error.stack)
+    console.error('Request params:', { startDate, endDate, location, provider, cabinet, gameMix, includeLocations })
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la calculul statisticilor zilnice pe săli',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    })
+  }
+})
+
+// GET /api/incasari/avg-in-by-cabinet?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+// IN total și IN mediu pe cabinete (folosind mapping din slots.json)
+router.get('/avg-in-by-cabinet', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available pentru incasari_daily'
+      })
+    }
+
+    const { startDate, endDate, location, provider, cabinet, gameMix, includeLocations } = req.query
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        error: 'Lipsește startDate sau endDate'
+      })
+    }
+
+    const locationsArray =
+      typeof includeLocations === 'string' && includeLocations.length > 0
+        ? includeLocations.split(',').map((s) => s.trim()).filter(Boolean)
+        : undefined
+
+    const activeIds = getActiveMachineIds({
+      location,
+      provider,
+      cabinet,
+      gameMix,
+      includeLocations: locationsArray
+    })
+    
+    let sql
+    let params
+    
+    // Dacă avem activeIds, folosim filtrarea pe machine_id
+    if (activeIds && activeIds.length > 0) {
+      sql = `
+        SELECT
+          serial_number,
+          COALESCE(SUM(in_amount), 0) AS total_in
+        FROM incasari_daily
+        WHERE audit_date BETWEEN $1 AND $2
+          AND machine_id = ANY($3)
+          AND serial_number IS NOT NULL
+          AND serial_number != ''
+        GROUP BY serial_number
+      `
+      params = [startDate, endDate, activeIds]
+    } else {
+      // Dacă nu avem activeIds, afișăm toate datele disponibile (fără filtrare pe machine_id)
+      sql = `
+        SELECT
+          serial_number,
+          COALESCE(SUM(in_amount), 0) AS total_in
+        FROM incasari_daily
+        WHERE audit_date BETWEEN $1 AND $2
+          AND serial_number IS NOT NULL
+          AND serial_number != ''
+        GROUP BY serial_number
+      `
+      params = [startDate, endDate]
+    }
+
+    const result = await pool.query(sql, params)
+
+    // Încarcă datele pentru sloturi (folosind fallback dacă fișierul nu există)
+    let slotsData = []
+    try {
+      slotsData = loadExportedData('slots.json')
+      if (!Array.isArray(slotsData)) {
+        console.warn('⚠️ slots.json nu este un array, folosim array gol')
+        slotsData = []
+      }
+    } catch (error) {
+      console.error('❌ Eroare la încărcarea slots.json:', error)
+      slotsData = []
+    }
+    
+    const slotMap = new Map()
+    if (slotsData && Array.isArray(slotsData)) {
+      slotsData.forEach((slot) => {
+        if (slot && typeof slot.id !== 'undefined') {
+          // Map by serial_number pentru a găsi cabinet-ul
+          if (slot.serial_number) {
+            slotMap.set(slot.serial_number, slot)
+          }
+          // Fallback: map by machine_id
+          slotMap.set(String(slot.id), slot)
+        }
+      })
+    }
+
+    const cabinetMap = new Map()
+
+    ;(result.rows || []).forEach((row) => {
+      const serialNumber = row.serial_number
+      if (!serialNumber) return
+      
+      // Caută slot-ul după serial_number
+      const slot = slotMap.get(serialNumber)
+      const cabinetName = slot?.cabinet || 'Necunoscut'
+
+      if (!cabinetMap.has(cabinetName)) {
+        cabinetMap.set(cabinetName, {
+          cabinetName,
+          totalIn: 0,
+          slotsCount: 0,
+          serialNumbers: new Set()
+        })
+      }
+
+      const agg = cabinetMap.get(cabinetName)
+      agg.totalIn += Number(row.total_in || 0)
+      // Numără serial_number distincte
+      agg.serialNumbers.add(serialNumber)
+      agg.slotsCount = agg.serialNumbers.size
+    })
+
+    const rows = Array.from(cabinetMap.values()).map((item) => ({
+      cabinetName: item.cabinetName,
+      totalIn: item.totalIn,
+      slotsCount: item.slotsCount,
+      averageIn: item.slotsCount > 0 ? item.totalIn / item.slotsCount : 0
+    }))
+
+    return res.json({
+      success: true,
+      startDate,
+      endDate,
+      rows
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/avg-in-by-cabinet:', error)
+    console.error('Stack trace:', error.stack)
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la calculul IN mediu pe cabinete',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    })
+  }
+})
+
+// GET /api/incasari/overview
+// Returnează date pentru cardul "Prezentare generală": Azi, Ieri, Luna curentă, Luna trecută
+router.get('/overview', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available pentru incasari_daily'
+      })
+    }
+
+    const { includeLocations } = req.query
+
+    let locationsArray
+    if (typeof includeLocations === 'string' && includeLocations.length > 0) {
+      locationsArray = includeLocations
+        .split(',')
+        .map((s) => normalizeLocationName(s))
+        .filter(Boolean)
+    }
+
+    // Ziua operațională Cyber: 08:00 dimineața - 08:00 dimineața următoare
+    // Datele din incasari_daily sunt agregate pe zi completă (audit_date)
+    const now = new Date()
+    const currentHour = now.getHours()
+    
+    let todayDate, yesterdayDate
+    
+    if (currentHour >= 8) {
+      // Dacă este după 08:00, "Azi" operațional = ziua de azi (08:00 azi - 08:00 mâine)
+      // Dar datele sunt agregate pe zi, deci folosim ziua de azi
+      todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      // "Ieri" operațional = ziua de ieri (08:00 ieri - 08:00 azi)
+      yesterdayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
+    } else {
+      // Dacă este înainte de 08:00, "Azi" operațional = ziua de ieri (08:00 ieri - 08:00 azi)
+      todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
+      // "Ieri" operațional = ziua de alaltăieri (08:00 alaltăieri - 08:00 ieri)
+      yesterdayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2)
+    }
+    
+    const formatDateLocal = (date) => {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+    
+    const todayStr = formatDateLocal(todayDate)
+    const yesterdayStr = formatDateLocal(yesterdayDate)
+
+    // Pentru luna curentă, folosim TOATĂ luna (1-30/31) pentru consistență
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0) // Ultima zi a lunii curente
+    const currentMonthStartStr = `${currentMonthStart.getFullYear()}-${String(currentMonthStart.getMonth() + 1).padStart(2, '0')}-${String(currentMonthStart.getDate()).padStart(2, '0')}`
+    const currentMonthEndStr = `${currentMonthEnd.getFullYear()}-${String(currentMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(currentMonthEnd.getDate()).padStart(2, '0')}`
+
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0)
+    const lastMonthStartStr = `${lastMonthStart.getFullYear()}-${String(lastMonthStart.getMonth() + 1).padStart(2, '0')}-${String(lastMonthStart.getDate()).padStart(2, '0')}`
+    const lastMonthEndStr = `${lastMonthEnd.getFullYear()}-${String(lastMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(lastMonthEnd.getDate()).padStart(2, '0')}`
+
+    const currentYearStart = new Date(now.getFullYear(), 0, 1)
+    const currentYearEnd = new Date(now.getFullYear(), 11, 31)
+    const currentYearStartStr = `${currentYearStart.getFullYear()}-${String(currentYearStart.getMonth() + 1).padStart(2, '0')}-${String(currentYearStart.getDate()).padStart(2, '0')}`
+    const currentYearEndStr = `${currentYearEnd.getFullYear()}-${String(currentYearEnd.getMonth() + 1).padStart(2, '0')}-${String(currentYearEnd.getDate()).padStart(2, '0')}`
+
+    // Număr de sloturi ACTIVE UNICE (din slots.json) pentru locațiile vizibile.
+    const activeIdsForCounts = getActiveMachineIdsForCounts({
+      includeLocations: locationsArray
+    })
+    const activeSlotsCount = activeIdsForCounts.length
+
+    // Construiește lista de location_id-uri permise dacă includeLocations este setat
+    let locationIdsFilter = null
+    if (locationsArray && locationsArray.length > 0) {
+      const activeSlots = getActiveSlots()
+      const allowed = new Set(locationsArray)
+      const locationIds = new Set()
+      activeSlots.forEach((slot) => {
+        if (
+          slot &&
+          slot.location &&
+          allowed.has(normalizeLocationName(slot.location)) &&
+          slot.location_id
+        ) {
+          locationIds.add(Number(slot.location_id))
+        }
+      })
+      if (locationIds.size > 0) {
+        locationIdsFilter = Array.from(locationIds)
+      }
+    }
+
+    // Construiește query-ul pentru zile (today/yesterday) cu filtrare pe locații dacă este necesar
+    const buildOverviewSql = (dateStr) => {
+      let sql = `
+        SELECT
+          COALESCE(SUM(in_amount), 0) AS total_in,
+          COALESCE(SUM(out_amount), 0) AS total_out,
+          COALESCE(SUM(profit), 0) AS total_profit,
+          COALESCE(SUM(bet), 0) AS total_bet,
+          COALESCE(SUM(win), 0) AS total_win,
+          COALESCE(SUM(jackpot), 0) AS total_jackpot,
+          COALESCE(SUM(hh), 0) AS total_hh,
+          COALESCE(SUM(cb_real), 0) AS total_cb_real,
+          COALESCE(SUM(cb_birthday), 0) AS total_cb_birthday,
+          COALESCE(SUM(cb_raffle), 0) AS total_cb_raffle
+        FROM incasari_daily
+        WHERE audit_date = $1
+      `
+      
+      // Dacă avem filtrare pe locații, adăugăm condiția
+      if (locationIdsFilter && locationIdsFilter.length > 0) {
+        const placeholders = locationIdsFilter.map((_, idx) => `$${idx + 2}`).join(',')
+        sql += ` AND location_id = ANY(ARRAY[${placeholders}])`
+      }
+      
+      return sql
+    }
+
+    // Prepare parameters for overview queries
+    const overviewParams = (dateStr) => {
+      const params = [dateStr]
+      if (locationIdsFilter && locationIdsFilter.length > 0) {
+        params.push(...locationIdsFilter)
+      }
+      return params
+    }
+
+    const [todayResult, yesterdayResult] = await Promise.all([
+      pool.query(buildOverviewSql(todayStr), overviewParams(todayStr)),
+      pool.query(buildOverviewSql(yesterdayStr), overviewParams(yesterdayStr))
+    ])
+
+    // Construiește query-ul pentru luni cu filtrare pe locații dacă este necesar
+    const buildMonthSql = (dateStart, dateEnd) => {
+      let sql = `
+        SELECT
+          COALESCE(SUM(in_amount), 0) AS total_in,
+          COALESCE(SUM(out_amount), 0) AS total_out,
+          COALESCE(SUM(profit), 0) AS total_profit,
+          COALESCE(SUM(bet), 0) AS total_bet,
+          COALESCE(SUM(win), 0) AS total_win,
+          COALESCE(SUM(jackpot), 0) AS total_jackpot,
+          COALESCE(SUM(hh), 0) AS total_hh,
+          COALESCE(SUM(cb_real), 0) AS total_cb_real,
+          COALESCE(SUM(cb_birthday), 0) AS total_cb_birthday,
+          COALESCE(SUM(cb_raffle), 0) AS total_cb_raffle
+        FROM incasari_daily
+        WHERE audit_date BETWEEN $1 AND $2
+      `
+      
+      // Dacă avem filtrare pe locații, adăugăm condiția
+      if (locationIdsFilter && locationIdsFilter.length > 0) {
+        const placeholders = locationIdsFilter.map((_, idx) => `$${idx + 3}`).join(',')
+        sql += ` AND location_id = ANY(ARRAY[${placeholders}])`
+      }
+      
+      return sql
+    }
+
+    const monthSql = buildMonthSql
+
+    // Get POS data for each period
+    // Dacă includeLocations este setat, filtrează pe locații; altfel, toate locațiile
+    // POS poate fi setat fie în `expenditure_type`, fie în `department_name`
+    // Folosim DATE() pentru comparație corectă și gestionăm NULL-urile
+    const buildPosSql = (dateStart, dateEnd) => {
+      let sql = `
+        SELECT
+          COALESCE(SUM(amount), 0) AS total_pos
+        FROM expenditures_sync
+        WHERE DATE(operational_date) BETWEEN DATE($1::text) AND DATE($2::text)
+          AND (
+            (expenditure_type IS NOT NULL AND UPPER(TRIM(expenditure_type)) = 'POS')
+            OR (department_name IS NOT NULL AND UPPER(TRIM(department_name)) = 'POS')
+          )
+      `
+      
+      // Dacă includeLocations este setat, filtrează pe locații
+      if (locationsArray && locationsArray.length > 0) {
+        const locationPlaceholders = locationsArray.map((_, idx) => `$${idx + 3}`).join(',')
+        sql += ` AND location_name = ANY(ARRAY[${locationPlaceholders}])`
+      }
+      
+      return sql
+    }
+    
+    const posSqlToday = buildPosSql(todayStr, todayStr)
+    const posSqlYesterday = buildPosSql(yesterdayStr, yesterdayStr)
+    const posSqlCurrentMonth = buildPosSql(currentMonthStartStr, currentMonthEndStr)
+    const posSqlLastMonth = buildPosSql(lastMonthStartStr, lastMonthEndStr)
+    const posSqlCurrentYear = buildPosSql(currentYearStartStr, currentYearEndStr)
+    
+    // Prepare parameters for POS queries
+    const posParams = (dateStart, dateEnd) => {
+      const params = [dateStart, dateEnd]
+      if (locationsArray && locationsArray.length > 0) {
+        params.push(...locationsArray)
+      }
+      return params
+    }
+
+    // Debug: verifică ce zile există în incasari_daily pentru luna curentă
+    const debugCurrentMonthSql = `
+      SELECT 
+        audit_date,
+        COUNT(*) as row_count,
+        COALESCE(SUM(in_amount), 0) AS total_in
+      FROM incasari_daily
+      WHERE audit_date BETWEEN $1 AND $2
+      GROUP BY audit_date
+      ORDER BY audit_date
+    `
+    const debugCurrentMonthResult = await pool.query(debugCurrentMonthSql, [currentMonthStartStr, currentMonthEndStr])
+    console.log(`📊 [overview] Luna curentă: ${currentMonthStartStr} - ${currentMonthEndStr}`)
+    console.log(`📊 [overview] Zile găsite în incasari_daily:`, debugCurrentMonthResult.rows.map(r => r.audit_date).join(', '))
+    console.log(`📊 [overview] Total zile găsite: ${debugCurrentMonthResult.rows.length}`)
+
+    // Prepare parameters for month queries
+    const monthParams = (dateStart, dateEnd) => {
+      const params = [dateStart, dateEnd]
+      if (locationIdsFilter && locationIdsFilter.length > 0) {
+        params.push(...locationIdsFilter)
+      }
+      return params
+    }
+
+    // FUNCȚIE SPECIALĂ: pentru luna curentă, luăm datele DIRECT din Cyber, nu din PostgreSQL
+    // pentru că datele sunt acolo și pot fi incomplete în PostgreSQL
+    const getCurrentMonthFromCyber = async () => {
+      try {
+        console.log(`🔥 [overview] Încep citirea din Cyber pentru luna curentă: ${currentMonthStartStr} - ${currentMonthEndStr}`)
+        
+        const cyberPool = await getCyberPool()
+        
+        // Mai întâi, verificăm dacă există date în Cyber pentru această perioadă
+        const checkSql = `
+          SELECT COUNT(*) as count, 
+                 MIN(date) as min_date, 
+                 MAX(date) as max_date,
+                 COUNT(DISTINCT date) as distinct_days
+          FROM cyberslot_dbn.machine_audit_summaries
+          WHERE date >= ? AND date <= ?
+        `
+        const checkParams = [currentMonthStartStr, currentMonthEndStr]
+        const [checkRows] = await cyberPool.query(checkSql, checkParams)
+        const checkRow = checkRows[0] || {}
+        console.log(`🔥 [overview] Cyber check - Total rânduri: ${checkRow.count || 0}, Zile distincte: ${checkRow.distinct_days || 0}, Min date: ${checkRow.min_date || 'N/A'}, Max date: ${checkRow.max_date || 'N/A'}`)
+        
+        // Construim query-ul exact ca în import-incasari-from-cyber.js
+        let cyberSql = `
+          SELECT
+            COALESCE(SUM(mas.in), 0) AS total_in,
+            COALESCE(SUM(mas.out), 0) AS total_out,
+            COALESCE(SUM(mas.in - mas.out), 0) AS total_profit,
+            COALESCE(SUM(mas.bet), 0) AS total_bet,
+            COALESCE(SUM(mas.win), 0) AS total_win,
+            COALESCE(SUM(mas.jackpot), 0) AS total_jackpot,
+            COALESCE(SUM(mas.hh), 0) AS total_hh,
+            COALESCE(SUM(mas.cb_real), 0) AS total_cb_real,
+            COALESCE(SUM(mas.cb_birthday), 0) AS total_cb_birthday,
+            COALESCE(SUM(mas.cb_raffle), 0) AS total_cb_raffle
+          FROM cyberslot_dbn.machine_audit_summaries mas
+          WHERE mas.date >= ? AND mas.date <= ?
+        `
+        
+        const cyberParams = [currentMonthStartStr, currentMonthEndStr]
+        
+        // Dacă avem filtrare pe locații, adăugăm condiția WHERE
+        if (locationIdsFilter && locationIdsFilter.length > 0) {
+          const placeholders = locationIdsFilter.map(() => '?').join(',')
+          cyberSql += ` AND mas.location_id IN (${placeholders})`
+          cyberParams.push(...locationIdsFilter)
+          console.log(`🔥 [overview] Cyber query cu filtrare pe ${locationIdsFilter.length} locații: [${locationIdsFilter.join(', ')}]`)
+        } else {
+          console.log(`🔥 [overview] Cyber query FĂRĂ filtrare pe locații (toate locațiile)`)
+        }
+        
+        console.log(`🔥 [overview] Execut query Cyber:`, cyberSql.replace(/\s+/g, ' ').trim())
+        console.log(`🔥 [overview] Parametri Cyber:`, cyberParams)
+        
+        const [cyberRows] = await cyberPool.query(cyberSql, cyberParams)
+        const cyberRow = cyberRows[0] || {}
+        
+        const totalIn = Number(cyberRow.total_in || 0)
+        const totalOut = Number(cyberRow.total_out || 0)
+        const totalProfit = Number(cyberRow.total_profit || 0)
+        
+        console.log(`🔥 [overview] Luna curentă DIN CYBER - Total IN: ${totalIn}`)
+        console.log(`🔥 [overview] Luna curentă DIN CYBER - Total OUT: ${totalOut}`)
+        console.log(`🔥 [overview] Luna curentă DIN CYBER - Total GGR: ${totalProfit}`)
+        console.log(`🔥 [overview] Luna curentă DIN CYBER - Total BET: ${Number(cyberRow.total_bet || 0)}`)
+        console.log(`🔥 [overview] Luna curentă DIN CYBER - Total WIN: ${Number(cyberRow.total_win || 0)}`)
+        
+        if (totalIn === 0) {
+          console.warn(`⚠️ [overview] ATENȚIE: Cyber returnează IN = 0 pentru ${currentMonthStartStr} - ${currentMonthEndStr}`)
+        }
+        
+        // Returnează în formatul așteptat de formatRow
+        return {
+          rows: [{
+            total_in: totalIn,
+            total_out: totalOut,
+            total_profit: totalProfit,
+            total_bet: Number(cyberRow.total_bet || 0),
+            total_win: Number(cyberRow.total_win || 0),
+            total_jackpot: Number(cyberRow.total_jackpot || 0),
+            total_hh: Number(cyberRow.total_hh || 0),
+            total_cb_real: Number(cyberRow.total_cb_real || 0),
+            total_cb_birthday: Number(cyberRow.total_cb_birthday || 0),
+            total_cb_raffle: Number(cyberRow.total_cb_raffle || 0)
+          }]
+        }
+      } catch (error) {
+        console.error('❌ [overview] Eroare la citirea din Cyber pentru luna curentă:', error)
+        console.error('❌ [overview] Stack trace:', error.stack)
+        console.error(`❌ [overview] Interval: ${currentMonthStartStr} - ${currentMonthEndStr}`)
+        // Fallback la PostgreSQL dacă Cyber eșuează
+        console.log(`🔄 [overview] Fallback la PostgreSQL pentru luna curentă`)
+        return await pool.query(buildMonthSql(currentMonthStartStr, currentMonthEndStr), monthParams(currentMonthStartStr, currentMonthEndStr))
+      }
+    }
+
+    const [
+      currentMonthResult,
+      lastMonthResult,
+      currentYearResult,
+      todayPosResult,
+      yesterdayPosResult,
+      currentMonthPosResult,
+      lastMonthPosResult,
+      currentYearPosResult
+    ] = await Promise.all([
+      getCurrentMonthFromCyber(), // FOLOSIM CYBER pentru luna curentă!
+      pool.query(buildMonthSql(lastMonthStartStr, lastMonthEndStr), monthParams(lastMonthStartStr, lastMonthEndStr)),
+      pool.query(buildMonthSql(currentYearStartStr, currentYearEndStr), monthParams(currentYearStartStr, currentYearEndStr)),
+      pool.query(posSqlToday, posParams(todayStr, todayStr)),
+      pool.query(posSqlYesterday, posParams(yesterdayStr, yesterdayStr)),
+      pool.query(posSqlCurrentMonth, posParams(currentMonthStartStr, currentMonthEndStr)),
+      pool.query(posSqlLastMonth, posParams(lastMonthStartStr, lastMonthEndStr)),
+      pool.query(posSqlCurrentYear, posParams(currentYearStartStr, currentYearEndStr))
+    ])
+    
+    console.log(`📊 [overview] Luna curentă - Total IN: ${currentMonthResult.rows[0]?.total_in || 0}`)
+    console.log(`📊 [overview] Luna curentă - Total OUT: ${currentMonthResult.rows[0]?.total_out || 0}`)
+    console.log(`📊 [overview] Luna curentă - Total GGR: ${currentMonthResult.rows[0]?.total_profit || 0}`)
+    console.log(`📊 [overview] Luna curentă - Total BET: ${currentMonthResult.rows[0]?.total_bet || 0}`)
+    if (currentMonthResult.rows[0]?.total_in === 0) {
+      console.warn(`⚠️ [overview] ATENȚIE: Luna curentă are IN = 0! Verifică dacă există date în incasari_daily pentru ${currentMonthStartStr} - ${currentMonthEndStr}`)
+    }
+
+    // Calculate estimated profit for each period (average of last 15 days excluding the period end date)
+    const calculateEstimatedProfit = async (endDateStr) => {
+      const endDateObj = new Date(endDateStr + 'T00:00:00')
+      const endExclusive = new Date(endDateObj)
+      endExclusive.setDate(endExclusive.getDate() - 1) // Exclude endDate
+      const startDateObj = new Date(endExclusive)
+      startDateObj.setDate(startDateObj.getDate() - 15) // Last 15 days before endDate
+      
+      const startStr = formatDateLocal(startDateObj)
+      const endStr = formatDateLocal(endExclusive)
+      
+      const sql = `
+        SELECT
+          COALESCE(AVG(profit), 0) AS avg_profit
+        FROM incasari_daily
+        WHERE audit_date >= $1
+          AND audit_date <= $2
+      `
+      
+      const result = await pool.query(sql, [startStr, endStr])
+      return Number(result.rows[0]?.avg_profit || 0)
+    }
+
+    const [todayEstimated, yesterdayEstimated, currentMonthEstimated, lastMonthEstimated, currentYearEstimated] = await Promise.all([
+      calculateEstimatedProfit(todayStr),
+      calculateEstimatedProfit(yesterdayStr),
+      calculateEstimatedProfit(currentMonthEndStr),
+      calculateEstimatedProfit(lastMonthEndStr),
+      calculateEstimatedProfit(currentYearEndStr)
+    ])
+
+    const slotsToday = activeSlotsCount
+    const slotsYesterday = activeSlotsCount
+    const slotsCurrentMonth = activeSlotsCount
+    const slotsLastMonth = activeSlotsCount
+    const slotsCurrentYear = 0 // Nu afișăm număr de sloturi pentru "Anul curent"
+
+    const formatRow = (row, posRow, slotsCount = 0, estimatedProfit = 0) => {
+      const pos = Number(posRow?.rows?.[0]?.total_pos || 0)
+      if (!row || row.rows.length === 0) {
+        return {
+          in: 0,
+          out: 0,
+          profit: 0,
+          bet: 0,
+          win: 0,
+          jackpot: 0,
+          hh: 0,
+          cb_real: 0,
+          cb_birthday: 0,
+          cb_raffle: 0,
+          ggr: 0,
+          ggrEstimated: estimatedProfit,
+          winBetPercent: 0,
+          pos,
+          slotsCount
+        }
+      }
+      const data = row.rows[0] || {}
+      const bet = Number(data.total_bet || 0)
+      const win = Number(data.total_win || 0)
+      return {
+        in: Number(data.total_in || 0),
+        out: Number(data.total_out || 0),
+        profit: Number(data.total_profit || 0),
+        bet,
+        win,
+        jackpot: Number(data.total_jackpot || 0),
+        hh: Number(data.total_hh || 0),
+        cb_real: Number(data.total_cb_real || 0),
+        cb_birthday: Number(data.total_cb_birthday || 0),
+        cb_raffle: Number(data.total_cb_raffle || 0),
+        ggr: Number(data.total_profit || 0), // GGR = profit
+        ggrEstimated: estimatedProfit,
+        winBetPercent: bet > 0 ? (win / bet) * 100 : 0,
+        pos,
+        slotsCount
+      }
+    }
+
+    // Calculează datele de comparație
+    // Alaltăieri (pentru Ieri)
+    const dayBeforeYesterday = new Date(yesterdayDate)
+    dayBeforeYesterday.setDate(dayBeforeYesterday.getDate() - 1)
+    const dayBeforeYesterdayStr = formatDateLocal(dayBeforeYesterday)
+    const dayBeforeYesterdayResult = await pool.query(buildOverviewSql(dayBeforeYesterdayStr), overviewParams(dayBeforeYesterdayStr))
+    const dayBeforeYesterdayPosResult = await buildPosSql(dayBeforeYesterdayStr, dayBeforeYesterdayStr)
+    const dayBeforeYesterdayEstimated = 0 // Nu calculăm estimat pentru alaltăieri
+    const slotsDayBeforeYesterday = activeSlotsCount
+
+    // Luna precedentă (2 luni în urmă, pentru Luna trecută)
+    const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 2, 1)
+    const previousMonthEnd = new Date(now.getFullYear(), now.getMonth() - 1, 0)
+    const previousMonthStartStr = `${previousMonthStart.getFullYear()}-${String(previousMonthStart.getMonth() + 1).padStart(2, '0')}-${String(previousMonthStart.getDate()).padStart(2, '0')}`
+    const previousMonthEndStr = `${previousMonthEnd.getFullYear()}-${String(previousMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(previousMonthEnd.getDate()).padStart(2, '0')}`
+    const previousMonthResult = await pool.query(buildMonthSql(previousMonthStartStr, previousMonthEndStr), monthParams(previousMonthStartStr, previousMonthEndStr))
+    const previousMonthPosResult = await buildPosSql(previousMonthStartStr, previousMonthEndStr)
+    const previousMonthEstimated = 0
+    const slotsPreviousMonth = activeSlotsCount
+
+    // Aceeași perioadă din anul trecut (pentru Anul curent)
+    const lastYearStart = new Date(now.getFullYear() - 1, 0, 1)
+    const lastYearEnd = new Date(now.getFullYear() - 1, 11, 31)
+    const lastYearStartStr = `${lastYearStart.getFullYear()}-${String(lastYearStart.getMonth() + 1).padStart(2, '0')}-${String(lastYearStart.getDate()).padStart(2, '0')}`
+    const lastYearEndStr = `${lastYearEnd.getFullYear()}-${String(lastYearEnd.getMonth() + 1).padStart(2, '0')}-${String(lastYearEnd.getDate()).padStart(2, '0')}`
+    
+    // Calculăm aceeași perioadă de zile din anul trecut (de la 1 ianuarie până la data de azi)
+    const daysPassedThisYear = Math.floor((now - currentYearStart) / (1000 * 60 * 60 * 24)) + 1
+    const lastYearPeriodEnd = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
+    const lastYearPeriodEndStr = formatDateLocal(lastYearPeriodEnd)
+    const lastYearResult = await pool.query(buildMonthSql(lastYearStartStr, lastYearPeriodEndStr), monthParams(lastYearStartStr, lastYearPeriodEndStr))
+    const lastYearPosResult = await buildPosSql(lastYearStartStr, lastYearPeriodEndStr)
+    const lastYearEstimated = 0
+    const slotsLastYear = activeSlotsCount
+
+    // Aceleași zile din luna trecută (pentru Luna curentă)
+    const daysInCurrentMonth = now.getDate()
+    const sameDaysLastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const sameDaysLastMonthEnd = new Date(now.getFullYear(), now.getMonth() - 1, daysInCurrentMonth)
+    const sameDaysLastMonthStartStr = formatDateLocal(sameDaysLastMonthStart)
+    const sameDaysLastMonthEndStr = formatDateLocal(sameDaysLastMonthEnd)
+    const sameDaysLastMonthResult = await pool.query(buildMonthSql(sameDaysLastMonthStartStr, sameDaysLastMonthEndStr), monthParams(sameDaysLastMonthStartStr, sameDaysLastMonthEndStr))
+    const sameDaysLastMonthPosResult = await buildPosSql(sameDaysLastMonthStartStr, sameDaysLastMonthEndStr)
+    const sameDaysLastMonthEstimated = 0
+    const slotsSameDaysLastMonth = activeSlotsCount
+
+    return res.json({
+      success: true,
+      today: formatRow(todayResult, todayPosResult, slotsToday, todayEstimated),
+      yesterday: formatRow(yesterdayResult, yesterdayPosResult, slotsYesterday, yesterdayEstimated),
+      currentMonth: formatRow(currentMonthResult, currentMonthPosResult, slotsCurrentMonth, currentMonthEstimated),
+      lastMonth: formatRow(lastMonthResult, lastMonthPosResult, slotsLastMonth, lastMonthEstimated),
+      currentYear: formatRow(currentYearResult, currentYearPosResult, slotsCurrentYear, currentYearEstimated),
+      // Date de comparație
+      dayBeforeYesterday: formatRow(dayBeforeYesterdayResult, dayBeforeYesterdayPosResult, slotsDayBeforeYesterday, dayBeforeYesterdayEstimated),
+      previousMonth: formatRow(previousMonthResult, previousMonthPosResult, slotsPreviousMonth, previousMonthEstimated),
+      lastYear: formatRow(lastYearResult, lastYearPosResult, slotsLastYear, lastYearEstimated),
+      sameDaysLastMonth: formatRow(sameDaysLastMonthResult, sameDaysLastMonthPosResult, slotsSameDaysLastMonth, sameDaysLastMonthEstimated)
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/overview:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la calculul overview-ului de încasări'
+    })
+  }
+})
+
+// GET /api/incasari/debug-day?date=YYYY-MM-DD
+// Endpoint de debug care arată EXACT ce există în incasari_daily pentru o zi:
+//  - totaluri pe zi
+//  - agregat pe locații
+//  - top 100 aparate după IN
+router.get('/debug-day', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available pentru incasari_daily'
+      })
+    }
+
+    const { date } = req.query
+    if (!date) {
+      return res.status(400).json({
+        success: false,
+        error: 'Lipsește parametrul obligatoriu "date" (YYYY-MM-DD)'
+      })
+    }
+
+    const totalsSql = `
+      SELECT
+        COALESCE(SUM(in_amount), 0) AS total_in,
+        COALESCE(SUM(out_amount), 0) AS total_out,
+        COALESCE(SUM(profit), 0) AS total_profit,
+        COALESCE(SUM(bet), 0) AS total_bet,
+        COALESCE(SUM(win), 0) AS total_win,
+        COALESCE(SUM(jackpot), 0) AS total_jackpot,
+        COALESCE(SUM(hh), 0) AS total_hh,
+        COALESCE(SUM(cb_real), 0) AS total_cb_real,
+        COALESCE(SUM(cb_birthday), 0) AS total_cb_birthday,
+        COALESCE(SUM(cb_raffle), 0) AS total_cb_raffle,
+        COUNT(*) AS rows_count,
+        COUNT(DISTINCT machine_id) AS machines_count,
+        COUNT(DISTINCT location_id) AS locations_count
+      FROM incasari_daily
+      WHERE audit_date = $1
+    `
+
+    const byLocationSql = `
+      SELECT
+        location_id,
+        COUNT(*) AS rows_count,
+        COUNT(DISTINCT machine_id) AS machines_count,
+        COALESCE(SUM(in_amount), 0) AS total_in,
+        COALESCE(SUM(out_amount), 0) AS total_out,
+        COALESCE(SUM(profit), 0) AS total_profit
+      FROM incasari_daily
+      WHERE audit_date = $1
+      GROUP BY location_id
+      ORDER BY total_in DESC
+    `
+
+    const topMachinesSql = `
+      SELECT
+        machine_id,
+        location_id,
+        serial_number,
+        COALESCE(in_amount, 0) AS in_amount,
+        COALESCE(out_amount, 0) AS out_amount,
+        COALESCE(profit, 0) AS profit
+      FROM incasari_daily
+      WHERE audit_date = $1
+      ORDER BY in_amount DESC
+      LIMIT 100
+    `
+
+    const [totalsResult, byLocationResult, topMachinesResult] = await Promise.all([
+      pool.query(totalsSql, [date]),
+      pool.query(byLocationSql, [date]),
+      pool.query(topMachinesSql, [date])
+    ])
+
+    return res.json({
+      success: true,
+      date,
+      totals: totalsResult.rows[0] || null,
+      byLocation: byLocationResult.rows || [],
+      topMachines: topMachinesResult.rows || []
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/debug-day:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la debug-day pentru încasări'
+    })
+  }
+})
+
+// GET /api/incasari/compare-cyber?date=YYYY-MM-DD
+// Compară direct suma din Postgres (incasari_daily) cu suma brută din Cyber (MariaDB)
+router.get('/compare-cyber', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available pentru incasari_daily'
+      })
+    }
+
+    const { date } = req.query
+    if (!date) {
+      return res.status(400).json({
+        success: false,
+        error: 'Lipsește parametrul obligatoriu "date" (YYYY-MM-DD)'
+      })
+    }
+
+    // 1) Suma din Postgres (incasari_daily)
+    const pgSql = `
+      SELECT
+        COALESCE(SUM(in_amount), 0) AS total_in,
+        COALESCE(SUM(out_amount), 0) AS total_out,
+        COALESCE(SUM(profit), 0) AS total_profit,
+        COUNT(*) AS rows_count,
+        COUNT(DISTINCT machine_id) AS machines_count
+      FROM incasari_daily
+      WHERE audit_date = $1
+    `
+    const pgResult = await pool.query(pgSql, [date])
+    const pgRow = pgResult.rows[0] || {
+      total_in: 0,
+      total_out: 0,
+      total_profit: 0,
+      rows_count: 0,
+      machines_count: 0
+    }
+
+    // 2) Suma brută direct din Cyber (MariaDB)
+    const cyberPool = await getCyberPool()
+    const [cyberRows] = await cyberPool.query(
+      `
+      SELECT
+        COALESCE(SUM(mas.in), 0) AS total_in,
+        COALESCE(SUM(mas.out), 0) AS total_out,
+        COALESCE(SUM(mas.in - mas.out), 0) AS total_profit,
+        COUNT(*) AS rows_count,
+        COUNT(DISTINCT mas.machine_id) AS machines_count
+      FROM cyberslot_dbn.machine_audit_summaries mas
+      WHERE mas.date = ?
+      `,
+      [date]
+    )
+    const cyberRow = cyberRows[0] || {
+      total_in: 0,
+      total_out: 0,
+      total_profit: 0,
+      rows_count: 0,
+      machines_count: 0
+    }
+
+    return res.json({
+      success: true,
+      date,
+      postgres: {
+        total_in: Number(pgRow.total_in || 0),
+        total_out: Number(pgRow.total_out || 0),
+        total_profit: Number(pgRow.total_profit || 0),
+        rows_count: Number(pgRow.rows_count || 0),
+        machines_count: Number(pgRow.machines_count || 0)
+      },
+      cyber: {
+        total_in: Number(cyberRow.total_in || 0),
+        total_out: Number(cyberRow.total_out || 0),
+        total_profit: Number(cyberRow.total_profit || 0),
+        rows_count: Number(cyberRow.rows_count || 0),
+        machines_count: Number(cyberRow.machines_count || 0)
+      },
+      diff: {
+        in: Number(pgRow.total_in || 0) - Number(cyberRow.total_in || 0),
+        out: Number(pgRow.total_out || 0) - Number(cyberRow.total_out || 0),
+        profit: Number(pgRow.total_profit || 0) - Number(cyberRow.total_profit || 0)
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/compare-cyber:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la compare-cyber pentru încasări'
+    })
+  }
+})
+
+// VARIANTĂ FĂRĂ AUTENTIFICARE, DOAR PENTRU DEBUG LOCAL
+// GET /api/incasari/compare-cyber-open?date=YYYY-MM-DD
+router.get('/compare-cyber-open', async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available pentru incasari_daily'
+      })
+    }
+
+    const { date } = req.query
+    if (!date) {
+      return res.status(400).json({
+        success: false,
+        error: 'Lipsește parametrul obligatoriu \"date\" (YYYY-MM-DD)'
+      })
+    }
+
+    const pgSql = `
+      SELECT
+        COALESCE(SUM(in_amount), 0) AS total_in,
+        COALESCE(SUM(out_amount), 0) AS total_out,
+        COALESCE(SUM(profit), 0) AS total_profit,
+        COUNT(*) AS rows_count,
+        COUNT(DISTINCT machine_id) AS machines_count
+      FROM incasari_daily
+      WHERE audit_date = $1
+    `
+    const pgResult = await pool.query(pgSql, [date])
+    const pgRow = pgResult.rows[0] || {
+      total_in: 0,
+      total_out: 0,
+      total_profit: 0,
+      rows_count: 0,
+      machines_count: 0
+    }
+
+    const cyberPool = await getCyberPool()
+    const [cyberRows] = await cyberPool.query(
+      `
+      SELECT
+        COALESCE(SUM(mas.in), 0) AS total_in,
+        COALESCE(SUM(mas.out), 0) AS total_out,
+        COALESCE(SUM(mas.in - mas.out), 0) AS total_profit,
+        COUNT(*) AS rows_count,
+        COUNT(DISTINCT mas.machine_id) AS machines_count
+      FROM cyberslot_dbn.machine_audit_summaries mas
+      WHERE mas.date = ?
+      `,
+      [date]
+    )
+    const cyberRow = cyberRows[0] || {
+      total_in: 0,
+      total_out: 0,
+      total_profit: 0,
+      rows_count: 0,
+      machines_count: 0
+    }
+
+    return res.json({
+      success: true,
+      date,
+      postgres: {
+        total_in: Number(pgRow.total_in || 0),
+        total_out: Number(pgRow.total_out || 0),
+        total_profit: Number(pgRow.total_profit || 0),
+        rows_count: Number(pgRow.rows_count || 0),
+        machines_count: Number(pgRow.machines_count || 0)
+      },
+      cyber: {
+        total_in: Number(cyberRow.total_in || 0),
+        total_out: Number(cyberRow.total_out || 0),
+        total_profit: Number(cyberRow.total_profit || 0),
+        rows_count: Number(cyberRow.rows_count || 0),
+        machines_count: Number(cyberRow.machines_count || 0)
+      },
+      diff: {
+        in: Number(pgRow.total_in || 0) - Number(cyberRow.total_in || 0),
+        out: Number(pgRow.total_out || 0) - Number(cyberRow.total_out || 0),
+        profit: Number(pgRow.total_profit || 0) - Number(cyberRow.total_profit || 0)
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/compare-cyber-open:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la compare-cyber-open pentru încasări'
+    })
+  }
+})
+
+// GET /api/incasari/dynamics
+// Returnează dinamica IN și Profit: zile din luna curentă vs aceleași zile din luna trecută
+router.get('/dynamics', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available pentru incasari_daily'
+      })
+    }
+
+    const { location, provider, cabinet, gameMix, includeLocations } = req.query
+
+    const locationsArray =
+      typeof includeLocations === 'string' && includeLocations.length > 0
+        ? includeLocations.split(',').map((s) => s.trim()).filter(Boolean)
+        : undefined
+
+    const activeIds = getActiveMachineIds({
+      location,
+      provider,
+      cabinet,
+      gameMix,
+      includeLocations: locationsArray
+    })
+    
+    const today = new Date()
+    const currentHour = today.getHours()
+    // Pentru luna curentă, ținem cont de ziua operațională (08:00–08:00)
+    let currentDay
+    if (currentHour >= 8) {
+      // După 08:00, luna curentă operațională merge până la ziua de azi
+      currentDay = today.getDate()
+    } else {
+      // Înainte de 08:00, luna curentă operațională merge până la ziua de ieri
+      currentDay = today.getDate() - 1
+    }
+    const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+    const currentMonthEnd = new Date(today.getFullYear(), today.getMonth(), currentDay)
+    const currentMonthStartStr = `${currentMonthStart.getFullYear()}-${String(currentMonthStart.getMonth() + 1).padStart(2, '0')}-${String(currentMonthStart.getDate()).padStart(2, '0')}`
+    const currentMonthEndStr = `${currentMonthEnd.getFullYear()}-${String(currentMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(currentMonthEnd.getDate()).padStart(2, '0')}`
+
+    const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+    const lastMonthEnd = new Date(today.getFullYear(), today.getMonth() - 1, currentDay)
+    const lastMonthStartStr = `${lastMonthStart.getFullYear()}-${String(lastMonthStart.getMonth() + 1).padStart(2, '0')}-${String(lastMonthStart.getDate()).padStart(2, '0')}`
+    const lastMonthEndStr = `${lastMonthEnd.getFullYear()}-${String(lastMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(lastMonthEnd.getDate()).padStart(2, '0')}`
+
+    let dynamicsSql
+    let currentParams, lastParams
+    
+    // Dacă avem activeIds, folosim filtrarea pe machine_id
+    if (activeIds && activeIds.length > 0) {
+      dynamicsSql = `
+        SELECT
+          COALESCE(SUM(in_amount), 0) AS total_in,
+          COALESCE(SUM(profit), 0) AS total_profit
+        FROM incasari_daily
+        WHERE audit_date BETWEEN $1 AND $2
+          AND machine_id = ANY($3)
+      `
+      currentParams = [currentMonthStartStr, currentMonthEndStr, activeIds]
+      lastParams = [lastMonthStartStr, lastMonthEndStr, activeIds]
+    } else {
+      // Dacă nu avem activeIds, afișăm toate datele disponibile (fără filtrare pe machine_id)
+      dynamicsSql = `
+        SELECT
+          COALESCE(SUM(in_amount), 0) AS total_in,
+          COALESCE(SUM(profit), 0) AS total_profit
+        FROM incasari_daily
+        WHERE audit_date BETWEEN $1 AND $2
+      `
+      currentParams = [currentMonthStartStr, currentMonthEndStr]
+      lastParams = [lastMonthStartStr, lastMonthEndStr]
+    }
+
+    const [currentResult, lastResult] = await Promise.all([
+      pool.query(dynamicsSql, currentParams),
+      pool.query(dynamicsSql, lastParams)
+    ])
+
+    const currentIn = Number(currentResult.rows[0]?.total_in || 0)
+    const currentProfit = Number(currentResult.rows[0]?.total_profit || 0)
+    const lastIn = Number(lastResult.rows[0]?.total_in || 0)
+    const lastProfit = Number(lastResult.rows[0]?.total_profit || 0)
+
+    const inChange = lastIn > 0 ? Math.round(((currentIn - lastIn) / lastIn) * 100) : 0
+    const profitChange = lastProfit > 0 ? Math.round(((currentProfit - lastProfit) / lastProfit) * 100) : 0
+
+    return res.json({
+      success: true,
+      currentMonthDays: { in: currentIn, profit: currentProfit },
+      lastMonthSameDays: { in: lastIn, profit: lastProfit },
+      inChange,
+      profitChange
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/dynamics:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la calculul dinamicii de încasări'
+    })
+  }
+})
+
+// GET /api/incasari/location-daily?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+// PONT de P&L: agregă IN / OUT / GGR pe ZI + LOCAȚIE din incasari_daily
+// (vom adăuga ulterior și cheltuielile din expenditures_sync pe aceeași cheie)
+router.get('/location-daily', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available pentru incasari_daily'
+      })
+    }
+
+    const { startDate, endDate, includeLocations } = req.query
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        error: 'Lipsește startDate sau endDate'
+      })
+    }
+
+    let locationsArray
+    if (typeof includeLocations === 'string' && includeLocations.length > 0) {
+      locationsArray = includeLocations
+        .split(',')
+        .map((s) => normalizeLocationName(s))
+        .filter(Boolean)
+    }
+
+    // Limităm la locațiile vizibile, dacă sunt setate
+    let locationIdsFilter = null
+    if (Array.isArray(locationsArray) && locationsArray.length > 0) {
+      const activeSlots = getActiveSlots()
+      const allowed = new Set(locationsArray)
+      const locationIds = new Set()
+      activeSlots.forEach((slot) => {
+        if (
+          slot &&
+          slot.location &&
+          allowed.has(normalizeLocationName(slot.location)) &&
+          slot.location_id
+        ) {
+          locationIds.add(Number(slot.location_id))
+        }
+      })
+      if (locationIds.size > 0) {
+        locationIdsFilter = Array.from(locationIds)
+      }
+    }
+
+    const baseSql = `
+      SELECT
+        i.audit_date AS date,
+        i.location_id,
+        l.name AS location_name,
+        COALESCE(SUM(i.in_amount), 0) AS total_in,
+        COALESCE(SUM(i.out_amount), 0) AS total_out,
+        COALESCE(SUM(i.profit), 0) AS total_profit
+      FROM incasari_daily i
+      LEFT JOIN locations l ON i.location_id = l.id
+      WHERE i.audit_date BETWEEN $1 AND $2
+    `
+
+    const sql = locationIdsFilter
+      ? `${baseSql} AND i.location_id = ANY($3) GROUP BY i.audit_date, i.location_id, l.name ORDER BY i.audit_date, l.name`
+      : `${baseSql} GROUP BY i.audit_date, i.location_id, l.name ORDER BY i.audit_date, l.name`
+
+    const params = locationIdsFilter ? [startDate, endDate, locationIdsFilter] : [startDate, endDate]
+    const result = await pool.query(sql, params)
+
+    return res.json({
+      success: true,
+      startDate,
+      endDate,
+      rows: result.rows || []
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/location-daily:', error)
+    console.error('Stack trace:', error.stack)
+    console.error('Request params:', { startDate, endDate, includeLocations })
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la agregarea datelor pe zi + locație',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    })
+  }
+})
+
+// GET /api/incasari/pos-data
+// Returnează date POS din expenditures_sync pentru un interval de date.
+// - Dacă nu se trimit filtre → toate locațiile
+// - Dacă se trimit `location` / `includeLocations` → filtrează pe aceste locații
+router.get('/pos-data', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available pentru expenditures_sync'
+      })
+    }
+
+    const { startDate, endDate, location, includeLocations } = req.query
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        error: 'Lipsește startDate sau endDate'
+      })
+    }
+
+    // Construim lista de locații pentru filtrare (dacă este cazul)
+    let locationsArray
+    if (typeof includeLocations === 'string' && includeLocations.length > 0) {
+      locationsArray = includeLocations
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    }
+    if (location && location !== 'all') {
+      // Dacă există și location explicit, îl folosim cu prioritate
+      locationsArray = [location]
+    }
+
+    // Sumă pe zi pentru POS:
+    //  - POS poate fi setat fie în `expenditure_type`, fie în `department_name`,
+    //    așa că le luăm pe ambele ca să nu ratăm înregistrări.
+    //  - Folosim DATE() pentru comparație corectă și gestionăm NULL-urile.
+    let sql = `
+      SELECT
+        DATE(operational_date) AS date,
+        COALESCE(SUM(amount), 0) AS total_pos
+      FROM expenditures_sync
+      WHERE DATE(operational_date) BETWEEN DATE($1::text) AND DATE($2::text)
+        AND (
+          (expenditure_type IS NOT NULL AND UPPER(TRIM(expenditure_type)) = 'POS')
+          OR (department_name IS NOT NULL AND UPPER(TRIM(department_name)) = 'POS')
+        )
+    `
+
+    const params = [startDate, endDate]
+    if (locationsArray && locationsArray.length > 0) {
+      // Filtrare pe locații, dacă este cazul
+      sql += ' AND location_name = ANY($3)'
+      params.push(locationsArray)
+    }
+
+    sql += `
+      GROUP BY DATE(operational_date)
+      ORDER BY DATE(operational_date)
+    `
+
+    const result = await pool.query(sql, params)
+
+    return res.json({
+      success: true,
+      startDate,
+      endDate,
+      rows: result.rows || []
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/pos-data:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la calculul datelor POS'
+    })
+  }
+})
+
+// GET /api/incasari/floorplan-data
+// Returnează date agregate pe sloturi pentru o locație (pentru floorplan SVG)
+router.get('/floorplan-data', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available pentru incasari_daily'
+      })
+    }
+
+    const { location, startDate, endDate } = req.query
+
+    if (!location) {
+      return res.status(400).json({
+        success: false,
+        error: 'Lipsește parametrul location'
+      })
+    }
+    ensureDateRange(startDate, endDate)
+
+    // Pentru floorplan folosim DOAR sloturi ACTIVE în locația selectată
+    const slots = getActiveSlots()
+      .filter((slot) => slot && (slot.location || '') === location)
+      .filter((slot) => {
+        const rawStatus = (slot.status || '').toString().toLowerCase().trim()
+        if (rawStatus.includes('inactiv')) return false
+        if (!rawStatus.includes('activ')) return false
+        return true
+      })
+
+    if (!slots || slots.length === 0) {
+      return res.json({
+        success: true,
+        location,
+        startDate,
+        endDate,
+        tiles: []
+      })
+    }
+
+    const machineIds = slots
+      .map((s) => Number(s.id))
+      .filter((id) => Number.isFinite(id))
+
+    if (machineIds.length === 0) {
+      return res.json({
+        success: true,
+        location,
+        startDate,
+        endDate,
+        tiles: []
+      })
+    }
+
+    const sql = `
+      SELECT
+        machine_id,
+        COALESCE(SUM(in_amount), 0) AS total_in,
+        COALESCE(SUM(profit), 0) AS total_profit,
+        COALESCE(SUM(bet), 0) AS total_bet,
+        COUNT(DISTINCT audit_date) AS days_count
+      FROM incasari_daily
+      WHERE audit_date BETWEEN $1 AND $2
+        AND machine_id = ANY($3)
+      GROUP BY machine_id
+    `
+
+    const result = await pool.query(sql, [startDate, endDate, machineIds])
+
+    // Mapăm și "order"-ul (numărul de ordine din sală) din tabela machines din Cyber
+    const cyberPool = await getCyberPool()
+    let orderMap = new Map()
+    if (machineIds.length > 0) {
+      const placeholders = machineIds.map(() => '?').join(',')
+      const [orderRows] = await cyberPool.query(
+        `
+        SELECT id, \`order\` AS machine_order
+        FROM cyberslot_dbn.machines
+        WHERE id IN (${placeholders})
+        `,
+        machineIds
+      )
+      orderMap = new Map(
+        orderRows.map((r) => [Number(r.id), Number(r.machine_order || 0) || null])
+      )
+    }
+
+    const aggMap = new Map()
+    const machineIdsWithData = new Set()
+    result.rows.forEach((row) => {
+      const id = Number(row.machine_id)
+      const daysCount = Number(row.days_count || 0)
+      aggMap.set(id, {
+        totalIn: Number(row.total_in || 0),
+        totalGgr: Number(row.total_profit || 0),
+        totalBet: Number(row.total_bet || 0),
+        daysCount
+      })
+      if (daysCount > 0) {
+        machineIdsWithData.add(id)
+      }
+    })
+
+    const allowedMachineIds = new Set(orderMap.keys())
+
+    const tiles = slots
+      // doar aparatele care:
+      // 1) au avut cel puțin o zi cu date în perioada selectată
+      // 2) au avut cel puțin o încasare (totalIn > 0) - NU sloturi cu drop zero
+      // 3) există în tabela machines din Cyber (au un id de aparat real în sală)
+      .filter((slot) => {
+        const id = Number(slot.id)
+        if (!Number.isFinite(id)) return false
+        if (!machineIdsWithData.has(id)) return false
+        if (allowedMachineIds.size > 0 && !allowedMachineIds.has(id)) return false
+        
+        // FILTRU IMPORTANT: Excludem sloturile cu totalIn = 0 (nu au avut nicio încasare)
+        const agg = aggMap.get(id)
+        if (!agg || agg.totalIn <= 0) return false
+        
+        return true
+      })
+      .map((slot) => {
+        const id = Number(slot.id)
+        const agg = aggMap.get(id) || {
+          totalIn: 0,
+          totalGgr: 0,
+          totalBet: 0,
+          daysCount: 0
+        }
+        const avgDrop =
+          agg.daysCount > 0 ? agg.totalIn / agg.daysCount : 0
+        return {
+          machineId: id,
+          serialNumber: slot.serial_number || slot.name || `Slot ${id}`,
+          name: slot.name || slot.serial_number || `Slot ${id}`,
+          provider: slot.provider || null,
+          cabinet: slot.cabinet || null,
+          gameMix: slot.game_mix || null,
+          location: slot.location || null,
+          totalIn: agg.totalIn,
+          totalGgr: agg.totalGgr,
+          totalBet: agg.totalBet,
+          daysCount: agg.daysCount,
+          avgDrop,
+          order: orderMap.get(id) || null
+        }
+      })
+
+    return res.json({
+      success: true,
+      location,
+      startDate,
+      endDate,
+      tiles
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/floorplan-data:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la agregarea datelor pentru floorplan'
+    })
+  }
+})
+
+// GET /api/incasari/location-expenditures
+// Returnează cheltuieli totale pe locație pentru un interval de date (pentru P&L per locație)
+router.get('/location-expenditures', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available pentru expenditures_sync'
+      })
+    }
+
+    const { startDate, endDate, includeLocations } = req.query
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        error: 'Lipsește startDate sau endDate'
+      })
+    }
+
+    let locationsArray
+    if (typeof includeLocations === 'string' && includeLocations.length > 0) {
+      locationsArray = includeLocations
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    }
+
+    let sql = `
+      SELECT
+        COALESCE(location_name, 'Nespecificat') AS location_name,
+        COALESCE(SUM(amount), 0) AS total_expenditures
+      FROM expenditures_sync
+      WHERE DATE(operational_date) BETWEEN DATE($1::text) AND DATE($2::text)
+    `
+
+    const params = [startDate, endDate]
+    if (locationsArray && locationsArray.length > 0) {
+      sql += ' AND location_name = ANY($3)'
+      params.push(locationsArray)
+    }
+
+    sql += `
+      GROUP BY COALESCE(location_name, 'Nespecificat')
+      ORDER BY COALESCE(location_name, 'Nespecificat')
+    `
+
+    const result = await pool.query(sql, params)
+
+    return res.json({
+      success: true,
+      startDate,
+      endDate,
+      rows: result.rows || []
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/location-expenditures:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la agregarea cheltuielilor pe locație'
+    })
+  }
+})
+
+// GET /api/incasari/estimated-profit
+// Returnează profit estimat = media ultimilor 15 zile de profit (fără azi)
+router.get('/estimated-profit', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available pentru incasari_daily'
+      })
+    }
+
+    const { location, provider, cabinet, gameMix, includeLocations } = req.query
+
+    const locationsArray =
+      typeof includeLocations === 'string' && includeLocations.length > 0
+        ? includeLocations.split(',').map((s) => s.trim()).filter(Boolean)
+        : undefined
+
+    const activeIds = getActiveMachineIds({
+      location,
+      provider,
+      cabinet,
+      gameMix,
+      includeLocations: locationsArray
+    })
+    
+    const today = new Date()
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    const fifteenDaysAgo = new Date(today)
+    fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15)
+    const fifteenDaysAgoStr = `${fifteenDaysAgo.getFullYear()}-${String(fifteenDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(fifteenDaysAgo.getDate()).padStart(2, '0')}`
+
+    let sql
+    let params
+    
+    // Dacă avem activeIds, folosim filtrarea pe machine_id
+    if (activeIds && activeIds.length > 0) {
+      sql = `
+        SELECT
+          COALESCE(AVG(profit), 0) AS avg_profit,
+          COUNT(DISTINCT audit_date) AS days_count
+        FROM incasari_daily
+        WHERE audit_date >= $1
+          AND audit_date < $2
+          AND machine_id = ANY($3)
+      `
+      params = [fifteenDaysAgoStr, todayStr, activeIds]
+    } else {
+      // Dacă nu avem activeIds, afișăm toate datele disponibile (fără filtrare pe machine_id)
+      sql = `
+        SELECT
+          COALESCE(AVG(profit), 0) AS avg_profit,
+          COUNT(DISTINCT audit_date) AS days_count
+        FROM incasari_daily
+        WHERE audit_date >= $1
+          AND audit_date < $2
+      `
+      params = [fifteenDaysAgoStr, todayStr]
+    }
+
+    const result = await pool.query(sql, params)
+    const avgProfit = Number(result.rows[0]?.avg_profit || 0)
+    const daysUsed = Number(result.rows[0]?.days_count || 0)
+
+    // Calculează numărul de zile din luna curentă
+    const now = new Date()
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    const daysInCurrentMonth = currentMonthEnd.getDate()
+
+    // Profit estimat = GGR medie ultimele 15 zile (mai puțin today) x numărul de zile din luna curentă
+    const estimatedProfit = avgProfit * daysInCurrentMonth
+
+    return res.json({
+      success: true,
+      estimatedProfit: estimatedProfit,
+      daysUsed
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/estimated-profit:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la calculul profitului estimat'
+    })
+  }
+})
+
+// POST /api/incasari/sync
+// Rulează import-incasari-from-cyber.js în background
+// Acceptă parametrul forceCurrentMonth pentru a forța importul pentru toată luna curentă
+router.post('/sync', authenticateToken, async (req, res) => {
+  try {
+    const { spawn } = await import('child_process')
+    const path = await import('path')
+    const { fileURLToPath } = await import('url')
+    const __filename = fileURLToPath(import.meta.url)
+    const __dirname = path.dirname(__filename)
+
+    // Initialize globals for progress tracking
+    if (typeof global._incasariSyncRunning === 'undefined') {
+      global._incasariSyncRunning = false
+      global._incasariSyncOutput = ''
+      global._incasariSyncStartTime = null
+      global._incasariSyncEndTime = null
+    }
+
+    // Check if already syncing
+    if (global._incasariSyncRunning) {
+      return res.status(400).json({
+        success: false,
+        error: 'Sincronizare deja în curs. Vă rugăm să așteptați finalizarea.'
+      })
+    }
+
+    // Verifică dacă se cere import forțat pentru luna curentă
+    const { forceCurrentMonth } = req.body
+    let scriptArgs = []
+    
+    if (forceCurrentMonth) {
+      // Calculează prima și ultima zi a lunii curente
+      const now = new Date()
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+      const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+      
+      const startYear = currentMonthStart.getFullYear()
+      const startMonth = String(currentMonthStart.getMonth() + 1).padStart(2, '0')
+      const startDay = String(currentMonthStart.getDate()).padStart(2, '0')
+      const start = `${startYear}-${startMonth}-${startDay}`
+      
+      const endYear = currentMonthEnd.getFullYear()
+      const endMonth = String(currentMonthEnd.getMonth() + 1).padStart(2, '0')
+      const endDay = String(currentMonthEnd.getDate()).padStart(2, '0')
+      const end = `${endYear}-${endMonth}-${endDay}`
+      
+      scriptArgs = [start, end]
+      console.log(`🔄 [SYNC] Import forțat pentru luna curentă: ${start} → ${end}`)
+    }
+
+    // Return immediately (non-blocking)
+    res.json({
+      success: true,
+      message: forceCurrentMonth 
+        ? 'Import forțat pentru luna curentă început. Datele vor fi actualizate în curând.'
+        : 'Sincronizare începută. Datele vor fi actualizate în curând.'
+    })
+
+    // Start sync in background
+    global._incasariSyncRunning = true
+    global._incasariSyncOutput = ''
+    global._incasariSyncStartTime = new Date().toISOString()
+    global._incasariSyncEndTime = null
+
+    const scriptPath = path.join(__dirname, '..', 'import-incasari-from-cyber.js')
+
+    const child = spawn('node', [scriptPath, ...scriptArgs], {
+      cwd: path.join(__dirname, '..'),
+      stdio: 'pipe'
+    })
+
+    child.stdout.on('data', (data) => {
+      const text = data.toString()
+      global._incasariSyncOutput += text
+      console.log(`[INCASARI SYNC] ${text}`)
+    })
+
+    child.stderr.on('data', (data) => {
+      const text = data.toString()
+      global._incasariSyncOutput += text
+      console.error(`[INCASARI SYNC ERROR] ${text}`)
+    })
+
+    child.on('close', (code) => {
+      global._incasariSyncRunning = false
+      global._incasariSyncEndTime = new Date().toISOString()
+      if (code === 0) {
+        console.log('✅ [INCASARI SYNC] Sincronizare finalizată cu succes')
+      } else {
+        console.error(`❌ [INCASARI SYNC] Sincronizare finalizată cu eroare (code: ${code})`)
+      }
+    })
+  } catch (error) {
+    global._incasariSyncRunning = false
+    console.error('❌ Error in /api/incasari/sync:', error)
+    if (!res.headersSent) {
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Eroare la pornirea sincronizării'
+      })
+    }
+  }
+})
+
+// GET /api/incasari/sync-status
+// Returnează statusul sincronizării (pentru UI de progres)
+router.get('/sync-status', authenticateToken, async (req, res) => {
+  try {
+    return res.json({
+      success: true,
+      running: !!global._incasariSyncRunning,
+      startTime: global._incasariSyncStartTime || null,
+      endTime: global._incasariSyncEndTime || null,
+      output: global._incasariSyncOutput || ''
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/sync-status:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la citirea statusului de sincronizare încasări'
+    })
+  }
+})
+
+// GET /api/incasari/slots-by-month-location
+// Returnează numărul distinct de sloturi (serial_number) grupate pe lună și locație pentru anul curent
+router.get('/slots-by-month-location', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available'
+      })
+    }
+
+    const currentYear = new Date().getFullYear()
+    const startDate = `${currentYear}-01-01`
+    const endDate = `${currentYear}-12-31`
+
+    // Numără serial_number distincte (1 serial = 1 slot) care au avut activitate în fiecare lună și locație
+    const sql = `
+      SELECT 
+        EXTRACT(MONTH FROM audit_date)::INTEGER AS month,
+        location_id,
+        COUNT(DISTINCT serial_number) AS slots_count
+      FROM incasari_daily
+      WHERE audit_date BETWEEN $1 AND $2
+        AND location_id IS NOT NULL
+        AND serial_number IS NOT NULL
+        AND serial_number != ''
+      GROUP BY EXTRACT(MONTH FROM audit_date), location_id
+      ORDER BY month, location_id
+    `
+
+    const result = await pool.query(sql, [startDate, endDate])
+    console.log(`📊 [slots-by-month-location] Găsite ${result.rows.length} rânduri pentru anul ${currentYear}`)
+    if (result.rows.length > 0) {
+      console.log('📊 [slots-by-month-location] Primele 5 rânduri:', result.rows.slice(0, 5))
+    }
+    
+    // Debug: verifică dacă există date în incasari_daily pentru anul curent
+    const debugSql = `
+      SELECT 
+        COUNT(*) as total_rows,
+        COUNT(DISTINCT location_id) as unique_locations,
+        COUNT(DISTINCT machine_id) as unique_slots,
+        MIN(audit_date) as min_date,
+        MAX(audit_date) as max_date
+      FROM incasari_daily
+      WHERE audit_date BETWEEN $1 AND $2
+        AND machine_id IS NOT NULL
+    `
+    const debugResult = await pool.query(debugSql, [startDate, endDate])
+    console.log('📊 [slots-by-month-location] Debug info:', debugResult.rows[0])
+
+    // Folosește locations.json pentru mapping (la fel ca în celelalte endpoint-uri)
+    const locationsData = loadExportedData('locations.json')
+    const locationMap = new Map()
+    locationsData.forEach((loc) => {
+      if (loc && typeof loc.id !== 'undefined') {
+        const locationName = normalizeLocationName(loc.name || loc.location || `Loc ${loc.id}`)
+        // Exclude "Depozit" din tabel
+        if (locationName.toLowerCase() !== 'depozit') {
+          locationMap.set(String(loc.id), locationName)
+        }
+      }
+    })
+    
+    // Obține toate locațiile unice (normalizate) pentru a inițializa structura
+    // Exclude "Depozit"
+    const allLocationNames = new Set()
+    locationMap.forEach((name) => {
+      if (name.toLowerCase() !== 'depozit') {
+        allLocationNames.add(name)
+      }
+    })
+
+    // Construiește structura de date: lună -> locație -> count
+    // Inițializează toate lunile cu toate locațiile la 0
+    const monthData = {}
+    const sortedLocationNames = Array.from(allLocationNames).sort()
+    
+    for (let month = 1; month <= 12; month++) {
+      monthData[month] = {}
+      sortedLocationNames.forEach(locationName => {
+        monthData[month][locationName] = 0
+      })
+    }
+    
+    // Populează cu datele reale (exclude "Depozit")
+    result.rows.forEach(row => {
+      const month = row.month
+      const locationId = String(row.location_id || '')
+      const locationName = locationMap.get(locationId)
+      
+      // Exclude "Depozit"
+      if (month && locationName && locationName.toLowerCase() !== 'depozit' && monthData[month]) {
+        const currentCount = monthData[month][locationName] || 0
+        const newCount = Number(row.slots_count || 0)
+        // Folosim MAX pentru că poate exista mai multe rânduri pentru aceeași lună/locație
+        monthData[month][locationName] = Math.max(currentCount, newCount)
+      }
+    })
+    
+    console.log('📊 [slots-by-month-location] Structura finală pentru Ianuarie:', monthData[1])
+
+    return res.json({
+      success: true,
+      year: currentYear,
+      locations: sortedLocationNames,
+      monthData
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/slots-by-month-location:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la calculul sloturilor pe lună și locație'
+    })
+  }
+})
+
+// GET /api/incasari/ggr-by-month-location
+// Returnează GGR (total_profit) grupate pe lună și locație pentru anul selectat
+// Pentru luna curentă, folosește TOATĂ luna (1-30/31) pentru consistență cu Prezentare generală
+router.get('/ggr-by-month-location', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available'
+      })
+    }
+
+    const year = parseInt(req.query.year) || new Date().getFullYear()
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    const currentMonth = now.getMonth() + 1
+    
+    // Pentru anul curent, calculează până la sfârșitul lunii curente (nu ziua operațională)
+    // Pentru anii trecuți, calculează pentru tot anul
+    let startDate, endDate
+    if (year === currentYear) {
+      // Anul curent: de la 1 ianuarie până la sfârșitul lunii curente (pentru consistență)
+      startDate = `${year}-01-01`
+      const lastDayOfCurrentMonth = new Date(year, currentMonth, 0).getDate()
+      endDate = `${year}-${String(currentMonth).padStart(2, '0')}-${String(lastDayOfCurrentMonth).padStart(2, '0')}`
+    } else {
+      // Ani trecuți: tot anul
+      startDate = `${year}-01-01`
+      endDate = `${year}-12-31`
+    }
+
+    // Calculează GGR (profit) pentru fiecare lună și locație
+    const sql = `
+      SELECT 
+        EXTRACT(MONTH FROM audit_date)::INTEGER AS month,
+        location_id,
+        SUM(profit) AS total_ggr
+      FROM incasari_daily
+      WHERE audit_date BETWEEN $1 AND $2
+        AND location_id IS NOT NULL
+      GROUP BY EXTRACT(MONTH FROM audit_date), location_id
+      ORDER BY month, location_id
+    `
+
+    const result = await pool.query(sql, [startDate, endDate])
+    console.log(`📊 [ggr-by-month-location] Găsite ${result.rows.length} rânduri pentru anul ${year} (${startDate} - ${endDate})`)
+    
+    // Folosește locations.json pentru mapping
+    const locationsData = loadExportedData('locations.json')
+    const locationMap = new Map()
+    locationsData.forEach((loc) => {
+      if (loc && typeof loc.id !== 'undefined') {
+        const locationName = normalizeLocationName(loc.name || loc.location || `Loc ${loc.id}`)
+        // Exclude "Depozit" din tabel
+        if (locationName.toLowerCase() !== 'depozit') {
+          locationMap.set(String(loc.id), locationName)
+        }
+      }
+    })
+    
+    // Obține toate locațiile unice (normalizate) pentru a inițializa structura
+    // Exclude "Depozit"
+    const allLocationNames = new Set()
+    locationMap.forEach((name) => {
+      if (name.toLowerCase() !== 'depozit') {
+        allLocationNames.add(name)
+      }
+    })
+
+    // Construiește structura de date: lună -> locație -> GGR
+    // Inițializează toate lunile cu toate locațiile la 0
+    const monthData = {}
+    const sortedLocationNames = Array.from(allLocationNames).sort()
+    
+    for (let month = 1; month <= 12; month++) {
+      monthData[month] = {}
+      sortedLocationNames.forEach(locationName => {
+        monthData[month][locationName] = 0
+      })
+    }
+    
+    // Populează cu datele reale (exclude "Depozit")
+    result.rows.forEach(row => {
+      const month = row.month
+      const locationId = String(row.location_id || '')
+      const locationName = locationMap.get(locationId)
+      
+      // Exclude "Depozit"
+      if (month && locationName && locationName.toLowerCase() !== 'depozit' && monthData[month]) {
+        monthData[month][locationName] = Number(row.total_ggr || 0)
+      }
+    })
+    
+    console.log('📊 [ggr-by-month-location] Structura finală pentru Ianuarie:', monthData[1])
+
+    return res.json({
+      success: true,
+      year: year,
+      locations: sortedLocationNames,
+      monthData
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/ggr-by-month-location:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la calculul GGR pe lună și locație'
+    })
+  }
+})
+
+// AWS S3 Configuration pentru cache încasări
+const s3Client = process.env.AWS_ACCESS_KEY_ID ? new S3Client({
+  region: process.env.AWS_REGION || 'eu-central-1',
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  }
+}) : null
+
+const S3_BUCKET = process.env.AWS_S3_BUCKET || 'cashpot-documents'
+const S3_PREFIX = 'incasari-cache/'
+
+// GET /api/incasari/aws-status
+// Verifică dacă AWS S3 este configurat
+router.get('/aws-status', authenticateToken, async (req, res) => {
+  try {
+    const available = !!(
+      process.env.AWS_ACCESS_KEY_ID &&
+      process.env.AWS_SECRET_ACCESS_KEY &&
+      process.env.AWS_REGION &&
+      s3Client
+    )
+    
+    return res.json({
+      success: true,
+      available
+    })
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    })
+  }
+})
+
+// POST /api/incasari/aws-save
+// Salvează date în AWS S3
+router.post('/aws-save', authenticateToken, async (req, res) => {
+  try {
+    if (!s3Client) {
+      return res.status(503).json({
+        success: false,
+        error: 'AWS S3 nu este configurat'
+      })
+    }
+
+    const { key, data, timestamp } = req.body
+    
+    const body = JSON.stringify({
+      data,
+      timestamp: timestamp || Date.now(),
+      version: '1.0'
+    })
+
+    const command = new PutObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: key,
+      Body: body,
+      ContentType: 'application/json',
+      CacheControl: 'max-age=3600'
+    })
+
+    await s3Client.send(command)
+    
+    return res.json({
+      success: true,
+      message: 'Date salvate în AWS S3'
+    })
+  } catch (error) {
+    console.error('❌ Eroare la salvare AWS S3:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    })
+  }
+})
+
+// GET /api/incasari/aws-get
+// Citește date din AWS S3
+router.get('/aws-get', authenticateToken, async (req, res) => {
+  try {
+    if (!s3Client) {
+      return res.status(503).json({
+        success: false,
+        error: 'AWS S3 nu este configurat'
+      })
+    }
+
+    const { key } = req.query
+    
+    const command = new GetObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: key
+    })
+
+    const response = await s3Client.send(command)
+    const body = await response.Body.transformToString()
+    const parsed = JSON.parse(body)
+    
+    return res.json({
+      success: true,
+      data: parsed.data,
+      timestamp: parsed.timestamp
+    })
+  } catch (error) {
+    if (error.name === 'NoSuchKey') {
+      return res.status(404).json({
+        success: false,
+        error: 'Cheie nu există în AWS S3'
+      })
+    }
+    
+    console.error('❌ Eroare la citire AWS S3:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    })
+  }
+})
+
+// GET /api/incasari/aws-timestamp
+// Verifică timestamp-ul unui item din AWS S3
+router.get('/aws-timestamp', authenticateToken, async (req, res) => {
+  try {
+    if (!s3Client) {
+      return res.status(503).json({
+        success: false,
+        error: 'AWS S3 nu este configurat'
+      })
+    }
+
+    const { key } = req.query
+    
+    const command = new HeadObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: key
+    })
+
+    const response = await s3Client.send(command)
+    const metadata = response.Metadata || {}
+    
+    // Încearcă să citească timestamp din metadata sau din fișier
+    if (metadata.timestamp) {
+      return res.json({
+        success: true,
+        timestamp: parseInt(metadata.timestamp)
+      })
+    }
+    
+    // Dacă nu e în metadata, citește fișierul
+    const getCommand = new GetObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: key
+    })
+    
+    const getResponse = await s3Client.send(getCommand)
+    const body = await getResponse.Body.transformToString()
+    const parsed = JSON.parse(body)
+    
+    return res.json({
+      success: true,
+      timestamp: parsed.timestamp || null
+    })
+  } catch (error) {
+    if (error.name === 'NotFound' || error.name === 'NoSuchKey') {
+      return res.status(404).json({
+        success: false,
+        error: 'Cheie nu există'
+      })
+    }
+    
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    })
+  }
+})
+
+// GET /api/incasari/aws-list
+// Listă toate cheile din cache AWS
+router.get('/aws-list', authenticateToken, async (req, res) => {
+  try {
+    if (!s3Client) {
+      return res.status(503).json({
+        success: false,
+        error: 'AWS S3 nu este configurat'
+      })
+    }
+
+    const command = new ListObjectsV2Command({
+      Bucket: S3_BUCKET,
+      Prefix: S3_PREFIX
+    })
+
+    const response = await s3Client.send(command)
+    const keys = (response.Contents || []).map(item => 
+      item.Key.replace(S3_PREFIX, '').replace('.json', '')
+    )
+    
+    return res.json({
+      success: true,
+      keys
+    })
+  } catch (error) {
+    console.error('❌ Eroare la listare AWS cache:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    })
+  }
+})
+
+export default router
+
+

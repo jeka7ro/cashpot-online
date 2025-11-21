@@ -13,6 +13,7 @@ export const MODULES = {
   JACKPOTS: 'jackpots',
   INVOICES: 'invoices',
   ONJN: 'onjn',
+  INCASARI: 'incasari',
   LEGAL: 'legal',
   USERS: 'users',
   SETTINGS: 'settings',
@@ -108,6 +109,10 @@ export const MODULE_CONFIG = {
   [MODULES.EXPENDITURES]: {
     label: '💰 Cheltuieli',
     actions: [ACTIONS.VIEW, ACTIONS.EDIT, ACTIONS.EXPORT, ACTIONS.IMPORT]
+  },
+  [MODULES.INCASARI]: {
+    label: '💵 Încasări (Cyber)',
+    actions: [ACTIONS.VIEW, ACTIONS.EXPORT, ACTIONS.IMPORT]
   }
 }
 
@@ -154,7 +159,8 @@ export const DEFAULT_PERMISSIONS = {
     [MODULES.SETTINGS]: { view: true, edit: false },
     [MODULES.CYBER_IMPORT]: { view: true, import: true },
     [MODULES.MARKETING]: { view: true, create: true, edit: true, delete: false, export: true },
-    [MODULES.EXPENDITURES]: { view: true, edit: true, export: true, import: true }
+    [MODULES.EXPENDITURES]: { view: true, edit: true, export: true, import: true },
+    [MODULES.INCASARI]: { view: true, export: true, import: true }
   },
   user: {
     // User has mostly view permissions
@@ -176,7 +182,8 @@ export const DEFAULT_PERMISSIONS = {
     [MODULES.SETTINGS]: { view: false, edit: false },
     [MODULES.CYBER_IMPORT]: { view: false, import: false },
     [MODULES.MARKETING]: { view: true, create: false, edit: false, delete: false, export: true },
-    [MODULES.EXPENDITURES]: { view: true, edit: false, export: true, import: false }
+    [MODULES.EXPENDITURES]: { view: true, edit: false, export: true, import: false },
+    [MODULES.INCASARI]: { view: true, export: true, import: false }
   },
   marketing: {
     [MODULES.DASHBOARD]: { view: true, edit: false },
@@ -197,7 +204,8 @@ export const DEFAULT_PERMISSIONS = {
     [MODULES.SETTINGS]: { view: false, edit: false },
     [MODULES.CYBER_IMPORT]: { view: false, import: false },
     [MODULES.MARKETING]: { view: true, create: true, edit: true, delete: true, export: true },
-    [MODULES.EXPENDITURES]: { view: false, edit: false, export: false, import: false }
+    [MODULES.EXPENDITURES]: { view: false, edit: false, export: false, import: false },
+    [MODULES.INCASARI]: { view: false, export: false, import: false }
   },
   operational: {
     [MODULES.DASHBOARD]: { view: true, edit: false },
@@ -218,7 +226,8 @@ export const DEFAULT_PERMISSIONS = {
     [MODULES.SETTINGS]: { view: false, edit: false },
     [MODULES.CYBER_IMPORT]: { view: true, import: true },
     [MODULES.MARKETING]: { view: true, create: false, edit: false, delete: false, export: true },
-    [MODULES.EXPENDITURES]: { view: true, edit: false, export: true, import: false }
+    [MODULES.EXPENDITURES]: { view: true, edit: false, export: true, import: false },
+    [MODULES.INCASARI]: { view: true, export: true, import: false }
   },
   financiar: {
     [MODULES.DASHBOARD]: { view: true, edit: false },
@@ -239,7 +248,8 @@ export const DEFAULT_PERMISSIONS = {
     [MODULES.SETTINGS]: { view: false, edit: false },
     [MODULES.CYBER_IMPORT]: { view: false, import: false },
     [MODULES.MARKETING]: { view: true, create: false, edit: false, delete: false, export: true },
-    [MODULES.EXPENDITURES]: { view: true, edit: true, export: true, import: true }
+    [MODULES.EXPENDITURES]: { view: true, edit: true, export: true, import: true },
+    [MODULES.INCASARI]: { view: true, export: true, import: true }
   }
 }
 
