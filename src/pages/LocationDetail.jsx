@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import Layout from '../components/Layout'
-import { ArrowLeft, MapPin, Building2, FileText, Package, Calendar, DollarSign, Ruler, Users, Edit, Trash2, Download, Eye, RefreshCw, Clock } from 'lucide-react'
+import { ArrowLeft, MapPin, Building2, FileText, Package, Calendar, DollarSign, Ruler, Users, Edit, Trash2, Download, Eye, RefreshCw, Clock, BarChart3, Sparkles } from 'lucide-react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import LocationContracts from '../components/LocationContracts'
@@ -32,6 +32,10 @@ const LocationDetail = () => {
     if (tab === 'contracte') {
       setTimeout(() => {
         document.getElementById('contracte-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 300)
+    } else if (tab === 'cheltuieli') {
+      setTimeout(() => {
+        document.getElementById('cheltuieli-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }, 300)
     }
   }, [id, locations, searchParams])
@@ -98,6 +102,15 @@ const LocationDetail = () => {
             </div>
           </div>
           <div className="flex space-x-3">
+            <button
+              onClick={() => {
+                navigate(`/incasari/smart-analytics?location=${encodeURIComponent(location.name)}`)
+              }}
+              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-purple-500/25 transition-all duration-200 flex items-center space-x-2"
+            >
+              <Sparkles className="w-5 h-5" />
+              <span>Smart Analytics</span>
+            </button>
             <button
               onClick={() => {
                 // Navighează la pagina Locations cu modal deschis pentru această locație
@@ -379,11 +392,13 @@ const LocationDetail = () => {
 
         {/* CHELTUIELI LOCAȚIE */}
         {expendituresData && expendituresData.length > 0 && (
-          <LocationExpenses 
-            locationId={location.id}
-            locationName={location.name}
-            expendituresData={expendituresData}
-          />
+          <div id="cheltuieli-section">
+            <LocationExpenses 
+              locationId={location.id}
+              locationName={location.name}
+              expendituresData={expendituresData}
+            />
+          </div>
         )}
 
         {/* CONTRACTE */}

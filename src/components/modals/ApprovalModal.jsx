@@ -101,58 +101,63 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
     return true
   })
 
-  // File upload handlers
+  // File upload handlers - folosește base64 ca la ContractModal
   const handleFileUpload = async (files) => {
     if (!files || files.length === 0) return
     
     setUploading(true)
-    const uploadPromises = Array.from(files).map(async (file) => {
-      const formData = new FormData()
-      formData.append('file', file)
+    let processedCount = 0
+    const newAttachments = []
+    
+    Array.from(files).forEach((file) => {
+      // Verifică dimensiune (max 10MB per fișier)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`${file.name} este prea mare! Maxim 10MB per fișier.`)
+        processedCount++
+        if (processedCount === files.length) {
+          finishUpload(newAttachments)
+        }
+        return
+      }
       
-      try {
-        const response = await axios.post('/api/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
+      const reader = new FileReader()
+      
+      reader.onload = (e) => {
+        const base64String = e.target.result
+        newAttachments.push({
+          id: Date.now() + Math.random() + processedCount,
+          name: file.name,
+          url: base64String, // base64 pentru vizualizare directă
+          file_path: base64String, // base64 pentru compatibilitate
+          size: file.size,
+          type: file.type
         })
         
-        if (response.data?.success && response.data?.file) {
-          const fileData = response.data.file
-          return {
-            id: Date.now() + Math.random(),
-            name: fileData.originalname || file.name,
-            url: fileData.url || fileData.path || `/uploads/${fileData.filename}`,
-            file_path: fileData.url || fileData.path || `/uploads/${fileData.filename}`,
-            size: fileData.size || file.size,
-            type: file.type
-          }
-        } else {
-          console.error('Upload response error:', response.data)
-          toast.error(`Eroare la upload pentru ${file.name}: ${response.data?.message || 'Răspuns invalid'}`)
-          return null
+        processedCount++
+        if (processedCount === files.length) {
+          finishUpload(newAttachments)
         }
-      } catch (error) {
-        console.error('Upload error:', error)
-        const errorMsg = error.response?.data?.message || error.message || 'Eroare necunoscută'
-        toast.error(`Eroare la upload pentru ${file.name}: ${errorMsg}`)
-        return null
       }
+      
+      reader.onerror = () => {
+        toast.error(`Eroare la citirea ${file.name}`)
+        processedCount++
+        if (processedCount === files.length) {
+          finishUpload(newAttachments)
+        }
+      }
+      
+      reader.readAsDataURL(file)
     })
     
-    try {
-      const results = await Promise.all(uploadPromises)
-      const validResults = results.filter(result => result !== null)
-      
+    function finishUpload(validResults) {
       if (validResults.length > 0) {
         setFormData(prev => ({
           ...prev,
           attachments: [...prev.attachments, ...validResults]
         }))
-        toast.success(`${validResults.length} fișiere încărcate cu succes`)
+        toast.success(`${validResults.length} fișier${validResults.length > 1 ? 'e' : ''} încărcat${validResults.length > 1 ? 'e' : ''} cu succes`)
       }
-    } catch (error) {
-      console.error('Error processing upload results:', error)
-      toast.error('Eroare la procesarea rezultatelor upload')
-    } finally {
       setUploading(false)
     }
   }

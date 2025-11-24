@@ -182,9 +182,8 @@ const LocationMap = ({ location }) => {
         
         // If no coordinates, geocode the address
         const fullAddress = getFullAddress(location)
-        // Geocoding debug logs dezactivate ca să nu aglomereze consola în alte pagini
-        // console.log('🗺️ Geocoding pentru:', location.name)
-        // console.log('📍 Adresă completă:', fullAddress)
+        console.log('🗺️ Geocoding pentru:', location.name)
+        console.log('📍 Adresă completă:', fullAddress)
 
         if (!coords && fullAddress) {
           // Clean address: remove spaces before commas
@@ -195,9 +194,9 @@ const LocationMap = ({ location }) => {
             ? cleanAddress
             : `${cleanAddress}, România`
           
-          // console.log('🌍 Geocoding cu (curățat):', addressWithCountry)
+          console.log('🌍 Geocoding cu (curățat):', addressWithCountry)
           coords = await geocodeAddress(addressWithCountry)
-          // console.log('✅ Coordonate găsite:', coords)
+          console.log('✅ Coordonate găsite:', coords)
           
           // Save coordinates back to database for future use
           if (coords && location.id) {
@@ -207,7 +206,7 @@ const LocationMap = ({ location }) => {
                 ...location,
                 coordinates: coordsString
               })
-              // console.log('💾 Coordonate salvate în DB:', coordsString)
+              console.log('💾 Coordonate salvate în DB:', coordsString)
             } catch (saveError) {
               console.warn('⚠️ Could not save coordinates to DB:', saveError)
             }

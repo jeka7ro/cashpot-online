@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, BarChart3, TrendingUp, TrendingDown, FileSpreadsheet, Filter, Download } from 'lucide-react'
 import DateRangeSelector, { QuickDateButtons } from '../components/DateRangeSelector'
 import { toast } from 'react-hot-toast'
@@ -27,6 +27,7 @@ import {
 const IncasariSmartAnalytics = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   const [dateRange, setDateRange] = useState(() => {
     const today = new Date()
@@ -51,7 +52,10 @@ const IncasariSmartAnalytics = () => {
     gameMixes: []
   })
 
-  const [selectedLocation, setSelectedLocation] = useState('all')
+  const [selectedLocation, setSelectedLocation] = useState(() => {
+    const locationParam = searchParams.get('location')
+    return locationParam || 'all'
+  })
   const [selectedProvider, setSelectedProvider] = useState('all')
   const [selectedCabinet, setSelectedCabinet] = useState('all')
   const [selectedGameMix, setSelectedGameMix] = useState('all')
@@ -72,6 +76,14 @@ const IncasariSmartAnalytics = () => {
   })
 
   const [loading, setLoading] = useState(false)
+
+  // Citește parametrul location din URL și setează filterul
+  useEffect(() => {
+    const locationParam = searchParams.get('location')
+    if (locationParam) {
+      setSelectedLocation(locationParam)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     const loadFilters = async () => {

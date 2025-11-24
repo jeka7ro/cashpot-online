@@ -20,6 +20,7 @@ const ApprovalDetail = () => {
   const [showSettings, setShowSettings] = useState(false)
   const [showAttachments, setShowAttachments] = useState(true)
   const [attachments, setAttachments] = useState([])
+  const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
     const foundApproval = approvals.find(a => a.id === parseInt(id))
@@ -67,47 +68,70 @@ const ApprovalDetail = () => {
 
   const handleFileUpload = async (event) => {
     const files = Array.from(event.target.files)
+    if (files.length === 0) return
     
-    for (const file of files) {
-      const formData = new FormData()
-      formData.append('file', file)
+    setUploading(true)
+    let processedCount = 0
+    const newAttachments = []
+    
+    files.forEach((file) => {
+      // Verifică dimensiune (max 10MB per fișier)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`${file.name} este prea mare! Maxim 10MB per fișier.`)
+        processedCount++
+        if (processedCount === files.length) {
+          finishUpload(newAttachments)
+        }
+        return
+      }
       
-      try {
-        const response = await axios.post('/api/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
+      const reader = new FileReader()
+      
+      reader.onload = (e) => {
+        const base64String = e.target.result
+        newAttachments.push({
+          id: Date.now() + Math.random() + processedCount,
+          name: file.name,
+          url: base64String, // base64 pentru vizualizare directă
+          file_path: base64String, // base64 pentru compatibilitate
+          size: file.size,
+          type: file.type,
+          uploaded: true
         })
         
-        if (response.data?.success && response.data?.file) {
-          const fileData = response.data.file
-          const newAttachment = {
-            id: Date.now() + Math.random(),
-            name: fileData.originalname || file.name,
-            size: fileData.size || file.size,
-            type: file.type,
-            url: fileData.url || fileData.path || `/uploads/${fileData.filename}`,
-            file_path: fileData.url || fileData.path || `/uploads/${fileData.filename}`,
-            uploaded: true
-          }
-          
-          const updatedAttachments = [...attachments, newAttachment]
-          setAttachments(updatedAttachments)
-          
-          // Update approval in backend with new attachments
-          await updateItem('approvals', approval.id, {
-            attachments: JSON.stringify(updatedAttachments)
-          })
-          
-          toast.success(`${file.name} încărcat cu succes`)
-        } else {
-          const errorMsg = response.data?.message || 'Eroare necunoscută'
-          console.error('Upload response:', response.data)
-          toast.error(`Eroare la încărcarea ${file.name}: ${errorMsg}`)
+        processedCount++
+        if (processedCount === files.length) {
+          finishUpload(newAttachments)
         }
-      } catch (error) {
-        console.error('Upload error:', error)
-        const errorMsg = error.response?.data?.message || error.message || 'Eroare la upload'
-        toast.error(`Eroare la încărcarea ${file.name}: ${errorMsg}`)
       }
+      
+      reader.onerror = () => {
+        toast.error(`Eroare la citirea ${file.name}`)
+        processedCount++
+        if (processedCount === files.length) {
+          finishUpload(newAttachments)
+        }
+      }
+      
+      reader.readAsDataURL(file)
+    })
+    
+    function finishUpload(validResults) {
+      if (validResults.length > 0) {
+        const updatedAttachments = [...attachments, ...validResults]
+        setAttachments(updatedAttachments)
+        
+        // Update approval in backend with new attachments (base64)
+        updateItem('approvals', approval.id, {
+          attachments: JSON.stringify(updatedAttachments)
+        }).then(() => {
+          toast.success(`${validResults.length} fișier${validResults.length > 1 ? 'e' : ''} încărcat${validResults.length > 1 ? 'e' : ''} cu succes`)
+        }).catch((error) => {
+          console.error('Error updating approvals:', error)
+          toast.error('Eroare la salvarea atașamentelor')
+        })
+      }
+      setUploading(false)
     }
   }
 
@@ -337,10 +361,12 @@ const ApprovalDetail = () => {
                         className="hidden"
                         accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                       />
-                      <div className="w-full p-4 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg hover:border-green-500 transition-colors cursor-pointer text-center">
-                        <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                        <p className="text-slate-600 dark:text-slate-400">Apasă pentru a adăuga fișiere</p>
-                        <p className="text-sm text-slate-500 dark:text-slate-500">PDF, DOC, JPG, PNG (Multiple fișiere)</p>
+                      <div className={`w-full p-4 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg hover:border-green-500 transition-colors cursor-pointer text-center ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                        <Upload className={`w-8 h-8 text-slate-400 mx-auto mb-2 ${uploading ? 'animate-pulse' : ''}`} />
+                        <p className="text-slate-600 dark:text-slate-400">
+                          {uploading ? 'Se încarcă...' : 'Apasă pentru a adăuga fișiere'}
+                        </p>
+                        <p className="text-sm text-slate-500 dark:text-slate-500">PDF, DOC, JPG, PNG (Multiple fișiere, max 10MB)</p>
                       </div>
                     </label>
 

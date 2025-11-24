@@ -9,6 +9,7 @@ const Competitors = () => {
   const navigate = useNavigate()
   const [competitors, setCompetitors] = useState([])
   const [loading, setLoading] = useState(true)
+  const [locations, setLocations] = useState([])
   const [filters, setFilters] = useState({
     city: 'all',
     brand: 'all',
@@ -17,7 +18,21 @@ const Competitors = () => {
 
   useEffect(() => {
     loadCompetitors()
+    loadLocations()
   }, [])
+
+  const loadLocations = async () => {
+    try {
+      const response = await axios.get('/api/locations')
+      if (Array.isArray(response.data)) {
+        setLocations(response.data)
+      } else if (response.data?.data) {
+        setLocations(response.data.data)
+      }
+    } catch (error) {
+      console.error('Error loading locations:', error)
+    }
+  }
 
   const loadCompetitors = async () => {
     try {
@@ -288,10 +303,10 @@ const Competitors = () => {
                 className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-emerald-500/25 transition-all duration-200 flex items-center space-x-2 mx-auto"
               >
                 <RefreshCw className="w-5 h-5" />
-                <span>Sincronizează Tot (5 locații)</span>
+                <span>Sincronizează Tot ({locations.length} locații)</span>
               </button>
               <p className="text-xs text-slate-400 mt-4">
-                ⏱️ Timp estimat: ~30-60 secunde (5 locații × 5-10s fiecare)
+                ⏱️ Timp estimat: ~{Math.round(locations.length * 7)}-{Math.round(locations.length * 12)} secunde ({locations.length} locații × 5-10s fiecare)
               </p>
             </div>
           ) : filteredCompetitors.length === 0 ? (

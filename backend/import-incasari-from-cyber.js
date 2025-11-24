@@ -112,40 +112,47 @@ async function run() {
 
     console.log('🚀 Import încasări din Cyber DB → incasari_daily (mod MANUAL)')
 
-    // Optimizare: aflăm ultima zi importată deja în Postgres.
-    // Ziua operațională este deja calculată în câmpul mas.date din Cyber (08:00–08:00),
-    // deci aici lucrăm doar cu DATE, fără ore.
-    try {
-      const res = await PG_POOL.query('SELECT MAX(audit_date) AS last_date FROM incasari_daily')
-      const lastDate = res.rows[0]?.last_date
-      if (lastDate) {
-        const lastStr = lastDate.toISOString().split('T')[0]
-
-        // Pentru importurile lungi, reimportăm doar de la ultima zi în jos (buffer 7 zile).
-        const lastMinusSeven = new Date(lastDate)
-        lastMinusSeven.setDate(lastMinusSeven.getDate() - 7)
-        const lastMinusSevenStr = lastMinusSeven.toISOString().split('T')[0]
-
-        const effectiveStart = lastMinusSevenStr > start ? lastMinusSevenStr : start
-
-        if (effectiveStart !== start) {
-          console.log(
-            `🧠 Ultima zi importată este ${lastStr} – reimport de siguranță de la ${effectiveStart} (ultimele 7 zile) în loc de ${start}`
-          )
-          start = effectiveStart
-        } else {
-          console.log(
-            `ℹ️ Ultima zi importată este ${lastStr} – păstrez start=${start} (interval suficient)`
-          )
-        }
-      } else {
-        console.log('ℹ️ incasari_daily este gol – import complet de la începutul intervalului.')
-      }
-    } catch (e) {
-      console.warn(
-        '⚠️ Nu am putut determina ultima zi importată din incasari_daily. Continui cu intervalul complet.',
-        e.message
+    // Dacă utilizatorul specifică explicit un interval, respectăm intervalul specificat
+    if (hasManualRange) {
+      console.log(
+        `ℹ️ Import manual pentru intervalul specificat: ${start} → ${end} (ignorăm optimizarea)`
       )
+    } else {
+      // Optimizare: aflăm ultima zi importată deja în Postgres.
+      // Ziua operațională este deja calculată în câmpul mas.date din Cyber (08:00–08:00),
+      // deci aici lucrăm doar cu DATE, fără ore.
+      try {
+        const res = await PG_POOL.query('SELECT MAX(audit_date) AS last_date FROM incasari_daily')
+        const lastDate = res.rows[0]?.last_date
+        if (lastDate) {
+          const lastStr = lastDate.toISOString().split('T')[0]
+
+          // Pentru importurile lungi, reimportăm doar de la ultima zi în jos (buffer 7 zile).
+          const lastMinusSeven = new Date(lastDate)
+          lastMinusSeven.setDate(lastMinusSeven.getDate() - 7)
+          const lastMinusSevenStr = lastMinusSeven.toISOString().split('T')[0]
+
+          const effectiveStart = lastMinusSevenStr > start ? lastMinusSevenStr : start
+
+          if (effectiveStart !== start) {
+            console.log(
+              `🧠 Ultima zi importată este ${lastStr} – reimport de siguranță de la ${effectiveStart} (ultimele 7 zile) în loc de ${start}`
+            )
+            start = effectiveStart
+          } else {
+            console.log(
+              `ℹ️ Ultima zi importată este ${lastStr} – păstrez start=${start} (interval suficient)`
+            )
+          }
+        } else {
+          console.log('ℹ️ incasari_daily este gol – import complet de la începutul intervalului.')
+        }
+      } catch (e) {
+        console.warn(
+          '⚠️ Nu am putut determina ultima zi importată din incasari_daily. Continui cu intervalul complet.',
+          e.message
+        )
+      }
     }
 
     console.log(`📅 Interval efectiv de import (manual): ${start} → ${end}`)
