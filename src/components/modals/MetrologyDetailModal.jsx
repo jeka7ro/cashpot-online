@@ -1,23 +1,47 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { X, Download, Eye, FileText, Calendar, CheckCircle, AlertCircle } from 'lucide-react'
 import PDFViewer from '../PDFViewer'
 import MultiPDFViewer from '../MultiPDFViewer'
 import { formatGameMixName } from '../../utils/gameMixFormatter'
+import { useData } from '../../contexts/DataContext'
 
 const MetrologyDetailModal = ({ item, onClose }) => {
-  if (!item) return null
+  const { approvals } = useData()
+  const [currentItem, setCurrentItem] = useState(item)
+
+  // Re-load item from approvals array to get latest attachments
+  useEffect(() => {
+    if (item && item.id) {
+      if (item.name && (item.provider || item.cabinet) && !item.serial_numbers && !(item.cvt_series || item.cvt_number)) {
+        // This is an approval - reload from approvals array
+        const updatedApproval = approvals.find(a => a.id === item.id)
+        if (updatedApproval) {
+          setCurrentItem(updatedApproval)
+        } else {
+          setCurrentItem(item)
+        }
+      } else {
+        setCurrentItem(item)
+      }
+    }
+  }, [item, approvals])
+
+  if (!currentItem) return null
+
+  // Use currentItem instead of item
+  const itemToUse = currentItem
 
   // Detect item type
-  const isCommission = item.name && item.serial_numbers
-  const isApproval = item.name && (item.provider || item.cabinet) && !item.serial_numbers && !(item.cvt_series || item.cvt_number)
-  const isCVT = !!(item.cvt_series || item.cvt_number)
-  const isSoftware = item.software_name
-  const isAuthority = item.authority_name
+  const isCommission = itemToUse.name && itemToUse.serial_numbers
+  const isApproval = itemToUse.name && (itemToUse.provider || itemToUse.cabinet) && !itemToUse.serial_numbers && !(itemToUse.cvt_series || itemToUse.cvt_number)
+  const isCVT = !!(itemToUse.cvt_series || itemToUse.cvt_number)
+  const isSoftware = itemToUse.software_name
+  const isAuthority = itemToUse.authority_name
 
   const calculateDaysRemaining = () => {
-    if (!item.expiry_date) return null
+    if (!itemToUse.expiry_date) return null
     const today = new Date()
-    const expiryDate = new Date(item.expiry_date)
+    const expiryDate = new Date(itemToUse.expiry_date)
     const diffTime = expiryDate - today
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
     return diffDays
@@ -40,11 +64,11 @@ const MetrologyDetailModal = ({ item, onClose }) => {
 
   // Parse serial numbers for commission
   const getSerialNumbers = () => {
-    if (!isCommission || !item.serial_numbers) return []
-    if (typeof item.serial_numbers === 'string') {
-      return item.serial_numbers.split(',').map(s => s.trim()).filter(s => s)
-    } else if (Array.isArray(item.serial_numbers)) {
-      return item.serial_numbers
+    if (!isCommission || !itemToUse.serial_numbers) return []
+    if (typeof itemToUse.serial_numbers === 'string') {
+      return itemToUse.serial_numbers.split(',').map(s => s.trim()).filter(s => s)
+    } else if (Array.isArray(itemToUse.serial_numbers)) {
+      return itemToUse.serial_numbers
     }
     return []
   }
@@ -58,7 +82,7 @@ const MetrologyDetailModal = ({ item, onClose }) => {
         <div className={`px-6 py-4 flex justify-between items-center ${isApproval ? 'bg-gradient-to-r from-green-500 to-emerald-500' : isCommission ? 'bg-gradient-to-r from-blue-500 to-indigo-500' : 'bg-gradient-to-r from-cyan-500 to-teal-500'}`}>
           <h3 className="text-xl font-bold text-white flex items-center">
             <FileText className="w-6 h-6 mr-2" />
-            {isApproval ? `Detalii Aprobare de Tip - ${item.name}` : isCommission ? `Detalii Comisie - ${item.name}` : `Detalii Certificat CVT - ${item.cvt_series || item.cvt_number || ''}`}
+            {isApproval ? `Detalii Aprobare de Tip - ${itemToUse.name}` : isCommission ? `Detalii Comisie - ${itemToUse.name}` : `Detalii Certificat CVT - ${itemToUse.cvt_series || itemToUse.cvt_number || ''}`}
           </h3>
           <button
             onClick={onClose}
@@ -78,27 +102,27 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Numele Aprobării</label>
-                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{item.name}</p>
+                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{itemToUse.name}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Furnizor</label>
-                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{item.provider || 'N/A'}</p>
+                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{itemToUse.provider || 'N/A'}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Cabinet</label>
-                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{item.cabinet || 'N/A'}</p>
+                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{itemToUse.cabinet || 'N/A'}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Game Mix</label>
-                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{formatGameMixName(item.game_mix_name || item.game_mix)}</p>
+                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{formatGameMixName(itemToUse.game_mix_name || itemToUse.game_mix)}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Autoritate Emitentă</label>
-                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{item.issuing_authority || 'N/A'}</p>
+                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{itemToUse.issuing_authority || 'N/A'}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Creat de</label>
-                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{item.created_by || 'N/A'}</p>
+                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{itemToUse.created_by || 'N/A'}</p>
                   </div>
                 </div>
               </div>
@@ -110,49 +134,51 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                   <div>
                     <label className="text-sm font-medium text-slate-600 dark:text-slate-400">MD5</label>
                     <p className="text-slate-800 dark:text-slate-200 font-mono text-sm break-all">
-                      {(item.checksum_md5 || item.checksumMD5) || 'N/A'}
+                      {(itemToUse.checksum_md5 || itemToUse.checksumMD5) || 'N/A'}
                     </p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-slate-600 dark:text-slate-400">SHA256</label>
                     <p className="text-slate-800 dark:text-slate-200 font-mono text-sm break-all">
-                      {(item.checksum_sha256 || item.checksumSHA256) || 'N/A'}
+                      {(itemToUse.checksum_sha256 || itemToUse.checksumSHA256) || 'N/A'}
                     </p>
                   </div>
                 </div>
               </div>
 
               {/* Notes */}
-              {item.notes && (
+              {itemToUse.notes && (
                 <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-6">
                   <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Note</h4>
-                  <p className="text-slate-800 dark:text-slate-200">{item.notes}</p>
+                  <p className="text-slate-800 dark:text-slate-200">{itemToUse.notes}</p>
                 </div>
               )}
 
-              {/* Attachments - EXACT CA LA CONTRACTE */}
+              {/* Attachments - EXACT CA LA CONTRACTE - AFIȘEAZĂ ÎNTOTDEAUNA DACĂ EXISTĂ */}
               {(() => {
                 // Parse attachments from approval
                 let parsedAttachments = []
-                if (item.attachments) {
+                if (itemToUse.attachments) {
                   try {
-                    parsedAttachments = typeof item.attachments === 'string' 
-                      ? JSON.parse(item.attachments)
-                      : item.attachments
+                    parsedAttachments = typeof itemToUse.attachments === 'string' 
+                      ? JSON.parse(itemToUse.attachments)
+                      : itemToUse.attachments
                     if (!Array.isArray(parsedAttachments)) {
                       parsedAttachments = []
                     }
                   } catch (e) {
+                    console.error('Error parsing attachments in modal:', e, itemToUse.attachments)
                     parsedAttachments = []
                   }
                 }
 
-                if (parsedAttachments.length > 0) {
-                  return (
-                    <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-6">
-                      <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 border-b border-slate-200 dark:border-slate-600 pb-2">
-                        Documente Atașate
-                      </h4>
+                // AFIȘEAZĂ SECȚIUNEA CHIAR DACĂ NU SUNT ATAȘAMENTE (pentru debugging)
+                return (
+                  <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-6">
+                    <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 border-b border-slate-200 dark:border-slate-600 pb-2">
+                      Documente Atașate ({parsedAttachments.length})
+                    </h4>
+                    {parsedAttachments.length > 0 ? (
                       <MultiPDFViewer
                         files={parsedAttachments.map((att, idx) => ({
                           name: att.name || `Document ${idx + 1}`,
@@ -165,10 +191,20 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                         placeholder="Nu există documente atașate"
                         placeholderSubtext="Adaugă documente pentru vizualizare"
                       />
-                    </div>
-                  )
-                }
-                return null
+                    ) : (
+                      <div className="aspect-[3/4] bg-slate-100 dark:bg-slate-800 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center">
+                        <div className="text-center text-slate-500 dark:text-slate-400">
+                          <FileText className="w-16 h-16 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm font-medium">Nu există documente atașate</p>
+                          <p className="text-xs text-slate-400 mt-1">Atașamentele vor apărea aici</p>
+                          {itemToUse.attachments && (
+                            <p className="text-xs text-red-400 mt-2">Debug: attachments există dar nu sunt parseate corect</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
               })()}
             </div>
           ) : isCommission ? (
@@ -307,7 +343,7 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                     <label className="text-sm font-semibold text-slate-600">Data CVT</label>
                     <p className="text-base font-medium text-slate-900 flex items-center">
                       <Calendar className="w-4 h-4 mr-2 text-cyan-500" />
-                      {item.cvt_date ? new Date(item.cvt_date).toLocaleDateString('ro-RO', {
+                      {itemToUse.cvt_date ? new Date(itemToUse.cvt_date).toLocaleDateString('ro-RO', {
                         year: 'numeric',
                         month: '2-digit',
                         day: '2-digit'
@@ -318,7 +354,7 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                     <label className="text-sm font-semibold text-slate-600">Data Expirării</label>
                     <p className="text-base font-medium text-slate-900 flex items-center">
                       <Calendar className="w-4 h-4 mr-2 text-orange-500" />
-                      {item.expiry_date ? new Date(item.expiry_date).toLocaleDateString('ro-RO', {
+                      {itemToUse.expiry_date ? new Date(itemToUse.expiry_date).toLocaleDateString('ro-RO', {
                         year: 'numeric',
                         month: '2-digit',
                         day: '2-digit'
@@ -352,12 +388,54 @@ const MetrologyDetailModal = ({ item, onClose }) => {
 
             {/* Right Column - PDF Viewer */}
             <div className="space-y-4">
+              {/* AFIȘEAZĂ ATAȘAMENTELE PENTRU APROBĂRI ÎN COLOANA DREAPTĂ (CA LA CVT) */}
+              {isApproval && (() => {
+                let parsedAttachments = []
+                if (itemToUse.attachments) {
+                  try {
+                    parsedAttachments = typeof itemToUse.attachments === 'string' 
+                      ? JSON.parse(itemToUse.attachments)
+                      : itemToUse.attachments
+                    if (!Array.isArray(parsedAttachments)) {
+                      parsedAttachments = []
+                    }
+                  } catch (e) {
+                    parsedAttachments = []
+                  }
+                }
+
+                if (parsedAttachments.length > 0) {
+                  return (
+                    <div className="bg-slate-50 dark:bg-slate-700 rounded-2xl p-6">
+                      <h4 className="text-lg font-bold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-600 pb-2 mb-4">
+                        Documente Aprobare
+                      </h4>
+                      <MultiPDFViewer
+                        files={parsedAttachments.map((att, idx) => ({
+                          name: att.name || `Document ${idx + 1}`,
+                          type: 'Atașament Aprobare',
+                          file_path: att.url || att.file_path || att,
+                          url: att.url || att.file_path || att,
+                          id: att.id || `attachment-${idx}`
+                        }))}
+                        title="Atașamente Aprobare"
+                        placeholder="Nu există documente atașate"
+                        placeholderSubtext="Adaugă documente pentru vizualizare"
+                      />
+                    </div>
+                  )
+                }
+                return null
+              })()}
+
+              {/* CVT Document Viewer */}
+              {isCVT && (
               <div className="bg-slate-50 rounded-2xl p-6">
                 <h4 className="text-lg font-bold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-600 pb-2 mb-4">
                   Document CVT
                 </h4>
                 {(() => {
-                  const rawUrl = item.cvt_file || item.cvtFile || item.file_path || item.file?.url || item.file?.path || null
+                  const rawUrl = itemToUse.cvt_file || itemToUse.cvtFile || itemToUse.file_path || itemToUse.file?.url || itemToUse.file?.path || null
                   const makeAbsolute = (url) => {
                     if (!url) return null
                     // Accept data URLs as-is (e.g., base64 PDFs stored directly)
@@ -376,7 +454,7 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                   return rawUrl ? (
                     <MultiPDFViewer
                       files={[{
-                        name: `CVT ${item.cvt_series || item.cvt_number || 'Document'}`,
+                        name: `CVT ${itemToUse.cvt_series || itemToUse.cvt_number || 'Document'}`,
                         type: 'Document CVT',
                         file_path: rawUrl,
                         url: rawUrl,
@@ -397,6 +475,7 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                   )
                 })()}
               </div>
+              )}
 
               {/* Created By */}
               <div className="bg-slate-50 rounded-2xl p-6 space-y-3">
@@ -406,7 +485,7 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                 <div className="space-y-2">
                   <div>
                     <label className="text-sm font-semibold text-slate-600">Creat de</label>
-                    <p className="text-base font-medium text-slate-900">{item.created_by || 'N/A'}</p>
+                    <p className="text-base font-medium text-slate-900">{itemToUse.created_by || 'N/A'}</p>
                   </div>
                   <div>
                     <label className="text-sm font-semibold text-slate-600">Data creării</label>
