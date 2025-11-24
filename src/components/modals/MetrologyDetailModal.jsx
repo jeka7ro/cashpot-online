@@ -272,28 +272,26 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                 </p>
               </div>
             </div>
-          ) : (
-            /* Original CVT Details */
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Left Column - Information */}
+          ) : isCVT ? (
+            /* CVT Details - EXACT CA LA CONTRACTE */
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Column - Info Cards */}
               <div className="space-y-6">
               {/* CVT Information */}
-              <div className="bg-slate-50 rounded-2xl p-6 space-y-4">
-                <h4 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2">
-                  Informații CVT
-                </h4>
+              <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-6">
+                <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Informații CVT</h4>
                 <div className="space-y-3">
                   <div>
-                    <label className="text-sm font-semibold text-slate-600">Serie CVT</label>
-                    <p className="text-base font-medium text-slate-900">{item.cvt_series || item.cvt_number}</p>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Serie CVT</label>
+                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{itemToUse.cvt_series || itemToUse.cvt_number}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-semibold text-slate-600">Tip CVT</label>
-                    <p className="text-base font-medium text-slate-900">{item.cvt_type}</p>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Tip CVT</label>
+                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{itemToUse.cvt_type || 'N/A'}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-semibold text-slate-600">Autoritatea Emitentă</label>
-                    <p className="text-base font-medium text-slate-900">{item.issuing_authority || 'N/A'}</p>
+                    <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Autoritatea Emitentă</label>
+                    <p className="text-slate-800 dark:text-slate-200 font-semibold">{itemToUse.issuing_authority || 'N/A'}</p>
                   </div>
                 </div>
               </div>
