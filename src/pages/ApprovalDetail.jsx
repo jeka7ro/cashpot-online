@@ -360,6 +360,7 @@ const ApprovalDetail = () => {
                         onChange={handleFileUpload}
                         className="hidden"
                         accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        disabled={uploading}
                       />
                       <div className={`w-full p-4 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg hover:border-green-500 transition-colors cursor-pointer text-center ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                         <Upload className={`w-8 h-8 text-slate-400 mx-auto mb-2 ${uploading ? 'animate-pulse' : ''}`} />
