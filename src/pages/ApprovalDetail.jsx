@@ -34,8 +34,11 @@ const ApprovalDetail = () => {
             : foundApproval.attachments
           setAttachments(Array.isArray(parsedAttachments) ? parsedAttachments : [])
         } catch (e) {
+          console.error('Error parsing attachments:', e)
           setAttachments([])
         }
+      } else {
+        setAttachments([])
       }
       setLoading(false)
     } else {
@@ -43,6 +46,23 @@ const ApprovalDetail = () => {
       navigate('/metrology?tab=approvals')
     }
   }, [id, approvals, navigate])
+
+  // Re-load attachments when approval changes
+  useEffect(() => {
+    if (approval && approval.attachments) {
+      try {
+        const parsedAttachments = typeof approval.attachments === 'string' 
+          ? JSON.parse(approval.attachments)
+          : approval.attachments
+        setAttachments(Array.isArray(parsedAttachments) ? parsedAttachments : [])
+      } catch (e) {
+        console.error('Error parsing attachments in useEffect:', e)
+        setAttachments([])
+      }
+    } else if (approval && !approval.attachments) {
+      setAttachments([])
+    }
+  }, [approval])
 
   const handleDelete = async () => {
     try {
@@ -60,7 +80,19 @@ const ApprovalDetail = () => {
       toast.success('Aprobarea a fost actualizată cu succes')
       setShowEditModal(false)
       // Update local state
-      setApproval({ ...approval, ...data })
+      const updatedApproval = { ...approval, ...data }
+      setApproval(updatedApproval)
+      // Reload attachments if they were updated
+      if (data.attachments !== undefined) {
+        try {
+          const parsedAttachments = typeof data.attachments === 'string' 
+            ? JSON.parse(data.attachments)
+            : data.attachments
+          setAttachments(Array.isArray(parsedAttachments) ? parsedAttachments : [])
+        } catch (e) {
+          setAttachments([])
+        }
+      }
     } catch (error) {
       toast.error('Eroare la actualizarea aprobării')
     }
@@ -125,6 +157,11 @@ const ApprovalDetail = () => {
         updateItem('approvals', approval.id, {
           attachments: JSON.stringify(updatedAttachments)
         }).then(() => {
+          // Update local approval state with new attachments
+          setApproval(prev => ({
+            ...prev,
+            attachments: JSON.stringify(updatedAttachments)
+          }))
           toast.success(`${validResults.length} fișier${validResults.length > 1 ? 'e' : ''} încărcat${validResults.length > 1 ? 'e' : ''} cu succes`)
         }).catch((error) => {
           console.error('Error updating approvals:', error)
@@ -143,6 +180,11 @@ const ApprovalDetail = () => {
       await updateItem('approvals', approval.id, {
         attachments: JSON.stringify(updatedAttachments)
       })
+      // Update local approval state
+      setApproval(prev => ({
+        ...prev,
+        attachments: JSON.stringify(updatedAttachments)
+      }))
       toast.success('Atașament șters')
     } catch (error) {
       toast.error('Eroare la ștergerea atașamentului')
