@@ -64,7 +64,7 @@ console.log('💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!')
 
 const { Pool } = pg
 const app = express()
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT || 5001
 
   // CRITICAL FIX - 2025-10-19 11:43 - FORCE RENDER REBUILD FOR ROUTES
   // BUILD DINAMIC - generează automat la fiecare restart
