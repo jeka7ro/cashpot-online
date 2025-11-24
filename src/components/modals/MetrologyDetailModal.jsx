@@ -509,8 +509,7 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          ) : null}
         </div>
       </div>
     </div>
