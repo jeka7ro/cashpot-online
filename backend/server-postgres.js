@@ -4373,7 +4373,23 @@ app.get('/api/approvals', async (req, res) => {
   try {
     const pool = req.app.get('pool')
     const result = await pool.query('SELECT * FROM approvals ORDER BY created_at DESC')
-    res.json(result.rows)
+    
+    // Parse attachments JSON strings to objects for frontend
+    const rows = result.rows.map(row => {
+      if (row.attachments && typeof row.attachments === 'string') {
+        try {
+          row.attachments = JSON.parse(row.attachments)
+        } catch (e) {
+          console.error('Error parsing attachments for approval', row.id, ':', e)
+          row.attachments = []
+        }
+      } else if (!row.attachments) {
+        row.attachments = []
+      }
+      return row
+    })
+    
+    res.json(rows)
   } catch (error) {
     console.error('Approvals GET error:', error)
     res.status(500).json({ success: false, error: error.message })
