@@ -21,6 +21,7 @@ const Metrology = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const [searchTerm, setSearchTerm] = useState('')
   const [symbolSearchTerm, setSymbolSearchTerm] = useState('') // Search term for symbol column
+  const [softwareSearchTerm, setSoftwareSearchTerm] = useState('') // Search term for software
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || null)
@@ -586,6 +587,31 @@ const Metrology = () => {
     )
   })
 
+  // Filter software by search term - EXTINS: caută în toate câmpurile relevante
+  const filteredSoftware = software.filter(sw => {
+    if (!softwareSearchTerm) return true
+    
+    const searchTerm = softwareSearchTerm.toLowerCase().trim()
+    if (!searchTerm) return true
+    
+    // Normalizează și caută în toate câmpurile relevante
+    const normalize = (str) => (str || '').toString().toLowerCase().trim()
+    
+    // Câmpuri de căutare
+    const softwareName = normalize(sw.software_name || sw.name)
+    const version = normalize(sw.version)
+    const provider = normalize(getProviderName(sw.provider))
+    const status = normalize(sw.status)
+    
+    // Caută în toate câmpurile - potrivire parțială în orice parte a textului
+    return (
+      softwareName.includes(searchTerm) ||
+      version.includes(searchTerm) ||
+      provider.includes(searchTerm) ||
+      status.includes(searchTerm)
+    )
+  })
+
   // Commissions columns
   const commissionsColumns = [
     { 
@@ -631,7 +657,16 @@ const Metrology = () => {
 
   // Software columns
   const softwareColumns = [
-    { key: 'software_name', label: 'NUME SOFTWARE', sortable: true },
+    { 
+      key: 'software_name', 
+      label: 'NUME SOFTWARE', 
+      sortable: true,
+      render: (item) => (
+        <div className="text-slate-800 dark:text-slate-200 font-medium">
+          {item.software_name || item.name || 'N/A'}
+        </div>
+      )
+    },
     { key: 'version', label: 'VERSIUNE', sortable: true },
     { key: 'provider', label: 'FURNIZOR', sortable: true },
     { 
@@ -1351,21 +1386,49 @@ const Metrology = () => {
             </div>
           </div>
 
+          {/* Search Bar - identical to approvals */}
+          <div className="card p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Caută după nume software, versiune, furnizor, status..."
+                  value={softwareSearchTerm}
+                  onChange={(e) => setSoftwareSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                />
+              </div>
+              {softwareSearchTerm && (
+                <button
+                  onClick={() => setSoftwareSearchTerm('')}
+                  className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                >
+                  Șterge filtru
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Software Table */}
           <div className="card p-6">
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
               </div>
-            ) : software.length === 0 ? (
+            ) : filteredSoftware.length === 0 ? (
               <div className="text-center py-12">
                 <Settings className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-slate-600 mb-2">Nu există software</h3>
-                <p className="text-slate-500">Adaugă primul software pentru a începe</p>
+                <h3 className="text-lg font-semibold text-slate-600 mb-2">
+                  {softwareSearchTerm ? 'Nu s-au găsit software pentru termenul căutat' : 'Nu există software'}
+                </h3>
+                <p className="text-slate-500">
+                  {softwareSearchTerm ? 'Încearcă un alt termen de căutare' : 'Adaugă primul software pentru a începe'}
+                </p>
               </div>
             ) : (
               <DataTable
-                data={software}
+                data={filteredSoftware}
                 columns={softwareColumns}
                 onEdit={(item) => {
                   setEditingSoftware(item)
