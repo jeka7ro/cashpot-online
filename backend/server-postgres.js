@@ -1901,10 +1901,11 @@ app.get('/debug/users', async (req, res) => {
   }
 })
 
-// Auth Routes
+// Auth Routes - FOLOSEȘTE req.app.get('pool') NU pool direct!
 app.post('/api/auth/login', async (req, res) => {
   try {
-    // Verifică dacă pool-ul este disponibil
+    // Verifică dacă pool-ul este disponibil - FOLOSEȘTE req.app.get('pool')
+    const pool = req.app.get('pool')
     if (!pool) {
       console.error('❌ Database pool not available in login endpoint')
       return res.status(500).json({ 
