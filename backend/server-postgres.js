@@ -5344,7 +5344,18 @@ app.post('/api/restore-dashboard/:userId', authenticateUser, async (req, res) =>
   }
 })
 
-// Server already started at line 1271 - IMMEDIATELY after route registration!
-// This prevents timeout issues on Render.com
+// Server startup - MOVED HERE AFTER ALL ROUTES ARE REGISTERED!
+// This ensures all routes are available when server starts
+const HOST = process.env.HOST || '0.0.0.0'
+const server = app.listen(PORT, HOST, () => {
+  console.log(`🚀 Server running on ${HOST}:${PORT}`)
+  console.log(`📊 Database: PostgreSQL`)
+  console.log(`🌐 Environment: ${process.env.NODE_ENV || 'production'}`)
+  console.log(`📅 Build: ${BUILD_NUMBER} (${BUILD_DATE})`)
+  console.log('✅ Server is LIVE - Health checks will PASS!')
+  console.log('✅ All routes registered - login endpoint available at /api/auth/login')
+  console.log('⏳ Database initialization running in background...')
+})
+
 console.log('✅ Server startup complete - all endpoints registered')
 // Force Render rebuild Mon Nov 10 10:44:55 EET 2025
