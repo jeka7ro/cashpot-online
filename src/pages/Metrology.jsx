@@ -552,11 +552,48 @@ const Metrology = () => {
     }
   ]
   
-  // Filter approvals by symbol search term
+  // Helper functions pentru a obține numele provider și cabinet
+  const getProviderName = (providerId) => {
+    if (!providerId) return ''
+    const provider = providers.find(p => p.id === providerId || p.name === providerId)
+    return provider ? provider.name : (typeof providerId === 'string' ? providerId : '')
+  }
+  
+  const getCabinetName = (cabinetId) => {
+    if (!cabinetId) return ''
+    const cabinet = cabinets.find(c => c.id === cabinetId || c.name === cabinetId)
+    return cabinet ? cabinet.name : (typeof cabinetId === 'string' ? cabinetId : '')
+  }
+  
+  // Filter approvals by symbol search term - EXTINS: caută în toate câmpurile relevante
   const filteredApprovals = approvals.filter(approval => {
     if (!symbolSearchTerm) return true
-    const symbol = (approval.name || approval.approval_number || '').toLowerCase()
-    return symbol.includes(symbolSearchTerm.toLowerCase())
+    
+    const searchTerm = symbolSearchTerm.toLowerCase().trim()
+    if (!searchTerm) return true
+    
+    // Normalizează și caută în toate câmpurile relevante
+    const normalize = (str) => (str || '').toString().toLowerCase().trim()
+    
+    // Câmpuri de căutare - folosim numele reale pentru provider și cabinet
+    const name = normalize(approval.name)
+    const approvalNumber = normalize(approval.approval_number)
+    const provider = normalize(getProviderName(approval.provider))
+    const cabinet = normalize(getCabinetName(approval.cabinet))
+    const gameMix = normalize(getGameMixName(approval.game_mix_name || approval.game_mix, gameMixes))
+    const approvalType = normalize(approval.approval_type)
+    const notes = normalize(approval.notes)
+    
+    // Caută în toate câmpurile - potrivire parțială în orice parte a textului
+    return (
+      name.includes(searchTerm) ||
+      approvalNumber.includes(searchTerm) ||
+      provider.includes(searchTerm) ||
+      cabinet.includes(searchTerm) ||
+      gameMix.includes(searchTerm) ||
+      approvalType.includes(searchTerm) ||
+      notes.includes(searchTerm)
+    )
   })
 
   // Commissions columns
