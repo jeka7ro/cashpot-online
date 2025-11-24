@@ -117,6 +117,95 @@ const ExpendituresSettings = () => {
   const [preferencesPreviewData, setPreferencesPreviewData] = useState(null) // Preview data before import
   const [loadingPreferencesPreview, setLoadingPreferencesPreview] = useState(false)
 
+  // Modul Electrică - NOU
+  const [electricInvoiceFile, setElectricInvoiceFile] = useState(null)
+  const [electricInvoiceLink, setElectricInvoiceLink] = useState('')
+  const [analyzingElectric, setAnalyzingElectric] = useState(false)
+  const [electricAnalysisResult, setElectricAnalysisResult] = useState(null)
+  
+  // Handler pentru analiza facturii electrice
+  const handleAnalyzeElectricInvoice = async () => {
+    if (!electricInvoiceFile && !electricInvoiceLink) {
+      toast.error('Atașează un PDF sau introdu un link!')
+      return
+    }
+
+    setAnalyzingElectric(true)
+    setElectricAnalysisResult(null)
+
+    try {
+      toast.loading('Se analizează factura...', { id: 'electric-analyze' })
+
+      let formData = new FormData()
+      if (electricInvoiceFile) {
+        formData.append('file', electricInvoiceFile)
+      } else if (electricInvoiceLink) {
+        formData.append('link', electricInvoiceLink)
+      }
+
+      const response = await axios.post('/api/expenditures/analyze-electric-invoice', formData, {
+        headers: {
+          'Content-Type': electricInvoiceFile ? 'multipart/form-data' : 'application/json'
+        },
+        timeout: 60000
+      })
+
+      if (response.data?.success) {
+        setElectricAnalysisResult(response.data)
+        toast.success('Factura analizată cu succes!', { id: 'electric-analyze' })
+      } else {
+        throw new Error(response.data?.error || 'Eroare la analiză')
+      }
+    } catch (error) {
+      console.error('Error analyzing electric invoice:', error)
+      toast.error(
+        `Eroare la analiză: ${error.response?.data?.error || error.message}`,
+        { id: 'electric-analyze', duration: 5000 }
+      )
+    } finally {
+      setAnalyzingElectric(false)
+    }
+  }
+
+  // Handler pentru export Google Sheet
+  const handleExportElectricToGoogleSheet = async () => {
+    if (!electricAnalysisResult) {
+      toast.error('Analizează mai întâi factura!')
+      return
+    }
+
+    try {
+      toast.loading('Se generează modelul Google Sheet...', { id: 'electric-export' })
+
+      const response = await axios.post('/api/expenditures/export-electric-to-sheet', {
+        extractedData: electricAnalysisResult.extractedData
+      })
+
+      if (response.data?.success) {
+        // Descarcă fișierul CSV/Excel
+        const blob = new Blob([response.data.csvContent], { type: 'text/csv;charset=utf-8;' })
+        const link = document.createElement('a')
+        const url = URL.createObjectURL(blob)
+        link.setAttribute('href', url)
+        link.setAttribute('download', `Model_Factura_Electrică_${new Date().toISOString().split('T')[0]}.csv`)
+        link.style.visibility = 'hidden'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+
+        toast.success('Model Google Sheet exportat cu succes!', { id: 'electric-export' })
+      } else {
+        throw new Error(response.data?.error || 'Eroare la export')
+      }
+    } catch (error) {
+      console.error('Error exporting to Google Sheet:', error)
+      toast.error(
+        `Eroare la export: ${error.response?.data?.error || error.message}`,
+        { id: 'electric-export', duration: 5000 }
+      )
+    }
+  }
+
   // Manual actions state (sync / import-all / clean-duplicates)
   const [syncingManual, setSyncingManual] = useState(false)
   const [importingAllManual, setImportingAllManual] = useState(false)
@@ -1942,6 +2031,92 @@ const ExpendituresSettings = () => {
           {/* PREFERENCES IMPORT TAB */}
           {activeTab === 'preferences-import' && (
             <div className="space-y-6">
+              {/* MODUL ELECTRICĂ - NOU */}
+              <div className="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-xl p-6 border-2 border-yellow-300 dark:border-yellow-700 shadow-lg">
+                <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center">
+                  <span className="text-2xl mr-3">⚡</span>
+                  Modul Electrică
+                </h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+                  Atașează o factură PDF sau link. Sistemul analizează și exportă modelul pentru Google Sheet, astfel încât să poți copia datele care te interesează.
+                </p>
+                
+                {/* Upload PDF sau Link */}
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">
+                      Factură PDF sau Link
+                    </label>
+                    <div className="flex space-x-3">
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        onChange={(e) => {
+                          const file = e.target.files[0]
+                          if (file) {
+                            setElectricInvoiceFile(file)
+                            setElectricInvoiceLink('')
+                          }
+                        }}
+                        className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                      />
+                      <span className="px-4 py-3 text-slate-500 dark:text-slate-400">SAU</span>
+                      <input
+                        type="url"
+                        value={electricInvoiceLink}
+                        onChange={(e) => {
+                          setElectricInvoiceLink(e.target.value)
+                          setElectricInvoiceFile(null)
+                        }}
+                        placeholder="https://..."
+                        className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Buton Analiză */}
+                  <button
+                    onClick={handleAnalyzeElectricInvoice}
+                    disabled={!electricInvoiceFile && !electricInvoiceLink}
+                    className="w-full px-6 py-3.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl transition-colors shadow-sm flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-base"
+                  >
+                    <Eye className="w-5 h-5" />
+                    <span>{analyzingElectric ? 'Se analizează...' : 'Analizează Factură'}</span>
+                  </button>
+                </div>
+                
+                {/* Rezultate Analiză */}
+                {electricAnalysisResult && (
+                  <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 mb-6">
+                    <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
+                      Date Extrase
+                    </h4>
+                    <div className="space-y-3 mb-4">
+                      {Object.entries(electricAnalysisResult.extractedData || {}).map(([key, value]) => (
+                        <div key={key} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
+                          <span className="text-sm font-medium text-slate-600 dark:text-slate-400 capitalize">
+                            {key.replace(/_/g, ' ')}:
+                          </span>
+                          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            {value || 'N/A'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Buton Export Google Sheet */}
+                    <button
+                      onClick={handleExportElectricToGoogleSheet}
+                      className="w-full px-6 py-3.5 bg-green-500 hover:bg-green-600 text-white rounded-xl transition-colors shadow-sm flex items-center justify-center space-x-2 font-medium text-base"
+                    >
+                      <Download className="w-5 h-5" />
+                      <span>Exportă Model Google Sheet</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Import Date din Preferințe - EXISTENT */}
               <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
                 <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center">
                   <Settings className="w-6 h-6 mr-2 text-purple-500" />

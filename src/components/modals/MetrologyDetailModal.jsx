@@ -129,6 +129,47 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                   <p className="text-slate-800 dark:text-slate-200">{item.notes}</p>
                 </div>
               )}
+
+              {/* Attachments - EXACT CA LA CONTRACTE */}
+              {(() => {
+                // Parse attachments from approval
+                let parsedAttachments = []
+                if (item.attachments) {
+                  try {
+                    parsedAttachments = typeof item.attachments === 'string' 
+                      ? JSON.parse(item.attachments)
+                      : item.attachments
+                    if (!Array.isArray(parsedAttachments)) {
+                      parsedAttachments = []
+                    }
+                  } catch (e) {
+                    parsedAttachments = []
+                  }
+                }
+
+                if (parsedAttachments.length > 0) {
+                  return (
+                    <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-6">
+                      <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 border-b border-slate-200 dark:border-slate-600 pb-2">
+                        Documente Atașate
+                      </h4>
+                      <MultiPDFViewer
+                        files={parsedAttachments.map((att, idx) => ({
+                          name: att.name || `Document ${idx + 1}`,
+                          type: 'Atașament Aprobare',
+                          file_path: att.url || att.file_path || att,
+                          url: att.url || att.file_path || att,
+                          id: att.id || `attachment-${idx}`
+                        }))}
+                        title="Atașamente Aprobare"
+                        placeholder="Nu există documente atașate"
+                        placeholderSubtext="Adaugă documente pentru vizualizare"
+                      />
+                    </div>
+                  )
+                }
+                return null
+              })()}
             </div>
           ) : isCommission ? (
             /* Commission Details */

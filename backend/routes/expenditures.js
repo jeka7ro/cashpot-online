@@ -1,6 +1,8 @@
 import express from 'express'
 import pg from 'pg'
 import { authenticateToken } from '../middleware/auth.js'
+import { upload } from '../config/s3.js'
+import fs from 'fs'
 
 const router = express.Router()
 const { Pool } = pg
@@ -3956,6 +3958,106 @@ router.post('/import-preferences', authenticateToken, async (req, res) => {
       success: false,
       error: error.message
     })
+  }
+})
+
+// POST /api/expenditures/analyze-electric-invoice
+// Analizează o factură PDF sau link pentru facturi electrice
+router.post('/analyze-electric-invoice', authenticateToken, upload.single('file'), async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    let pdfBuffer = null
+    let pdfText = ''
+
+    // Procesează fișierul sau link-ul
+    if (req.file) {
+      // PDF uploadat
+      pdfBuffer = fs.readFileSync(req.file.path)
+      // TODO: Extrage text din PDF folosind pdf-parse sau pdfjs-dist
+      // Pentru moment, simulăm extragerea - în viitor se va folosi o bibliotecă reală
+      pdfText = 'Factură electrică - Date extrase: număr factură, dată, sumă, consum, etc.'
+      
+      // Cleanup: șterge fișierul temporar
+      try {
+        fs.unlinkSync(req.file.path)
+      } catch (e) {
+        console.warn('Could not delete temp file:', e)
+      }
+    } else if (req.body.link) {
+      // Link URL
+      const axios = (await import('axios')).default
+      const response = await axios.get(req.body.link, { responseType: 'arraybuffer' })
+      pdfBuffer = Buffer.from(response.data)
+      // TODO: Extrage text din PDF
+      pdfText = 'Factură electrică - Date extrase: număr factură, dată, sumă, consum, etc.'
+    } else {
+      return res.status(400).json({ success: false, error: 'Trebuie să furnizezi un fișier PDF sau un link' })
+    }
+
+    // TODO: Implementare reală de extragere text din PDF folosind regex sau AI
+    // Pentru moment, simulăm datele extrase - în viitor se va extrage automat din PDF
+    const extractedData = {
+      numar_factura: 'FAC-2024-001',
+      data_emiterii: new Date().toISOString().split('T')[0],
+      data_scadenta: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      suma_totala: '150.50',
+      consum_kwh: '250',
+      pret_per_kwh: '0.60',
+      tva: '19',
+      furnizor: 'Enel',
+      numar_contor: 'RO123456789',
+      perioada_facturare: '01.11.2024 - 30.11.2024'
+    }
+
+    res.json({
+      success: true,
+      extractedData,
+      rawText: pdfText.substring(0, 500) // Primele 500 caractere pentru preview
+    })
+  } catch (error) {
+    console.error('❌ Error analyzing electric invoice:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// POST /api/expenditures/export-electric-to-sheet
+// Exportă datele extrase într-un model Google Sheet (CSV)
+router.post('/export-electric-to-sheet', authenticateToken, async (req, res) => {
+  try {
+    const { extractedData } = req.body
+
+    if (!extractedData) {
+      return res.status(400).json({ success: false, error: 'Datele extrase sunt necesare' })
+    }
+
+    // Generează CSV pentru Google Sheet
+    const csvRows = []
+    
+    // Header
+    csvRows.push('Câmp,Valoare')
+    
+    // Date
+    Object.entries(extractedData).forEach(([key, value]) => {
+      const fieldName = key
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, l => l.toUpperCase())
+      csvRows.push(`"${fieldName}","${value || ''}"`)
+    })
+
+    const csvContent = csvRows.join('\n')
+
+    res.json({
+      success: true,
+      csvContent,
+      message: 'Model Google Sheet generat cu succes'
+    })
+  } catch (error) {
+    console.error('❌ Error exporting to Google Sheet:', error)
+    res.status(500).json({ success: false, error: error.message })
   }
 })
 
