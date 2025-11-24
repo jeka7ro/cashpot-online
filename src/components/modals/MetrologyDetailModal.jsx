@@ -312,23 +312,23 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                 <div className="space-y-3">
                   <div>
                     <label className="text-sm font-semibold text-slate-600">Furnizor</label>
-                    <p className="text-base font-medium text-slate-900">{item.provider || 'N/A'}</p>
+                    <p className="text-base font-medium text-slate-900">{itemToUse.provider || 'N/A'}</p>
                   </div>
                   <div>
                     <label className="text-sm font-semibold text-slate-600">Cabinet</label>
-                    <p className="text-base font-medium text-slate-900">{item.cabinet || 'N/A'}</p>
+                    <p className="text-base font-medium text-slate-900">{itemToUse.cabinet || 'N/A'}</p>
                   </div>
                   <div>
                     <label className="text-sm font-semibold text-slate-600">Game Mix</label>
-                    <p className="text-base font-medium text-slate-900">{formatGameMixName(item.game_mix_name || item.game_mix)}</p>
+                    <p className="text-base font-medium text-slate-900">{formatGameMixName(itemToUse.game_mix_name || itemToUse.game_mix)}</p>
                   </div>
                   <div>
                     <label className="text-sm font-semibold text-slate-600">Aprobare de Tip</label>
-                    <p className="text-base font-medium text-slate-900">{item.approval_type || 'N/A'}</p>
+                    <p className="text-base font-medium text-slate-900">{itemToUse.approval_type || 'N/A'}</p>
                   </div>
                   <div>
                     <label className="text-sm font-semibold text-slate-600">Software</label>
-                    <p className="text-base font-medium text-slate-900">{item.software || 'N/A'}</p>
+                    <p className="text-base font-medium text-slate-900">{itemToUse.software || 'N/A'}</p>
                   </div>
                 </div>
               </div>
@@ -490,7 +490,7 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                   <div>
                     <label className="text-sm font-semibold text-slate-600">Data creării</label>
                     <p className="text-base font-medium text-slate-900">
-                      {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+                      {itemToUse.created_at ? new Date(itemToUse.created_at).toLocaleDateString('ro-RO') : 'N/A'}
                     </p>
                   </div>
                 </div>
