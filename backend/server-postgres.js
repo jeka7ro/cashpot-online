@@ -5346,8 +5346,8 @@ app.post('/api/restore-dashboard/:userId', authenticateUser, async (req, res) =>
 
 // Server startup - MOVED HERE AFTER ALL ROUTES ARE REGISTERED!
 // This ensures all routes are available when server starts
-const HOST = process.env.HOST || '0.0.0.0'
-const server = app.listen(PORT, HOST, () => {
+// HOST already defined at line 1501
+const serverFinal = app.listen(PORT, HOST, () => {
   console.log(`🚀 Server running on ${HOST}:${PORT}`)
   console.log(`📊 Database: PostgreSQL`)
   console.log(`🌐 Environment: ${process.env.NODE_ENV || 'production'}`)
