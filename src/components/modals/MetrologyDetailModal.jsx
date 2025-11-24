@@ -167,7 +167,12 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                   
                   {/* Multi PDF Viewer - EXACT CA LA CONTRACTE */}
                   {(() => {
-                    // Parse attachments from approval
+                    // Parse attachments from approval - DEBUG COMPLET
+                    console.log('🔍 DEBUG ATTACHMENTS în MetrologyDetailModal:')
+                    console.log('   itemToUse:', itemToUse)
+                    console.log('   itemToUse.attachments:', itemToUse.attachments)
+                    console.log('   typeof:', typeof itemToUse.attachments)
+                    
                     let parsedAttachments = []
                     if (itemToUse.attachments) {
                       try {
@@ -175,23 +180,36 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                           ? JSON.parse(itemToUse.attachments)
                           : itemToUse.attachments
                         if (!Array.isArray(parsedAttachments)) {
+                          console.warn('⚠️ attachments nu este array:', parsedAttachments)
                           parsedAttachments = []
+                        } else {
+                          console.log('✅ Parsed attachments:', parsedAttachments.length, 'items')
                         }
                       } catch (e) {
-                        console.error('Error parsing attachments in modal:', e, itemToUse.attachments)
+                        console.error('❌ Error parsing attachments in modal:', e, itemToUse.attachments)
                         parsedAttachments = []
                       }
+                    } else {
+                      console.warn('⚠️ itemToUse.attachments este null/undefined')
                     }
+
+                    const files = parsedAttachments.map((att, idx) => {
+                      const fileObj = {
+                        name: att.name || att.file_name || `Document ${idx + 1}`,
+                        type: 'Atașament Aprobare',
+                        file_path: att.url || att.file_path || att.path || att,
+                        url: att.url || att.file_path || att.path || att,
+                        id: att.id || `attachment-${idx}`
+                      }
+                      console.log(`   File ${idx}:`, fileObj)
+                      return fileObj
+                    })
+
+                    console.log('📄 Total files pentru MultiPDFViewer:', files.length)
 
                     return (
                       <MultiPDFViewer
-                        files={parsedAttachments.map((att, idx) => ({
-                          name: att.name || `Document ${idx + 1}`,
-                          type: 'Atașament Aprobare',
-                          file_path: att.url || att.file_path || att,
-                          url: att.url || att.file_path || att,
-                          id: att.id || `attachment-${idx}`
-                        }))}
+                        files={files}
                         title="Documente Aprobare"
                         placeholder="Nu există documente atașate"
                         placeholderSubtext="Adaugă documente pentru vizualizare"
