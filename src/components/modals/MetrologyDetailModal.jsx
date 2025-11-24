@@ -194,8 +194,9 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                     }
 
                     const files = parsedAttachments.map((att, idx) => {
+                      // Backend folosește 'filename' și 'url' (vezi server-postgres.js linia 4398-4401)
                       const fileObj = {
-                        name: att.name || att.file_name || `Document ${idx + 1}`,
+                        name: att.filename || att.name || att.file_name || `Document ${idx + 1}`,
                         type: 'Atașament Aprobare',
                         file_path: att.url || att.file_path || att.path || att,
                         url: att.url || att.file_path || att.path || att,
@@ -397,7 +398,11 @@ const MetrologyDetailModal = ({ item, onClose }) => {
             {/* Right Column - PDF Viewer - EXACT CA LA CONTRACTE */}
             <div className="lg:col-span-2">
               {/* AFIȘEAZĂ ATAȘAMENTELE PENTRU APROBĂRI ÎN COLOANA DREAPTĂ (CA LA CVT) */}
+              {/* ATAȘAMENTE APROBĂRI - EXACT CA LA CONTRACTE */}
               {isApproval && (() => {
+                console.log('🔍 DEBUG ATTACHMENTS pentru aprobări în CVT section:')
+                console.log('   itemToUse.attachments:', itemToUse.attachments)
+                
                 let parsedAttachments = []
                 if (itemToUse.attachments) {
                   try {
@@ -408,32 +413,32 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                       parsedAttachments = []
                     }
                   } catch (e) {
+                    console.error('❌ Error parsing attachments:', e)
                     parsedAttachments = []
                   }
                 }
 
-                if (parsedAttachments.length > 0) {
-                  return (
-                    <div className="bg-slate-50 dark:bg-slate-700 rounded-2xl p-6">
-                      <h4 className="text-lg font-bold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-600 pb-2 mb-4">
-                        Documente Aprobare
-                      </h4>
-                      <MultiPDFViewer
-                        files={parsedAttachments.map((att, idx) => ({
-                          name: att.name || `Document ${idx + 1}`,
-                          type: 'Atașament Aprobare',
-                          file_path: att.url || att.file_path || att,
-                          url: att.url || att.file_path || att,
-                          id: att.id || `attachment-${idx}`
-                        }))}
-                        title="Atașamente Aprobare"
-                        placeholder="Nu există documente atașate"
-                        placeholderSubtext="Adaugă documente pentru vizualizare"
-                      />
-                    </div>
-                  )
-                }
-                return null
+                // AFIȘEAZĂ ÎNTOTDEAUNA MultiPDFViewer (chiar dacă e gol) - EXACT CA LA CONTRACTE
+                return (
+                  <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-6">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-6 flex items-center">
+                      <FileText className="w-5 h-5 mr-2 text-green-600" />
+                      Documente Aprobare
+                    </h3>
+                    <MultiPDFViewer
+                      files={parsedAttachments.map((att, idx) => ({
+                        name: att.filename || att.name || `Document ${idx + 1}`,
+                        type: 'Atașament Aprobare',
+                        file_path: att.url || att.file_path || att.path || att,
+                        url: att.url || att.file_path || att.path || att,
+                        id: att.id || `attachment-${idx}`
+                      }))}
+                      title="Documente Aprobare"
+                      placeholder="Nu există documente atașate"
+                      placeholderSubtext="Adaugă documente pentru vizualizare"
+                    />
+                  </div>
+                )
               })()}
 
               {/* CVT Document Viewer */}
