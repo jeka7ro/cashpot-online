@@ -94,8 +94,10 @@ const MetrologyDetailModal = ({ item, onClose }) => {
 
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
           {isApproval ? (
-            /* Approval Details */
-            <div className="space-y-6">
+            /* Approval Details - EXACT CA LA CONTRACTE */
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Column - Info Cards */}
+              <div className="space-y-6">
               {/* Approval Info */}
               <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-6">
                 <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Informații Aprobare de Tip</h4>
@@ -153,32 +155,35 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                   <p className="text-slate-800 dark:text-slate-200">{itemToUse.notes}</p>
                 </div>
               )}
+              </div>
 
-              {/* Attachments - EXACT CA LA CONTRACTE - AFIȘEAZĂ ÎNTOTDEAUNA DACĂ EXISTĂ */}
-              {(() => {
-                // Parse attachments from approval
-                let parsedAttachments = []
-                if (itemToUse.attachments) {
-                  try {
-                    parsedAttachments = typeof itemToUse.attachments === 'string' 
-                      ? JSON.parse(itemToUse.attachments)
-                      : itemToUse.attachments
-                    if (!Array.isArray(parsedAttachments)) {
-                      parsedAttachments = []
+              {/* Right Column - Documente Contracte - EXACT CA LA CONTRACTE */}
+              <div className="lg:col-span-2">
+                <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-6">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-6 flex items-center">
+                    <FileText className="w-5 h-5 mr-2 text-green-600" />
+                    Documente Aprobare
+                  </h3>
+                  
+                  {/* Multi PDF Viewer - EXACT CA LA CONTRACTE */}
+                  {(() => {
+                    // Parse attachments from approval
+                    let parsedAttachments = []
+                    if (itemToUse.attachments) {
+                      try {
+                        parsedAttachments = typeof itemToUse.attachments === 'string' 
+                          ? JSON.parse(itemToUse.attachments)
+                          : itemToUse.attachments
+                        if (!Array.isArray(parsedAttachments)) {
+                          parsedAttachments = []
+                        }
+                      } catch (e) {
+                        console.error('Error parsing attachments in modal:', e, itemToUse.attachments)
+                        parsedAttachments = []
+                      }
                     }
-                  } catch (e) {
-                    console.error('Error parsing attachments in modal:', e, itemToUse.attachments)
-                    parsedAttachments = []
-                  }
-                }
 
-                // AFIȘEAZĂ SECȚIUNEA CHIAR DACĂ NU SUNT ATAȘAMENTE (pentru debugging)
-                return (
-                  <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-6">
-                    <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 border-b border-slate-200 dark:border-slate-600 pb-2">
-                      Documente Atașate ({parsedAttachments.length})
-                    </h4>
-                    {parsedAttachments.length > 0 ? (
+                    return (
                       <MultiPDFViewer
                         files={parsedAttachments.map((att, idx) => ({
                           name: att.name || `Document ${idx + 1}`,
@@ -187,25 +192,14 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                           url: att.url || att.file_path || att,
                           id: att.id || `attachment-${idx}`
                         }))}
-                        title="Atașamente Aprobare"
+                        title="Documente Aprobare"
                         placeholder="Nu există documente atașate"
                         placeholderSubtext="Adaugă documente pentru vizualizare"
                       />
-                    ) : (
-                      <div className="aspect-[3/4] bg-slate-100 dark:bg-slate-800 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center">
-                        <div className="text-center text-slate-500 dark:text-slate-400">
-                          <FileText className="w-16 h-16 mx-auto mb-2 opacity-50" />
-                          <p className="text-sm font-medium">Nu există documente atașate</p>
-                          <p className="text-xs text-slate-400 mt-1">Atașamentele vor apărea aici</p>
-                          {itemToUse.attachments && (
-                            <p className="text-xs text-red-400 mt-2">Debug: attachments există dar nu sunt parseate corect</p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })()}
+                    )
+                  })()}
+                </div>
+              </div>
             </div>
           ) : isCommission ? (
             /* Commission Details */
