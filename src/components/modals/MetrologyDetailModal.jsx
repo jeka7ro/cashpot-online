@@ -397,45 +397,65 @@ const MetrologyDetailModal = ({ item, onClose }) => {
 
               {/* Right Column - Documente CVT - EXACT CA LA CONTRACTE */}
               <div className="lg:col-span-2">
+                {/* CVT Document Viewer */}
+                {isCVT && (
+                  <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-6 mb-6">
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-6 flex items-center">
+                      <FileText className="w-5 h-5 mr-2 text-green-600" />
+                      Document CVT
+                    </h3>
+                    
+                    {/* Multi PDF Viewer - EXACT CA LA CONTRACTE */}
+                    {(() => {
+                      const rawUrl = itemToUse.cvt_file || itemToUse.cvtFile || itemToUse.file_path || itemToUse.file?.url || itemToUse.file?.path || null
+                      const makeAbsolute = (url) => {
+                        if (!url) return null
+                        // Accept data URLs as-is (e.g., base64 PDFs stored directly)
+                        if (/^data:application\/pdf/i.test(url)) return url
+                        if (/^https?:/i.test(url)) return url
+                        const backend = (window && window.APP_BACKEND_URL) || 'https://cashpot-backend.onrender.com'
+                        return `${backend}${url.startsWith('/') ? url : `/${url}`}`
+                      }
+                      // Prefer direct URL; if missing or not usable, fallback to backend render endpoint
+                      let pdfUrl = makeAbsolute(rawUrl)
+                      if (!pdfUrl && itemToUse?.id) {
+                        const backend = (window && window.APP_BACKEND_URL) || 'https://cashpot-backend.onrender.com'
+                        pdfUrl = `${backend}/api/cvt-pdf/${itemToUse.id}`
+                      }
+                      // Folosim MultiPDFViewer EXACT CA LocationContracts!
+                      return (
+                        <MultiPDFViewer
+                          files={rawUrl ? [{
+                            name: `CVT ${itemToUse.cvt_series || itemToUse.cvt_number || 'Document'}`,
+                            type: 'Document CVT',
+                            file_path: rawUrl,
+                            url: rawUrl,
+                            id: 'cvt'
+                          }] : []}
+                          title="Document CVT"
+                          placeholder="Nu există document CVT încărcat"
+                          placeholderSubtext="Adaugă document pentru vizualizare"
+                        />
+                      )
+                    })()}
+                  </div>
+                )}
+
+                {/* Created By - RESTAURAT */}
                 <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-6">
-                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-6 flex items-center">
-                    <FileText className="w-5 h-5 mr-2 text-green-600" />
-                    Document CVT
-                  </h3>
-                  
-                  {/* Multi PDF Viewer - EXACT CA LA CONTRACTE */}
-                  {(() => {
-                    const rawUrl = itemToUse.cvt_file || itemToUse.cvtFile || itemToUse.file_path || itemToUse.file?.url || itemToUse.file?.path || null
-                    const makeAbsolute = (url) => {
-                      if (!url) return null
-                      // Accept data URLs as-is (e.g., base64 PDFs stored directly)
-                      if (/^data:application\/pdf/i.test(url)) return url
-                      if (/^https?:/i.test(url)) return url
-                      const backend = (window && window.APP_BACKEND_URL) || 'https://cashpot-backend.onrender.com'
-                      return `${backend}${url.startsWith('/') ? url : `/${url}`}`
-                    }
-                    // Prefer direct URL; if missing or not usable, fallback to backend render endpoint
-                    let pdfUrl = makeAbsolute(rawUrl)
-                    if (!pdfUrl && itemToUse?.id) {
-                      const backend = (window && window.APP_BACKEND_URL) || 'https://cashpot-backend.onrender.com'
-                      pdfUrl = `${backend}/api/cvt-pdf/${itemToUse.id}`
-                    }
-                    // Folosim MultiPDFViewer EXACT CA LocationContracts!
-                    return (
-                      <MultiPDFViewer
-                        files={rawUrl ? [{
-                          name: `CVT ${itemToUse.cvt_series || itemToUse.cvt_number || 'Document'}`,
-                          type: 'Document CVT',
-                          file_path: rawUrl,
-                          url: rawUrl,
-                          id: 'cvt'
-                        }] : []}
-                        title="Document CVT"
-                        placeholder="Nu există document CVT încărcat"
-                        placeholderSubtext="Adaugă document pentru vizualizare"
-                      />
-                    )
-                  })()}
+                  <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Informații Adiționale</h4>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Creat de</label>
+                      <p className="text-slate-800 dark:text-slate-200 font-semibold">{itemToUse.created_by || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Data creării</label>
+                      <p className="text-slate-800 dark:text-slate-200 font-semibold">
+                        {itemToUse.created_at ? new Date(itemToUse.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
