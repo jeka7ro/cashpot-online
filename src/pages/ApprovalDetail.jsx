@@ -7,6 +7,7 @@ import { useData } from '../contexts/DataContext'
 import { toast } from 'react-hot-toast'
 import ApprovalModal from '../components/modals/ApprovalModal'
 import { getGameMixName } from '../utils/gameMixFormatter'
+import axios from 'axios'
 
 const ApprovalDetail = () => {
   const { id } = useParams()
@@ -70,23 +71,21 @@ const ApprovalDetail = () => {
     for (const file of files) {
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('entityType', 'approval')
-      formData.append('entityId', approval.id.toString())
       
       try {
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData
+        const response = await axios.post('/api/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
         })
         
-        if (response.ok) {
-          const data = await response.json()
+        if (response.data?.success && response.data?.file) {
+          const fileData = response.data.file
           const newAttachment = {
             id: Date.now() + Math.random(),
-            name: file.name,
-            size: file.size,
+            name: fileData.originalname || file.name,
+            size: fileData.size || file.size,
             type: file.type,
-            url: data.fileUrl,
+            url: fileData.url || fileData.path || `/uploads/${fileData.filename}`,
+            file_path: fileData.url || fileData.path || `/uploads/${fileData.filename}`,
             uploaded: true
           }
           
@@ -100,10 +99,14 @@ const ApprovalDetail = () => {
           
           toast.success(`${file.name} încărcat cu succes`)
         } else {
-          toast.error(`Eroare la încărcarea ${file.name}`)
+          const errorMsg = response.data?.message || 'Eroare necunoscută'
+          console.error('Upload response:', response.data)
+          toast.error(`Eroare la încărcarea ${file.name}: ${errorMsg}`)
         }
       } catch (error) {
-        toast.error(`Eroare la încărcarea ${file.name}`)
+        console.error('Upload error:', error)
+        const errorMsg = error.response?.data?.message || error.message || 'Eroare la upload'
+        toast.error(`Eroare la încărcarea ${file.name}: ${errorMsg}`)
       }
     }
   }

@@ -114,15 +114,26 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
         const response = await axios.post('/api/upload', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         })
-        return {
-          name: file.name,
-          url: response.data.url,
-          size: file.size,
-          type: file.type
+        
+        if (response.data?.success && response.data?.file) {
+          const fileData = response.data.file
+          return {
+            id: Date.now() + Math.random(),
+            name: fileData.originalname || file.name,
+            url: fileData.url || fileData.path || `/uploads/${fileData.filename}`,
+            file_path: fileData.url || fileData.path || `/uploads/${fileData.filename}`,
+            size: fileData.size || file.size,
+            type: file.type
+          }
+        } else {
+          console.error('Upload response error:', response.data)
+          toast.error(`Eroare la upload pentru ${file.name}: ${response.data?.message || 'Răspuns invalid'}`)
+          return null
         }
       } catch (error) {
         console.error('Upload error:', error)
-        toast.error(`Eroare la upload pentru ${file.name}`)
+        const errorMsg = error.response?.data?.message || error.message || 'Eroare necunoscută'
+        toast.error(`Eroare la upload pentru ${file.name}: ${errorMsg}`)
         return null
       }
     })
@@ -131,14 +142,16 @@ const ApprovalModal = ({ item, onClose, onSave }) => {
       const results = await Promise.all(uploadPromises)
       const validResults = results.filter(result => result !== null)
       
-      setFormData(prev => ({
-        ...prev,
-        attachments: [...prev.attachments, ...validResults]
-      }))
-      
-      toast.success(`${validResults.length} fișiere încărcate cu succes`)
+      if (validResults.length > 0) {
+        setFormData(prev => ({
+          ...prev,
+          attachments: [...prev.attachments, ...validResults]
+        }))
+        toast.success(`${validResults.length} fișiere încărcate cu succes`)
+      }
     } catch (error) {
-      toast.error('Eroare la încărcarea fișierelor')
+      console.error('Error processing upload results:', error)
+      toast.error('Eroare la procesarea rezultatelor upload')
     } finally {
       setUploading(false)
     }

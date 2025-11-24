@@ -17,3 +17,4 @@ mongodb-macos-x86_64-8.2.0.tgz
 # Ignore build output
 src/dist/
 dist/
+backend/.env.bak

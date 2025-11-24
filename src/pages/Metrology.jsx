@@ -498,16 +498,6 @@ const Metrology = () => {
         </button>
       )
     },
-    { 
-      key: 'symbol', 
-      label: 'SIMBOL', 
-      sortable: true,
-      render: (item) => (
-        <div className="text-slate-800 dark:text-slate-200 font-medium">
-          {item.name || item.approval_number || 'N/A'}
-        </div>
-      )
-    },
     { key: 'provider', label: 'FURNIZOR', sortable: true },
     { key: 'cabinet', label: 'CABINET', sortable: true },
     { 
