@@ -393,119 +393,49 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                   <p className="text-slate-800 dark:text-slate-200 whitespace-pre-wrap">{itemToUse.notes}</p>
                 </div>
               )}
-            </div>
-
-            {/* Right Column - PDF Viewer - EXACT CA LA CONTRACTE */}
-            <div className="lg:col-span-2">
-              {/* AFIȘEAZĂ ATAȘAMENTELE PENTRU APROBĂRI ÎN COLOANA DREAPTĂ (CA LA CVT) */}
-              {/* ATAȘAMENTE APROBĂRI - EXACT CA LA CONTRACTE */}
-              {isApproval && (() => {
-                console.log('🔍 DEBUG ATTACHMENTS pentru aprobări în CVT section:')
-                console.log('   itemToUse.attachments:', itemToUse.attachments)
-                
-                let parsedAttachments = []
-                if (itemToUse.attachments) {
-                  try {
-                    parsedAttachments = typeof itemToUse.attachments === 'string' 
-                      ? JSON.parse(itemToUse.attachments)
-                      : itemToUse.attachments
-                    if (!Array.isArray(parsedAttachments)) {
-                      parsedAttachments = []
-                    }
-                  } catch (e) {
-                    console.error('❌ Error parsing attachments:', e)
-                    parsedAttachments = []
-                  }
-                }
-
-                // AFIȘEAZĂ ÎNTOTDEAUNA MultiPDFViewer (chiar dacă e gol) - EXACT CA LA CONTRACTE
-                return (
-                  <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-6">
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-6 flex items-center">
-                      <FileText className="w-5 h-5 mr-2 text-green-600" />
-                      Documente Aprobare
-                    </h3>
-                    <MultiPDFViewer
-                      files={parsedAttachments.map((att, idx) => ({
-                        name: att.filename || att.name || `Document ${idx + 1}`,
-                        type: 'Atașament Aprobare',
-                        file_path: att.url || att.file_path || att.path || att,
-                        url: att.url || att.file_path || att.path || att,
-                        id: att.id || `attachment-${idx}`
-                      }))}
-                      title="Documente Aprobare"
-                      placeholder="Nu există documente atașate"
-                      placeholderSubtext="Adaugă documente pentru vizualizare"
-                    />
-                  </div>
-                )
-              })()}
-
-              {/* CVT Document Viewer */}
-              {isCVT && (
-              <div className="bg-slate-50 rounded-2xl p-6">
-                <h4 className="text-lg font-bold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-600 pb-2 mb-4">
-                  Document CVT
-                </h4>
-                {(() => {
-                  const rawUrl = itemToUse.cvt_file || itemToUse.cvtFile || itemToUse.file_path || itemToUse.file?.url || itemToUse.file?.path || null
-                  const makeAbsolute = (url) => {
-                    if (!url) return null
-                    // Accept data URLs as-is (e.g., base64 PDFs stored directly)
-                    if (/^data:application\/pdf/i.test(url)) return url
-                    if (/^https?:/i.test(url)) return url
-                    const backend = (window && window.APP_BACKEND_URL) || 'https://cashpot-backend.onrender.com'
-                    return `${backend}${url.startsWith('/') ? url : `/${url}`}`
-                  }
-                  // Prefer direct URL; if missing or not usable, fallback to backend render endpoint
-                  let pdfUrl = makeAbsolute(rawUrl)
-                  if (!pdfUrl && item?.id) {
-                    const backend = (window && window.APP_BACKEND_URL) || 'https://cashpot-backend.onrender.com'
-                    pdfUrl = `${backend}/api/cvt-pdf/${item.id}`
-                  }
-                  // Folosim MultiPDFViewer EXACT CA LocationDetail!
-                  return rawUrl ? (
-                    <MultiPDFViewer
-                      files={[{
-                        name: `CVT ${itemToUse.cvt_series || itemToUse.cvt_number || 'Document'}`,
-                        type: 'Document CVT',
-                        file_path: rawUrl,
-                        url: rawUrl,
-                        id: 'cvt'
-                      }]}
-                      title="Document CVT"
-                      placeholder="Nu există document CVT încărcat"
-                      placeholderSubtext="Adaugă document pentru vizualizare"
-                    />
-                  ) : (
-                    <div className="aspect-[3/4] bg-slate-100 dark:bg-slate-800 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center">
-                      <div className="text-center text-slate-500 dark:text-slate-400">
-                      <FileText className="w-16 h-16 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm font-medium">Nu există document CVT</p>
-                      <p className="text-xs text-slate-400 mt-1">Atașează documentul CVT pentru vizualizare</p>
-                    </div>
-                  </div>
-                  )
-                })()}
               </div>
-              )}
 
-              {/* Created By */}
-              <div className="bg-slate-50 rounded-2xl p-6 space-y-3">
-                <h4 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2">
-                  Informații Adiționale
-                </h4>
-                <div className="space-y-2">
-                  <div>
-                    <label className="text-sm font-semibold text-slate-600">Creat de</label>
-                    <p className="text-base font-medium text-slate-900">{itemToUse.created_by || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-semibold text-slate-600">Data creării</label>
-                    <p className="text-base font-medium text-slate-900">
-                      {itemToUse.created_at ? new Date(itemToUse.created_at).toLocaleDateString('ro-RO') : 'N/A'}
-                    </p>
-                  </div>
+              {/* Right Column - Documente CVT - EXACT CA LA CONTRACTE */}
+              <div className="lg:col-span-2">
+                <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-6">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-6 flex items-center">
+                    <FileText className="w-5 h-5 mr-2 text-green-600" />
+                    Document CVT
+                  </h3>
+                  
+                  {/* Multi PDF Viewer - EXACT CA LA CONTRACTE */}
+                  {(() => {
+                    const rawUrl = itemToUse.cvt_file || itemToUse.cvtFile || itemToUse.file_path || itemToUse.file?.url || itemToUse.file?.path || null
+                    const makeAbsolute = (url) => {
+                      if (!url) return null
+                      // Accept data URLs as-is (e.g., base64 PDFs stored directly)
+                      if (/^data:application\/pdf/i.test(url)) return url
+                      if (/^https?:/i.test(url)) return url
+                      const backend = (window && window.APP_BACKEND_URL) || 'https://cashpot-backend.onrender.com'
+                      return `${backend}${url.startsWith('/') ? url : `/${url}`}`
+                    }
+                    // Prefer direct URL; if missing or not usable, fallback to backend render endpoint
+                    let pdfUrl = makeAbsolute(rawUrl)
+                    if (!pdfUrl && itemToUse?.id) {
+                      const backend = (window && window.APP_BACKEND_URL) || 'https://cashpot-backend.onrender.com'
+                      pdfUrl = `${backend}/api/cvt-pdf/${itemToUse.id}`
+                    }
+                    // Folosim MultiPDFViewer EXACT CA LocationContracts!
+                    return (
+                      <MultiPDFViewer
+                        files={rawUrl ? [{
+                          name: `CVT ${itemToUse.cvt_series || itemToUse.cvt_number || 'Document'}`,
+                          type: 'Document CVT',
+                          file_path: rawUrl,
+                          url: rawUrl,
+                          id: 'cvt'
+                        }] : []}
+                        title="Document CVT"
+                        placeholder="Nu există document CVT încărcat"
+                        placeholderSubtext="Adaugă document pentru vizualizare"
+                      />
+                    )
+                  })()}
                 </div>
               </div>
             </div>
