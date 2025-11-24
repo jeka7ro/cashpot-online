@@ -370,18 +370,16 @@ const MetrologyDetailModal = ({ item, onClose }) => {
               </div>
 
               {/* Notes */}
-              {item.notes && (
-                <div className="bg-slate-50 rounded-2xl p-6 space-y-4">
-                  <h4 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2">
-                    Note
-                  </h4>
-                  <p className="text-sm text-slate-700 whitespace-pre-wrap">{item.notes}</p>
+              {itemToUse.notes && (
+                <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-6">
+                  <h4 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Note</h4>
+                  <p className="text-slate-800 dark:text-slate-200 whitespace-pre-wrap">{itemToUse.notes}</p>
                 </div>
               )}
             </div>
 
-            {/* Right Column - PDF Viewer */}
-            <div className="space-y-4">
+            {/* Right Column - PDF Viewer - EXACT CA LA CONTRACTE */}
+            <div className="lg:col-span-2">
               {/* AFIȘEAZĂ ATAȘAMENTELE PENTRU APROBĂRI ÎN COLOANA DREAPTĂ (CA LA CVT) */}
               {isApproval && (() => {
                 let parsedAttachments = []
