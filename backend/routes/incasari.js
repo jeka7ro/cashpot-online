@@ -1696,7 +1696,7 @@ router.get('/compare-cyber-open', async (req, res) => {
 })
 
 // GET /api/incasari/dynamics
-// Returnează dinamica IN și Profit: zile din luna curentă vs aceleași zile din luna trecută
+// Returnează dinamica IN și Profit: perioada selectată vs aceleași zile din luna trecută
 router.get('/dynamics', authenticateToken, async (req, res) => {
   try {
     const pool = req.app.get('pool')
@@ -1707,7 +1707,7 @@ router.get('/dynamics', authenticateToken, async (req, res) => {
       })
     }
 
-    const { location, provider, cabinet, gameMix, includeLocations } = req.query
+    const { startDate, endDate, location, provider, cabinet, gameMix, includeLocations } = req.query
 
     const locationsArray =
       typeof includeLocations === 'string' && includeLocations.length > 0
@@ -1722,26 +1722,43 @@ router.get('/dynamics', authenticateToken, async (req, res) => {
       includeLocations: locationsArray
     })
     
-    const today = new Date()
-    const currentHour = today.getHours()
-    // Pentru luna curentă, ținem cont de ziua operațională (08:00–08:00)
-    let currentDay
-    if (currentHour >= 8) {
-      // După 08:00, luna curentă operațională merge până la ziua de azi
-      currentDay = today.getDate()
+    // Dacă avem startDate și endDate, folosim perioada selectată
+    // Altfel, folosim luna curentă (comportament vechi pentru backward compatibility)
+    let currentStartStr, currentEndStr, lastStartStr, lastEndStr
+    
+    if (startDate && endDate) {
+      // Folosim perioada selectată
+      const start = new Date(startDate)
+      const end = new Date(endDate)
+      
+      // Calculează aceleași zile din luna trecută
+      const lastStart = new Date(start.getFullYear(), start.getMonth() - 1, start.getDate())
+      const lastEnd = new Date(end.getFullYear(), end.getMonth() - 1, end.getDate())
+      
+      currentStartStr = startDate
+      currentEndStr = endDate
+      lastStartStr = `${lastStart.getFullYear()}-${String(lastStart.getMonth() + 1).padStart(2, '0')}-${String(lastStart.getDate()).padStart(2, '0')}`
+      lastEndStr = `${lastEnd.getFullYear()}-${String(lastEnd.getMonth() + 1).padStart(2, '0')}-${String(lastEnd.getDate()).padStart(2, '0')}`
     } else {
-      // Înainte de 08:00, luna curentă operațională merge până la ziua de ieri
-      currentDay = today.getDate() - 1
-    }
-    const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
-    const currentMonthEnd = new Date(today.getFullYear(), today.getMonth(), currentDay)
-    const currentMonthStartStr = `${currentMonthStart.getFullYear()}-${String(currentMonthStart.getMonth() + 1).padStart(2, '0')}-${String(currentMonthStart.getDate()).padStart(2, '0')}`
-    const currentMonthEndStr = `${currentMonthEnd.getFullYear()}-${String(currentMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(currentMonthEnd.getDate()).padStart(2, '0')}`
+      // Comportament vechi: luna curentă
+      const today = new Date()
+      const currentHour = today.getHours()
+      let currentDay
+      if (currentHour >= 8) {
+        currentDay = today.getDate()
+      } else {
+        currentDay = today.getDate() - 1
+      }
+      const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+      const currentMonthEnd = new Date(today.getFullYear(), today.getMonth(), currentDay)
+      currentStartStr = `${currentMonthStart.getFullYear()}-${String(currentMonthStart.getMonth() + 1).padStart(2, '0')}-${String(currentMonthStart.getDate()).padStart(2, '0')}`
+      currentEndStr = `${currentMonthEnd.getFullYear()}-${String(currentMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(currentMonthEnd.getDate()).padStart(2, '0')}`
 
-    const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1)
-    const lastMonthEnd = new Date(today.getFullYear(), today.getMonth() - 1, currentDay)
-    const lastMonthStartStr = `${lastMonthStart.getFullYear()}-${String(lastMonthStart.getMonth() + 1).padStart(2, '0')}-${String(lastMonthStart.getDate()).padStart(2, '0')}`
-    const lastMonthEndStr = `${lastMonthEnd.getFullYear()}-${String(lastMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(lastMonthEnd.getDate()).padStart(2, '0')}`
+      const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+      const lastMonthEnd = new Date(today.getFullYear(), today.getMonth() - 1, currentDay)
+      lastStartStr = `${lastMonthStart.getFullYear()}-${String(lastMonthStart.getMonth() + 1).padStart(2, '0')}-${String(lastMonthStart.getDate()).padStart(2, '0')}`
+      lastEndStr = `${lastMonthEnd.getFullYear()}-${String(lastMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(lastMonthEnd.getDate()).padStart(2, '0')}`
+    }
 
     let dynamicsSql
     let currentParams, lastParams
@@ -1756,8 +1773,8 @@ router.get('/dynamics', authenticateToken, async (req, res) => {
         WHERE audit_date BETWEEN $1 AND $2
           AND machine_id = ANY($3)
       `
-      currentParams = [currentMonthStartStr, currentMonthEndStr, activeIds]
-      lastParams = [lastMonthStartStr, lastMonthEndStr, activeIds]
+      currentParams = [currentStartStr, currentEndStr, activeIds]
+      lastParams = [lastStartStr, lastEndStr, activeIds]
     } else {
       // Dacă nu avem activeIds, afișăm toate datele disponibile (fără filtrare pe machine_id)
       dynamicsSql = `
@@ -1767,8 +1784,8 @@ router.get('/dynamics', authenticateToken, async (req, res) => {
         FROM incasari_daily
         WHERE audit_date BETWEEN $1 AND $2
       `
-      currentParams = [currentMonthStartStr, currentMonthEndStr]
-      lastParams = [lastMonthStartStr, lastMonthEndStr]
+      currentParams = [currentStartStr, currentEndStr]
+      lastParams = [lastStartStr, lastEndStr]
     }
 
     const [currentResult, lastResult] = await Promise.all([
@@ -2166,18 +2183,25 @@ router.get('/location-expenditures', authenticateToken, async (req, res) => {
         .filter(Boolean)
     }
 
+    // EXCLUDE departamentele care nu trebuie să apară în P&L (la fel ca în Expenditures.jsx)
+    const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
+    
     let sql = `
       SELECT
         COALESCE(location_name, 'Nespecificat') AS location_name,
         COALESCE(SUM(amount), 0) AS total_expenditures
       FROM expenditures_sync
       WHERE DATE(operational_date) BETWEEN DATE($1::text) AND DATE($2::text)
+        AND (department_name IS NULL OR department_name NOT IN ('POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli'))
+        AND (LOWER(TRIM(COALESCE(department_name, ''))) NOT IN ('unknown', 'null', ''))
     `
 
     const params = [startDate, endDate]
+    let paramIndex = 3
     if (locationsArray && locationsArray.length > 0) {
-      sql += ' AND location_name = ANY($3)'
+      sql += ` AND location_name = ANY($${paramIndex})`
       params.push(locationsArray)
+      paramIndex++
     }
 
     sql += `

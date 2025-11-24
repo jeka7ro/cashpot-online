@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
+import { useData } from '../contexts/DataContext'
 import { useNavigate } from 'react-router-dom'
 import { BarChart3, Table2, Settings, TrendingUp, TrendingDown, MapPin, FileSpreadsheet, Download, ArrowUp, ArrowDown, RefreshCw } from 'lucide-react'
 import DateRangeSelector, { QuickDateButtons } from '../components/DateRangeSelector'
@@ -76,6 +77,7 @@ const hasNonZeroRow = (row) => {
 const Incasari = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { locations } = useData()
 
   const [dateRange, setDateRange] = useState(() => {
     const today = new Date()
@@ -813,23 +815,9 @@ const Incasari = () => {
                   params: commonParams
                 }).then(response => {
                   if (response.data?.success && response.data.rows) {
-                    // Actualizează doar datele pentru luna curentă
-                    setAvgInByLocation((prev) => {
-                      // Păstrăm datele vechi pentru celelalte perioade și actualizăm doar cele pentru luna curentă
-                      const updated = [...prev]
-                      const currentMonthData = response.data.rows || []
-                      
-                      // Filtrează datele vechi pentru a exclude cele din luna curentă
-                      const filtered = updated.filter(row => {
-                        const rowDate = new Date(row.date || row.audit_date)
-                        return !(rowDate.getFullYear() === currentDate.getFullYear() && 
-                                 rowDate.getMonth() === currentDate.getMonth())
-                      })
-                      
-                      // Adaugă datele noi pentru luna curentă
-                      return [...filtered, ...currentMonthData]
-                    })
-                    console.log('✅ Tabelul P&L actualizat pentru luna curentă')
+                    // Înlocuiește complet datele pentru perioada selectată
+                    setAvgInByLocation(response.data.rows || [])
+                    console.log('✅ Tabelul P&L actualizat')
                   }
                 }).catch(error => {
                   console.error('❌ Eroare la actualizarea tabelului P&L:', error)
@@ -952,8 +940,13 @@ const Incasari = () => {
     
     const fetchDynamics = async () => {
       try {
+        const { startDate, endDate } = dateRange
+        if (!startDate || !endDate) return
+        
         const response = await axios.get('/api/incasari/dynamics', {
           params: {
+            startDate,
+            endDate,
             location: locationFilter !== 'all' ? locationFilter : undefined,
             provider: providerFilter !== 'all' ? providerFilter : undefined,
             cabinet: cabinetFilter !== 'all' ? cabinetFilter : undefined,
@@ -1226,10 +1219,12 @@ const Incasari = () => {
           const prevYear = prevMonthDate.getFullYear()
           const prevMonth = prevMonthDate.getMonth()
           const lastMonthStart = new Date(prevYear, prevMonth, 1)
+          // Pentru luna trecută, folosim TOATE zilele lunii (nu doar până la operationalDaysInCurrentMonth)
+          const lastMonthLastDay = new Date(prevYear, prevMonth + 1, 0)
           const lastMonthEnd = new Date(
             prevYear,
             prevMonth,
-            operationalDaysInCurrentMonth
+            lastMonthLastDay.getDate()
           )
 
           const [currentResp, lastResp] = await Promise.all([
@@ -1842,25 +1837,29 @@ const Incasari = () => {
       })
       
       // Generăm date pentru TOATE zilele lunii (1-30/31)
-      // Pentru zilele viitoare, afișăm 0
+      // Pentru zilele viitoare, folosim datele de pe ACELEAȘI ZILE din luna trecută (nu medie!)
       for (let day = 1; day <= daysInMonth; day++) {
         const currentDate = new Date(year, month, day)
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
         
-        // Pentru zilele viitoare (luna curentă), afișăm 0
+        // Pentru zilele viitoare (luna curentă), folosim datele de pe aceeași zi din luna trecută
         const isFutureDay = isCurrentMonth && currentDate > todayOperational
         
         const current = isFutureDay ? {} : (currentDataMap.get(day) || {})
         const last = lastDataMap.get(day) || {}
         
+        // Pentru zilele viitoare, folosim datele de pe aceeași zi din luna trecută (identic pe zile!)
+        const estimatedCurrentIn = isFutureDay ? Number(last.total_in || last.totalIn || 0) : 0
+        
         result.push({
           day,
           label: String(day),
-          currentIn: Number(current.total_in || current.totalIn || 0),
+          currentIn: isFutureDay ? estimatedCurrentIn : Number(current.total_in || current.totalIn || 0),
           lastIn: Number(last.total_in || last.totalIn || 0),
           currentGgr: Number(current.total_profit || current.totalProfit || 0),
           pos: posMap.get(dateStr) || 0,
-          slotsCount: Number(current.slots_count || last.slots_count || 0)
+          slotsCount: Number(current.slots_count || last.slots_count || 0),
+          isEstimated: isFutureDay // Flag pentru a marca zilele estimate
         })
       }
 
@@ -2256,11 +2255,17 @@ const Incasari = () => {
     
     if (dataToUse.length === 0) return []
     
-    // Calculează averageDrop pentru fiecare cabinet (totalIn / slotsCount)
+    // Calculează numărul de zile din perioada selectată
+    const start = new Date(dateRange.startDate)
+    const end = new Date(dateRange.endDate)
+    const diffTime = Math.abs(end - start)
+    const daysCount = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
+    
+    // Calculează averageDrop pentru fiecare cabinet (totalIn / zile / slotsCount) - FORMULA CORECTĂ!
     const withAverageDrop = dataToUse.map(item => ({
       ...item,
-      averageDrop: (item.slotsCount && item.slotsCount > 0) 
-        ? (item.totalIn || 0) / item.slotsCount 
+      averageDrop: (item.slotsCount && item.slotsCount > 0 && daysCount > 0) 
+        ? (item.totalIn || 0) / daysCount / item.slotsCount 
         : 0
     }))
     
@@ -2282,7 +2287,7 @@ const Incasari = () => {
         averageDrop: othersAverageDrop
       }
     ]
-  }, [avgInByCabinet])
+  }, [avgInByCabinet, dateRange])
 
   // Calculează dinamica pentru fiecare perioadă
   const calculateOverviewDynamics = useMemo(() => {
@@ -2506,19 +2511,28 @@ const Incasari = () => {
             overview.currentMonth.profit ||
             overview.currentMonth.slots
           )
+          // Calculează zilele din perioada selectată
+          const start = new Date(dateRange.startDate)
+          const end = new Date(dateRange.endDate)
+          const diffTime = Math.abs(end - start)
+          const daysCountInRange = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
+          
           const displayData = isCurrentMonth && hasCurrentMonthData ? {
             totalIn: overview.currentMonth.in || 0,
             totalBet: overview.currentMonth.bet || 0,
             totalProfit: overview.currentMonth.ggr || overview.currentMonth.profit || 0,
             slotsCount: overview.currentMonth.slots || summary.slotsCount || 0,
-            daysCount: new Date().getDate(), // Zilele din luna curentă până azi
-            averageDrop: overview.currentMonth.in && overview.currentMonth.slots && new Date().getDate() > 0 
-              ? overview.currentMonth.in / new Date().getDate() / overview.currentMonth.slots 
+            daysCount: daysCountInRange, // Zilele din perioada selectată
+            averageDrop: overview.currentMonth.in && overview.currentMonth.slots && daysCountInRange > 0 
+              ? overview.currentMonth.in / daysCountInRange / overview.currentMonth.slots 
               : 0,
             winBetPercent: overview.currentMonth.bet && overview.currentMonth.win
               ? (overview.currentMonth.win / overview.currentMonth.bet) * 100
               : 0
-          } : summary
+          } : {
+            ...summary,
+            daysCount: daysCountInRange // Asigură-te că daysCount este corect și pentru summary
+          }
           
           return (
             <div className="grid grid-cols-1 md:grid-cols-9 gap-4 mb-6">
@@ -2680,12 +2694,28 @@ const Incasari = () => {
                   </tr>
                 ) : (
                   <>
-                    {plByLocation.map((row) => (
-                    <tr
-                      key={row.locationName}
-                      className="border-b border-slate-200 dark:border-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-800/40 transition-colors"
-                    >
-                      <td className="py-2 px-3 font-medium text-slate-900 dark:text-slate-100">{row.locationName}</td>
+                    {plByLocation.map((row) => {
+                      // Găsește ID-ul locației pentru navigare
+                      const location = locations.find(loc => loc.name === row.locationName)
+                      const locationId = location?.id
+                      
+                      return (
+                      <tr
+                        key={row.locationName}
+                        className="border-b border-slate-200 dark:border-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-800/40 transition-colors"
+                      >
+                      <td className="py-2 px-3 font-medium text-slate-900 dark:text-slate-100">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            // Navighează la pagina P&L separată pentru locație
+                            navigate(`/incasari/location-pl/${encodeURIComponent(row.locationName)}?dateRange=${dateRange.startDate}_${dateRange.endDate}`)
+                          }}
+                          className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-semibold hover:underline transition-colors text-left"
+                        >
+                          {row.locationName}
+                        </button>
+                      </td>
                       <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
                         {formatNumber(row.totalIn)} RON
                       </td>
@@ -2712,7 +2742,8 @@ const Incasari = () => {
                         {formatNumber(row.pl)} RON
                       </td>
                     </tr>
-                  ))}
+                    )
+                    })}
                   {/* Rând cu totaluri */}
                   <tr className="border-t-2 border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/60 font-semibold">
                     <td className="py-3 px-3 text-slate-900 dark:text-slate-100">TOTAL</td>
@@ -3119,24 +3150,49 @@ const Incasari = () => {
                     content={({ active, payload, label }) => {
                       if (!active || !payload || payload.length === 0) return null;
                       
+                      const currentEntry = payload.find(p => p.dataKey === 'currentIn')
+                      const lastEntry = payload.find(p => p.dataKey === 'lastIn')
+                      const currentValue = currentEntry?.value || 0
+                      const lastValue = lastEntry?.value || 0
+                      const difference = currentValue - lastValue
+                      const percentChange = lastValue > 0 ? ((difference / lastValue) * 100).toFixed(1) : 0
+                      const isEstimated = currentEntry?.payload?.isEstimated
+                      
                       return (
                         <div
                           style={{
                             backgroundColor: '#1e293b',
-                            padding: '12px 16px',
+                            padding: '16px 20px',
                             borderRadius: '12px',
                             boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
-                            border: 'none'
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            minWidth: '280px'
                           }}
                         >
-                          <p style={{ color: '#fff', fontWeight: 'bold', marginBottom: '8px' }}>
-                            Zi {label.replace('Zi ', '')}
+                          <p style={{ color: '#fff', fontWeight: 'bold', marginBottom: '12px', fontSize: '16px' }}>
+                            Zi {label}
+                            {isEstimated && (
+                              <span style={{ color: '#86efac', marginLeft: '8px', fontSize: '12px' }}>
+                                (Estimare)
+                              </span>
+                            )}
                           </p>
-                          {payload.map((entry, index) => (
-                            <p key={index} style={{ color: entry.color, margin: '4px 0' }}>
-                              {entry.name}: {formatNumber(entry.value)}
+                          <div style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', marginBottom: '8px', paddingBottom: '8px' }}>
+                            <p style={{ color: '#22c55e', margin: '4px 0', fontSize: '14px', fontWeight: '600' }}>
+                              {currentEntry?.name}: {formatNumber(currentValue)} RON
                             </p>
-                          ))}
+                            <p style={{ color: '#60a5fa', margin: '4px 0', fontSize: '14px', fontWeight: '600' }}>
+                              {lastEntry?.name}: {formatNumber(lastValue)} RON
+                            </p>
+                          </div>
+                          <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                            <p style={{ color: difference >= 0 ? '#22c55e' : '#ef4444', margin: '4px 0', fontSize: '13px' }}>
+                              Diferență: {difference >= 0 ? '+' : ''}{formatNumber(difference)} RON
+                            </p>
+                            <p style={{ color: difference >= 0 ? '#22c55e' : '#ef4444', margin: '4px 0', fontSize: '13px' }}>
+                              Variație: {percentChange >= 0 ? '+' : ''}{percentChange}%
+                            </p>
+                          </div>
                         </div>
                       );
                     }}
@@ -3163,9 +3219,21 @@ const Incasari = () => {
                     <LabelList
                       dataKey="currentIn"
                       position="top"
-                      formatter={(value) => formatNumber(value)}
+                      formatter={(value, entry) => {
+                        if (entry?.payload?.isEstimated) {
+                          return `~${formatNumber(value)} (est.)`
+                        }
+                        return formatNumber(value)
+                      }}
                       style={{ fontSize: '10px', fontWeight: 'bold', fill: '#22c55e' }}
                     />
+                    {comparisonChartData.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={entry.isEstimated ? "#86efac" : "#22c55e"}
+                        fillOpacity={entry.isEstimated ? 0.6 : 1}
+                      />
+                    ))}
                   </Bar>
                   <Bar yAxisId="left" dataKey="lastIn" name="IN Luna trecută" fill="#60a5fa" radius={[4, 4, 0, 0]}>
                     <LabelList
@@ -3186,7 +3254,7 @@ const Incasari = () => {
           <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                Top 10 + Altele - GGR pe locații
+                GGR pe locații
               </h2>
             </div>
             <div className="h-80">
@@ -3269,7 +3337,7 @@ const Incasari = () => {
           <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                Top 10 + Altele - Average Drop pe cabinete
+                Average Drop pe cabinete
               </h2>
             </div>
             <div className="h-80">

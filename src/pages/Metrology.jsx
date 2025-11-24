@@ -13,12 +13,14 @@ import CommissionModal from '../components/modals/CommissionModal'
 import SoftwareModal from '../components/modals/SoftwareModal'
 import AuthorityModal from '../components/modals/AuthorityModal'
 import ONJNCalendarModal from '../components/modals/ONJNCalendarModal'
+import { getGameMixName } from '../utils/gameMixFormatter'
 
 const Metrology = () => {
   const { metrology, approvals, providers, cabinets, gameMixes, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [searchTerm, setSearchTerm] = useState('')
+  const [symbolSearchTerm, setSymbolSearchTerm] = useState('') // Search term for symbol column
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || null)
@@ -496,8 +498,28 @@ const Metrology = () => {
         </button>
       )
     },
+    { 
+      key: 'symbol', 
+      label: 'SIMBOL', 
+      sortable: true,
+      render: (item) => (
+        <div className="text-slate-800 dark:text-slate-200 font-medium">
+          {item.name || item.approval_number || 'N/A'}
+        </div>
+      )
+    },
     { key: 'provider', label: 'FURNIZOR', sortable: true },
     { key: 'cabinet', label: 'CABINET', sortable: true },
+    { 
+      key: 'game_mix', 
+      label: 'GAME MIX', 
+      sortable: true,
+      render: (item) => (
+        <div className="text-slate-800 dark:text-slate-200 font-medium">
+          {getGameMixName(item.game_mix_name || item.game_mix, gameMixes)}
+        </div>
+      )
+    },
     { 
       key: 'checksum_info', 
       label: 'CHECKSUMS', 
@@ -529,6 +551,13 @@ const Metrology = () => {
       )
     }
   ]
+  
+  // Filter approvals by symbol search term
+  const filteredApprovals = approvals.filter(approval => {
+    if (!symbolSearchTerm) return true
+    const symbol = (approval.name || approval.approval_number || '').toLowerCase()
+    return symbol.includes(symbolSearchTerm.toLowerCase())
+  })
 
   // Commissions columns
   const commissionsColumns = [
@@ -952,21 +981,49 @@ const Metrology = () => {
             </div>
           </div>
 
+          {/* Search bar for Symbol column */}
+          <div className="card p-4">
+            <div className="flex items-center space-x-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Caută după simbol (nume/number aprobare)..."
+                  value={symbolSearchTerm}
+                  onChange={(e) => setSymbolSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                />
+              </div>
+              {symbolSearchTerm && (
+                <button
+                  onClick={() => setSymbolSearchTerm('')}
+                  className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                >
+                  Șterge filtru
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Approvals Table */}
           <div className="card p-6">
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
               </div>
-            ) : approvals.length === 0 ? (
+            ) : filteredApprovals.length === 0 ? (
               <div className="text-center py-12">
                 <FileCheck className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-slate-600 mb-2">Nu există aprobări</h3>
-                <p className="text-slate-500">Adaugă prima aprobare pentru a începe</p>
+                <h3 className="text-lg font-semibold text-slate-600 mb-2">
+                  {symbolSearchTerm ? 'Nu s-au găsit aprobări pentru simbolul căutat' : 'Nu există aprobări'}
+                </h3>
+                <p className="text-slate-500">
+                  {symbolSearchTerm ? 'Încearcă un alt termen de căutare' : 'Adaugă prima aprobare pentru a începe'}
+                </p>
               </div>
             ) : (
               <DataTable
-                data={approvals}
+                data={filteredApprovals}
                 columns={approvalsColumns}
                 onEdit={(item) => {
                   setEditingApproval(item)

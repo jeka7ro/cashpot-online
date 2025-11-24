@@ -55,9 +55,10 @@ import ExpendituresDetail from './pages/ExpendituresDetail'
 import CyberTable from './pages/CyberTable'
 import IncasariSettings from './pages/IncasariSettings'
 import Incasari from './pages/Incasari'
+import IncasariSmartAnalytics from './pages/IncasariSmartAnalytics'
+import LocationPLDetail from './pages/LocationPLDetail'
 import POSBancaAIAnalysis from './pages/POSBancaAIAnalysis'
 import AdvancedAnalytics from './pages/AdvancedAnalytics'
-import IncasariFloorplan from './pages/IncasariFloorplan'
 import AIInsights from './pages/AIInsights'
 import Settings from './pages/Settings'
 import Tasks from './pages/Tasks'
@@ -128,7 +129,8 @@ function App() {
             <Route path="/expenditures/detail" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><ExpendituresDetail /></RoleProtectedRoute>} />
             <Route path="/ai-insights" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><AIInsights /></RoleProtectedRoute>} />
             <Route path="/incasari" element={<RoleProtectedRoute module={MODULES.INCASARI}><Incasari /></RoleProtectedRoute>} />
-            <Route path="/incasari/floorplan" element={<RoleProtectedRoute module={MODULES.INCASARI}><IncasariFloorplan /></RoleProtectedRoute>} />
+            <Route path="/incasari/smart-analytics" element={<RoleProtectedRoute module={MODULES.INCASARI}><IncasariSmartAnalytics /></RoleProtectedRoute>} />
+            <Route path="/incasari/location-pl/:locationName" element={<RoleProtectedRoute module={MODULES.INCASARI}><LocationPLDetail /></RoleProtectedRoute>} />
             <Route path="/incasari/cyber-table" element={<RoleProtectedRoute module={MODULES.INCASARI}><CyberTable /></RoleProtectedRoute>} />
             <Route path="/incasari/settings" element={<RoleProtectedRoute module={MODULES.INCASARI}><IncasariSettings /></RoleProtectedRoute>} />
             <Route path="/marketing" element={<RoleProtectedRoute module={MODULES.MARKETING}><Marketing /></RoleProtectedRoute>} />

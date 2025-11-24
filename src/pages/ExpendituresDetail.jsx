@@ -17,7 +17,8 @@ import {
   ResponsiveContainer,
   Legend
 } from 'recharts'
-import { ArrowLeft, Filter, TrendingUp, Building2 } from 'lucide-react'
+import { ArrowLeft, Filter, TrendingUp, Building2, FileSpreadsheet, Trash2, AlertCircle, CheckSquare, Square, MapPin, Loader2, X } from 'lucide-react'
+import * as XLSX from 'xlsx'
 
 const ExpendituresDetail = () => {
   const navigate = useNavigate()
@@ -41,9 +42,24 @@ const ExpendituresDetail = () => {
   const [expendituresData, setExpendituresData] = useState([])
   const [loading, setLoading] = useState(false)
   const [categoryFilter, setCategoryFilter] = useState(category || 'all')
+  const [locationFilter, setLocationFilter] = useState('all') // NEW: Filtru de locație
   const [summaryGranularity, setSummaryGranularity] = useState('month') // 'day', 'month', 'quarter', 'year'
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(25)
+  
+  // Selectare multiplă și ștergere multiplă
+  const [selectedItems, setSelectedItems] = useState(new Set())
+  const [showBulkActions, setShowBulkActions] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+  
+  // Căutare duplicate SMART
+  const [showDuplicates, setShowDuplicates] = useState(false)
+  const [duplicates, setDuplicates] = useState([])
+  const [searchingDuplicates, setSearchingDuplicates] = useState(false)
+  const [duplicateGroups, setDuplicateGroups] = useState([])
+  const [showDuplicatesModal, setShowDuplicatesModal] = useState(false)
+  const [selectedDuplicatesToKeep, setSelectedDuplicatesToKeep] = useState(new Map())
+  const [deletingDuplicates, setDeletingDuplicates] = useState(false)
 
   // Load expenditures data
   const loadExpendituresData = async () => {
@@ -82,9 +98,14 @@ const ExpendituresDetail = () => {
     if (categoryFilter && categoryFilter !== 'all') {
       data = data.filter((item) => (item.expenditure_type || '') === categoryFilter)
     }
+    
+    // Filtru de locație
+    if (locationFilter && locationFilter !== 'all') {
+      data = data.filter((item) => (item.location_name || '') === locationFilter)
+    }
 
     return data
-  }, [expendituresData, department, categoryFilter, dateRange])
+  }, [expendituresData, department, categoryFilter, locationFilter, dateRange])
 
   const categories = useMemo(() => {
     const set = new Set()
@@ -93,6 +114,280 @@ const ExpendituresDetail = () => {
     })
     return Array.from(set).sort()
   }, [filteredData])
+  
+  // Locații unice pentru filtru - din datele ORIGINALE (nefiltrate), nu din filteredData!
+  const uniqueLocations = useMemo(() => {
+    const set = new Set()
+    expendituresData.forEach((item) => {
+      if (item.location_name && item.department_name === department) {
+        // Verifică și dacă este în perioada selectată
+        const itemDate = new Date(item.operational_date)
+        const start = new Date(dateRange.startDate)
+        const end = new Date(dateRange.endDate)
+        if (itemDate >= start && itemDate <= end) {
+          set.add(item.location_name)
+        }
+      }
+    })
+    return Array.from(set).sort()
+  }, [expendituresData, department, dateRange])
+  
+  // Update showBulkActions based on selectedItems
+  useEffect(() => {
+    setShowBulkActions(selectedItems.size > 0)
+  }, [selectedItems])
+  
+  // Selectare multiplă
+  const handleSelectAll = (checked) => {
+    if (checked) {
+      // Selectează TOATE elementele din filteredData, nu doar cele de pe pagina curentă
+      setSelectedItems(new Set(filteredData.map(item => item.id)))
+    } else {
+      setSelectedItems(new Set())
+    }
+  }
+  
+  const handleSelectItem = (id, checked) => {
+    const newSelected = new Set(selectedItems)
+    if (checked) {
+      newSelected.add(id)
+    } else {
+      newSelected.delete(id)
+    }
+    setSelectedItems(newSelected)
+  }
+  
+  // Ștergere multiplă
+  const handleBulkDelete = async () => {
+    if (selectedItems.size === 0) return
+    
+    if (!window.confirm(`Ești sigur că vrei să ștergi ${selectedItems.size} înregistrări?`)) return
+    
+    setBulkDeleting(true)
+    try {
+      let deleted = 0
+      let errors = 0
+      
+      for (const id of selectedItems) {
+        try {
+          await axios.delete(`/api/expenditures/sql-table/${id}`)
+          deleted++
+        } catch (error) {
+          console.error(`Error deleting ${id}:`, error)
+          errors++
+        }
+      }
+      
+      if (deleted > 0) {
+        toast.success(`${deleted} înregistrări șterse cu succes`)
+      }
+      if (errors > 0) {
+        toast.error(`${errors} erori la ștergere`)
+      }
+      
+      setSelectedItems(new Set())
+      loadExpendituresData()
+    } catch (error) {
+      console.error('Bulk delete error:', error)
+      toast.error(`Eroare la ștergere multiplă: ${error.message}`)
+    } finally {
+      setBulkDeleting(false)
+    }
+  }
+  
+  // Căutare duplicate SMART - caută după: suma, locație, LUNA (nu ziua!), departament, tip
+  const handleSearchDuplicates = () => {
+    setSearchingDuplicates(true)
+    setDuplicateGroups([])
+    setShowDuplicatesModal(false)
+    setSelectedDuplicatesToKeep(new Map())
+    
+    try {
+      // Găsește duplicatele bazate pe: LUNA + suma + locație + departament + tip
+      const duplicatesMap = new Map()
+      
+      filteredData.forEach((row) => {
+        // Normalizează valorile pentru comparație
+        const amount = parseFloat(row.amount || 0).toFixed(2)
+        const location = (row.location_name || '').trim().toLowerCase()
+        const department = (row.department_name || '').trim().toLowerCase()
+        const expenditureType = (row.expenditure_type || '').trim().toLowerCase()
+        
+        // Extrage LUNA și ANUL (nu ziua!)
+        let monthYear = ''
+        if (row.operational_date) {
+          const date = new Date(row.operational_date)
+          monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}` // YYYY-MM
+        }
+        
+        // Cheie: LUNA + suma + locație + departament + tip
+        const key = `${monthYear}_${amount}_${location}_${department}_${expenditureType}`
+        
+        if (!duplicatesMap.has(key)) {
+          duplicatesMap.set(key, [])
+        }
+        duplicatesMap.get(key).push(row)
+      })
+      
+      // Filtrează doar grupurile cu mai mult de 1 înregistrare
+      const groups = Array.from(duplicatesMap.values())
+        .filter(group => group.length > 1)
+        .map((group, index) => ({
+          id: `group-${index}`,
+          items: group,
+          // Prioritar: cel din BAT (data_source = 'bat_sync')
+          priorityItem: group.find(item => item.data_source === 'bat_sync') || group[0]
+        }))
+      
+      setDuplicateGroups(groups)
+      
+      // Selectează automat prioritar (cel din BAT sau primul)
+      const initialSelection = new Map()
+      groups.forEach(group => {
+        const keepId = group.priorityItem.id
+        initialSelection.set(group.id, new Set([keepId]))
+      })
+      setSelectedDuplicatesToKeep(initialSelection)
+      
+      if (groups.length > 0) {
+        setShowDuplicatesModal(true)
+        toast.success(`Găsite ${groups.length} grupuri de duplicate (${groups.reduce((sum, g) => sum + g.items.length, 0)} înregistrări)`)
+      } else {
+        toast.success('Nu s-au găsit duplicate')
+      }
+    } catch (error) {
+      console.error('Error searching duplicates:', error)
+      toast.error(`Eroare la căutarea duplicate-urilor: ${error.message}`)
+    } finally {
+      setSearchingDuplicates(false)
+    }
+  }
+  
+  // Toggle selecție pentru o înregistrare dintr-un grup
+  const toggleDuplicateSelection = (groupId, itemId) => {
+    setSelectedDuplicatesToKeep(prev => {
+      const newMap = new Map(prev)
+      const groupSelection = newMap.get(groupId) || new Set()
+      const newSelection = new Set(groupSelection)
+      
+      if (newSelection.has(itemId)) {
+        newSelection.delete(itemId)
+      } else {
+        newSelection.add(itemId)
+      }
+      
+      // Asigură-te că cel puțin unul este selectat
+      if (newSelection.size === 0) {
+        const group = duplicateGroups.find(g => g.id === groupId)
+        if (group) {
+          newSelection.add(group.priorityItem.id)
+        }
+      }
+      
+      newMap.set(groupId, newSelection)
+      return newMap
+    })
+  }
+  
+  // Șterge duplicatele (păstrează doar cele selectate)
+  const handleDeleteDuplicates = async () => {
+    if (duplicateGroups.length === 0) return
+    
+    const idsToDelete = []
+    duplicateGroups.forEach(group => {
+      const keepIds = selectedDuplicatesToKeep.get(group.id) || new Set()
+      group.items.forEach(item => {
+        if (!keepIds.has(item.id)) {
+          idsToDelete.push(item.id)
+        }
+      })
+    })
+    
+    if (idsToDelete.length === 0) {
+      toast.info('Nu sunt duplicate de șters (toate sunt selectate să fie păstrate)')
+      return
+    }
+    
+    const confirm = window.confirm(
+      `Ești sigur că vrei să ștergi ${idsToDelete.length} duplicate?\nSe vor păstra ${duplicateGroups.reduce((sum, g) => sum + (selectedDuplicatesToKeep.get(g.id)?.size || 0), 0)} înregistrări.`
+    )
+    if (!confirm) return
+    
+    setDeletingDuplicates(true)
+    try {
+      toast.loading(`Se șterg ${idsToDelete.length} duplicate...`, { id: 'delete-duplicates' })
+      await axios.post('/api/expenditures/sql-table/bulk-delete', { ids: idsToDelete })
+      toast.success(`${idsToDelete.length} duplicate șterse cu succes!`, { id: 'delete-duplicates' })
+      setShowDuplicatesModal(false)
+      setDuplicateGroups([])
+      setSelectedDuplicatesToKeep(new Map())
+      loadExpendituresData() // Refresh data
+    } catch (error) {
+      console.error('Error deleting duplicates:', error)
+      toast.error(`Eroare la ștergerea duplicate-urilor: ${error.response?.data?.error || error.message}`, { id: 'delete-duplicates' })
+    } finally {
+      setDeletingDuplicates(false)
+    }
+  }
+  
+  // Export Excel
+  const handleExportExcel = () => {
+    try {
+      if (!paginatedData || paginatedData.length === 0) {
+        toast.error('Nu există date de exportat')
+        return
+      }
+
+      const wb = XLSX.utils.book_new()
+      
+      // Pregătește datele pentru export
+      const exportData = []
+      
+      // Header row
+      const header = ['Data', 'Locație', 'Tip', 'Descriere', 'Sursă', 'Sumă (RON)']
+      exportData.push(header)
+      
+      // Date rows
+      paginatedData.forEach(row => {
+        exportData.push([
+          row.operational_date ? new Date(row.operational_date).toLocaleDateString('ro-RO') : '-',
+          row.location_name || '-',
+          row.expenditure_type || '-',
+          row.description || 'N/A',
+          row.data_source === 'google_sheets' ? 'Google Sheets' : row.data_source === 'api_sync' ? 'API Extern' : row.data_source === 'bat_sync' ? 'BAT Sync' : 'Baza de date',
+          row.amount || 0
+        ])
+      })
+      
+      // Creează worksheet
+      const ws = XLSX.utils.aoa_to_sheet(exportData)
+      
+      // Setează lățimea coloanelor
+      const colWidths = [
+        { wch: 12 }, // Data
+        { wch: 20 }, // Locație
+        { wch: 25 }, // Tip
+        { wch: 30 }, // Descriere
+        { wch: 15 }, // Sursă
+        { wch: 15 }  // Sumă
+      ]
+      ws['!cols'] = colWidths
+      
+      // Adaugă worksheet la workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Cheltuieli')
+      
+      // Generează nume fișier
+      const fileName = `Cheltuieli_${department}_${dateRange.startDate}_${dateRange.endDate}.xlsx`
+      
+      // Exportă
+      XLSX.writeFile(wb, fileName)
+      
+      toast.success('✅ Excel exportat cu succes!')
+    } catch (error) {
+      console.error('Error exporting to Excel:', error)
+      toast.error('Eroare la export Excel')
+    }
+  }
 
   // Pagination calculations
   const paginatedData = useMemo(() => {
@@ -339,6 +634,27 @@ const ExpendituresDetail = () => {
                   {categories.map((cat) => (
                     <option key={cat} value={cat}>
                       {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
+            {uniqueLocations.length > 0 && (
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center">
+                  <MapPin className="w-4 h-4 mr-2 text-blue-500" />
+                  Locație
+                </label>
+                <select
+                  value={locationFilter}
+                  onChange={(e) => setLocationFilter(e.target.value)}
+                  className="input-field"
+                >
+                  <option value="all">Toate locațiile</option>
+                  {uniqueLocations.map((loc) => (
+                    <option key={loc} value={loc}>
+                      {loc}
                     </option>
                   ))}
                 </select>
@@ -623,24 +939,75 @@ const ExpendituresDetail = () => {
               Înregistrări detaliate ({filteredData.length})
             </h2>
             <div className="flex items-center gap-4">
-              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Afișare:</span>
-              <select 
-                value={rowsPerPage} 
-                onChange={(e) => handleRowsPerPageChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                className="border-2 border-slate-200 dark:border-slate-600 rounded-2xl px-4 py-2 text-sm font-medium bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all duration-200 shadow-lg text-slate-900 dark:text-slate-100"
+              {/* Buton Căutare Duplicate SMART */}
+              <button
+                onClick={handleSearchDuplicates}
+                disabled={searchingDuplicates}
+                className={`inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-sm font-semibold border transition-all hover:scale-105 active:scale-95 ${
+                  showDuplicatesModal ? 'bg-orange-500 border-orange-400 shadow-lg' : 'bg-blue-500 border-blue-400 shadow-lg'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-                <option value={200}>200</option>
-                <option value="all">Toate</option>
-              </select>
+                {searchingDuplicates ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <AlertCircle className="w-4 h-4" />
+                )}
+                <span>{searchingDuplicates ? 'Se caută...' : 'Caută Duplicate'}</span>
+              </button>
+              
+              {/* Buton Export Excel */}
+              <button
+                onClick={handleExportExcel}
+                className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-sm font-semibold border transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-green-500 to-emerald-500 border-green-400 shadow-lg"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Export Excel</span>
+              </button>
+              
+              {/* Buton Ștergere Multiplă */}
+              {showBulkActions && (
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleting}
+                  className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-sm font-semibold border transition-all hover:scale-105 active:scale-95 bg-red-500 border-red-400 shadow-lg disabled:opacity-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>{bulkDeleting ? 'Se șterg...' : `Șterge ${selectedItems.size}`}</span>
+                </button>
+              )}
+              
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap">Rânduri per pagină:</span>
+                <select 
+                  value={rowsPerPage} 
+                  onChange={(e) => {
+                    const newValue = e.target.value === 'all' ? 'all' : Number(e.target.value)
+                    handleRowsPerPageChange(newValue)
+                  }}
+                  className="border-2 border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm font-medium bg-white dark:bg-slate-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-900 dark:text-slate-100 min-w-[100px]"
+                >
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={200}>200</option>
+                  <option value="all">Toate</option>
+                </select>
+              </div>
             </div>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="bg-slate-100 dark:bg-slate-800">
                 <tr>
+                  <th className="px-3 py-2 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedItems.size === filteredData.length && filteredData.length > 0}
+                        onChange={(e) => handleSelectAll(e.target.checked)}
+                        className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                        title={selectedItems.size === filteredData.length ? 'Deselectează toate' : `Selectează toate ${filteredData.length} înregistrări`}
+                      />
+                  </th>
                   <th className="px-3 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">Data</th>
                   <th className="px-3 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">Locație</th>
                   <th className="px-3 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">Tip</th>
@@ -653,8 +1020,18 @@ const ExpendituresDetail = () => {
                 {paginatedData.map((item) => (
                   <tr
                     key={item.id}
-                    className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                    className={`border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 ${
+                      showDuplicates && duplicates.some(d => d.id === item.id) ? 'bg-orange-50 dark:bg-orange-900/20' : ''
+                    }`}
                   >
+                    <td className="px-3 py-2 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedItems.has(item.id)}
+                        onChange={(e) => handleSelectItem(item.id, e.target.checked)}
+                        className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                      />
+                    </td>
                     <td className="px-3 py-2 whitespace-nowrap text-slate-900 dark:text-slate-100">
                       {item.operational_date
                         ? new Date(item.operational_date).toLocaleDateString('ro-RO')
@@ -735,6 +1112,217 @@ const ExpendituresDetail = () => {
           )}
         </div>
       </div>
+      
+      {/* Modal pentru Duplicate SMART */}
+      {showDuplicatesModal && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center">
+                  <AlertCircle className="w-6 h-6 mr-3 text-orange-500" />
+                  Duplicate Găsite ({duplicateGroups.length} grupuri)
+                </h2>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                  Selectează ce înregistrări să păstrezi. Prioritar: cel din BAT (bifă verde).
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowDuplicatesModal(false)
+                  setDuplicateGroups([])
+                  setSelectedDuplicatesToKeep(new Map())
+                }}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+              </button>
+            </div>
+            
+            {/* Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="space-y-6">
+                {duplicateGroups.map((group, groupIndex) => {
+                  const keepIds = selectedDuplicatesToKeep.get(group.id) || new Set()
+                  const totalAmount = group.items.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
+                  
+                  const formatCurrency = (value) => {
+                    if (value === null || value === undefined) return '0,00'
+                    return new Intl.NumberFormat('ro-RO', {
+                      style: 'decimal',
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    }).format(Number(value) || 0)
+                  }
+                  
+                  const formatDate = (dateString) => {
+                    if (!dateString) return '-'
+                    try {
+                      return new Date(dateString).toLocaleDateString('ro-RO')
+                    } catch (error) {
+                      return dateString
+                    }
+                  }
+                  
+                  return (
+                    <div
+                      key={group.id}
+                      className="border-2 border-orange-200 dark:border-orange-800 rounded-xl p-4 bg-orange-50/50 dark:bg-orange-900/10"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                          Grup {groupIndex + 1} - {group.items.length} duplicate
+                        </h3>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">
+                          <span className="font-semibold">Suma:</span> {formatCurrency(totalAmount)} RON • 
+                          <span className="font-semibold ml-2">Locație:</span> {group.items[0]?.location_name || 'N/A'} • 
+                          <span className="font-semibold ml-2">Luna:</span> {group.items[0]?.operational_date ? new Date(group.items[0].operational_date).toLocaleDateString('ro-RO', { month: 'long', year: 'numeric' }) : 'N/A'}
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        {group.items.map((item) => {
+                          const isSelected = keepIds.has(item.id)
+                          const isBAT = item.data_source === 'bat_sync'
+                          const isPriority = item.id === group.priorityItem.id
+                          
+                          return (
+                            <div
+                              key={item.id}
+                              className={`flex items-start space-x-3 p-3 rounded-lg border-2 transition-all ${
+                                isSelected
+                                  ? isBAT || isPriority
+                                    ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700'
+                                    : 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700'
+                                  : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'
+                              }`}
+                            >
+                              <div className="flex items-center pt-1">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleDuplicateSelection(group.id, item.id)}
+                                  className="w-5 h-5 text-green-600 border-slate-300 rounded focus:ring-green-500 cursor-pointer"
+                                />
+                              </div>
+                              
+                              <div className="flex-1 grid grid-cols-6 gap-3 text-sm">
+                                <div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">ID</p>
+                                  <p className="font-medium text-slate-900 dark:text-slate-100">{item.id}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Suma</p>
+                                  <p className="font-semibold text-slate-900 dark:text-slate-100">{formatCurrency(item.amount)} RON</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Departament</p>
+                                  <p className="text-slate-900 dark:text-slate-100">{item.department_name || 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Tip</p>
+                                  <p className="text-slate-900 dark:text-slate-100">{item.expenditure_type || 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Sursă</p>
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
+                                    isBAT
+                                      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                                      : item.data_source === 'google_sheets'
+                                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                      : 'bg-slate-100 text-slate-700 dark:bg-slate-800/30 dark:text-slate-300'
+                                  }`}>
+                                    {isBAT ? '🟢 BAT (Prioritar)' : item.data_source === 'google_sheets' ? 'Google Sheets' : item.data_source === 'api_sync' ? 'API Extern' : 'Altă sursă'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Data</p>
+                                  <p className="text-slate-900 dark:text-slate-100">{formatDate(item.operational_date)}</p>
+                                </div>
+                              </div>
+                              
+                              {isPriority && (
+                                <div className="flex items-center text-green-600 dark:text-green-400">
+                                  <CheckSquare className="w-5 h-5" title="Prioritar - va fi păstrat" />
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                      
+                      <div className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                        {keepIds.size > 0 ? (
+                          <span className="text-green-600 dark:text-green-400 font-semibold">
+                            ✓ {keepIds.size} înregistrare{keepIds.size > 1 ? 'i' : ''} selectată{keepIds.size > 1 ? 'e' : ''} pentru păstrare
+                          </span>
+                        ) : (
+                          <span className="text-red-600 dark:text-red-400">
+                            ⚠️ Selectează cel puțin o înregistrare!
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+            
+            {/* Footer - Butoane */}
+            <div className="flex items-center justify-between p-6 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+              <div className="text-sm text-slate-600 dark:text-slate-400">
+                <p>
+                  Total de șters: <span className="font-semibold text-red-600 dark:text-red-400">
+                    {duplicateGroups.reduce((sum, g) => {
+                      const keepIds = selectedDuplicatesToKeep.get(g.id) || new Set()
+                      return sum + (g.items.length - keepIds.size)
+                    }, 0)}
+                  </span> înregistrări
+                </p>
+                <p className="mt-1">
+                  Total de păstrat: <span className="font-semibold text-green-600 dark:text-green-400">
+                    {duplicateGroups.reduce((sum, g) => {
+                      const keepIds = selectedDuplicatesToKeep.get(g.id) || new Set()
+                      return sum + keepIds.size
+                    }, 0)}
+                  </span> înregistrări
+                </p>
+              </div>
+              
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => {
+                    setShowDuplicatesModal(false)
+                    setDuplicateGroups([])
+                    setSelectedDuplicatesToKeep(new Map())
+                  }}
+                  className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors font-medium"
+                >
+                  Anulează
+                </button>
+                <button
+                  onClick={handleDeleteDuplicates}
+                  disabled={deletingDuplicates || duplicateGroups.length === 0}
+                  className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  {deletingDuplicates ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Se șterg...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <span>Șterge Duplicatele</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }

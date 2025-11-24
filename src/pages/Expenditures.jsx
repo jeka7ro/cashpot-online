@@ -8,6 +8,7 @@ import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, F
 import { toast } from 'react-hot-toast'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
+import * as XLSX from 'xlsx'
 import ExpendituresMappingModal from '../components/modals/ExpendituresMappingModal'
 import ExpendituresCharts from '../components/ExpendituresCharts'
 import ExpendituresAdvancedCharts from '../components/ExpendituresAdvancedCharts'
@@ -820,6 +821,12 @@ const Expenditures = () => {
       return dept !== 'unknown' && dept !== '' && dept !== 'null'
     })
     
+    // EXCLUDE 4 DEPARTAMENTE DEBIFATE (la fel ca în tabel!) - CRITICAL FIX!
+    const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
+    filtered = filtered.filter(item => {
+      return !excludedDepartments.includes(item.department_name)
+    })
+    
     // Aplică listele „INCLUDE” din setări, dacă există
     if (Array.isArray(includedDepartments) && includedDepartments.length > 0) {
       filtered = filtered.filter((item) =>
@@ -879,11 +886,65 @@ const Expenditures = () => {
     return generateAIInsights(filteredExpendituresForCharts, dateRange)
   }, [filteredExpendituresForCharts, dateRange])
   
-  // Export to Excel
+  // Export to Excel - pentru tabelul de cheltuieli
   const handleExportExcel = () => {
     try {
-      // Will implement with ExportButtons component
-      toast.success('Export Excel în curs de implementare...')
+      if (!matrix || matrix.length === 0) {
+        toast.error('Nu există date de exportat')
+        return
+      }
+
+      // Creează workbook
+      const wb = XLSX.utils.book_new()
+      
+      // Pregătește datele pentru export
+      const exportData = []
+      
+      // Header row
+      const header = ['Departament / Categorie', ...locations, 'TOTAL']
+      exportData.push(header)
+      
+      // Date rows
+      matrix.forEach(row => {
+        const rowData = [row.expenditure_type]
+        locations.forEach(loc => {
+          rowData.push(row[loc] || 0)
+        })
+        rowData.push(row.total || 0)
+        exportData.push(rowData)
+      })
+      
+      // Total row
+      if (totalsRow) {
+        const totalRow = ['TOTAL']
+        locations.forEach(loc => {
+          totalRow.push(totalsRow[loc] || 0)
+        })
+        totalRow.push(totalsRow.total || 0)
+        exportData.push(totalRow)
+      }
+      
+      // Creează worksheet
+      const ws = XLSX.utils.aoa_to_sheet(exportData)
+      
+      // Setează lățimea coloanelor
+      const colWidths = [
+        { wch: 30 }, // Departament / Categorie
+        ...locations.map(() => ({ wch: 15 })), // Locații
+        { wch: 15 } // TOTAL
+      ]
+      ws['!cols'] = colWidths
+      
+      // Adaugă worksheet la workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Cheltuieli')
+      
+      // Generează nume fișier
+      const fileName = `Cheltuieli_${dateRange.startDate}_${dateRange.endDate}.xlsx`
+      
+      // Exportă
+      XLSX.writeFile(wb, fileName)
+      
+      toast.success('✅ Excel exportat cu succes!')
     } catch (error) {
       console.error('Error exporting to Excel:', error)
       toast.error('Eroare la export Excel')
@@ -900,12 +961,26 @@ const Expenditures = () => {
         return
       }
 
-      const canvas = await html2canvas(exportRef.current, {
+      // Elimină spațiile goale de la final înainte de export
+      const element = exportRef.current
+      const originalPadding = element.style.paddingBottom
+      const originalMargin = element.style.marginBottom
+      element.style.paddingBottom = '0'
+      element.style.marginBottom = '0'
+      
+      const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
         logging: false,
-        backgroundColor: document.documentElement.classList.contains('dark') ? '#0f172a' : '#ffffff'
+        backgroundColor: document.documentElement.classList.contains('dark') ? '#0f172a' : '#ffffff',
+        removeContainer: false,
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight
       })
+      
+      // Restaurează stilurile originale
+      element.style.paddingBottom = originalPadding
+      element.style.marginBottom = originalMargin
 
       const imgData = canvas.toDataURL('image/png')
       const pdf = new jsPDF({
@@ -1176,21 +1251,8 @@ const Expenditures = () => {
               <span className="font-semibold">{dateRange.endDate}</span>
               </div>
               
-            {/* Export Buttons - la capătul din dreapta pe rândul 2 */}
+            {/* Export PDF - la capătul din dreapta pe rândul 2 */}
             <div className="flex items-center gap-3 ml-auto">
-              <button
-                onClick={handleExportExcel}
-                className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-xs font-semibold border transition-all hover:scale-105 active:scale-95"
-                style={{
-                  height: '40px',
-                  background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
-                  borderColor: 'rgba(255, 255, 255, 0.35)',
-                  boxShadow: '0 8px 28px rgba(22, 163, 74, 0.5)'
-                }}
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                <span>Export Excel</span>
-              </button>
               <button
                 onClick={handleExportPDF}
                 className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-xs font-semibold border transition-all hover:scale-105 active:scale-95"
@@ -1213,7 +1275,7 @@ const Expenditures = () => {
         </div>
         
         {/* ZONA EXPORTABILĂ PDF - START */}
-        <div ref={exportRef} className="space-y-6">
+        <div ref={exportRef} className="space-y-6" style={{ paddingBottom: 0, marginBottom: 0 }}>
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Toate cardurile folosesc același fundal albastru light */}
@@ -1222,7 +1284,11 @@ const Expenditures = () => {
               <div>
                 <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Total Cheltuieli</p>
                 <p className="text-3xl font-bold text-blue-600 dark:text-blue-400 mt-2">
-                  {formatCurrency(totalsRow?.total || 0)} RON
+                  {formatCurrency(
+                    filteredExpendituresForCharts && filteredExpendituresForCharts.length > 0
+                      ? filteredExpendituresForCharts.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
+                      : 0
+                  )} RON
                 </p>
               </div>
               <div className="p-4 bg-blue-500/10 rounded-2xl">
@@ -1340,30 +1406,45 @@ const Expenditures = () => {
           </h2>
             
             {matrix.length > 0 && (
-              <button
-                onClick={() => {
-                  setAllDepartmentsExpanded(!allDepartmentsExpanded)
-                }}
-                className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-xs font-semibold border transition-all hover:scale-105 active:scale-95"
-                style={{
-                  height: '40px',
-                  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                  borderColor: 'rgba(255, 255, 255, 0.25)',
-                  boxShadow: '0 6px 18px rgba(37, 99, 235, 0.35)'
-                }}
-              >
-                {allDepartmentsExpanded ? (
-                  <>
-                    <Minimize2 className="w-4 h-4" />
-                    <span>Închide toate</span>
-                  </>
-                ) : (
-                  <>
-                    <Maximize2 className="w-4 h-4" />
-                    <span>Deschide toate</span>
-                  </>
-                )}
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleExportExcel}
+                  className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-xs font-semibold border transition-all hover:scale-105 active:scale-95"
+                  style={{
+                    height: '40px',
+                    background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+                    borderColor: 'rgba(255, 255, 255, 0.35)',
+                    boxShadow: '0 8px 28px rgba(22, 163, 74, 0.5)'
+                  }}
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span>Export Excel</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setAllDepartmentsExpanded(!allDepartmentsExpanded)
+                  }}
+                  className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-xs font-semibold border transition-all hover:scale-105 active:scale-95"
+                  style={{
+                    height: '40px',
+                    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                    borderColor: 'rgba(255, 255, 255, 0.25)',
+                    boxShadow: '0 6px 18px rgba(37, 99, 235, 0.35)'
+                  }}
+                >
+                  {allDepartmentsExpanded ? (
+                    <>
+                      <Minimize2 className="w-4 h-4" />
+                      <span>Închide toate</span>
+                    </>
+                  ) : (
+                    <>
+                      <Maximize2 className="w-4 h-4" />
+                      <span>Deschide toate</span>
+                    </>
+                  )}
+                </button>
+              </div>
             )}
           </div>
           
@@ -1401,9 +1482,8 @@ const Expenditures = () => {
             />
           )}
         </div>
-        
-        </div>
         {/* ZONA EXPORTABILĂ PDF - END */}
+      </div>
       </div>
       
       {/* Mapping Modal */}

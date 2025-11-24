@@ -5,6 +5,11 @@ import { X, Save, Filter, RefreshCw, Eye, EyeOff, CheckSquare, Square, Cloud, Do
 import axios from 'axios'
 import { toast } from 'react-hot-toast'
 
+// Configure axios base URL for production (same as DataContext)
+if (import.meta.env.PROD && !axios.defaults.baseURL) {
+  axios.defaults.baseURL = 'https://cashpot-backend.onrender.com'
+}
+
 // SINGLE SOURCE OF TRUTH pentru normalizare diacritice!
 // Folosit pentru: deduplicare, comparare, salvare
 const normalizeDiacritics = (str) => {
@@ -58,6 +63,8 @@ const ExpendituresSettings = () => {
     autoSync: false,
     syncInterval: 24, // hours
     syncTime: '02:00',
+    syncTimeStart: '19:00', // Ora României - început interval
+    syncTimeEnd: '22:00', // Ora României - sfârșit interval
     
     // Filter settings
     excludeDeleted: true,
@@ -91,6 +98,24 @@ const ExpendituresSettings = () => {
   const [forceImport, setForceImport] = useState(false) // Force import toggle
   const [previewData, setPreviewData] = useState(null) // Preview data before import
   const [loadingPreview, setLoadingPreview] = useState(false)
+  
+  // Filtre pentru import Google Sheets
+  const [googleSheetsImportFilters, setGoogleSheetsImportFilters] = useState({
+    startDate: '',
+    endDate: '',
+    department: 'all',
+    location: 'all'
+  })
+  
+  // Preferences Import (taxe, cyber, etc.)
+  const [preferencesImportSettings, setPreferencesImportSettings] = useState({
+    sheetUrl: '',
+    enabled: false
+  })
+  const [importingPreferences, setImportingPreferences] = useState(false)
+  const [preferencesImportProgress, setPreferencesImportProgress] = useState(null)
+  const [preferencesPreviewData, setPreferencesPreviewData] = useState(null) // Preview data before import
+  const [loadingPreferencesPreview, setLoadingPreferencesPreview] = useState(false)
 
   // Manual actions state (sync / import-all / clean-duplicates)
   const [syncingManual, setSyncingManual] = useState(false)
@@ -98,6 +123,25 @@ const ExpendituresSettings = () => {
   const [cleaningDuplicates, setCleaningDuplicates] = useState(false)
   const [importAllProgress, setImportAllProgress] = useState(null)
   const importAllProgressIntervalRef = useRef(null)
+  
+  // Modal pentru selectarea surselor de import
+  const [showImportSourcesModal, setShowImportSourcesModal] = useState(false)
+  const [importSources, setImportSources] = useState({
+    bat: true,        // BAT Sync (SQL/API extern)
+    googleSheets: true, // Google Sheets
+    preferences: true  // Preferences (taxe, cyber, etc.)
+  })
+  
+  // Statistics about data in database
+  const [dataStats, setDataStats] = useState(null)
+  const [loadingStats, setLoadingStats] = useState(false)
+  
+  // Duplicate SMART modal state
+  const [duplicateGroups, setDuplicateGroups] = useState([])
+  const [showDuplicatesModal, setShowDuplicatesModal] = useState(false)
+  const [selectedDuplicatesToKeep, setSelectedDuplicatesToKeep] = useState(new Map())
+  const [deletingDuplicates, setDeletingDuplicates] = useState(false)
+  const [allRowsForDuplicates, setAllRowsForDuplicates] = useState([]) // Pentru copierea descrierilor
 
   const fetchImportAllProgress = async () => {
     try {
@@ -156,6 +200,36 @@ const ExpendituresSettings = () => {
       }
     }
   }, [])
+  
+  // Fetch data statistics
+  const fetchDataStats = async () => {
+    setLoadingStats(true)
+    try {
+      const response = await axios.get('/api/expenditures/stats')
+      if (response.data?.success) {
+        setDataStats(response.data)
+      }
+    } catch (error) {
+      console.error('Error fetching data stats:', error)
+      toast.error('Eroare la încărcarea statisticilor')
+    } finally {
+      setLoadingStats(false)
+    }
+  }
+  
+  // Load stats on mount and when import completes
+  useEffect(() => {
+    fetchDataStats()
+  }, [])
+  
+  // Refresh stats when import completes
+  useEffect(() => {
+    if (importAllProgress && importAllProgress.status === 'completed') {
+      setTimeout(() => {
+        fetchDataStats()
+      }, 2000)
+    }
+  }, [importAllProgress])
 
   // Manual sync from settings (same endpoints ca în pagina principală de Cheltuieli)
   const handleManualSync = async () => {
@@ -183,11 +257,30 @@ const ExpendituresSettings = () => {
   }
 
   const handleManualImportAll = async () => {
+    // Deschide modal pentru selectarea surselor
+    setShowImportSourcesModal(true)
+  }
+  
+  const handleConfirmImportAll = async () => {
+    // Verifică dacă cel puțin o sursă este selectată
+    if (!importSources.bat && !importSources.googleSheets && !importSources.preferences) {
+      toast.error('Selectează cel puțin o sursă pentru import!')
+      return
+    }
+    
+    setShowImportSourcesModal(false)
+    
     try {
       setImportingAllManual(true)
-      toast.loading('Pornire import complet cheltuieli...', { id: 'import-all-manual', duration: 1500 })
+      toast.loading('Pornire import cheltuieli...', { id: 'import-all-manual', duration: 1500 })
 
-      const response = await axios.post('/api/expenditures/import-all').catch((error) => {
+      const response = await axios.post('/api/expenditures/import-all', {
+        sources: {
+          bat: importSources.bat,
+          googleSheets: importSources.googleSheets,
+          preferences: importSources.preferences
+        }
+      }).catch((error) => {
         // Dacă importul este deja pornit, backend-ul poate întoarce 400 cu alreadyRunning
         if (error.response?.status === 400 && error.response?.data?.alreadyRunning) {
           return { data: { success: true, alreadyRunning: true } }
@@ -196,7 +289,12 @@ const ExpendituresSettings = () => {
       })
 
       if (response.data?.success || response.data?.alreadyRunning) {
-        toast.success('✅ Import pornit. Vezi progresul mai jos.', {
+        const selectedSources = []
+        if (importSources.bat) selectedSources.push('BAT')
+        if (importSources.googleSheets) selectedSources.push('Google Sheets')
+        if (importSources.preferences) selectedSources.push('Preferences')
+        
+        toast.success(`✅ Import pornit din: ${selectedSources.join(', ')}. Vezi progresul mai jos.`, {
           id: 'import-all-manual',
           duration: 4000
         })
@@ -219,34 +317,290 @@ const ExpendituresSettings = () => {
     }
   }
 
+  // Căutare duplicate SMART - caută după: suma, locație, data (operational_date)
   const handleManualCleanDuplicates = async () => {
+    setCleaningDuplicates(true)
+    setDuplicateGroups([])
+    setShowDuplicatesModal(false)
+    setSelectedDuplicatesToKeep(new Map())
+    
     try {
-      const confirmed = window.confirm(
-        '⚠️ Ești sigur că vrei să cureți duplicatele din cheltuieli?\nAceastă acțiune nu poate fi anulată.'
-      )
-      if (!confirmed) return
-
-      setCleaningDuplicates(true)
-      toast.loading('Se curăță duplicatele din cheltuieli...', { id: 'clean-duplicates-manual' })
-      const response = await axios.post('/api/expenditures/clean-duplicates')
-      if (response.data?.success) {
-        toast.success(
-          `✅ ${response.data.message}\n📊 După curățare: ${response.data.totalRecordsAfter} înregistrări`,
-          { id: 'clean-duplicates-manual', duration: 6000 }
-        )
+      toast.loading('Se caută duplicatele...', { id: 'search-duplicates' })
+      
+      // Încarcă toate datele pentru a găsi duplicatele - IGNORĂ TOATE FILTRELE!
+      // NU trimitem parametri de filtrare - vrem TOATE datele
+      const params = {
+        page: 1,
+        pageSize: 'all'
+        // NU trimitem startDate, endDate, department, type, location, dataSource, search
+        // pentru a obține TOATE datele din baza de date
+      }
+      
+      console.log('🔍 Căutare duplicate - încărcare date fără filtre...', params)
+      const response = await axios.get('/api/expenditures/sql-table', { params })
+      
+      if (!response.data.success) {
+        throw new Error('Nu s-au putut încărca datele')
+      }
+      
+      // Backend returnează response.data.data, NU response.data.rows!
+      const allRows = response.data.data || []
+      console.log('🔍 Date încărcate pentru căutare duplicate:', allRows.length, 'înregistrări')
+      
+      // Găsește duplicatele bazate pe: suma + locație + departament + tip (FĂRĂ LUNA - SMART!)
+      // EXACT CA ÎN PAGINA DE DETALII, dar fără luna pentru a detecta duplicate în luni diferite
+      const duplicatesMap = new Map()
+      
+      allRows.forEach((row, index) => {
+        // EXACT CA ÎN ExpendituresSQLTable.jsx - Normalizează suma ROBUST (gestionează virgule, puncte, spații)
+        let amountStr = String(row.amount || 0).trim()
+        // Elimină toate spațiile
+        amountStr = amountStr.replace(/\s/g, '')
+        
+        // Dacă are virgulă, înlocuiește cu punct (format românesc: 1.234,56)
+        if (amountStr.includes(',')) {
+          // Format românesc: elimină punctele (separatori mii) și înlocuiește virgula cu punct
+          amountStr = amountStr.replace(/\./g, '').replace(',', '.')
+        }
+        // Dacă are doar puncte, verifică dacă e format american (1,234.56) sau românesc (1.234)
+        else if (amountStr.includes('.')) {
+          // Dacă are mai multe puncte, e format românesc cu puncte ca separatori mii
+          const parts = amountStr.split('.')
+          if (parts.length > 2) {
+            // Format românesc: elimină toate punctele
+            amountStr = parts.join('')
+          }
+          // Altfel e format american (1,234.56) - lasă-l așa
+        }
+        
+        // Parsează și normalizează la 2 zecimale
+        const parsedAmount = parseFloat(amountStr)
+        const amount = isNaN(parsedAmount) ? '0.00' : parsedAmount.toFixed(2)
+        
+        // Normalizează câmpurile text (elimină spații, lowercase, trim)
+        const location = (row.location_name || '').trim().toLowerCase()
+        const department = (row.department_name || '').trim().toLowerCase()
+        const expenditureType = (row.expenditure_type || '').trim().toLowerCase()
+        
+        // Cheie: suma + locație + departament + tip (FĂRĂ LUNA - SMART pentru duplicate în luni diferite!)
+        const key = `${amount}_${location}_${department}_${expenditureType}`
+        
+        if (!duplicatesMap.has(key)) {
+          duplicatesMap.set(key, [])
+        }
+        duplicatesMap.get(key).push(row)
+        
+        // Debug pentru primele 10 înregistrări
+        if (index < 10) {
+          console.log(`🔍 Row ${index}:`, {
+            id: row.id,
+            originalAmount: row.amount,
+            normalizedAmount: amount,
+            location: row.location_name,
+            normalizedLocation: location,
+            department: row.department_name,
+            normalizedDepartment: department,
+            type: row.expenditure_type,
+            normalizedType: expenditureType,
+            key
+          })
+        }
+      })
+      
+      // Debug: afișează statistici despre duplicate
+      const groupsWithMultiple = Array.from(duplicatesMap.entries()).filter(([key, items]) => items.length > 1)
+      console.log('🔍 Duplicate detection stats (SMART - fără luna):', {
+        totalRows: allRows.length,
+        uniqueKeys: duplicatesMap.size,
+        duplicateGroups: groupsWithMultiple.length,
+        totalDuplicates: groupsWithMultiple.reduce((sum, [key, items]) => sum + items.length, 0)
+      })
+      
+      if (groupsWithMultiple.length > 0) {
+        console.log('✅ GĂSITE DUPLICATE! Sample duplicate groups (first 10):', groupsWithMultiple.slice(0, 10).map(([key, items]) => ({
+          key,
+          count: items.length,
+          items: items.map(item => ({
+            id: item.id,
+            date: item.operational_date,
+            amount: item.amount,
+            location: item.location_name,
+            department: item.department_name,
+            type: item.expenditure_type,
+            source: item.data_source
+          }))
+        })))
       } else {
-        toast.error('❌ Nu am putut curăța duplicatele.', {
-          id: 'clean-duplicates-manual',
-          duration: 5000
-        })
+        console.warn('⚠️ NU S-AU GĂSIT DUPLICATE! Verifică datele...')
+        // Afișează câteva chei pentru debugging
+        const sampleKeys = Array.from(duplicatesMap.keys()).slice(0, 20)
+        console.log('🔍 Sample keys (first 20):', sampleKeys)
+        // Afișează câteva înregistrări pentru debugging
+        if (allRows.length > 0) {
+          console.log('🔍 Sample rows (first 5):', allRows.slice(0, 5).map(row => ({
+            id: row.id,
+            amount: row.amount,
+            location: row.location_name,
+            department: row.department_name,
+            type: row.expenditure_type,
+            date: row.operational_date
+          })))
+        }
+      }
+      
+      // Filtrează doar grupurile cu mai mult de 1 înregistrare
+      const groups = Array.from(duplicatesMap.values())
+        .filter(group => group.length > 1)
+        .map((group, index) => ({
+          id: `group-${index}`,
+          items: group,
+          // Prioritar: cel din BAT (data_source = 'bat_sync')
+          priorityItem: group.find(item => item.data_source === 'bat_sync') || group[0]
+        }))
+      
+      setDuplicateGroups(groups)
+      
+      // Selectează automat prioritar (cel din BAT sau primul)
+      const initialSelection = new Map()
+      groups.forEach(group => {
+        const keepId = group.priorityItem.id
+        initialSelection.set(group.id, new Set([keepId]))
+      })
+      setSelectedDuplicatesToKeep(initialSelection)
+      
+      if (groups.length > 0) {
+        setShowDuplicatesModal(true)
+        toast.success(`Găsite ${groups.length} grupuri de duplicate (${groups.reduce((sum, g) => sum + g.items.length, 0)} înregistrări)`, { id: 'search-duplicates' })
+      } else {
+        toast.success('Nu s-au găsit duplicate', { id: 'search-duplicates' })
       }
     } catch (error) {
-      console.error('Error cleaning duplicates (settings):', error)
-      const msg =
-        error.response?.data?.error || error.response?.data?.message || error.message || 'Eroare la curățare'
-      toast.error(`❌ ${msg}`, { id: 'clean-duplicates-manual', duration: 5000 })
+      console.error('Error searching duplicates:', error)
+      toast.error(`Eroare la căutarea duplicate-urilor: ${error.message}`, { id: 'search-duplicates' })
     } finally {
       setCleaningDuplicates(false)
+    }
+  }
+  
+  // Toggle selecție pentru o înregistrare dintr-un grup
+  const toggleDuplicateSelection = (groupId, itemId) => {
+    setSelectedDuplicatesToKeep(prev => {
+      const newMap = new Map(prev)
+      const groupSelection = newMap.get(groupId) || new Set()
+      const newSelection = new Set(groupSelection)
+      
+      if (newSelection.has(itemId)) {
+        newSelection.delete(itemId)
+      } else {
+        newSelection.add(itemId)
+      }
+      
+      // Asigură-te că cel puțin unul este selectat
+      if (newSelection.size === 0) {
+        const group = duplicateGroups.find(g => g.id === groupId)
+        if (group) {
+          newSelection.add(group.priorityItem.id)
+        }
+      }
+      
+      newMap.set(groupId, newSelection)
+      return newMap
+    })
+  }
+  
+  // Șterge duplicatele (păstrează doar cele selectate)
+  const handleDeleteDuplicates = async () => {
+    if (duplicateGroups.length === 0) return
+    
+    const idsToDelete = []
+    duplicateGroups.forEach(group => {
+      const keepIds = selectedDuplicatesToKeep.get(group.id) || new Set()
+      group.items.forEach(item => {
+        if (!keepIds.has(item.id)) {
+          idsToDelete.push(item.id)
+        }
+      })
+    })
+    
+    if (idsToDelete.length === 0) {
+      toast.info('Nu sunt duplicate de șters (toate sunt selectate să fie păstrate)')
+      return
+    }
+    
+    const confirm = window.confirm(
+      `Ești sigur că vrei să ștergi ${idsToDelete.length} duplicate?\nSe vor păstra ${duplicateGroups.reduce((sum, g) => sum + (selectedDuplicatesToKeep.get(g.id)?.size || 0), 0)} înregistrări.`
+    )
+    if (!confirm) return
+    
+    setDeletingDuplicates(true)
+    try {
+      toast.loading(`Se șterg ${idsToDelete.length} duplicate...`, { id: 'delete-duplicates' })
+      
+      // Pregătește datele pentru copierea descrierilor
+      const updatesToApply = []
+      duplicateGroups.forEach(group => {
+        const keepIds = selectedDuplicatesToKeep.get(group.id) || new Set()
+        const itemsToKeep = group.items.filter(item => keepIds.has(item.id))
+        const itemsToDelete = group.items.filter(item => !keepIds.has(item.id))
+        
+        // Pentru fiecare înregistrare păstrată, verifică dacă are descriere
+        itemsToKeep.forEach(keepItem => {
+          // Dacă înregistrarea păstrată nu are descriere, caută una în duplicatele șterse
+          if (!keepItem.description || keepItem.description.trim() === '' || keepItem.description === 'N/A') {
+            const itemWithDescription = itemsToDelete.find(item => 
+              item.description && 
+              item.description.trim() !== '' && 
+              item.description !== 'N/A'
+            )
+            
+            if (itemWithDescription) {
+              updatesToApply.push({
+                id: keepItem.id,
+                description: itemWithDescription.description
+              })
+            }
+          }
+        })
+      })
+      
+      // Șterge duplicatele
+      await axios.post('/api/expenditures/sql-table/bulk-delete', { ids: idsToDelete })
+      
+      // Actualizează descrierile pentru înregistrările păstrate (dacă e nevoie)
+      if (updatesToApply.length > 0) {
+        console.log(`📝 Actualizăm ${updatesToApply.length} descrieri...`)
+        for (const update of updatesToApply) {
+          try {
+            // Obține înregistrarea curentă pentru a păstra celelalte câmpuri
+            const currentRecord = allRowsForDuplicates.find(r => r.id === update.id)
+            if (currentRecord) {
+              await axios.put(`/api/expenditures/sql-table/${update.id}`, {
+                operational_date: currentRecord.operational_date,
+                amount: currentRecord.amount,
+                location_name: currentRecord.location_name,
+                department_name: currentRecord.department_name,
+                expenditure_type: currentRecord.expenditure_type,
+                description: update.description
+              })
+            }
+          } catch (updateError) {
+            console.error(`Error updating description for ${update.id}:`, updateError)
+          }
+        }
+      }
+      
+      toast.success(
+        `${idsToDelete.length} duplicate șterse cu succes!${updatesToApply.length > 0 ? ` ${updatesToApply.length} descrieri copiate.` : ''}`,
+        { id: 'delete-duplicates', duration: 5000 }
+      )
+      setShowDuplicatesModal(false)
+      setDuplicateGroups([])
+      setSelectedDuplicatesToKeep(new Map())
+    } catch (error) {
+      console.error('Error deleting duplicates:', error)
+      toast.error(`Eroare la ștergerea duplicate-urilor: ${error.response?.data?.error || error.message}`, { id: 'delete-duplicates' })
+    } finally {
+      setDeletingDuplicates(false)
     }
   }
   
@@ -586,6 +940,7 @@ const ExpendituresSettings = () => {
               { id: 'powerbi-config', label: '🔌 Power BI Config' }, // Configurare Power BI
               { id: 'powerbi-sync', label: '☁️ Power BI Sync' }, // Sincronizare Power BI
               { id: 'google-sheets', label: '📊 Google Sheets' }, // Import din Google Sheets!
+              { id: 'preferences-import', label: '⚙️ Import Preferințe' }, // Import date din preferințe (taxe, cyber, etc.)
               { id: 'general', label: 'Setări Generale' }
             ].map(tab => (
               <button
@@ -1007,24 +1362,51 @@ const ExpendituresSettings = () => {
                     {googleSheetsStatus.hasData ? '✅' : '📭'} Status Date Google Sheets
                   </h4>
                   {googleSheetsStatus.hasData ? (
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div className="bg-white dark:bg-slate-800 rounded-lg p-4 text-center">
-                        <p className="text-3xl font-bold text-green-600 dark:text-green-400">{googleSheetsStatus.stats.totalRecords.toLocaleString('ro-RO')}</p>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Înregistrări</p>
+                    <>
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                        <div className="bg-white dark:bg-slate-800 rounded-lg p-4 text-center">
+                          <p className="text-3xl font-bold text-green-600 dark:text-green-400">{googleSheetsStatus.stats.totalRecords.toLocaleString('ro-RO')}</p>
+                          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Înregistrări</p>
+                        </div>
+                        <div className="bg-white dark:bg-slate-800 rounded-lg p-4 text-center">
+                          <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{new Date(googleSheetsStatus.stats.earliestDate).toLocaleDateString('ro-RO')}</p>
+                          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Prima dată</p>
+                        </div>
+                        <div className="bg-white dark:bg-slate-800 rounded-lg p-4 text-center">
+                          <p className="text-xl font-bold text-purple-600 dark:text-purple-400">{new Date(googleSheetsStatus.stats.latestDate).toLocaleDateString('ro-RO')}</p>
+                          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Ultima dată</p>
+                        </div>
+                        <div className="bg-white dark:bg-slate-800 rounded-lg p-4 text-center">
+                          <p className="text-xl font-bold text-orange-600 dark:text-orange-400">{googleSheetsStatus.stats.totalAmount.toLocaleString('ro-RO', { maximumFractionDigits: 0 })} RON</p>
+                          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Total Suma</p>
+                        </div>
                       </div>
-                      <div className="bg-white dark:bg-slate-800 rounded-lg p-4 text-center">
-                        <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{new Date(googleSheetsStatus.stats.earliestDate).toLocaleDateString('ro-RO')}</p>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Prima dată</p>
+                      {/* Buton ștergere date Google Sheets */}
+                      <div className="mt-4 flex justify-end">
+                        <button
+                          onClick={async () => {
+                            const confirmed = window.confirm(
+                              `Ești sigur că vrei să ștergi TOATE datele din Google Sheets?\n\nSe vor șterge ${googleSheetsStatus.stats.totalRecords.toLocaleString('ro-RO')} înregistrări.\n\nAceastă acțiune nu poate fi anulată!`
+                            )
+                            if (!confirmed) return
+                            
+                            try {
+                              toast.loading('Se șterg datele...', { id: 'delete-google-sheets' })
+                              await axios.delete('/api/expenditures/google-sheets-data')
+                              toast.success('Datele Google Sheets au fost șterse cu succes!', { id: 'delete-google-sheets' })
+                              await loadGoogleSheetsStatus()
+                            } catch (error) {
+                              console.error('Error deleting Google Sheets data:', error)
+                              toast.error(`Eroare la ștergere: ${error.response?.data?.error || error.message}`, { id: 'delete-google-sheets' })
+                            }
+                          }}
+                          className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors flex items-center space-x-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>Șterge date Google Sheets</span>
+                        </button>
                       </div>
-                      <div className="bg-white dark:bg-slate-800 rounded-lg p-4 text-center">
-                        <p className="text-xl font-bold text-purple-600 dark:text-purple-400">{new Date(googleSheetsStatus.stats.latestDate).toLocaleDateString('ro-RO')}</p>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Ultima dată</p>
-                      </div>
-                      <div className="bg-white dark:bg-slate-800 rounded-lg p-4 text-center">
-                        <p className="text-xl font-bold text-orange-600 dark:text-orange-400">{googleSheetsStatus.stats.totalAmount.toLocaleString('ro-RO', { maximumFractionDigits: 0 })} RON</p>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Total Suma</p>
-                      </div>
-                    </div>
+                    </>
                   ) : (
                     <div className="bg-white dark:bg-slate-800 rounded-lg p-6 text-center">
                       <p className="text-slate-600 dark:text-slate-400">📭 Nu există date din Google Sheets în baza de date</p>
@@ -1063,6 +1445,78 @@ const ExpendituresSettings = () => {
                   </p>
                 </div>
                 
+                {/* Filtre pentru import */}
+                <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4 flex items-center">
+                    <Filter className="w-4 h-4 mr-2" />
+                    Filtre Import (opțional)
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Perioadă */}
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                        Data început
+                      </label>
+                      <input
+                        type="date"
+                        value={googleSheetsImportFilters.startDate}
+                        onChange={(e) => setGoogleSheetsImportFilters(prev => ({ ...prev, startDate: e.target.value }))}
+                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                        Data sfârșit
+                      </label>
+                      <input
+                        type="date"
+                        value={googleSheetsImportFilters.endDate}
+                        onChange={(e) => setGoogleSheetsImportFilters(prev => ({ ...prev, endDate: e.target.value }))}
+                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-sm"
+                      />
+                    </div>
+                    {/* Departament */}
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                        Departament
+                      </label>
+                      <select
+                        value={googleSheetsImportFilters.department}
+                        onChange={(e) => setGoogleSheetsImportFilters(prev => ({ ...prev, department: e.target.value }))}
+                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-sm"
+                      >
+                        <option value="all">Toate departamentele</option>
+                        {departments.map((dept) => (
+                          <option key={dept.id || dept.name} value={dept.name}>
+                            {dept.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {/* Locație */}
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                        Locație
+                      </label>
+                      <select
+                        value={googleSheetsImportFilters.location}
+                        onChange={(e) => setGoogleSheetsImportFilters(prev => ({ ...prev, location: e.target.value }))}
+                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 text-sm"
+                      >
+                        <option value="all">Toate locațiile</option>
+                        {locations.map((loc) => (
+                          <option key={loc.id || loc.name} value={loc.name}>
+                            {loc.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">
+                    💡 Dacă nu selectezi filtre, se importă toate datele din Google Sheet
+                  </p>
+                </div>
+                
                 {/* PREVIEW BUTTON - macOS Clean Style */}
                 <button
                   onClick={async () => {
@@ -1083,7 +1537,11 @@ const ExpendituresSettings = () => {
                       
                       const startTime = Date.now()
                       const response = await axios.post('/api/expenditures/preview-google-sheets', {
-                        sheetUrl: googleSheetsSettings.sheetUrl
+                        sheetUrl: googleSheetsSettings.sheetUrl,
+                        startDate: googleSheetsImportFilters.startDate || null,
+                        endDate: googleSheetsImportFilters.endDate || null,
+                        department: googleSheetsImportFilters.department !== 'all' ? googleSheetsImportFilters.department : null,
+                        location: googleSheetsImportFilters.location !== 'all' ? googleSheetsImportFilters.location : null
                       }, {
                         timeout: 300000, // 5 minute timeout pentru sheet-uri mari
                         onUploadProgress: () => {
@@ -1247,11 +1705,16 @@ const ExpendituresSettings = () => {
                       try {
                         toast.loading('Se importă datele...', { id: 'import' })
                         console.log('📤 TRIMITEM REQUEST LA BACKEND: POST /api/expenditures/import-google-sheets')
+                        console.log('🔍 Filtre active:', googleSheetsImportFilters)
                         
                         const startTime = Date.now()
                         const response = await axios.post('/api/expenditures/import-google-sheets', {
                           sheetUrl: googleSheetsSettings.sheetUrl,
-                          force: forceImport
+                          force: forceImport,
+                          startDate: googleSheetsImportFilters.startDate || null,
+                          endDate: googleSheetsImportFilters.endDate || null,
+                          department: googleSheetsImportFilters.department !== 'all' ? googleSheetsImportFilters.department : null,
+                          location: googleSheetsImportFilters.location !== 'all' ? googleSheetsImportFilters.location : null
                         }, {
                           timeout: 300000 // 5 minute
                         })
@@ -1291,23 +1754,89 @@ const ExpendituresSettings = () => {
                 
                 {/* FORCE IMPORT CHECKBOX - STEP 2 (doar dacă previewData arată 0 noi) */}
                 {previewData && previewData.newCount === 0 && !importingGoogleSheets && (
-                  <div className="mb-4 p-4 bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-300 dark:border-orange-700 rounded-lg">
-                    <label className="flex items-start space-x-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={forceImport}
-                        onChange={(e) => setForceImport(e.target.checked)}
-                        className="mt-1 w-5 h-5 text-orange-600 rounded focus:ring-orange-500"
-                      />
-                      <div>
-                        <p className="font-bold text-orange-800 dark:text-orange-300">
-                          🔥 FORCE IMPORT (Ignoră verificarea duplicate)
-                        </p>
-                        <p className="text-sm text-orange-700 dark:text-orange-400 mt-1">
-                          ⚠️ ATENȚIE: Va importa TOATE rândurile din Google Sheet, chiar dacă există deja în baza de date!
-                        </p>
-                      </div>
-                    </label>
+                  <div className="mb-4 space-y-3">
+                    <div className="p-4 bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-300 dark:border-orange-700 rounded-lg">
+                      <label className="flex items-start space-x-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={forceImport}
+                          onChange={(e) => setForceImport(e.target.checked)}
+                          className="mt-1 w-5 h-5 text-orange-600 rounded focus:ring-orange-500"
+                        />
+                        <div>
+                          <p className="font-bold text-orange-800 dark:text-orange-300">
+                            🔥 FORCE IMPORT (Ignoră verificarea duplicate)
+                          </p>
+                          <p className="text-sm text-orange-700 dark:text-orange-400 mt-1">
+                            ⚠️ ATENȚIE: Va importa TOATE rândurile din Google Sheet, chiar dacă există deja în baza de date!
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                    {/* Buton Import de la zero (force import direct) */}
+                    <button
+                      onClick={async () => {
+                        if (!googleSheetsSettings.sheetUrl) {
+                          toast.error('Introdu URL-ul Google Sheet!')
+                          return
+                        }
+                        
+                        const confirmed = window.confirm(
+                          '🔥 IMPORT DE LA ZERO\n\nVa importa TOATE rândurile din Google Sheet, ignorând duplicatele.\n\nEști sigur?'
+                        )
+                        if (!confirmed) return
+                        
+                        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+                        console.log('🔥 USER CLICKED: IMPORT DE LA ZERO (FORCE!)')
+                        console.log('   URL:', googleSheetsSettings.sheetUrl)
+                        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+                        
+                        setImportingGoogleSheets(true)
+                        setImportProgress(null)
+                        
+                        try {
+                          toast.loading('Se importă datele de la zero...', { id: 'import-zero' })
+                          
+                          const startTime = Date.now()
+                          const response = await axios.post('/api/expenditures/import-google-sheets', {
+                            sheetUrl: googleSheetsSettings.sheetUrl,
+                            force: true // FORCE IMPORT
+                          }, {
+                            timeout: 300000 // 5 minute
+                          })
+                          
+                          const duration = ((Date.now() - startTime) / 1000).toFixed(1)
+                          console.log(`✅ IMPORT DE LA ZERO COMPLET în ${duration}s:`, response.data)
+                          
+                          setImportProgress(response.data)
+                          
+                          toast.success(
+                            `✅ Import de la zero complet în ${duration}s: ${response.data.imported} ${response.data.imported === 1 ? 'înregistrare salvată' : 'înregistrări salvate'}`,
+                            { id: 'import-zero', duration: 5000 }
+                          )
+                          
+                          // Refresh status
+                          await loadGoogleSheetsStatus()
+                          
+                          // Reset preview
+                          setPreviewData(null)
+                          setForceImport(false)
+                          
+                        } catch (error) {
+                          console.error('Import de la zero error:', error)
+                          toast.error(
+                            `Eroare: ${error.response?.data?.error || error.message}`,
+                            { id: 'import-zero', duration: 5000 }
+                          )
+                        } finally {
+                          setImportingGoogleSheets(false)
+                        }
+                      }}
+                      className="w-full px-6 py-4 bg-orange-500 hover:bg-orange-600 text-white rounded-xl transition-colors shadow-sm flex items-center justify-center space-x-2 font-medium text-base"
+                    >
+                      <Download className="w-5 h-5" />
+                      <span>🔥 Import de la zero (FORCE)</span>
+                    </button>
                   </div>
                 )}
                 
@@ -1410,6 +1939,263 @@ const ExpendituresSettings = () => {
             </div>
           )}
           
+          {/* PREFERENCES IMPORT TAB */}
+          {activeTab === 'preferences-import' && (
+            <div className="space-y-6">
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
+                <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center">
+                  <Settings className="w-6 h-6 mr-2 text-purple-500" />
+                  Import Date din Preferințe
+                </h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+                  Importă date din Google Sheet pentru taxe, cyber, și alte preferințe
+                </p>
+                
+                {/* URL Input */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">
+                    URL Google Sheet (Preferințe)
+                  </label>
+                  <input
+                    type="url"
+                    value={preferencesImportSettings.sheetUrl}
+                    onChange={(e) => {
+                      setPreferencesImportSettings(prev => ({ ...prev, sheetUrl: e.target.value }))
+                    }}
+                    placeholder="https://docs.google.com/spreadsheets/d/..."
+                    className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors"
+                  />
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                    Sheet-ul trebuie să fie public și să conțină date pentru taxe, cyber, etc.
+                  </p>
+                </div>
+                
+                {/* Preview Button */}
+                <button
+                  onClick={async () => {
+                    if (!preferencesImportSettings.sheetUrl) {
+                      toast.error('Introdu URL-ul Google Sheet!')
+                      return
+                    }
+                    
+                    setLoadingPreferencesPreview(true)
+                    setPreferencesPreviewData(null)
+                    setImportingPreferences(false)
+                    setPreferencesImportProgress(null)
+                    
+                    try {
+                      toast.loading('Se analizează datele din preferințe...', { id: 'preferences-preview' })
+                      
+                      // Folosim același endpoint de preview ca pentru Google Sheets, dar pentru preferences
+                      const response = await axios.post('/api/expenditures/preview-google-sheets', {
+                        sheetUrl: preferencesImportSettings.sheetUrl
+                      }, {
+                        timeout: 300000
+                      })
+                      
+                      setPreferencesPreviewData(response.data)
+                      
+                      const message = response.data.wasLimited 
+                        ? `✅ Analiză rapidă!\n${response.data.message}\n🆕 ~${response.data.newCount} date NOI (estimare)\n⏭️ ~${response.data.duplicateCount} duplicate (estimare)`
+                        : `✅ Analiză completă!\n🆕 ${response.data.newCount} date NOI\n⏭️ ${response.data.duplicateCount} duplicate`
+                      
+                      toast.success(message, { id: 'preferences-preview', duration: 6000 })
+                      
+                    } catch (error) {
+                      console.error('Preferences preview error:', error)
+                      toast.error(
+                        `Eroare: ${error.response?.data?.error || error.message}`,
+                        { id: 'preferences-preview', duration: 5000 }
+                      )
+                    } finally {
+                      setLoadingPreferencesPreview(false)
+                    }
+                  }}
+                  disabled={loadingPreferencesPreview || !preferencesImportSettings.sheetUrl}
+                  className="w-full px-6 py-3.5 bg-purple-500 hover:bg-purple-600 text-white rounded-xl transition-colors shadow-sm flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-base mb-4"
+                >
+                  <Eye className="w-5 h-5" />
+                  <span>{loadingPreferencesPreview ? 'Se analizează...' : 'Analizează datele'}</span>
+                </button>
+                
+                {/* Preview Results */}
+                {preferencesPreviewData && !importingPreferences && (
+                  <div className="mb-6 p-8 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <div className="text-center mb-8">
+                      <div className="inline-block w-16 h-16 bg-purple-500 rounded-full flex items-center justify-center mb-4">
+                        <Eye className="w-10 h-10 text-white" />
+                      </div>
+                      <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                        Analiză completă
+                      </h3>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {preferencesPreviewData.message || `${preferencesPreviewData.checkedRows || 0} rânduri verificate`}
+                      </p>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-4 mb-6">
+                      <div className="text-center p-4">
+                        <p className="text-4xl font-light text-green-500 mb-1">{preferencesPreviewData.newCount?.toLocaleString('ro-RO') || 0}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Date noi</p>
+                      </div>
+                      <div className="text-center p-4">
+                        <p className="text-4xl font-light text-slate-400 dark:text-slate-500 mb-1">{preferencesPreviewData.duplicateCount?.toLocaleString('ro-RO') || 0}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Duplicate</p>
+                      </div>
+                      <div className="text-center p-4">
+                        <p className="text-4xl font-light text-red-500 mb-1">{preferencesPreviewData.errors || 0}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Erori</p>
+                      </div>
+                    </div>
+                    
+                    {/* Import Button - apare după preview */}
+                    <button
+                      onClick={async () => {
+                        if (!preferencesImportSettings.sheetUrl) {
+                          toast.error('Introdu URL-ul Google Sheet!')
+                          return
+                        }
+                        
+                        setImportingPreferences(true)
+                        setPreferencesImportProgress(null)
+                        
+                        try {
+                          toast.loading('Se importă datele din preferințe...', { id: 'preferences-import' })
+                          
+                          const response = await axios.post('/api/expenditures/import-preferences', {
+                            sheetUrl: preferencesImportSettings.sheetUrl
+                          }, {
+                            timeout: 300000 // 5 minute
+                          })
+                          
+                          setPreferencesImportProgress(response.data)
+                          
+                          toast.success(
+                            `Import complet: ${response.data.imported || 0} ${response.data.imported === 1 ? 'înregistrare salvată' : 'înregistrări salvate'}`,
+                            { id: 'preferences-import', duration: 5000 }
+                          )
+                          
+                        } catch (error) {
+                          console.error('Preferences import error:', error)
+                          toast.error(
+                            `Eroare: ${error.response?.data?.error || error.message}`,
+                            { id: 'preferences-import', duration: 5000 }
+                          )
+                        } finally {
+                          setImportingPreferences(false)
+                        }
+                      }}
+                      disabled={importingPreferences || !preferencesImportSettings.sheetUrl}
+                      className="w-full px-6 py-3.5 bg-purple-500 hover:bg-purple-600 text-white rounded-xl transition-colors shadow-sm flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-base"
+                    >
+                      <Download className="w-5 h-5" />
+                      <span>Importă {preferencesPreviewData.newCount?.toLocaleString('ro-RO') || 0} {preferencesPreviewData.newCount === 1 ? 'înregistrare' : 'înregistrări'}</span>
+                    </button>
+                  </div>
+                )}
+                
+                {/* Import Button - apare doar dacă nu există preview */}
+                {!preferencesPreviewData && (
+                  <button
+                    onClick={async () => {
+                      if (!preferencesImportSettings.sheetUrl) {
+                        toast.error('Introdu URL-ul Google Sheet!')
+                        return
+                      }
+                      
+                      setImportingPreferences(true)
+                      setPreferencesImportProgress(null)
+                      
+                      try {
+                        toast.loading('Se importă datele din preferințe...', { id: 'preferences-import' })
+                        
+                        const response = await axios.post('/api/expenditures/import-preferences', {
+                          sheetUrl: preferencesImportSettings.sheetUrl
+                        }, {
+                          timeout: 300000 // 5 minute
+                        })
+                        
+                        setPreferencesImportProgress(response.data)
+                        
+                        toast.success(
+                          `Import complet: ${response.data.imported || 0} ${response.data.imported === 1 ? 'înregistrare salvată' : 'înregistrări salvate'}`,
+                          { id: 'preferences-import', duration: 5000 }
+                        )
+                        
+                      } catch (error) {
+                        console.error('Preferences import error:', error)
+                        toast.error(
+                          `Eroare: ${error.response?.data?.error || error.message}`,
+                          { id: 'preferences-import', duration: 5000 }
+                        )
+                      } finally {
+                        setImportingPreferences(false)
+                      }
+                    }}
+                    disabled={importingPreferences || !preferencesImportSettings.sheetUrl}
+                    className="w-full px-6 py-3.5 bg-purple-500 hover:bg-purple-600 text-white rounded-xl transition-colors shadow-sm flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-base"
+                  >
+                    <Download className="w-5 h-5" />
+                    <span>{importingPreferences ? 'Se importă...' : 'Importă Date din Preferințe'}</span>
+                  </button>
+                )}
+                
+                {/* Import Progress */}
+                {importingPreferences && (
+                  <div className="mt-6 p-6 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <div className="text-center">
+                      <div className="inline-block mb-4">
+                        <div className="w-12 h-12 border-4 border-slate-200 dark:border-slate-700 border-t-purple-500 rounded-full animate-spin"></div>
+                      </div>
+                      <p className="text-base font-medium text-slate-900 dark:text-slate-100">
+                        Se importă datele din preferințe...
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Import Results */}
+                {preferencesImportProgress && !importingPreferences && (
+                  <div className="mt-6 p-6 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <div className="text-center mb-4">
+                      <div className="inline-block w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mb-4">
+                        <CheckCircle className="w-10 h-10 text-white" />
+                      </div>
+                      <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                        Import complet
+                      </h3>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="text-center p-4">
+                        <p className="text-4xl font-light text-green-500 mb-1">{preferencesImportProgress.imported || 0}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Salvate</p>
+                      </div>
+                      <div className="text-center p-4">
+                        <p className="text-4xl font-light text-slate-400 dark:text-slate-500 mb-1">{preferencesImportProgress.skipped || 0}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Duplicate</p>
+                      </div>
+                      <div className="text-center p-4">
+                        <p className="text-4xl font-light text-red-500 mb-1">{preferencesImportProgress.errors || 0}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Erori</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Info */}
+                <div className="mt-6 p-6 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-3">Ce se importă:</p>
+                  <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-2 list-disc list-inside">
+                    <li>Date pentru taxe</li>
+                    <li>Date pentru cyber</li>
+                    <li>Alte preferințe și configurații</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {/* MAPPING LOCAȚII TAB */}
           {activeTab === 'mapping' && (
             <div className="space-y-6">
@@ -1472,69 +2258,6 @@ const ExpendituresSettings = () => {
           
           {activeTab === 'general' && (
             <div className="space-y-6">
-              {/* Sincronizare din Birou */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-800">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-3 flex items-center">
-                  <RefreshCw className="w-5 h-5 mr-2 text-blue-600" />
-                  💻 Sincronizare din Birou (RECOMANDAT)
-                </h3>
-                
-                <div className="bg-white dark:bg-slate-800 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">
-                    <strong>⚠️ IMPORTANT:</strong> Sincronizarea din site <strong>NU funcționează</strong> pentru că backend-ul pe Render.com nu poate accesa database-ul local de la birou (192.168.1.39).
-                  </p>
-                  <p className="text-sm text-slate-700 dark:text-slate-300 mb-4">
-                    <strong>✅ Soluție:</strong> Folosește script-ul <code className="bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded">SYNC_EXPENDITURES_WINDOWS.bat</code> de pe PC-ul din birou.
-                  </p>
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
-                    <p className="font-bold text-green-800 dark:text-green-300 mb-2">📂 Locație Script:</p>
-                    <code className="text-sm bg-green-100 dark:bg-green-900/40 px-3 py-2 rounded block text-green-900 dark:text-green-200">
-                      C:\cashpot-online\SYNC_EXPENDITURES_WINDOWS.bat
-                    </code>
-                  </div>
-                  
-                  <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
-                    <p className="font-bold text-purple-800 dark:text-purple-300 mb-3">🚀 Cum să folosești:</p>
-                    <ol className="text-sm text-slate-700 dark:text-slate-300 space-y-2 list-decimal list-inside mb-4">
-                      <li>Conectează-te <strong>REMOTE</strong> la PC-ul din birou (TeamViewer/AnyDesk)</li>
-                      <li>Deschide <code className="bg-purple-100 dark:bg-purple-900/40 px-2 py-1 rounded">C:\cashpot-online\</code></li>
-                      <li><strong>Double-click</strong> pe <code className="bg-purple-100 dark:bg-purple-900/40 px-2 py-1 rounded">SYNC_EXPENDITURES_WINDOWS.bat</code></li>
-                      <li>Așteaptă mesajul: <strong className="text-green-600">"✅ SYNC COMPLET!"</strong></li>
-                      <li>APOI aici: Click <strong>"🔄 Refresh Departamente"</strong> pentru a vedea categoriile noi!</li>
-                    </ol>
-                    
-                    <a 
-                      href="https://github.com/jeka7ro/cashpot-online/raw/main/SYNC_EXPENDITURES_WINDOWS.bat"
-                      download="SYNC_EXPENDITURES_WINDOWS.bat"
-                      className="inline-block px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-semibold"
-                    >
-                      📥 Download Script BAT
-                    </a>
-                  </div>
-                  
-                  <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4 border border-orange-200 dark:border-orange-800">
-                    <p className="font-bold text-orange-800 dark:text-orange-300 mb-2">⚙️ Ce face script-ul:</p>
-                    <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
-                      <li>✅ Se conectează la database-ul local (192.168.1.39)</li>
-                      <li>✅ Extrage datele de cheltuieli</li>
-                      <li>✅ Upload automat la backend (Render.com)</li>
-                      <li>✅ Datele apar instant pe site!</li>
-                    </ul>
-                  </div>
-                  
-                  <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 border border-red-200 dark:border-red-800">
-                    <p className="font-bold text-red-800 dark:text-red-300 mb-2">🚫 De ce NU funcționează din site:</p>
-                    <p className="text-sm text-slate-700 dark:text-slate-300">
-                      Backend-ul pe <strong>Render.com</strong> (cloud) nu poate accesa IP-ul privat <strong>192.168.1.39</strong> (rețea locală birou). 
-                      Script-ul BAT rulează <strong>local pe PC din birou</strong> și are acces direct la database.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              
               {/* Acțiuni manuale (mutate din pagina principală Cheltuieli) */}
               <div className="bg-slate-50 dark:bg-slate-900/40 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-3">
@@ -1543,6 +2266,186 @@ const ExpendituresSettings = () => {
                 <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
                   Aici sunt butoanele pentru <strong>Sincronizare Date</strong>, <strong>Import Toate Datele</strong> și <strong>Curăță Duplicate</strong>, mutate din pagina principală de Cheltuieli.
                 </p>
+                
+                {/* Tabel cu statistici despre datele din baza de date */}
+                <div className="mb-6 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center">
+                      <Database className="w-5 h-5 mr-2 text-blue-500" />
+                      Statistici Date în Baza de Date
+                    </h3>
+                    <button
+                      onClick={fetchDataStats}
+                      disabled={loadingStats}
+                      className="px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${loadingStats ? 'animate-spin' : ''}`} />
+                      <span>Actualizează</span>
+                    </button>
+                  </div>
+                  
+                  {loadingStats ? (
+                    <div className="text-center py-8">
+                      <div className="inline-block w-8 h-8 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">Se încarcă statisticile...</p>
+                    </div>
+                  ) : dataStats ? (
+                    <div className="space-y-4">
+                      {/* Total */}
+                      <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-700">
+                        <p className="text-sm font-semibold text-slate-600 dark:text-slate-400 mb-1">Total Înregistrări</p>
+                        <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{dataStats.total.toLocaleString('ro-RO')}</p>
+                        {dataStats.dateRange && (
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                            Perioadă: {dataStats.dateRange.minDate ? new Date(dataStats.dateRange.minDate).toLocaleDateString('ro-RO') : 'N/A'} - {dataStats.dateRange.maxDate ? new Date(dataStats.dateRange.maxDate).toLocaleDateString('ro-RO') : 'N/A'}
+                          </p>
+                        )}
+                      </div>
+                      
+                      {/* Tabel pe surse */}
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm">
+                          <thead className="bg-slate-100 dark:bg-slate-800">
+                            <tr>
+                              <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">Sursă</th>
+                              <th className="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-300">Număr Înregistrări</th>
+                              <th className="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-300">Suma Totală (RON)</th>
+                              <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">Perioadă</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                            {dataStats.bySource.length > 0 ? (
+                              dataStats.bySource.map((source, idx) => (
+                                <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                  <td className="px-4 py-3">
+                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                      source.source === 'bat_sync'
+                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                                        : source.source === 'google_sheets'
+                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                        : source.source === 'preferences'
+                                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
+                                        : 'bg-slate-100 text-slate-700 dark:bg-slate-800/30 dark:text-slate-300'
+                                    }`}>
+                                      {source.source === 'bat_sync' ? '🟢 BAT Sync' : 
+                                       source.source === 'google_sheets' ? '📊 Google Sheets' : 
+                                       source.source === 'preferences' ? '⚙️ Preferences' : 
+                                       source.source || 'Unknown'}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">
+                                    {source.count.toLocaleString('ro-RO')}
+                                  </td>
+                                  <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">
+                                    {new Intl.NumberFormat('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(source.totalAmount)}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
+                                    {source.minDate && source.maxDate ? (
+                                      <span>
+                                        {new Date(source.minDate).toLocaleDateString('ro-RO')} - {new Date(source.maxDate).toLocaleDateString('ro-RO')}
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400">N/A</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan={4} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400">
+                                  <AlertCircle className="w-8 h-8 mx-auto mb-2 text-slate-400" />
+                                  <p>Nu există date în baza de date!</p>
+                                  <p className="text-xs mt-1">Apasă "Import Toate Datele" pentru a importa date.</p>
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                      
+                      {/* Top 5 Departamente și Locații */}
+                      {(dataStats.byDepartment.length > 0 || dataStats.byLocation.length > 0) && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                          {dataStats.byDepartment.length > 0 && (
+                            <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+                              <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Top 5 Departamente</h4>
+                              <div className="space-y-2">
+                                {dataStats.byDepartment.slice(0, 5).map((dept, idx) => (
+                                  <div key={idx} className="flex items-center justify-between text-sm">
+                                    <span className="text-slate-600 dark:text-slate-400 truncate">{dept.department}</span>
+                                    <span className="font-semibold text-slate-900 dark:text-slate-100 ml-2">{dept.count.toLocaleString('ro-RO')}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {dataStats.byLocation.length > 0 && (
+                            <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+                              <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Top 5 Locații</h4>
+                              <div className="space-y-2">
+                                {dataStats.byLocation.slice(0, 5).map((loc, idx) => (
+                                  <div key={idx} className="flex items-center justify-between text-sm">
+                                    <span className="text-slate-600 dark:text-slate-400 truncate">{loc.location}</span>
+                                    <span className="font-semibold text-slate-900 dark:text-slate-100 ml-2">{loc.count.toLocaleString('ro-RO')}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                      <AlertCircle className="w-8 h-8 mx-auto mb-2" />
+                      <p>Nu s-au putut încărca statisticile</p>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Explicații butoane */}
+                <div className="mb-6 space-y-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                  <div>
+                    <h4 className="font-semibold text-slate-900 dark:text-slate-100 mb-1 flex items-center">
+                      <RefreshCw className="w-4 h-4 mr-2 text-green-600" />
+                      Sincronizare Date
+                    </h4>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      Sincronizează datele de cheltuieli din baza de date externă (SQL) în baza de date locală. 
+                      <strong> Folosește filtrele setate</strong> (departamente, tipuri, locații) pentru a importa doar ce vrei.
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-semibold text-slate-900 dark:text-slate-100 mb-1 flex items-center">
+                      <Database className="w-4 h-4 mr-2 text-blue-600" />
+                      Import Toate Datele
+                    </h4>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      Importă <strong>TOATE datele</strong> din <strong>TOATE sursele</strong> (SQL, Google Sheets, BAT Sync, API) 
+                      într-un singur proces. <strong>Elimină automat duplicatele</strong> bazate pe criterii inteligente.
+                    </p>
+                  </div>
+                  
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded p-2 border border-yellow-200 dark:border-yellow-800">
+                    <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                      <strong>Diferența:</strong> "Sincronizare Date" folosește filtrele tale și sincronizează doar din SQL. 
+                      "Import Toate Datele" ignoră filtrele și importă din toate sursele, eliminând duplicatele automat.
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-semibold text-slate-900 dark:text-slate-100 mb-1 flex items-center">
+                      <Trash2 className="w-4 h-4 mr-2 text-red-600" />
+                      Curăță Duplicate
+                    </h4>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      Caută duplicate SMART în baza de date (aceeași sumă, locație, departament, tip - <strong>chiar dacă în zile diferite</strong>). 
+                      Afișează modal cu toate duplicatele găsite și te lasă să alegi ce să păstrezi. <strong>Prioritar: cel din BAT</strong>.
+                    </p>
+                  </div>
+                </div>
                 <div className="flex flex-wrap gap-3">
                   <button
                     onClick={handleManualSync}
@@ -1586,42 +2489,173 @@ const ExpendituresSettings = () => {
                     <span>{cleaningDuplicates ? 'Curățare...' : 'Curăță Duplicate'}</span>
                   </button>
                 </div>
-
-                {/* Progres Import Toate Datele - vizibil direct în Setări */}
-                {importAllProgress && (
-                  <div className="mt-4 bg-slate-900/40 border border-slate-700 rounded-xl p-4 text-xs text-slate-200 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold">Progres Import Toate Datele</span>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                          importAllProgress.status === 'completed'
-                            ? 'bg-emerald-500/20 text-emerald-300'
-                            : importAllProgress.status === 'failed'
-                            ? 'bg-red-500/20 text-red-300'
-                            : 'bg-sky-500/20 text-sky-300'
-                        }`}
-                      >
-                        {importAllProgress.status === 'running'
-                          ? 'În curs...'
-                          : importAllProgress.status === 'completed'
-                          ? 'Finalizat'
-                          : importAllProgress.status === 'failed'
-                          ? 'Eroare'
-                          : importAllProgress.status || 'Necunoscut'}
-                      </span>
+                
+                {/* ȘTERGERE COMPLETĂ - SECȚIUNE SEPARATĂ */}
+                <div className="mt-8 p-6 bg-red-50 dark:bg-red-900/20 rounded-xl border-2 border-red-300 dark:border-red-800">
+                  <h3 className="text-lg font-bold text-red-900 dark:text-red-100 mb-2 flex items-center">
+                    <AlertCircle className="w-5 h-5 mr-2" />
+                    Zonă Periculoasă - Ștergere Completă
+                  </h3>
+                  <p className="text-sm text-red-800 dark:text-red-200 mb-4">
+                    <strong>ATENȚIE!</strong> Acest buton șterge <strong>ABSOLUT TOTUL</strong> din baza de date: 
+                    date BAT, Google Sheets, Preferences, API Sync - <strong>TOTUL!</strong>
+                  </p>
+                  <p className="text-xs text-red-700 dark:text-red-300 mb-4">
+                    Folosește acest buton DOAR dacă vrei să ștergi totul și să reîmporți datele de la zero.
+                    <strong> Această acțiune nu poate fi anulată!</strong>
+                  </p>
+                  <button
+                    onClick={async () => {
+                      // Modal custom de confirmare
+                      const confirmed = window.confirm(
+                        `⚠️ ATENȚIE! Ești sigur că vrei să ștergi ABSOLUT TOTUL?\n\n` +
+                        `Se vor șterge TOATE datele din expenditures_sync:\n` +
+                        `- Date BAT Sync\n` +
+                        `- Date Google Sheets\n` +
+                        `- Date Preferences\n` +
+                        `- Date API Sync\n` +
+                        `- TOATE sursele!\n\n` +
+                        `Această acțiune nu poate fi anulată!\n\n` +
+                        `Scrie "ȘTERG TOTUL" pentru a confirma.`
+                      )
+                      if (!confirmed) return
+                      
+                      const confirmText = window.prompt('Scrie "ȘTERG TOTUL" pentru a confirma ștergerea completă:')
+                      if (confirmText !== 'ȘTERG TOTUL') {
+                        toast.error('Confirmare anulată. Nu s-a șters nimic.')
+                        return
+                      }
+                      
+                      try {
+                        toast.loading('Se șterg TOATE datele...', { id: 'delete-all' })
+                        
+                        // Folosește URL-ul complet în ambele medii (development și producție)
+                        // Proxy-ul Vite nu routează corect DELETE requests
+                        const deleteUrl = import.meta.env.PROD 
+                          ? 'https://cashpot-backend.onrender.com/api/expenditures/all-data'
+                          : 'http://localhost:5001/api/expenditures/all-data'
+                        
+                        console.log('🗑️ DELETE request to:', deleteUrl)
+                        console.log('🔍 Environment:', import.meta.env.MODE, 'PROD:', import.meta.env.PROD)
+                        console.log('🔍 Axios baseURL:', axios.defaults.baseURL)
+                        
+                        const response = await axios.delete(deleteUrl)
+                        console.log('✅ DELETE response:', response.data)
+                        toast.success(
+                          `✅ Șterse ${response.data.deletedCount.toLocaleString('ro-RO')} înregistrări! Baza de date este acum goală.`,
+                          { id: 'delete-all', duration: 8000 }
+                        )
+                      } catch (error) {
+                        console.error('❌ Error deleting all data:', error)
+                        console.error('Error details:', {
+                          message: error.message,
+                          status: error.response?.status,
+                          statusText: error.response?.statusText,
+                          data: error.response?.data,
+                          url: error.config?.url,
+                          baseURL: axios.defaults.baseURL,
+                          fullURL: error.config?.baseURL ? error.config.baseURL + error.config.url : error.config?.url
+                        })
+                        toast.error(
+                          `Eroare la ștergere: ${error.response?.data?.error || error.message} (Status: ${error.response?.status || 'N/A'})`,
+                          { id: 'delete-all', duration: 5000 }
+                        )
+                      }
+                    }}
+                    className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-colors flex items-center justify-center space-x-2 font-semibold shadow-lg"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                    <span>ȘTERGE ABSOLUT TOTUL</span>
+                  </button>
+                </div>
+                
+                {/* Import All Progress */}
+                {importAllProgress && (importAllProgress.status === 'running' || importAllProgress.status === 'completed' || importAllProgress.status === 'failed') && (
+                  <div className="mt-6 p-6 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                        Progres Import Toate Datele
+                      </h4>
+                      {importAllProgress.status === 'running' && (
+                        <div className="w-6 h-6 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
+                      )}
+                      {importAllProgress.status === 'completed' && (
+                        <CheckCircle className="w-6 h-6 text-green-500" />
+                      )}
+                      {importAllProgress.status === 'failed' && (
+                        <AlertCircle className="w-6 h-6 text-red-500" />
+                      )}
                     </div>
-                    <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-                      <div
-                        className="h-2 bg-sky-400 transition-all"
-                        style={{ width: `${Math.min(importAllProgress.progress || 0, 100)}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Mesaj: {importAllProgress.message || '-'}</span>
-                      <span>
-                        {importAllProgress.totalImported || 0}/{importAllProgress.totalRows || 0} rânduri
-                      </span>
-                    </div>
+                    
+                    {importAllProgress.status === 'running' && (
+                      <div className="space-y-3">
+                        <div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-slate-600 dark:text-slate-400">Progres</span>
+                            <span className="text-slate-900 dark:text-slate-100 font-semibold">
+                              {importAllProgress.totalProcessed || 0} / {importAllProgress.totalRecords || 0}
+                            </span>
+                          </div>
+                          <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                            <div
+                              className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                              style={{
+                                width: `${importAllProgress.totalRecords > 0 ? (importAllProgress.totalProcessed / importAllProgress.totalRecords) * 100 : 0}%`
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                          {importAllProgress.currentStep || 'Se procesează...'}
+                        </p>
+                        <div className="grid grid-cols-3 gap-4 text-sm">
+                          <div>
+                            <p className="text-slate-500 dark:text-slate-400">Noi</p>
+                            <p className="text-lg font-bold text-green-500">{importAllProgress.imported || 0}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500 dark:text-slate-400">Duplicate</p>
+                            <p className="text-lg font-bold text-slate-400">{importAllProgress.skipped || 0}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500 dark:text-slate-400">Erori</p>
+                            <p className="text-lg font-bold text-red-500">{importAllProgress.errors || 0}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {importAllProgress.status === 'completed' && (
+                      <div className="space-y-3">
+                        <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+                          <p className="text-green-800 dark:text-green-200 font-semibold">
+                            ✅ Import complet!
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4 text-sm">
+                          <div>
+                            <p className="text-slate-500 dark:text-slate-400">Noi</p>
+                            <p className="text-lg font-bold text-green-500">{importAllProgress.imported || 0}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500 dark:text-slate-400">Duplicate</p>
+                            <p className="text-lg font-bold text-slate-400">{importAllProgress.skipped || 0}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500 dark:text-slate-400">Erori</p>
+                            <p className="text-lg font-bold text-red-500">{importAllProgress.errors || 0}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {importAllProgress.status === 'failed' && (
+                      <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
+                        <p className="text-red-800 dark:text-red-200 font-semibold">
+                          ❌ Import eșuat: {importAllProgress.error || 'Eroare necunoscută'}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1646,7 +2680,7 @@ const ExpendituresSettings = () => {
                 </div>
                 
                 {settings.autoSync && (
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="space-y-4 mb-4">
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                         Interval (ore)
@@ -1666,16 +2700,37 @@ const ExpendituresSettings = () => {
                       </select>
                     </div>
                     
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                        Ora Sincronizării
-                      </label>
-                      <input
-                        type="time"
-                        value={settings.syncTime}
-                        onChange={(e) => setSettings(prev => ({ ...prev, syncTime: e.target.value }))}
-                        className="input-field"
-                      />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                          Ora Început (România)
+                        </label>
+                        <input
+                          type="time"
+                          value={settings.syncTimeStart || '19:00'}
+                          onChange={(e) => setSettings(prev => ({ ...prev, syncTimeStart: e.target.value }))}
+                          className="input-field"
+                        />
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Sincronizarea va rula doar între aceste ore</p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                          Ora Sfârșit (România)
+                        </label>
+                        <input
+                          type="time"
+                          value={settings.syncTimeEnd || '22:00'}
+                          onChange={(e) => setSettings(prev => ({ ...prev, syncTimeEnd: e.target.value }))}
+                          className="input-field"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
+                      <p className="text-xs text-blue-800 dark:text-blue-200">
+                        ℹ️ Sincronizarea automată va rula doar între <strong>{settings.syncTimeStart || '19:00'}</strong> și <strong>{settings.syncTimeEnd || '22:00'}</strong> (ora României).
+                      </p>
                     </div>
                   </div>
                 )}
@@ -1787,6 +2842,311 @@ const ExpendituresSettings = () => {
         </div>
         </div>
       </div>
+      
+      {/* Modal pentru Duplicate SMART */}
+      {showDuplicatesModal && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center">
+                  <AlertCircle className="w-6 h-6 mr-3 text-orange-500" />
+                  Duplicate Găsite ({duplicateGroups.length} grupuri)
+                </h2>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                  Selectează ce înregistrări să păstrezi. Prioritar: cel din BAT (bifă verde).
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowDuplicatesModal(false)
+                  setDuplicateGroups([])
+                  setSelectedDuplicatesToKeep(new Map())
+                }}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+              </button>
+            </div>
+            
+            {/* Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="space-y-6">
+                {duplicateGroups.map((group, groupIndex) => {
+                  const keepIds = selectedDuplicatesToKeep.get(group.id) || new Set()
+                  const totalAmount = group.items.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
+                  
+                  const formatCurrency = (value) => {
+                    if (value === null || value === undefined) return '0,00'
+                    return new Intl.NumberFormat('ro-RO', {
+                      style: 'decimal',
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    }).format(Number(value) || 0)
+                  }
+                  
+                  const formatDate = (dateString) => {
+                    if (!dateString) return '-'
+                    try {
+                      return new Date(dateString).toLocaleDateString('ro-RO')
+                    } catch (error) {
+                      return dateString
+                    }
+                  }
+                  
+                  return (
+                    <div
+                      key={group.id}
+                      className="border-2 border-orange-200 dark:border-orange-800 rounded-xl p-4 bg-orange-50/50 dark:bg-orange-900/10"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                          Grup {groupIndex + 1} - {group.items.length} duplicate
+                        </h3>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">
+                          <span className="font-semibold">Suma:</span> {formatCurrency(totalAmount)} RON • 
+                          <span className="font-semibold ml-2">Locație:</span> {group.items[0]?.location_name || 'N/A'} • 
+                          <span className="font-semibold ml-2">Data:</span> {formatDate(group.items[0]?.operational_date)}
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        {group.items.map((item) => {
+                          const isSelected = keepIds.has(item.id)
+                          const isBAT = item.data_source === 'bat_sync'
+                          const isPriority = item.id === group.priorityItem.id
+                          
+                          return (
+                            <div
+                              key={item.id}
+                              className={`flex items-start space-x-3 p-3 rounded-lg border-2 transition-all ${
+                                isSelected
+                                  ? isBAT || isPriority
+                                    ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700'
+                                    : 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700'
+                                  : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'
+                              }`}
+                            >
+                              <div className="flex items-center pt-1">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleDuplicateSelection(group.id, item.id)}
+                                  className="w-5 h-5 text-green-600 border-slate-300 rounded focus:ring-green-500 cursor-pointer"
+                                />
+                              </div>
+                              
+                              <div className="flex-1 grid grid-cols-6 gap-3 text-sm">
+                                <div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">ID</p>
+                                  <p className="font-medium text-slate-900 dark:text-slate-100">{item.id}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Suma</p>
+                                  <p className="font-semibold text-slate-900 dark:text-slate-100">{formatCurrency(item.amount)} RON</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Departament</p>
+                                  <p className="text-slate-900 dark:text-slate-100">{item.department_name || 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Tip</p>
+                                  <p className="text-slate-900 dark:text-slate-100">{item.expenditure_type || 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Sursă</p>
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
+                                    isBAT
+                                      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                                      : item.data_source === 'google_sheets'
+                                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                      : 'bg-slate-100 text-slate-700 dark:bg-slate-800/30 dark:text-slate-300'
+                                  }`}>
+                                    {isBAT ? '🟢 BAT (Prioritar)' : item.data_source === 'google_sheets' ? 'Google Sheets' : 'Altă sursă'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Data</p>
+                                  <p className="text-slate-900 dark:text-slate-100">{formatDate(item.operational_date)}</p>
+                                </div>
+                              </div>
+                              
+                              {isPriority && (
+                                <div className="flex items-center text-green-600 dark:text-green-400">
+                                  <CheckSquare className="w-5 h-5" title="Prioritar - va fi păstrat" />
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                      
+                      <div className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                        {keepIds.size > 0 ? (
+                          <span className="text-green-600 dark:text-green-400 font-semibold">
+                            ✓ {keepIds.size} înregistrare{keepIds.size > 1 ? 'i' : ''} selectată{keepIds.size > 1 ? 'e' : ''} pentru păstrare
+                          </span>
+                        ) : (
+                          <span className="text-red-600 dark:text-red-400">
+                            ⚠️ Selectează cel puțin o înregistrare!
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+            
+            {/* Footer - Butoane */}
+            <div className="flex items-center justify-between p-6 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+              <div className="text-sm text-slate-600 dark:text-slate-400">
+                <p>
+                  Total de șters: <span className="font-semibold text-red-600 dark:text-red-400">
+                    {duplicateGroups.reduce((sum, g) => {
+                      const keepIds = selectedDuplicatesToKeep.get(g.id) || new Set()
+                      return sum + (g.items.length - keepIds.size)
+                    }, 0)}
+                  </span> înregistrări
+                </p>
+                <p className="mt-1">
+                  Total de păstrat: <span className="font-semibold text-green-600 dark:text-green-400">
+                    {duplicateGroups.reduce((sum, g) => {
+                      const keepIds = selectedDuplicatesToKeep.get(g.id) || new Set()
+                      return sum + keepIds.size
+                    }, 0)}
+                  </span> înregistrări
+                </p>
+              </div>
+              
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => {
+                    setShowDuplicatesModal(false)
+                    setDuplicateGroups([])
+                    setSelectedDuplicatesToKeep(new Map())
+                  }}
+                  className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors font-medium"
+                >
+                  Anulează
+                </button>
+                <button
+                  onClick={handleDeleteDuplicates}
+                  disabled={deletingDuplicates || duplicateGroups.length === 0}
+                  className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  {deletingDuplicates ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Se șterg...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <span>Șterge Duplicatele</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Modal pentru selectarea surselor de import */}
+      {showImportSourcesModal && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center">
+                <Database className="w-6 h-6 mr-3 text-blue-500" />
+                Selectează Surse de Import
+              </h2>
+              <button
+                onClick={() => setShowImportSourcesModal(false)}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+              </button>
+            </div>
+            
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                Selectează din ce surse vrei să importi datele:
+              </p>
+              
+              {/* BAT Sync */}
+              <label className="flex items-center space-x-3 p-4 rounded-lg border-2 border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer transition-colors">
+                <input
+                  type="checkbox"
+                  checked={importSources.bat}
+                  onChange={(e) => setImportSources(prev => ({ ...prev, bat: e.target.checked }))}
+                  className="w-5 h-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
+                />
+                <div className="flex-1">
+                  <div className="font-semibold text-slate-900 dark:text-slate-100">BAT Sync (SQL/API Extern)</div>
+                  <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                    Importă date din baza de date externă (BAT Sync)
+                  </div>
+                </div>
+              </label>
+              
+              {/* Google Sheets */}
+              <label className="flex items-center space-x-3 p-4 rounded-lg border-2 border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer transition-colors">
+                <input
+                  type="checkbox"
+                  checked={importSources.googleSheets}
+                  onChange={(e) => setImportSources(prev => ({ ...prev, googleSheets: e.target.checked }))}
+                  className="w-5 h-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
+                />
+                <div className="flex-1">
+                  <div className="font-semibold text-slate-900 dark:text-slate-100">Google Sheets</div>
+                  <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                    Importă date din Google Sheets (cheltuieli manuale)
+                  </div>
+                </div>
+              </label>
+              
+              {/* Preferences */}
+              <label className="flex items-center space-x-3 p-4 rounded-lg border-2 border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer transition-colors">
+                <input
+                  type="checkbox"
+                  checked={importSources.preferences}
+                  onChange={(e) => setImportSources(prev => ({ ...prev, preferences: e.target.checked }))}
+                  className="w-5 h-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
+                />
+                <div className="flex-1">
+                  <div className="font-semibold text-slate-900 dark:text-slate-100">Preferences (Taxe, Cyber, etc.)</div>
+                  <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                    Importă date din Preferences (taxe, cyber, etc.)
+                  </div>
+                </div>
+              </label>
+            </div>
+            
+            {/* Footer */}
+            <div className="flex items-center justify-end space-x-3 p-6 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+              <button
+                onClick={() => setShowImportSourcesModal(false)}
+                className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors font-medium"
+              >
+                Anulează
+              </button>
+              <button
+                onClick={handleConfirmImportAll}
+                disabled={!importSources.bat && !importSources.googleSheets && !importSources.preferences}
+                className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                <Database className="w-4 h-4" />
+                <span>Importă</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }
