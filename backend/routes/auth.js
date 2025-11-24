@@ -11,8 +11,12 @@ router.post('/login', [
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
 ], async (req, res) => {
   try {
+    console.log('🔐 LOGIN REQUEST RECEIVED')
+    console.log('   Body:', { username: req.body?.username, password: req.body?.password ? '***' : 'missing' })
+    
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
+      console.log('❌ Validation errors:', errors.array())
       return res.status(400).json({
         success: false,
         message: 'Validation error',
@@ -24,7 +28,9 @@ router.post('/login', [
 
     // Import pool from server-postgres.js (this will be passed from the main server)
     const pool = req.app.get('pool')
+    console.log('   Pool available:', !!pool)
     if (!pool) {
+      console.error('❌ Database pool not available in login endpoint')
       return res.status(500).json({
         success: false,
         message: 'Database connection not available'
@@ -32,12 +38,15 @@ router.post('/login', [
     }
 
     // Find user by username or email
+    console.log('   Querying database for user:', username)
     const result = await pool.query(
       'SELECT * FROM users WHERE username = $1 OR email = $1',
       [username]
     )
+    console.log('   Users found:', result.rows.length)
 
     if (result.rows.length === 0) {
+      console.log('⚠️ User not found:', username)
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
@@ -45,10 +54,13 @@ router.post('/login', [
     }
 
     const user = result.rows[0]
+    console.log('   User found:', user.username, 'Status:', user.status)
 
     // Check password
+    console.log('   Checking password...')
     const isMatch = await bcrypt.compare(password, user.password)
     if (!isMatch) {
+      console.log('⚠️ Invalid password for user:', username)
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
@@ -57,6 +69,7 @@ router.post('/login', [
 
     // Check if user is active
     if (user.status !== 'active') {
+      console.log('⚠️ Inactive user attempted login:', username)
       return res.status(401).json({
         success: false,
         message: 'Account is inactive'
@@ -90,7 +103,12 @@ router.post('/login', [
     })
 
   } catch (error) {
-    console.error('Login error:', error)
+    console.error('❌ LOGIN ERROR:', error)
+    console.error('   Error message:', error.message)
+    console.error('   Error stack:', error.stack)
+    console.error('   Error code:', error.code)
+    console.error('   Error detail:', error.detail)
+    
     // Check if it's a DB connection error
     if (error.message && error.message.includes('Connection terminated')) {
       return res.status(503).json({
@@ -98,9 +116,12 @@ router.post('/login', [
         message: 'Database connection error. Please try again.'
       })
     }
+    
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: 'Internal server error',
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     })
   }
 })
