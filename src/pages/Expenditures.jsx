@@ -16,6 +16,17 @@ import ExpendituresTable from '../components/ExpendituresTable'
 import DateRangeSelector from '../components/DateRangeSelector'
 import { generateAIInsights } from '../utils/aiInsights'
 
+// Normalize diacritics for comparison (same as ExpendituresSettings)
+const normalizeDiacritics = (str) => {
+  if (!str) return ''
+  return str
+    .replace(/ţ/g, 'ț')
+    .replace(/ş/g, 'ș')
+    .replace(/Ţ/g, 'Ț')
+    .replace(/Ş/g, 'Ș')
+    .trim()
+}
+
 const Expenditures = () => {
   const { user } = useAuth()
   const { theme } = useTheme()
@@ -227,6 +238,11 @@ const Expenditures = () => {
         endDate = formatDateLocal(new Date(today.getFullYear(), 11, 31))
         break
       
+      case 'anul-trecut':
+        startDate = formatDateLocal(new Date(today.getFullYear() - 1, 0, 1))
+        endDate = formatDateLocal(new Date(today.getFullYear() - 1, 11, 31))
+        break
+      
       case 'toate':
         // All time - set very broad range
         startDate = '2020-01-01'
@@ -261,6 +277,11 @@ const Expenditures = () => {
         const response = await axios.get('/api/expenditures/settings', {
           signal: abortController.signal
         })
+        console.log('✅ [Expenditures] Loaded sync settings:', {
+          includedDepartments: response.data?.includedDepartments?.length || 0,
+          includedTypes: response.data?.includedExpenditureTypes?.length || 0,
+          includedLocations: response.data?.includedLocations?.length || 0
+        })
         setSyncSettings(response.data)
       } catch (error) {
         if (error.name !== 'CanceledError' && error.code !== 'ECONNABORTED') {
@@ -283,8 +304,40 @@ const Expenditures = () => {
       const response = await axios.get('/api/expenditures/data', {
         signal: new AbortController().signal // Creează un nou controller pentru fiecare apel
       })
-      setExpendituresData(response.data)
-      console.log('✅ Expenditures data loaded:', response.data.length)
+      
+      const data = Array.isArray(response.data) ? response.data : []
+      setExpendituresData(data)
+      console.log('✅ Expenditures data loaded:', data.length)
+      
+      // Reset departmentFilter dacă este setat pe un departament exclus automat
+      const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
+      if (excludedDepartments.includes(departmentFilter)) {
+        console.warn(`⚠️ departmentFilter (${departmentFilter}) este exclus automat! Resetare la 'all'`)
+        setDepartmentFilter('all')
+      }
+      
+      if (data.length > 0) {
+        const dateRange = data.reduce((acc, item) => {
+          if (item.operational_date) {
+            const date = new Date(item.operational_date)
+            if (!acc.min || date < acc.min) acc.min = date
+            if (!acc.max || date > acc.max) acc.max = date
+          }
+          return acc
+        }, { min: null, max: null })
+        console.log('📅 Date range in data:', {
+          min: dateRange.min?.toISOString().split('T')[0],
+          max: dateRange.max?.toISOString().split('T')[0],
+          currentFilter: `${dateRange.startDate} - ${dateRange.endDate}`
+        })
+      }
+      
+      if (data.length === 0) {
+        console.warn('⚠️ No expenditures data found in database')
+        toast.info('Nu există date de cheltuieli în baza de date. Folosește "Import Toate Datele" din Setări pentru a importa date.', {
+          duration: 8000
+        })
+      }
       
       // Verifică dacă există date pentru toate lunile din intervalul selectat
       if (response.data.length > 0 && dateRange.startDate && dateRange.endDate) {
@@ -659,51 +712,252 @@ const Expenditures = () => {
       }
     }
   }, [])
-  
+
   // Process data into matrix format (expenditure_types × locations)
+  // RETURNEAZĂ ȘI datele filtrate pentru a le folosi în ExpendituresTable
   const processDataToMatrix = () => {
     if (!expendituresData || expendituresData.length === 0) {
-      return { matrix: [], locations: [], expenditureTypes: [], filteredCount: 0 }
+      console.log('⚠️ [processDataToMatrix] No expenditures data')
+      return { matrix: [], locations: [], expenditureTypes: [], filteredCount: 0, filteredDataForTable: [] }
     }
+    
+    console.log(`📊 [processDataToMatrix] Starting with ${expendituresData.length} records`)
     
     // Apply filters
     let filteredData = expendituresData
     
     // EXCLUDE "Unknown" FORȚAT (user NU vrea să-l vadă NICIODATĂ!)
+    const beforeUnknown = filteredData.length
     filteredData = filteredData.filter(item => {
       const dept = (item.department_name || '').toLowerCase().trim()
       return dept !== 'unknown' && dept !== '' && dept !== 'null'
     })
+    console.log(`  After excluding Unknown: ${beforeUnknown} → ${filteredData.length}`)
     
     // EXCLUDE 4 DEPARTAMENTE DEBIFATE (POS, Registru de Casă, Bancă, Alte Cheltuieli)
+    const beforeExcluded = filteredData.length
     const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
     filteredData = filteredData.filter(item => {
       return !excludedDepartments.includes(item.department_name)
     })
+    console.log(`  After excluding POS/Bancă/Alte Cheltuieli: ${beforeExcluded} → ${filteredData.length}`)
     
     // DATE RANGE FILTER
     if (dateRange.startDate && dateRange.endDate) {
+      const beforeDate = filteredData.length
       filteredData = filteredData.filter(item => {
+        if (!item.operational_date) return false
         const itemDate = new Date(item.operational_date)
-        const startDate = new Date(dateRange.startDate)
-        const endDate = new Date(dateRange.endDate)
-        return itemDate >= startDate && itemDate <= endDate
+        const startDate = new Date(dateRange.startDate + 'T00:00:00')
+        const endDate = new Date(dateRange.endDate + 'T23:59:59')
+        const isInRange = itemDate >= startDate && itemDate <= endDate
+        return isInRange
+      })
+      console.log(`  After date range filter (${dateRange.startDate} - ${dateRange.endDate}): ${beforeDate} → ${filteredData.length}`)
+      if (filteredData.length === 0 && beforeDate > 0) {
+        console.warn('  ⚠️ All data filtered out by date range! Sample dates in data:', expendituresData.slice(0, 3).map(d => d.operational_date))
+      }
+    } else {
+      console.log('  ⏭️ Skipping date range filter (not set)')
+    }
+    
+    // APPLY SETTINGS FILTERS (includedDepartments, includedTypes, includedLocations)
+    const includedDepartments = syncSettings?.includedDepartments
+    const includedTypes = syncSettings?.includedExpenditureTypes
+    const includedLocations = syncSettings?.includedLocations
+    
+    console.log('  📋 SyncSettings:', {
+      hasIncludedDepartments: Array.isArray(includedDepartments) && includedDepartments.length > 0,
+      deptCount: Array.isArray(includedDepartments) ? includedDepartments.length : 0,
+      hasIncludedTypes: Array.isArray(includedTypes) && includedTypes.length > 0,
+      typesCount: Array.isArray(includedTypes) ? includedTypes.length : 0,
+      hasIncludedLocations: Array.isArray(includedLocations) && includedLocations.length > 0,
+      locCount: Array.isArray(includedLocations) ? includedLocations.length : 0
+    })
+    
+    // DEBUG: Show sample data before filters
+    if (filteredData.length > 0) {
+      console.log('  📊 Sample data before settings filters:', {
+        sampleDepts: [...new Set(filteredData.slice(0, 10).map(d => d.department_name))],
+        sampleTypes: [...new Set(filteredData.slice(0, 10).map(d => d.expenditure_type))],
+        sampleLocations: [...new Set(filteredData.slice(0, 10).map(d => d.location_name))]
       })
     }
     
-    // DEPARTMENT FILTER
+    if (Array.isArray(includedDepartments) && includedDepartments.length > 0) {
+      const beforeDept = filteredData.length
+      // Normalize department names for comparison (remove diacritics issues)
+      const normalizedIncluded = includedDepartments.map(d => normalizeDiacritics(d?.toLowerCase().trim() || ''))
+      const beforeFilterDepts = [...new Set(filteredData.map(d => d.department_name))]
+      
+      filteredData = filteredData.filter((item) => {
+        const itemDept = normalizeDiacritics((item.department_name || '').toLowerCase().trim())
+        const matches = normalizedIncluded.includes(itemDept)
+        if (!matches && beforeDept > 0) {
+          // Log first few mismatches for debugging
+          if (filteredData.length < 3) {
+            console.log(`     ❌ Mismatch: "${item.department_name}" (normalized: "${itemDept}") not in included list`)
+          }
+        }
+        return matches
+      })
+      console.log(`  After includedDepartments filter (${includedDepartments.length} depts): ${beforeDept} → ${filteredData.length}`)
+      if (filteredData.length === 0 && beforeDept > 0) {
+        const sampleDepts = [...new Set(beforeFilterDepts)].slice(0, 10)
+        console.error('  ❌ All data filtered out by includedDepartments!')
+        console.error('     Departments in data (before filter):', sampleDepts)
+        console.error('     Included departments (from settings):', includedDepartments.slice(0, 10))
+        console.error('     Normalized included:', normalizedIncluded.slice(0, 10))
+        console.error('     Normalized data depts:', sampleDepts.map(d => normalizeDiacritics(d?.toLowerCase().trim() || '')))
+        console.error('     ⚠️ PROBLEMA: Numele departamentelor din date nu se potrivesc cu cele din setări!')
+      }
+    } else {
+      console.log('  ⏭️ Skipping includedDepartments filter (empty or not set) - showing ALL departments')
+    }
+    
+    if (Array.isArray(includedTypes) && includedTypes.length > 0) {
+      const beforeTypes = filteredData.length
+      const normalizedIncludedTypes = includedTypes.map(t => normalizeDiacritics(t?.toLowerCase().trim() || ''))
+      const beforeFilterTypes = [...new Set(filteredData.map(d => d.expenditure_type))]
+      
+      filteredData = filteredData.filter((item) => {
+        const itemType = normalizeDiacritics((item.expenditure_type || '').toLowerCase().trim())
+        return normalizedIncludedTypes.includes(itemType)
+      })
+      console.log(`  After includedTypes filter (${includedTypes.length} types): ${beforeTypes} → ${filteredData.length}`)
+      if (filteredData.length === 0 && beforeTypes > 0) {
+        const sampleTypes = [...new Set(beforeFilterTypes)].slice(0, 10)
+        console.error('  ❌ All data filtered out by includedTypes!')
+        console.error('     Types in data (before filter):', sampleTypes)
+        console.error('     Included types (from settings):', includedTypes.slice(0, 10))
+        console.error('     ⚠️ PROBLEMA: Numele tipurilor din date nu se potrivesc cu cele din setări!')
+      }
+    } else {
+      console.log('  ⏭️ Skipping includedTypes filter (empty or not set) - showing ALL types')
+    }
+    
+    if (Array.isArray(includedLocations) && includedLocations.length > 0) {
+      const beforeLoc = filteredData.length
+      const normalizedIncludedLocations = includedLocations.map(l => normalizeDiacritics(l?.toLowerCase().trim() || ''))
+      const beforeFilterLocations = [...new Set(filteredData.map(d => d.location_name))]
+      
+      filteredData = filteredData.filter((item) => {
+        const itemLoc = normalizeDiacritics((item.location_name || '').toLowerCase().trim())
+        return normalizedIncludedLocations.includes(itemLoc)
+      })
+      console.log(`  After includedLocations filter (${includedLocations.length} locations): ${beforeLoc} → ${filteredData.length}`)
+      if (filteredData.length === 0 && beforeLoc > 0) {
+        const sampleLocations = [...new Set(beforeFilterLocations)].slice(0, 10)
+        console.error('  ❌ All data filtered out by includedLocations!')
+        console.error('     Locations in data (before filter):', sampleLocations)
+        console.error('     Included locations (from settings):', includedLocations.slice(0, 10))
+        console.error('     ⚠️ PROBLEMA: Numele locațiilor din date nu se potrivesc cu cele din setări!')
+      }
+    } else {
+      console.log('  ⏭️ Skipping includedLocations filter (empty or not set) - showing ALL locations')
+    }
+    
+    // DEPARTMENT FILTER (manual dropdown)
     if (departmentFilter !== 'all') {
+      const beforeDeptFilter = filteredData.length
+      // Verifică dacă departamentul selectat este unul dintre cele excluse automat
+      const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
+      if (excludedDepartments.includes(departmentFilter)) {
+        console.warn(`  ⚠️ departmentFilter (${departmentFilter}) este exclus automat! Resetare la 'all'`)
+        // Nu aplică filtrul - va rămâne 'all' în UI dar nu va filtra
+        console.log(`  ⏭️ Skipping departmentFilter (${departmentFilter} is excluded)`)
+      } else {
       filteredData = filteredData.filter(item => item.department_name === departmentFilter)
+        console.log(`  After departmentFilter (${departmentFilter}): ${beforeDeptFilter} → ${filteredData.length}`)
+      }
     }
     
     // EXPENDITURE TYPE FILTER
     if (expenditureTypeFilter !== 'all') {
+      const beforeTypeFilter = filteredData.length
       filteredData = filteredData.filter(item => item.expenditure_type === expenditureTypeFilter)
+      console.log(`  After expenditureTypeFilter (${expenditureTypeFilter}): ${beforeTypeFilter} → ${filteredData.length}`)
     }
     
     // LOCATION FILTER (NEW!)
     if (locationFilter !== 'all') {
+      const beforeLocFilter = filteredData.length
       filteredData = filteredData.filter(item => item.location_name === locationFilter)
+      console.log(`  After locationFilter (${locationFilter}): ${beforeLocFilter} → ${filteredData.length}`)
+    }
+    
+    // Calculăm câte date ar trebui să fie după filtrele de bază (fără filtrele din setări)
+    const afterBasicFilters = expendituresData.filter(item => {
+      const dept = (item.department_name || '').toLowerCase().trim()
+      if (dept === 'unknown' || dept === '' || dept === 'null') return false
+      const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
+      if (excludedDepartments.includes(item.department_name)) return false
+      if (dateRange.startDate && dateRange.endDate) {
+        if (!item.operational_date) return false
+        const itemDate = new Date(item.operational_date)
+        const startDate = new Date(dateRange.startDate + 'T00:00:00')
+        const endDate = new Date(dateRange.endDate + 'T23:59:59')
+        if (itemDate < startDate || itemDate > endDate) return false
+      }
+      return true
+    }).length
+    
+    console.log(`✅ [processDataToMatrix] Final filtered count: ${filteredData.length} (din ${afterBasicFilters} după filtrele de bază)`)
+    
+    // FALLBACK: Dacă filtrele din setări exclud mai mult de 90% din date, ignoră-le automat
+    const filterLossPercentage = afterBasicFilters > 0 ? ((afterBasicFilters - filteredData.length) / afterBasicFilters) * 100 : 0
+    const shouldIgnoreSettingsFilters = filteredData.length === 0 || (afterBasicFilters > 5 && filterLossPercentage > 90)
+    
+    if (shouldIgnoreSettingsFilters && expendituresData.length > 0) {
+      console.warn(`⚠️ [FALLBACK] Filtrele din setări exclud ${filterLossPercentage.toFixed(1)}% din date! Ignoră filtrele din setări și arată toate datele.`)
+      console.warn(`   Date după filtrele de bază: ${afterBasicFilters}`)
+      console.warn(`   Date după filtrele din setări: ${filteredData.length}`)
+      
+      // Salvează filtrele manuale înainte de fallback
+      const savedDepartmentFilter = departmentFilter
+      const savedTypeFilter = expenditureTypeFilter
+      const savedLocationFilter = locationFilter
+      
+      // Reapply doar filtrele de bază (exclude Unknown, POS, etc.) dar IGNORĂ filtrele din setări
+      filteredData = expendituresData.filter(item => {
+        const dept = (item.department_name || '').toLowerCase().trim()
+        if (dept === 'unknown' || dept === '' || dept === 'null') return false
+        
+        const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
+        if (excludedDepartments.includes(item.department_name)) return false
+        
+        // Date range filter (păstrează-l)
+        if (dateRange.startDate && dateRange.endDate) {
+          if (!item.operational_date) return false
+          const itemDate = new Date(item.operational_date)
+          const startDate = new Date(dateRange.startDate + 'T00:00:00')
+          const endDate = new Date(dateRange.endDate + 'T23:59:59')
+          if (itemDate < startDate || itemDate > endDate) return false
+        }
+        
+        return true
+      })
+      
+      // REAPLICĂ FILTRELE MANUALE (departmentFilter, expenditureTypeFilter, locationFilter)
+      if (savedDepartmentFilter !== 'all') {
+        const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
+        if (!excludedDepartments.includes(savedDepartmentFilter)) {
+          filteredData = filteredData.filter(item => item.department_name === savedDepartmentFilter)
+          console.log(`  [FALLBACK] Reapplied departmentFilter (${savedDepartmentFilter}): ${filteredData.length}`)
+        }
+      }
+      
+      if (savedTypeFilter !== 'all') {
+        filteredData = filteredData.filter(item => item.expenditure_type === savedTypeFilter)
+        console.log(`  [FALLBACK] Reapplied expenditureTypeFilter (${savedTypeFilter}): ${filteredData.length}`)
+      }
+      
+      if (savedLocationFilter !== 'all') {
+        filteredData = filteredData.filter(item => item.location_name === savedLocationFilter)
+        console.log(`  [FALLBACK] Reapplied locationFilter (${savedLocationFilter}): ${filteredData.length}`)
+      }
+      
+      console.warn(`   Date după fallback (fără filtre din setări, cu filtre manuale): ${filteredData.length}`)
     }
     
     // Get unique locations and expenditure types
@@ -748,13 +1002,13 @@ const Expenditures = () => {
     
     totalsRow.total = grandTotal
     
-    return { matrix, locations, expenditureTypes, totalsRow, filteredCount: filteredData.length }
+    return { matrix, locations, expenditureTypes, totalsRow, filteredCount: filteredData.length, filteredDataForTable: filteredData }
   }
   
-  // Re-calculate matrix when filters change (INCLUDING locationFilter!)
-  const { matrix, locations, totalsRow, filteredCount, expenditureTypes } = React.useMemo(() => {
+  // Re-calculate matrix when filters change (INCLUDING locationFilter AND syncSettings!)
+  const { matrix, locations, totalsRow, filteredCount, expenditureTypes, filteredDataForTable } = React.useMemo(() => {
     return processDataToMatrix()
-  }, [expendituresData, dateRange, departmentFilter, expenditureTypeFilter, locationFilter])
+  }, [expendituresData, dateRange, departmentFilter, expenditureTypeFilter, locationFilter, syncSettings])
   
   // Calculate previous month data for percentage comparison
   const previousMonthData = React.useMemo(() => {
@@ -807,67 +1061,11 @@ const Expenditures = () => {
   }, [expendituresData])
 
   // Filter data by date range pentru grafice și carduri
-  // IMPORTANT: respectă setările din pagina de Setări (includedDepartments / Types / Locations)
+  // FOLOSEȘTE ACELEAȘI DATE CA ȘI TABELUL (filteredDataForTable) pentru consistență!
   const filteredExpendituresForCharts = React.useMemo(() => {
-    let filtered = expendituresData || []
-
-    const includedDepartments = syncSettings?.includedDepartments
-    const includedTypes = syncSettings?.includedExpenditureTypes
-    const includedLocations = syncSettings?.includedLocations
-    
-    // EXCLUDE „Unknown” forțat (user nu vrea să-l vadă NICIODATĂ)
-    filtered = filtered.filter((item) => {
-      const dept = (item.department_name || '').toLowerCase().trim()
-      return dept !== 'unknown' && dept !== '' && dept !== 'null'
-    })
-    
-    // EXCLUDE 4 DEPARTAMENTE DEBIFATE (la fel ca în tabel!) - CRITICAL FIX!
-    const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
-    filtered = filtered.filter(item => {
-      return !excludedDepartments.includes(item.department_name)
-    })
-    
-    // Aplică listele „INCLUDE” din setări, dacă există
-    if (Array.isArray(includedDepartments) && includedDepartments.length > 0) {
-      filtered = filtered.filter((item) =>
-        includedDepartments.includes(item.department_name || '')
-      )
-    }
-
-    if (Array.isArray(includedTypes) && includedTypes.length > 0) {
-      filtered = filtered.filter((item) =>
-        includedTypes.includes(item.expenditure_type || '')
-      )
-    }
-
-    if (Array.isArray(includedLocations) && includedLocations.length > 0) {
-      filtered = filtered.filter((item) =>
-        includedLocations.includes(item.location_name || '')
-      )
-    }
-    
-    // Filter by date range
-    if (dateRange.startDate && dateRange.endDate) {
-      filtered = filtered.filter(item => {
-        const itemDate = new Date(item.operational_date)
-        const startDate = new Date(dateRange.startDate)
-        const endDate = new Date(dateRange.endDate)
-        return itemDate >= startDate && itemDate <= endDate
-      })
-    }
-    
-    // DEPARTMENT FILTER (pentru charts!)
-    if (departmentFilter !== 'all') {
-      filtered = filtered.filter(item => item.department_name === departmentFilter)
-    }
-    
-    // LOCATION FILTER (pentru charts!)
-    if (locationFilter !== 'all') {
-      filtered = filtered.filter(item => item.location_name === locationFilter)
-    }
-    
-    return filtered
-  }, [expendituresData, dateRange, departmentFilter, locationFilter, syncSettings])
+    // Folosește exact aceleași date ca și tabelul pentru consistență
+    return filteredDataForTable || []
+  }, [filteredDataForTable])
 
   // Zile disponibile în sistem pentru selectorul de zile (doar date care chiar există)
   const availableDays = React.useMemo(() => {
@@ -1082,6 +1280,20 @@ const Expenditures = () => {
               <Table2 className="w-4 h-4" />
               <span>Tabel SQL</span>
             </button>
+
+            <button
+              onClick={() => navigate('/expenditures/slots-monthly')}
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-slate-800 dark:text-slate-100 text-sm font-semibold border transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 border-slate-300 dark:border-slate-500"
+            >
+              <span>Tabel Sloturi</span>
+            </button>
+
+            <button
+              onClick={() => navigate('/expenditures/electric')}
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-slate-800 dark:text-slate-100 text-sm font-semibold border transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 border-slate-300 dark:border-slate-500"
+            >
+              <span>Electrica</span>
+            </button>
             
             <button
               onClick={() => navigate('/expenditures/advanced-analytics')}
@@ -1111,7 +1323,9 @@ const Expenditures = () => {
                 { id: 'saptamana-curenta', label: 'Săpt', icon: CalendarDays },
                 { id: 'luna-curenta', label: 'Luna curentă', icon: Calendar },
                 { id: 'luna-anterioara', label: 'Luna trecută', icon: CalendarRange },
-                { id: 'anul-curent', label: 'Anul curent', icon: Calendar }
+                { id: 'anul-curent', label: 'Anul curent', icon: Calendar },
+                { id: 'anul-trecut', label: 'Anul trecut', icon: Calendar },
+                { id: 'toate', label: 'Toate', icon: Calendar }
                 ].map((btn) => {
                   const IconComponent = btn.icon
                   return (
@@ -1143,7 +1357,16 @@ const Expenditures = () => {
               <div className="relative">
                 <select
                   value={departmentFilter}
-                  onChange={(e) => setDepartmentFilter(e.target.value)}
+                  onChange={(e) => {
+                    const newValue = e.target.value
+                    // Verifică dacă este un departament exclus automat
+                    const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
+                    if (excludedDepartments.includes(newValue)) {
+                      toast.error(`Departamentul "${newValue}" este exclus automat și nu poate fi selectat`)
+                      return // Nu schimba filtrul
+                    }
+                    setDepartmentFilter(newValue)
+                  }}
                   className="rounded-2xl text-white text-sm font-semibold border transition-all"
                   style={{
                     height: '40px',
@@ -1232,7 +1455,7 @@ const Expenditures = () => {
           </div>
           
           {/* Rând 2: DateRangeSelector + Text Perioadă pe același rând + Export Buttons la capătul din dreapta */}
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center gap-3 mb-2 relative z-[50]">
             <div className="min-w-[260px] max-w-md">
                 <DateRangeSelector
                   startDate={dateRange.startDate}
@@ -1359,7 +1582,7 @@ const Expenditures = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Charts Section */}
         {filteredExpendituresForCharts.length > 0 && (
           <ExpendituresCharts 
@@ -1452,14 +1675,12 @@ const Expenditures = () => {
             <div className="text-center py-12 text-slate-500 dark:text-slate-400">
               <BarChart3 className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p className="text-lg font-semibold">Nu există date disponibile</p>
-              <p className="text-sm mt-2">Sincronizați datele pentru a vedea cheltuielile</p>
-              <button
-                onClick={handleSync}
-                className="btn-primary mt-4"
-              >
-                <RefreshCw className="w-4 h-4 inline mr-2" />
-                Sincronizare Date
-              </button>
+              <p className="text-sm mt-2">Nu există cheltuieli pentru perioada selectată</p>
+              <div className="mt-4 text-xs text-slate-400 dark:text-slate-500">
+                <p>Total înregistrări în baza de date: {expendituresData.length}</p>
+                <p>După filtrare: {filteredCount} înregistrări</p>
+                <p className="mt-2">Verifică în consolă (F12) pentru detalii despre filtrele aplicate</p>
+              </div>
             </div>
           ) : (
             <ExpendituresTable 
@@ -1467,7 +1688,7 @@ const Expenditures = () => {
               locations={locations}
               expenditureTypes={expenditureTypes}
               totalsRow={totalsRow}
-              expendituresData={filteredExpendituresForCharts}
+              expendituresData={filteredDataForTable || []}
               allExpanded={allDepartmentsExpanded}
               onToggleAll={() => setAllDepartmentsExpanded(!allDepartmentsExpanded)}
               onAmountClick={({ department, category }) => {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Layout from '../components/Layout'
-import { X, Save, Filter, RefreshCw, Eye, EyeOff, CheckSquare, Square, Cloud, Download, MapPin, Database, ArrowLeft, Settings, AlertCircle, CheckCircle, Trash2 } from 'lucide-react'
+import { X, Save, Filter, RefreshCw, Eye, EyeOff, CheckSquare, Square, Cloud, Download, MapPin, Database, ArrowLeft, Settings, AlertCircle, CheckCircle, Trash2, BarChart3 } from 'lucide-react'
 import axios from 'axios'
 import { toast } from 'react-hot-toast'
 
@@ -10,15 +10,40 @@ if (import.meta.env.PROD && !axios.defaults.baseURL) {
   axios.defaults.baseURL = 'https://cashpot-backend.onrender.com'
 }
 
+// Ensure Authorization header is set for all requests
+// Use interceptor to always include token from sessionStorage
+axios.interceptors.request.use(
+  (config) => {
+    const token = sessionStorage.getItem('authToken')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  }
+)
+
 // SINGLE SOURCE OF TRUTH pentru normalizare diacritice!
 // Folosit pentru: deduplicare, comparare, salvare
 const normalizeDiacritics = (str) => {
   if (!str) return ''
   return str
-    .replace(/ţ/g, 'ț')  // sedilă → virgulă
-    .replace(/ş/g, 'ș')  // sedilă → virgulă
-    .replace(/Ţ/g, 'Ț')
-    .replace(/Ş/g, 'Ș')
+    .replace(/ţ/g, 't')  // Elimină complet diacriticele pentru matching
+    .replace(/ş/g, 's')
+    .replace(/Ţ/g, 'T')
+    .replace(/Ş/g, 'S')
+    .replace(/ț/g, 't')  // Transformă și virgula în literă simplă
+    .replace(/ș/g, 's')
+    .replace(/Ț/g, 'T')
+    .replace(/Ș/g, 'S')
+    .replace(/ă/g, 'a')
+    .replace(/â/g, 'a')
+    .replace(/î/g, 'i')
+    .replace(/Ă/g, 'A')
+    .replace(/Â/g, 'A')
+    .replace(/Î/g, 'I')
     .trim()
 }
 
@@ -83,7 +108,30 @@ const ExpendituresSettings = () => {
     googleSheetsUrl: ''
   })
   
-  const [activeTab, setActiveTab] = useState('departments') // 'departments' PRIMUL! (user vrea departamente prima)
+  // URL Search Params - pentru a deschide tab-ul corect din link
+  const [searchParams] = useSearchParams()
+  
+  // Salvează activeTab în localStorage pentru a păstra pagina după refresh
+  const [activeTab, setActiveTab] = useState(() => {
+    // PRIORITATE: 1. URL param, 2. localStorage, 3. default
+    const urlTab = searchParams.get('tab')
+    if (urlTab) return urlTab
+    const saved = localStorage.getItem('expendituresSettings_activeTab')
+    return saved || 'departments' // 'departments' PRIMUL! (user vrea departamente prima)
+  })
+  
+  // Actualizează tab-ul când se schimbă URL-ul
+  useEffect(() => {
+    const urlTab = searchParams.get('tab')
+    if (urlTab && urlTab !== activeTab) {
+      setActiveTab(urlTab)
+    }
+  }, [searchParams])
+  
+  // Actualizează localStorage când se schimbă tab-ul
+  useEffect(() => {
+    localStorage.setItem('expendituresSettings_activeTab', activeTab)
+  }, [activeTab])
   
   // Google Sheets Import
   const [googleSheetsSettings, setGoogleSheetsSettings] = useState({
@@ -117,13 +165,178 @@ const ExpendituresSettings = () => {
   const [preferencesPreviewData, setPreferencesPreviewData] = useState(null) // Preview data before import
   const [loadingPreferencesPreview, setLoadingPreferencesPreview] = useState(false)
 
-  // Modul Electrică - NOU
+
+  // Modul Electrică - REFACUT COMPLET DE LA ZERO
+  const [electricSubTab, setElectricSubTab] = useState('analiza') // 'analiza' sau 'centralizator'
   const [electricInvoiceFile, setElectricInvoiceFile] = useState(null)
   const [electricInvoiceLink, setElectricInvoiceLink] = useState('')
+  const [electricPdfBase64, setElectricPdfBase64] = useState(null) // PDF ca Base64 pentru salvare
+  const [electricPdfFilename, setElectricPdfFilename] = useState(null) // Numele fișierului PDF
+  const [nlcCentralizer, setNlcCentralizer] = useState([])
+  const [loadingNlcCentralizer, setLoadingNlcCentralizer] = useState(false)
+  const [selectedNlcIds, setSelectedNlcIds] = useState([])
+  const [deletingNlcs, setDeletingNlcs] = useState(false)
+  const [expandedLocations, setExpandedLocations] = useState({})
+  const [nlcFilterLocation, setNlcFilterLocation] = useState('all')
+  const [nlcFilterPeriod, setNlcFilterPeriod] = useState('all')
+
+  // Funcție pentru salvarea NLC-urilor în centralizator (și opțional în cheltuieli)
+  const handleSaveElectricToCentralizer = async () => {
+    if (!electricAnalysisResult?.extractedData) {
+      toast.error('Nu există date de salvat')
+      return
+    }
+
+    setSavingElectric(true)
+    try {
+      // 1. Salvează în centralizator
+      toast.loading('Se salvează în centralizator...', { id: 'electric-save' })
+      
+      const requestData = {
+        extractedData: electricAnalysisResult.extractedData
+      }
+      
+      // Salvează automat PDF-ul dacă există (fără confirm)
+      if (electricPdfBase64) {
+        requestData.pdfData = electricPdfBase64
+        requestData.pdfFilename = electricPdfFilename || 'factura.pdf'
+        console.log('📎 PDF TRIMIS:', electricPdfFilename, '- Size:', Math.round(electricPdfBase64.length / 1024), 'KB')
+      }
+      
+      const response = await axios.post('/api/expenditures/save-electric-nlc', requestData)
+
+      if (response.data?.success) {
+        let message = `✅ ${response.data.saved_count} NLC-uri salvate în centralizator`
+        if (response.data.duplicates && response.data.duplicates > 0) {
+          message += ` (${response.data.duplicates} duplicate ignorate)`
+        }
+        if (electricPdfBase64) {
+          message += ' 📎'
+        }
+        
+        // 2. Dacă checkbox-ul e bifat, salvează și în cheltuieli
+        if (alsoSaveToExpenditures) {
+          toast.loading('Se salvează și în cheltuieli...', { id: 'electric-save' })
+          
+          try {
+            const expResponse = await axios.post('/api/expenditures/save-electric-invoice', {
+              extractedData: electricAnalysisResult.extractedData
+            })
+            
+            if (expResponse.data?.success) {
+              message += ` + ${expResponse.data.saved_count || 'date'} salvate în cheltuieli!`
+              toast.success(message, { id: 'electric-save', duration: 5000 })
+            } else {
+              toast.success(message, { id: 'electric-save', duration: 3000 })
+              toast.error('⚠️ Eroare la salvarea în cheltuieli: ' + (expResponse.data?.error || 'Necunoscută'))
+            }
+          } catch (expError) {
+            toast.success(message, { id: 'electric-save', duration: 3000 })
+            toast.error('⚠️ Eroare la salvarea în cheltuieli: ' + (expError.response?.data?.error || expError.message))
+          }
+        } else {
+          toast.success(message, { id: 'electric-save', duration: 5000 })
+        }
+        
+        // Resetează după salvare
+        setElectricPdfBase64(null)
+        setElectricPdfFilename(null)
+        setElectricAnalysisResult(null)
+        setElectricInvoiceFile(null)
+        setElectricInvoiceLink('')
+        
+        // Încarcă centralizatorul actualizat
+        loadNlcCentralizer()
+      } else {
+        toast.error(response.data?.error || 'Eroare la salvare', { id: 'electric-save' })
+      }
+    } catch (error) {
+      console.error('Error saving to centralizer:', error)
+      toast.error(error.response?.data?.error || 'Eroare la salvarea în centralizator', { id: 'electric-save' })
+    } finally {
+      setSavingElectric(false)
+    }
+  }
+
+  // Funcție pentru încărcarea centralizatorului NLC
+  const loadNlcCentralizer = async () => {
+    setLoadingNlcCentralizer(true)
+    try {
+      const response = await axios.get('/api/expenditures/electric-nlc-centralizer')
+      if (response.data?.success) {
+        setNlcCentralizer(response.data.data || [])
+      }
+    } catch (error) {
+      console.error('Error loading NLC centralizer:', error)
+      toast.error('Eroare la încărcarea centralizatorului NLC')
+    } finally {
+      setLoadingNlcCentralizer(false)
+    }
+  }
+
+  // Încarcă centralizatorul când se schimbă tab-ul
+  useEffect(() => {
+    if (activeTab === 'electric' && electricSubTab === 'centralizator') {
+      loadNlcCentralizer()
+    }
+  }, [activeTab, electricSubTab])
+
+  // Funcție pentru ștergerea NLC-urilor selectate
+  const handleDeleteSelectedNlcs = async () => {
+    if (selectedNlcIds.length === 0) {
+      toast.error('Selectează cel puțin un NLC pentru ștergere!')
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Ești sigur că vrei să ștergi ${selectedNlcIds.length} NLC-uri din centralizator?\n\nAceastă acțiune nu poate fi anulată!`
+    )
+    if (!confirmed) return
+
+    setDeletingNlcs(true)
+    try {
+      const response = await axios.post('/api/expenditures/delete-electric-nlcs', {
+        nlc_ids: selectedNlcIds
+      })
+      
+      if (response.data?.success) {
+        toast.success(`${response.data.deleted_count} NLC-uri șterse cu succes!`)
+        setSelectedNlcIds([])
+        loadNlcCentralizer()
+      } else {
+        toast.error(response.data?.error || 'Eroare la ștergere')
+      }
+    } catch (error) {
+      console.error('Error deleting NLCs:', error)
+      toast.error('Eroare la ștergerea NLC-urilor')
+    } finally {
+      setDeletingNlcs(false)
+    }
+  }
+
+  // Toggle selectare NLC
+  const toggleNlcSelection = (nlcId) => {
+    setSelectedNlcIds(prev => 
+      prev.includes(nlcId) 
+        ? prev.filter(id => id !== nlcId)
+        : [...prev, nlcId]
+    )
+  }
+
+  // Selectare/deselectare toate NLC-urile
+  const toggleSelectAllNlcs = () => {
+    if (selectedNlcIds.length === nlcCentralizer.length) {
+      setSelectedNlcIds([])
+    } else {
+      // Folosim nlc_code pentru identificare unică
+      setSelectedNlcIds(nlcCentralizer.map(n => n.nlc_code))
+    }
+  }
+
   const [analyzingElectric, setAnalyzingElectric] = useState(false)
   const [electricAnalysisResult, setElectricAnalysisResult] = useState(null)
   
-  // Handler pentru analiza facturii electrice
+  // Handler pentru analiza facturii electrice - REFACUT COMPLET
   const handleAnalyzeElectricInvoice = async () => {
     if (!electricInvoiceFile && !electricInvoiceLink) {
       toast.error('Atașează un PDF sau introdu un link!')
@@ -136,17 +349,20 @@ const ExpendituresSettings = () => {
     try {
       toast.loading('Se analizează factura...', { id: 'electric-analyze' })
 
-      let formData = new FormData()
+      let requestData = null
+      let headers = {}
+      
       if (electricInvoiceFile) {
+        const formData = new FormData()
         formData.append('file', electricInvoiceFile)
-      } else if (electricInvoiceLink) {
-        formData.append('link', electricInvoiceLink)
+        requestData = formData
+      } else if (electricInvoiceLink && electricInvoiceLink.trim()) {
+        requestData = { link: electricInvoiceLink.trim() }
+        headers['Content-Type'] = 'application/json'
       }
 
-      const response = await axios.post('/api/expenditures/analyze-electric-invoice', formData, {
-        headers: {
-          'Content-Type': electricInvoiceFile ? 'multipart/form-data' : 'application/json'
-        },
+      const response = await axios.post('/api/expenditures/analyze-electric-invoice', requestData, {
+        headers,
         timeout: 60000
       })
 
@@ -167,7 +383,45 @@ const ExpendituresSettings = () => {
     }
   }
 
-  // Handler pentru export Google Sheet
+  // Handler pentru salvare în cheltuieli
+  const [savingElectric, setSavingElectric] = useState(false)
+  const [alsoSaveToExpenditures, setAlsoSaveToExpenditures] = useState(true) // Default: bifat
+  const handleSaveElectricToExpenditures = async () => {
+    if (!electricAnalysisResult) {
+      toast.error('Analizează mai întâi factura!')
+      return
+    }
+
+    try {
+      setSavingElectric(true)
+      toast.loading('Se salvează factura în cheltuieli...', { id: 'electric-save' })
+
+      const response = await axios.post('/api/expenditures/save-electric-invoice', {
+        extractedData: electricAnalysisResult.extractedData
+      })
+
+      if (response.data?.success) {
+        toast.success('Factura electrică a fost salvată cu succes!', { id: 'electric-save' })
+        setElectricAnalysisResult(null)
+        setElectricInvoiceFile(null)
+        setElectricInvoiceLink('')
+        setElectricPdfBase64(null)
+        setElectricPdfFilename(null)
+      } else {
+        throw new Error(response.data?.error || 'Eroare la salvare')
+      }
+    } catch (error) {
+      console.error('Error saving electric invoice:', error)
+      toast.error(
+        `Eroare la salvare: ${error.response?.data?.error || error.message}`,
+        { id: 'electric-save', duration: 5000 }
+      )
+    } finally {
+      setSavingElectric(false)
+    }
+  }
+
+  // Handler pentru export Excel
   const handleExportElectricToGoogleSheet = async () => {
     if (!electricAnalysisResult) {
       toast.error('Analizează mai întâi factura!')
@@ -175,30 +429,52 @@ const ExpendituresSettings = () => {
     }
 
     try {
-      toast.loading('Se generează modelul Google Sheet...', { id: 'electric-export' })
+      toast.loading('Se generează fișierul Excel...', { id: 'electric-export' })
 
       const response = await axios.post('/api/expenditures/export-electric-to-sheet', {
         extractedData: electricAnalysisResult.extractedData
+      }, {
+        responseType: 'blob',
+        validateStatus: (status) => status < 500 // Accept all status codes below 500
       })
 
-      if (response.data?.success) {
-        // Descarcă fișierul CSV/Excel
-        const blob = new Blob([response.data.csvContent], { type: 'text/csv;charset=utf-8;' })
+      // Check if response is actually JSON error (when content-type is application/json)
+      const contentType = response.headers['content-type']
+      if (contentType && contentType.includes('application/json')) {
+        // It's an error response
+        const reader = new FileReader()
+        reader.onload = () => {
+          try {
+            const error = JSON.parse(reader.result)
+            toast.error(`Eroare la export: ${error.error || 'Eroare necunoscută'}`, { id: 'electric-export' })
+          } catch (e) {
+            toast.error('Eroare la export: răspuns invalid', { id: 'electric-export' })
+          }
+        }
+        reader.readAsText(response.data)
+        return
+      }
+
+      if (response.data) {
+        const blob = new Blob([response.data], { 
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+        })
         const link = document.createElement('a')
         const url = URL.createObjectURL(blob)
         link.setAttribute('href', url)
-        link.setAttribute('download', `Model_Factura_Electrică_${new Date().toISOString().split('T')[0]}.csv`)
+        link.setAttribute('download', `Model_Factura_Electrică_${new Date().toISOString().split('T')[0]}.xlsx`)
         link.style.visibility = 'hidden'
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
+        URL.revokeObjectURL(url)
 
-        toast.success('Model Google Sheet exportat cu succes!', { id: 'electric-export' })
+        toast.success('Fișier Excel exportat cu succes!', { id: 'electric-export' })
       } else {
-        throw new Error(response.data?.error || 'Eroare la export')
+        throw new Error('Eroare la generarea fișierului')
       }
     } catch (error) {
-      console.error('Error exporting to Google Sheet:', error)
+      console.error('Error exporting to Excel:', error)
       toast.error(
         `Eroare la export: ${error.response?.data?.error || error.message}`,
         { id: 'electric-export', duration: 5000 }
@@ -720,16 +996,29 @@ const ExpendituresSettings = () => {
         axios.get('/api/expenditures/settings')
       ])
       
+      // Normalizează răspunsurile - external-locations returnează { success: true, locations: [...] }
+      const locationsData = Array.isArray(locsRes.data) 
+        ? locsRes.data 
+        : (locsRes.data?.locations || [])
+      
+      // Transformă array-ul de string-uri în array de obiecte cu name (pentru compatibilitate)
+      const locationsArray = locationsData.map(loc => 
+        typeof loc === 'string' ? { name: loc } : loc
+      )
+      
       // Detect NEW items DOAR dacă listele vechi nu sunt goale (nu e prima încărcare)
-      const oldTypes = expenditureTypes.map(t => t.name)
-      const oldDepts = departments.map(d => d.name)
-      const oldLocs = locations.map(l => l.name)
+      const oldTypes = Array.isArray(expenditureTypes) ? expenditureTypes.map(t => t.name) : []
+      const oldDepts = Array.isArray(departments) ? departments.map(d => d.name) : []
+      const oldLocs = Array.isArray(locations) ? locations.map(l => l.name || l) : []
       
       // Doar dacă listele VECHI au conținut (nu e prima încărcare)
       if (oldTypes.length > 0 || oldDepts.length > 0 || oldLocs.length > 0) {
         const newTypes = typesRes.data.filter(t => !oldTypes.includes(t.name))
         const newDepts = deptsRes.data.filter(d => !oldDepts.includes(d.name))
-        const newLocs = locsRes.data.filter(l => !oldLocs.includes(l.name))
+        const newLocs = locationsArray.filter(l => {
+          const locName = typeof l === 'string' ? l : (l.name || l)
+          return !oldLocs.includes(locName)
+        })
         
         if (newTypes.length > 0 || newDepts.length > 0 || newLocs.length > 0) {
           setNewItems({
@@ -753,9 +1042,9 @@ const ExpendituresSettings = () => {
         setNewItems({ types: [], departments: [], locations: [] })
       }
       
-      setExpenditureTypes(typesRes.data)
-      setDepartments(deptsRes.data)
-      setLocations(locsRes.data)
+      setExpenditureTypes(typesRes.data || [])
+      setDepartments(deptsRes.data || [])
+      setLocations(locationsArray)
       
       // Load existing settings (cu fallback din localStorage)
       let loadedSettings = settingsRes.data
@@ -1030,6 +1319,7 @@ const ExpendituresSettings = () => {
               { id: 'powerbi-sync', label: '☁️ Power BI Sync' }, // Sincronizare Power BI
               { id: 'google-sheets', label: '📊 Google Sheets' }, // Import din Google Sheets!
               { id: 'preferences-import', label: '⚙️ Import Preferințe' }, // Import date din preferințe (taxe, cyber, etc.)
+              { id: 'electric', label: '⚡ Electrică' }, // Modul Electrică
               { id: 'general', label: 'Setări Generale' }
             ].map(tab => (
               <button
@@ -1185,10 +1475,10 @@ const ExpendituresSettings = () => {
               
               <div className="bg-slate-50 dark:bg-slate-900/40 rounded-lg p-4">
                 <div className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-                  <strong>{[...new Set(settings.includedDepartments)].length}</strong> / <strong>{departments.length}</strong> departamente selectate
-                  {settings.includedDepartments.length !== [...new Set(settings.includedDepartments)].length && (
+                  <strong>{[...new Set(settings.includedDepartments || [])].length}</strong> / <strong>{departments.length}</strong> departamente selectate
+                  {settings.includedDepartments && settings.includedDepartments.length !== [...new Set(settings.includedDepartments)].length && (
                     <span className="ml-2 text-xs text-orange-600 dark:text-orange-400">
-                      (⚠️ {settings.includedDepartments.length - [...new Set(settings.includedDepartments)].length} duplicate)
+                      (⚠️ {settings.includedDepartments.length - [...new Set(settings.includedDepartments)].length} duplicate - se vor elimina la salvare)
                     </span>
                   )}
                 </div>
@@ -2031,91 +2321,6 @@ const ExpendituresSettings = () => {
           {/* PREFERENCES IMPORT TAB */}
           {activeTab === 'preferences-import' && (
             <div className="space-y-6">
-              {/* MODUL ELECTRICĂ - NOU */}
-              <div className="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-xl p-6 border-2 border-yellow-300 dark:border-yellow-700 shadow-lg">
-                <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center">
-                  <span className="text-2xl mr-3">⚡</span>
-                  Modul Electrică
-                </h3>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
-                  Atașează o factură PDF sau link. Sistemul analizează și exportă modelul pentru Google Sheet, astfel încât să poți copia datele care te interesează.
-                </p>
-                
-                {/* Upload PDF sau Link */}
-                <div className="space-y-4 mb-6">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">
-                      Factură PDF sau Link
-                    </label>
-                    <div className="flex space-x-3">
-                      <input
-                        type="file"
-                        accept=".pdf"
-                        onChange={(e) => {
-                          const file = e.target.files[0]
-                          if (file) {
-                            setElectricInvoiceFile(file)
-                            setElectricInvoiceLink('')
-                          }
-                        }}
-                        className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-                      />
-                      <span className="px-4 py-3 text-slate-500 dark:text-slate-400">SAU</span>
-                      <input
-                        type="url"
-                        value={electricInvoiceLink}
-                        onChange={(e) => {
-                          setElectricInvoiceLink(e.target.value)
-                          setElectricInvoiceFile(null)
-                        }}
-                        placeholder="https://..."
-                        className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Buton Analiză */}
-                  <button
-                    onClick={handleAnalyzeElectricInvoice}
-                    disabled={!electricInvoiceFile && !electricInvoiceLink}
-                    className="w-full px-6 py-3.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl transition-colors shadow-sm flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-base"
-                  >
-                    <Eye className="w-5 h-5" />
-                    <span>{analyzingElectric ? 'Se analizează...' : 'Analizează Factură'}</span>
-                  </button>
-                </div>
-                
-                {/* Rezultate Analiză */}
-                {electricAnalysisResult && (
-                  <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 mb-6">
-                    <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
-                      Date Extrase
-                    </h4>
-                    <div className="space-y-3 mb-4">
-                      {Object.entries(electricAnalysisResult.extractedData || {}).map(([key, value]) => (
-                        <div key={key} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
-                          <span className="text-sm font-medium text-slate-600 dark:text-slate-400 capitalize">
-                            {key.replace(/_/g, ' ')}:
-                          </span>
-                          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                            {value || 'N/A'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    
-                    {/* Buton Export Google Sheet */}
-                    <button
-                      onClick={handleExportElectricToGoogleSheet}
-                      className="w-full px-6 py-3.5 bg-green-500 hover:bg-green-600 text-white rounded-xl transition-colors shadow-sm flex items-center justify-center space-x-2 font-medium text-base"
-                    >
-                      <Download className="w-5 h-5" />
-                      <span>Exportă Model Google Sheet</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-
               {/* Import Date din Preferințe - EXISTENT */}
               <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
                 <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center">
@@ -2411,7 +2616,583 @@ const ExpendituresSettings = () => {
             </div>
           )}
           
-          {/* POWER BI SYNC TAB */}
+          {/* ELECTRIC TAB - REFACUT COMPLET DE LA ZERO */}
+          {activeTab === 'electric' && (
+            <div className="space-y-6">
+              {/* Sub-tab-uri Electric + Shortcut la Modul */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setElectricSubTab('analiza')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      electricSubTab === 'analiza'
+                        ? 'bg-yellow-500 text-white'
+                        : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
+                    }`}
+                  >
+                    ⚡ Analiză Factură
+                  </button>
+                  <button
+                    onClick={() => setElectricSubTab('centralizator')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      electricSubTab === 'centralizator'
+                        ? 'bg-yellow-500 text-white'
+                        : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
+                    }`}
+                  >
+                    📊 Centralizator NLC
+                  </button>
+                </div>
+                
+                {/* Buton shortcut la Modul Electrică */}
+                <button
+                  onClick={() => navigate('/expenditures/electric')}
+                  className="px-4 py-2 rounded-lg font-medium transition-all hover:scale-105 bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg hover:shadow-xl"
+                  title="Vezi centralizatorul consum și costuri"
+                >
+                  📈 Modul Electrică →
+                </button>
+              </div>
+
+              {/* Sub-tab: Analiză Factură */}
+              {electricSubTab === 'analiza' && (
+              <div className="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-xl p-6 border-2 border-yellow-300 dark:border-yellow-700 shadow-lg">
+                <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center">
+                  <span className="text-2xl mr-3">⚡</span>
+                  Analiză Factură Electrică
+                </h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+                  Atașează o factură PDF sau link. Sistemul extrage automat toate datele: locații, NLC-uri, sume, consumuri și prețuri.
+                </p>
+                
+                {/* Upload PDF sau Link */}
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">
+                      Factură PDF sau Link
+                    </label>
+                    <div className="flex space-x-3">
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        onChange={(e) => {
+                          const file = e.target.files[0]
+                          if (file) {
+                            setElectricInvoiceFile(file)
+                            setElectricInvoiceLink('')
+                            // Convertește fișierul la Base64 pentru salvare ulterioară
+                            const reader = new FileReader()
+                            reader.onload = () => {
+                              setElectricPdfBase64(reader.result)
+                              setElectricPdfFilename(file.name)
+                            }
+                            reader.readAsDataURL(file)
+                          }
+                        }}
+                        className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                      />
+                      <span className="px-4 py-3 text-slate-500 dark:text-slate-400 flex items-center">SAU</span>
+                      <input
+                        type="url"
+                        value={electricInvoiceLink}
+                        onChange={(e) => {
+                          setElectricInvoiceLink(e.target.value)
+                          setElectricInvoiceFile(null)
+                          setElectricPdfBase64(null)
+                          setElectricPdfFilename(null)
+                        }}
+                        placeholder="https://..."
+                        className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                      />
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={handleAnalyzeElectricInvoice}
+                    disabled={!electricInvoiceFile && !electricInvoiceLink}
+                    className="w-full px-6 py-3.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl transition-colors shadow-sm flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-base"
+                  >
+                    <Eye className="w-5 h-5" />
+                    <span>{analyzingElectric ? 'Se analizează...' : 'Analizează Factură'}</span>
+                  </button>
+                </div>
+                
+                {/* Rezultate Analiză - TABEL COMPACT CU TOATE NLC-URILE */}
+                {electricAnalysisResult && (() => {
+                  const data = electricAnalysisResult.extractedData || {}
+                  const nlcData = data.nlc_data || []
+                  
+                  return (
+                    <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                      <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
+                        📊 Date Extrase
+                      </h4>
+                      
+                      {/* Tabel compact cu toate NLC-urile - CU ENERGIE REACTIVĂ */}
+                      {nlcData.length > 0 ? (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead className="bg-slate-100 dark:bg-slate-700">
+                              <tr>
+                                <th className="px-2 py-1.5 text-left font-semibold text-slate-700 dark:text-slate-300">NLC</th>
+                                <th className="px-2 py-1.5 text-left font-semibold text-slate-700 dark:text-slate-300">Locație</th>
+                                <th className="px-2 py-1.5 text-right font-semibold text-green-700 dark:text-green-300">E.Activă (RON)</th>
+                                <th className="px-2 py-1.5 text-right font-semibold text-slate-700 dark:text-slate-300">kWh</th>
+                                <th className="px-2 py-1.5 text-right font-semibold text-orange-700 dark:text-orange-300">E.Reactivă</th>
+                                <th className="px-2 py-1.5 text-right font-semibold text-slate-700 dark:text-slate-300">kVArh</th>
+                                <th className="px-2 py-1.5 text-right font-semibold text-blue-700 dark:text-blue-300">TOTAL RON</th>
+                                <th className="px-2 py-1.5 text-right font-semibold text-yellow-600 dark:text-yellow-400">Preț/kWh</th>
+                                <th className="px-2 py-1.5 text-center font-semibold text-slate-700 dark:text-slate-300">✓</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                              {nlcData.map((nlc, idx) => {
+                                const pretPerKwh = nlc.pretCalculat 
+                                  ? parseFloat(nlc.pretCalculat).toFixed(4)
+                                  : (nlc.consum && nlc.consum > 0 && nlc.suma
+                                    ? (nlc.suma / nlc.consum).toFixed(4)
+                                    : (data.pret_per_kwh ? parseFloat(data.pret_per_kwh).toFixed(4) : 'N/A'))
+                                const luniCount = nlc.luniAcoperite?.length || 1
+                                const pretVerificare = nlc.pretVerificare
+                                const sumaTotala = (parseFloat(nlc.suma) || 0) + (parseFloat(nlc.sumaReactiva) || 0)
+                                return (
+                                  <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                                    <td className="px-2 py-1.5 font-mono text-blue-600 dark:text-blue-400 text-xs">{nlc.nlc}</td>
+                                    <td className="px-2 py-1.5 text-slate-700 dark:text-slate-300 text-xs">{nlc.location || 'N/A'}</td>
+                                    <td className="px-2 py-1.5 text-right font-semibold text-green-600 dark:text-green-400 text-xs">
+                                      {nlc.suma ? parseFloat(nlc.suma).toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}
+                                    </td>
+                                    <td className="px-2 py-1.5 text-right text-slate-700 dark:text-slate-300 text-xs">
+                                      {nlc.consum ? parseFloat(nlc.consum).toLocaleString('ro-RO', { maximumFractionDigits: 0 }) : '-'}
+                                    </td>
+                                    <td className="px-2 py-1.5 text-right text-orange-600 dark:text-orange-400 text-xs">
+                                      {nlc.sumaReactiva && nlc.sumaReactiva > 0 ? parseFloat(nlc.sumaReactiva).toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
+                                    </td>
+                                    <td className="px-2 py-1.5 text-right text-slate-500 dark:text-slate-400 text-xs">
+                                      {nlc.consumReactiv && nlc.consumReactiv > 0 ? parseFloat(nlc.consumReactiv).toLocaleString('ro-RO', { maximumFractionDigits: 0 }) : '-'}
+                                    </td>
+                                    <td className="px-2 py-1.5 text-right font-bold text-blue-600 dark:text-blue-400 text-xs">
+                                      {sumaTotala > 0 ? sumaTotala.toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}
+                                    </td>
+                                    <td className="px-2 py-1.5 text-right font-semibold text-yellow-600 dark:text-yellow-400 text-xs">
+                                      {pretPerKwh !== 'N/A' ? pretPerKwh : '-'}
+                                    </td>
+                                    <td className="px-2 py-1.5 text-center text-xs">
+                                      {pretVerificare && typeof pretVerificare === 'object' ? (
+                                        pretVerificare.esteCorect ? (
+                                          <span className="text-green-600 dark:text-green-400" title={`Diferență: ${String(pretVerificare.diferentaPercent || 0)}%`}>✓</span>
+                                        ) : (
+                                          <span className="text-red-600 dark:text-red-400" title={`Diferență: ${String(pretVerificare.diferentaPercent || '?')}%`}>⚠</span>
+                                        )
+                                      ) : '-'}
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                            <tfoot className="bg-slate-100 dark:bg-slate-700 font-semibold">
+                              <tr>
+                                <td colSpan="2" className="px-2 py-1.5 text-slate-700 dark:text-slate-300 text-xs font-bold">TOTAL</td>
+                                <td className="px-2 py-1.5 text-right font-bold text-green-600 dark:text-green-400 text-xs">
+                                  {nlcData.reduce((sum, n) => sum + (parseFloat(n.suma) || 0), 0).toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </td>
+                                <td className="px-2 py-1.5 text-right text-slate-700 dark:text-slate-300 text-xs">
+                                  {nlcData.reduce((sum, n) => sum + (parseFloat(n.consum) || 0), 0).toLocaleString('ro-RO', { maximumFractionDigits: 0 })}
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-bold text-orange-600 dark:text-orange-400 text-xs">
+                                  {nlcData.reduce((sum, n) => sum + (parseFloat(n.sumaReactiva) || 0), 0).toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </td>
+                                <td className="px-2 py-1.5 text-right text-slate-500 dark:text-slate-400 text-xs">
+                                  {nlcData.reduce((sum, n) => sum + (parseFloat(n.consumReactiv) || 0), 0).toLocaleString('ro-RO', { maximumFractionDigits: 0 })}
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-bold text-blue-600 dark:text-blue-400 text-xs">
+                                  {nlcData.reduce((sum, n) => sum + (parseFloat(n.suma) || 0) + (parseFloat(n.sumaReactiva) || 0), 0).toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </td>
+                                <td colSpan="2" className="px-2 py-1.5 text-xs"></td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-slate-500 dark:text-slate-400 text-sm">
+                          Nu s-au găsit NLC-uri în factură
+                        </div>
+                      )}
+                      
+                      {/* Date generale factură - COMPACT */}
+                      <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                        <div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">Număr Factură</div>
+                          <div className="font-semibold text-slate-900 dark:text-slate-100 text-xs">{data.numar_factura || 'N/A'}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">Perioadă</div>
+                          <div className="font-semibold text-slate-900 dark:text-slate-100 text-xs">{data.perioada_facturare || nlcData[0]?.period || 'N/A'}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">Furnizor</div>
+                          <div className="font-semibold text-slate-900 dark:text-slate-100 text-xs truncate">{data.furnizor || 'N/A'}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mb-0.5">Preț/kWh (general)</div>
+                          <div className="font-semibold text-slate-900 dark:text-slate-100 text-xs">{data.pret_per_kwh ? `${parseFloat(data.pret_per_kwh).toFixed(4)}` : 'N/A'}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+                
+                {/* Opțiuni Salvare */}
+                <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={alsoSaveToExpenditures}
+                      onChange={(e) => setAlsoSaveToExpenditures(e.target.checked)}
+                      className="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <div className="flex-1">
+                      <span className="font-medium text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                        Salvează automat și în Cheltuieli
+                      </span>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        La salvarea în centralizator, factura va fi adăugată automat și în tabelul de cheltuieli
+                      </p>
+                    </div>
+                    {alsoSaveToExpenditures && (
+                      <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs rounded-full">
+                        ✓ Activ
+                      </span>
+                    )}
+                  </label>
+                </div>
+
+                {/* Buton Principal Salvare */}
+                <div className="space-y-3 mt-4">
+                  <button
+                    onClick={handleSaveElectricToCentralizer}
+                    disabled={savingElectric || !electricAnalysisResult}
+                    className="w-full px-6 py-4 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 disabled:from-slate-400 disabled:to-slate-500 disabled:cursor-not-allowed text-white rounded-xl transition-all shadow-lg hover:shadow-xl flex items-center justify-center space-x-3 font-semibold text-base"
+                  >
+                    <Database className="w-5 h-5" />
+                    <span>
+                      {savingElectric 
+                        ? 'Se salvează...' 
+                        : alsoSaveToExpenditures 
+                          ? '💾 Salvează în Centralizator + Cheltuieli' 
+                          : '💾 Salvează în Centralizator NLC'}
+                    </span>
+                  </button>
+                  
+                  {!alsoSaveToExpenditures && (
+                    <button
+                      onClick={handleSaveElectricToExpenditures}
+                      disabled={savingElectric || !electricAnalysisResult}
+                      className="w-full px-6 py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-slate-400 disabled:cursor-not-allowed text-white rounded-xl transition-colors shadow-sm flex items-center justify-center space-x-2 font-medium text-sm"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{savingElectric ? 'Se salvează...' : 'Salvează doar în Cheltuieli'}</span>
+                    </button>
+                  )}
+                  
+                  <button
+                    onClick={handleExportElectricToGoogleSheet}
+                    disabled={!electricAnalysisResult}
+                    className="w-full px-6 py-3 bg-green-500 hover:bg-green-600 disabled:bg-slate-400 disabled:cursor-not-allowed text-white rounded-xl transition-colors shadow-sm flex items-center justify-center space-x-2 font-medium text-sm"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Exportă Model Excel</span>
+                  </button>
+                </div>
+              </div>
+              )}
+
+              {/* Sub-tab: Centralizator NLC */}
+              {electricSubTab === 'centralizator' && (
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border-2 border-blue-300 dark:border-blue-700 shadow-lg">
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex items-center">
+                      <span className="text-2xl mr-3">📊</span>
+                      Centralizator NLC-uri
+                    </h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                      Toate locurile de consum (NLC) extrase din facturi, cu statistici și istoric.
+                    </p>
+                  </div>
+                  <button
+                    onClick={loadNlcCentralizer}
+                    disabled={loadingNlcCentralizer}
+                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex items-center space-x-2"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${loadingNlcCentralizer ? 'animate-spin' : ''}`} />
+                    <span>Reîncarcă</span>
+                  </button>
+                </div>
+
+                {loadingNlcCentralizer ? (
+                  <div className="flex items-center justify-center py-12">
+                    <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
+                    <span className="ml-3 text-slate-600 dark:text-slate-400">Se încarcă...</span>
+                  </div>
+                ) : nlcCentralizer.length > 0 ? (
+                  <>
+                    {/* FILTRE */}
+                    <div className="flex flex-wrap gap-4 mb-6 p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                      <div className="flex-1 min-w-[200px]">
+                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Locație</label>
+                        <select
+                          value={nlcFilterLocation}
+                          onChange={(e) => setNlcFilterLocation(e.target.value)}
+                          className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm"
+                        >
+                          <option value="all">Toate locațiile</option>
+                          {[...new Set(nlcCentralizer.map(n => n.location_name))].sort().map(loc => (
+                            <option key={loc} value={loc}>{loc}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex-1 min-w-[200px]">
+                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Perioadă</label>
+                        <select
+                          value={nlcFilterPeriod}
+                          onChange={(e) => setNlcFilterPeriod(e.target.value)}
+                          className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm"
+                        >
+                          <option value="all">Toate perioadele</option>
+                          {[...new Set(nlcCentralizer.map(n => n.perioada_facturare).filter(Boolean))].sort().map(period => (
+                            <option key={period} value={period}>{period}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {(nlcFilterLocation !== 'all' || nlcFilterPeriod !== 'all') && (
+                        <div className="flex items-end">
+                          <button
+                            onClick={() => { setNlcFilterLocation('all'); setNlcFilterPeriod('all'); }}
+                            className="px-3 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                          >
+                            ✕ Resetează
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Statistici rapide */}
+                    <div className="mb-4 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                      <div className="flex flex-wrap gap-6 items-center">
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">📄</span>
+                          <div>
+                            <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+                              {[...new Set(nlcCentralizer.map(n => n.numar_factura).filter(Boolean))].length}
+                            </div>
+                            <div className="text-xs text-emerald-600 dark:text-emerald-400">facturi unice</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">🔌</span>
+                          <div>
+                            <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                              {nlcCentralizer.length}
+                            </div>
+                            <div className="text-xs text-blue-600 dark:text-blue-400">NLC-uri</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">📍</span>
+                          <div>
+                            <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                              {[...new Set(nlcCentralizer.map(n => n.location_name))].length}
+                            </div>
+                            <div className="text-xs text-purple-600 dark:text-purple-400">locații</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">💰</span>
+                          <div>
+                            <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                              {nlcCentralizer.reduce((sum, n) => sum + (parseFloat(n.total_suma) || 0), 0).toLocaleString('ro-RO', { minimumFractionDigits: 2 })}
+                            </div>
+                            <div className="text-xs text-orange-600 dark:text-orange-400">RON total</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Buton ștergere selectate */}
+                    {selectedNlcIds.length > 0 && (
+                      <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 flex items-center justify-between">
+                        <span className="text-red-700 dark:text-red-300 font-medium">
+                          {selectedNlcIds.length} NLC-uri selectate
+                        </span>
+                        <button
+                          onClick={handleDeleteSelectedNlcs}
+                          disabled={deletingNlcs}
+                          className="px-4 py-2 bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white rounded-lg transition-colors flex items-center space-x-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>{deletingNlcs ? 'Se șterge...' : 'Șterge Selectate'}</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* TABEL ACORDEON PE LOCAȚIE */}
+                    <div className="space-y-2">
+                      {(() => {
+                        // Filtrează datele
+                        const filtered = nlcCentralizer.filter(nlc => {
+                          if (nlcFilterLocation !== 'all' && nlc.location_name !== nlcFilterLocation) return false
+                          if (nlcFilterPeriod !== 'all' && nlc.perioada_facturare !== nlcFilterPeriod) return false
+                          return true
+                        })
+                        
+                        // Grupează pe locație
+                        const byLocation = {}
+                        filtered.forEach(nlc => {
+                          const loc = nlc.location_name || 'N/A'
+                          if (!byLocation[loc]) {
+                            byLocation[loc] = { nlcs: [], totalRon: 0, totalKwh: 0, slots: 0 }
+                          }
+                          byLocation[loc].nlcs.push(nlc)
+                          byLocation[loc].totalRon += parseFloat(nlc.total_suma) || 0
+                          byLocation[loc].totalKwh += parseFloat(nlc.total_consum) || 0
+                          if (nlc.slots_count) byLocation[loc].slots = nlc.slots_count
+                        })
+                        
+                        return Object.entries(byLocation)
+                          .sort((a, b) => b[1].totalRon - a[1].totalRon)
+                          .map(([loc, data]) => {
+                            const isExpanded = expandedLocations[loc]
+                            const kwhPerSlot = data.slots > 0 ? data.totalKwh / data.slots : 0
+                            const ronPerSlot = data.slots > 0 ? data.totalRon / data.slots : 0
+                            
+                            return (
+                              <div key={loc} className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+                                {/* Header locație - click pentru expand */}
+                                <div 
+                                  className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-800/50 cursor-pointer hover:from-slate-200 hover:to-slate-100 dark:hover:from-slate-700 dark:hover:to-slate-700/50 transition-colors"
+                                  onClick={() => setExpandedLocations(prev => ({ ...prev, [loc]: !prev[loc] }))}
+                                >
+                                  <div className="flex items-center space-x-3">
+                                    <span className="text-lg">{isExpanded ? '▼' : '▶'}</span>
+                                    <div>
+                                      <div className="font-bold text-slate-800 dark:text-slate-200 text-lg">{loc}</div>
+                                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                                        {data.nlcs.length} NLC-uri • {[...new Set(data.nlcs.map(n => n.numar_factura).filter(Boolean))].length} facturi
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center space-x-6 text-sm">
+                                    <div className="text-right">
+                                      <div className="font-bold text-green-600 dark:text-green-400">{data.totalRon.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON</div>
+                                      <div className="text-slate-500 dark:text-slate-400">{data.totalKwh.toLocaleString('ro-RO', { maximumFractionDigits: 0 })} kWh</div>
+                                    </div>
+                                    <div className="text-center px-3 py-1 bg-purple-100 dark:bg-purple-900/40 rounded-lg">
+                                      <div className="font-bold text-purple-700 dark:text-purple-300">{data.slots || '-'}</div>
+                                      <div className="text-[10px] text-purple-600 dark:text-purple-400">sloturi</div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="font-bold text-blue-600 dark:text-blue-400">{kwhPerSlot > 0 ? kwhPerSlot.toFixed(2) : '-'}</div>
+                                      <div className="text-[10px] text-blue-500 dark:text-blue-400">kWh/slot</div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="font-bold text-orange-600 dark:text-orange-400">{ronPerSlot > 0 ? ronPerSlot.toFixed(2) : '-'}</div>
+                                      <div className="text-[10px] text-orange-500 dark:text-orange-400">RON/slot</div>
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                {/* NLC-uri - vizibile doar când e expandat */}
+                                {isExpanded && (
+                                  <div className="border-t border-slate-200 dark:border-slate-700">
+                                    <table className="w-full text-xs">
+                                      <thead className="bg-slate-50 dark:bg-slate-900/50">
+                                        <tr>
+                                          <th className="px-3 py-2 text-left w-8">
+                                            <input
+                                              type="checkbox"
+                                              checked={data.nlcs.every(n => selectedNlcIds.includes(n.nlc_code))}
+                                              onChange={() => {
+                                                const allSelected = data.nlcs.every(n => selectedNlcIds.includes(n.nlc_code))
+                                                if (allSelected) {
+                                                  setSelectedNlcIds(prev => prev.filter(id => !data.nlcs.some(n => n.nlc_code === id)))
+                                                } else {
+                                                  setSelectedNlcIds(prev => [...new Set([...prev, ...data.nlcs.map(n => n.nlc_code)])])
+                                                }
+                                              }}
+                                              className="w-3 h-3"
+                                            />
+                                          </th>
+                                          <th className="px-3 py-2 text-left text-slate-600 dark:text-slate-400">NLC</th>
+                                          <th className="px-3 py-2 text-center text-slate-600 dark:text-slate-400">Perioadă</th>
+                                          <th className="px-3 py-2 text-right text-slate-600 dark:text-slate-400">Sumă RON</th>
+                                          <th className="px-3 py-2 text-right text-slate-600 dark:text-slate-400">kWh</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                        {data.nlcs.map(nlc => (
+                                          <tr key={nlc.nlc_code} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 ${selectedNlcIds.includes(nlc.nlc_code) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+                                            <td className="px-3 py-2">
+                                              <input
+                                                type="checkbox"
+                                                checked={selectedNlcIds.includes(nlc.nlc_code)}
+                                                onChange={() => toggleNlcSelection(nlc.nlc_code)}
+                                                className="w-3 h-3"
+                                              />
+                                            </td>
+                                            <td className="px-3 py-2 font-mono text-blue-600 dark:text-blue-400">{nlc.nlc_code}</td>
+                                            <td className="px-3 py-2 text-center text-slate-500 dark:text-slate-400">{nlc.perioada_facturare || '-'}</td>
+                                            <td className="px-3 py-2 text-right font-medium text-green-600 dark:text-green-400">
+                                              {parseFloat(nlc.total_suma || 0).toLocaleString('ro-RO', { minimumFractionDigits: 2 })}
+                                            </td>
+                                            <td className="px-3 py-2 text-right text-slate-600 dark:text-slate-300">
+                                              {parseFloat(nlc.total_consum || 0).toLocaleString('ro-RO', { maximumFractionDigits: 0 })}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })
+                      })()}
+                    </div>
+                    
+                    {/* TOTAL GENERAL */}
+                    <div className="mt-4 p-4 bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 rounded-lg border border-green-200 dark:border-green-800">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-slate-700 dark:text-slate-300">TOTAL GENERAL</span>
+                        <div className="flex space-x-6">
+                          <span className="font-bold text-green-700 dark:text-green-400">
+                            {nlcCentralizer
+                              .filter(n => (nlcFilterLocation === 'all' || n.location_name === nlcFilterLocation) && (nlcFilterPeriod === 'all' || n.perioada_facturare === nlcFilterPeriod))
+                              .reduce((sum, n) => sum + (parseFloat(n.total_suma) || 0), 0)
+                              .toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON
+                          </span>
+                          <span className="text-slate-600 dark:text-slate-400">
+                            {nlcCentralizer
+                              .filter(n => (nlcFilterLocation === 'all' || n.location_name === nlcFilterLocation) && (nlcFilterPeriod === 'all' || n.perioada_facturare === nlcFilterPeriod))
+                              .reduce((sum, n) => sum + (parseFloat(n.total_consum) || 0), 0)
+                              .toLocaleString('ro-RO', { maximumFractionDigits: 0 })} kWh
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-12 text-slate-500 dark:text-slate-400">
+                    <div className="text-4xl mb-4">📭</div>
+                    <p className="text-lg font-medium">Nu există NLC-uri înregistrate</p>
+                    <p className="text-sm mt-2">Analizează facturi electrice pentru a popula centralizatorul.</p>
+                  </div>
+                )}
+              </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'powerbi-sync' && (
             <div className="space-y-6">
               <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-6 border-2 border-green-200 dark:border-green-800">

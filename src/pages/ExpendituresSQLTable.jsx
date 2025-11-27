@@ -65,8 +65,10 @@ const defaultDateRange = () => ({
 
 const dataSourceOptions = [
   { value: 'all', label: 'Toate sursele' },
-  { value: 'bat_sync', label: 'BAT Sync' },
-  { value: 'google_sheets', label: 'Google Sheets' }
+  { value: 'bat', label: 'BAT Sync' },
+  { value: 'electric_invoice', label: 'Facturi Electricitate' },
+  { value: 'google_sheets', label: 'Google Sheets' },
+  { value: 'manual', label: 'Manual' }
 ]
 
 const sortColumns = {
@@ -203,9 +205,14 @@ const ExpendituresSQLTable = () => {
           axios.get('/api/users')
         ])
 
-        const allDepartments = deptRes.data?.map((item) => item.name).filter(Boolean) || []
-        const allTypes = typeRes.data?.map((item) => item.name).filter(Boolean) || []
-        const allLocations = locRes.data?.map((item) => item.name).filter(Boolean) || []
+        // Handle different response formats (array or object with data property)
+        const deptData = Array.isArray(deptRes.data) ? deptRes.data : (deptRes.data?.departments || deptRes.data?.data || [])
+        const typeData = Array.isArray(typeRes.data) ? typeRes.data : (typeRes.data?.types || typeRes.data?.data || [])
+        const locData = Array.isArray(locRes.data) ? locRes.data : (locRes.data?.locations || locRes.data?.data || [])
+        
+        const allDepartments = deptData.map((item) => typeof item === 'string' ? item : item.name).filter(Boolean)
+        const allTypes = typeData.map((item) => typeof item === 'string' ? item : item.name).filter(Boolean)
+        const allLocations = locData.map((item) => typeof item === 'string' ? item : item.name).filter(Boolean)
 
         const includedDepartments = Array.isArray(settingsRes.data?.includedDepartments)
           ? settingsRes.data.includedDepartments.filter(Boolean)
@@ -287,6 +294,11 @@ const ExpendituresSQLTable = () => {
       if (filters.location && filters.location !== 'all') params.location = filters.location
       if (filters.dataSource && filters.dataSource !== 'all') params.dataSource = filters.dataSource
       if (filters.search) params.search = filters.search
+    }
+
+    // DEBUG: Log parametrii trimiși
+    if (filters.dataSource === 'electric_invoice') {
+      console.log('🔍 FRONTEND DEBUG - Request params:', params)
     }
 
     params.sortBy = sort.sortBy
@@ -609,6 +621,17 @@ const ExpendituresSQLTable = () => {
   const handleFilterChange = (key, value) => {
     setFilters((prev) => {
       const newFilters = { ...prev, [key]: value }
+      
+      // Dacă selectezi "Facturi Electricitate", setează automat departamentul la "Electricitate"
+      if (key === 'dataSource' && value === 'electric_invoice') {
+        newFilters.department = 'Electricitate'
+        console.log('✅ Auto-set department to Electricitate for electric_invoice')
+      }
+      // Dacă schimbi sursa de la "Facturi Electricitate" la altceva, resetează departamentul
+      else if (key === 'dataSource' && prev.dataSource === 'electric_invoice' && value !== 'electric_invoice') {
+        // Nu resetează departamentul - lasă utilizatorul să decidă
+      }
+      
       // Dacă se schimbă departamentul, resetează tipul dacă nu mai este valid
       if (key === 'department') {
         const typesForDept = departmentTypeMap.get(value)

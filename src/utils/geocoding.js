@@ -103,7 +103,8 @@ export const geocodeAddress = async (address) => {
     
     return null
   } catch (error) {
-    console.error('Geocoding error:', error)
+    // Silent fail - don't spam console with geocoding errors
+    // console.error('Geocoding error:', error)
     return null
   }
 }
@@ -192,7 +193,8 @@ export const reverseGeocode = async (lat, lng) => {
     
     return null
   } catch (error) {
-    console.error('Reverse geocoding error:', error)
+    // Silent fail - don't spam console with reverse geocoding errors
+    // console.error('Reverse geocoding error:', error)
     return null
   }
 }

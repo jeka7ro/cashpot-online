@@ -465,6 +465,49 @@ const initializeDatabase = async () => {
       console.log('⚠️ Locations gallery column update skipped:', error.message)
     }
 
+    // Add NLC (Număr Loc de Consum) column to locations (for electric invoice matching)
+    try {
+      await pool.query('ALTER TABLE locations ADD COLUMN IF NOT EXISTS nlc_code VARCHAR(50)')
+      await pool.query('CREATE INDEX IF NOT EXISTS idx_locations_nlc_code ON locations(nlc_code)')
+      console.log('✅ Locations table: Added nlc_code column and index')
+    } catch (error) {
+      console.log('⚠️ Locations nlc_code column update skipped:', error.message)
+    }
+
+    // Create electric_invoices_nlc table for centralizing all NLC data from invoices
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS electric_invoices_nlc (
+          id SERIAL PRIMARY KEY,
+          nlc_code VARCHAR(50) NOT NULL,
+          location_name VARCHAR(255),
+          numar_factura VARCHAR(100),
+          perioada_facturare VARCHAR(100),
+          suma_totala DECIMAL(15,2),
+          consum_kwh DECIMAL(15,3),
+          pret_per_kwh DECIMAL(10,4),
+          tva DECIMAL(5,2),
+          furnizor VARCHAR(255),
+          numar_contor VARCHAR(100),
+          data_emiterii DATE,
+          data_scadenta DATE,
+          invoice_file_path TEXT,
+          invoice_link TEXT,
+          extracted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          saved_to_expenditures BOOLEAN DEFAULT FALSE,
+          created_by INTEGER REFERENCES users(id),
+          notes TEXT,
+          UNIQUE(nlc_code, perioada_facturare, numar_factura)
+        )
+      `)
+      await pool.query('CREATE INDEX IF NOT EXISTS idx_electric_nlc_code ON electric_invoices_nlc(nlc_code)')
+      await pool.query('CREATE INDEX IF NOT EXISTS idx_electric_nlc_location ON electric_invoices_nlc(location_name)')
+      await pool.query('CREATE INDEX IF NOT EXISTS idx_electric_nlc_period ON electric_invoices_nlc(perioada_facturare)')
+      console.log('✅ Created electric_invoices_nlc table for centralizing NLC data')
+    } catch (error) {
+      console.log('⚠️ electric_invoices_nlc table creation skipped:', error.message)
+    }
+
     // Add missing columns to existing platforms table
     try {
       await pool.query('ALTER TABLE platforms ADD COLUMN IF NOT EXISTS provider_id INTEGER REFERENCES providers(id)')
@@ -2207,10 +2250,11 @@ app.get('/api/locations', async (req, res) => {
 
 app.post('/api/locations', async (req, res) => {
   try {
-    const { name, address, company, surface, status, coordinates, contact_person, notes, plan_file } = req.body
+    const { name, address, company, surface, status, coordinates, contact_person, nlc_code, notes, plan_file } = req.body
     
     console.log('📍 POST /api/locations - Creating new location:')
     console.log('   Name:', name)
+    console.log('   NLC Code:', nlc_code || 'N/A')
     console.log('   plan_file received?', !!plan_file)
     console.log('   plan_file type:', typeof plan_file)
     console.log('   plan_file is Base64?', plan_file?.startsWith('data:'))
@@ -2220,8 +2264,8 @@ app.post('/api/locations', async (req, res) => {
     }
     
     const result = await pool.query(
-      'INSERT INTO locations (name, address, company, surface, status, coordinates, contact_person, plan_file, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
-      [name, address, company, surface, status || 'Active', coordinates, contact_person, plan_file || null, notes]
+      'INSERT INTO locations (name, address, company, surface, status, coordinates, contact_person, nlc_code, plan_file, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+      [name, address, company, surface, status || 'Active', coordinates, contact_person, nlc_code || null, plan_file || null, notes]
     )
     
     console.log('✅ Location created with ID:', result.rows[0].id)
@@ -2238,10 +2282,11 @@ app.post('/api/locations', async (req, res) => {
 app.put('/api/locations/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { name, address, company, surface, status, coordinates, contact_person, notes, plan_file } = req.body
+    const { name, address, company, surface, status, coordinates, contact_person, nlc_code, notes, plan_file } = req.body
     
     console.log('📍 PUT /api/locations/:id - Updating location:', id)
     console.log('   Name:', name)
+    console.log('   NLC Code:', nlc_code || 'N/A')
     console.log('   plan_file in request?', plan_file !== undefined)
     console.log('   plan_file type:', typeof plan_file)
     console.log('   plan_file is Base64?', plan_file?.startsWith('data:'))
@@ -2255,12 +2300,12 @@ app.put('/api/locations/:id', async (req, res) => {
     let queryParams
     if (plan_file !== undefined) {
       console.log('   → Will UPDATE plan_file in DB')
-      updateQuery = 'UPDATE locations SET name = $1, address = $2, company = $3, surface = $4, status = $5, coordinates = $6, contact_person = $7, plan_file = $8, notes = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10 RETURNING *'
-      queryParams = [name, address, company, surface, status, coordinates, contact_person, plan_file, notes, id]
+      updateQuery = 'UPDATE locations SET name = $1, address = $2, company = $3, surface = $4, status = $5, coordinates = $6, contact_person = $7, nlc_code = $8, plan_file = $9, notes = $10, updated_at = CURRENT_TIMESTAMP WHERE id = $11 RETURNING *'
+      queryParams = [name, address, company, surface, status, coordinates, contact_person, nlc_code || null, plan_file, notes, id]
     } else {
       console.log('   → Will KEEP existing plan_file (not updating)')
-      updateQuery = 'UPDATE locations SET name = $1, address = $2, company = $3, surface = $4, status = $5, coordinates = $6, contact_person = $7, notes = $8, updated_at = CURRENT_TIMESTAMP WHERE id = $9 RETURNING *'
-      queryParams = [name, address, company, surface, status, coordinates, contact_person, notes, id]
+      updateQuery = 'UPDATE locations SET name = $1, address = $2, company = $3, surface = $4, status = $5, coordinates = $6, contact_person = $7, nlc_code = $8, notes = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10 RETURNING *'
+      queryParams = [name, address, company, surface, status, coordinates, contact_person, nlc_code || null, notes, id]
     }
     
     const result = await pool.query(updateQuery, queryParams)
@@ -3761,8 +3806,11 @@ app.put('/api/metrology/:id', async (req, res) => {
   try {
     const { id } = req.params
     const { 
-      cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFile, cvt_file, notes 
+      cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, 
+      provider, cabinet, game_mix, approval_type, software, cvtFile, cvt_file, cvt_filename, notes 
     } = req.body
+    
+    console.log('Metrology PUT:', { id, cvt_series, hasFile: !!(cvt_file || cvtFile), cvt_filename })
     
     // Accept BOTH cvtFile (old) and cvt_file (new) for compatibility
     const cvtFileData = cvt_file || cvtFile
@@ -3777,13 +3825,47 @@ app.put('/api/metrology/:id', async (req, res) => {
       calculatedExpiryDate = expiryDate.toISOString().split('T')[0]
     }
     
-    // Build update query based on whether cvtFileData is provided
+    // Build update query - include cvt_filename
     let query, params
     if (cvtFileData) {
-      query = 'UPDATE metrology SET cvt_series = $1, cvt_number = $2, serial_number = $3, cvt_type = $4, cvt_date = $5, expiry_date = $6, issuing_authority = $7, provider = $8, cabinet = $9, game_mix = $10, approval_type = $11, software = $12, cvt_file = $13, notes = $14, updated_at = CURRENT_TIMESTAMP WHERE id = $15 RETURNING *, cvt_file as "cvtFile"'
-      params = [cvt_series, cvt_number, serial_number, cvt_type, cvt_date, calculatedExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, notes, id]
+      query = `UPDATE metrology SET 
+        cvt_series = COALESCE($1, cvt_series), 
+        cvt_number = COALESCE($2, cvt_number), 
+        serial_number = COALESCE($3, serial_number), 
+        cvt_type = COALESCE($4, cvt_type), 
+        cvt_date = COALESCE($5, cvt_date), 
+        expiry_date = COALESCE($6, expiry_date), 
+        issuing_authority = COALESCE($7, issuing_authority), 
+        provider = COALESCE($8, provider), 
+        cabinet = COALESCE($9, cabinet), 
+        game_mix = COALESCE($10, game_mix), 
+        approval_type = COALESCE($11, approval_type), 
+        software = COALESCE($12, software), 
+        cvt_file = $13, 
+        cvt_filename = $14,
+        notes = COALESCE($15, notes), 
+        updated_at = CURRENT_TIMESTAMP 
+        WHERE id = $16 
+        RETURNING *, cvt_file as "cvtFile"`
+      params = [cvt_series, cvt_number, serial_number, cvt_type, cvt_date, calculatedExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, cvt_filename, notes, id]
     } else {
-      query = 'UPDATE metrology SET cvt_series = $1, cvt_number = $2, serial_number = $3, cvt_type = $4, cvt_date = $5, expiry_date = $6, issuing_authority = $7, provider = $8, cabinet = $9, game_mix = $10, approval_type = $11, software = $12, notes = $13, updated_at = CURRENT_TIMESTAMP WHERE id = $14 RETURNING *, cvt_file as "cvtFile"'
+      query = `UPDATE metrology SET 
+        cvt_series = COALESCE($1, cvt_series), 
+        cvt_number = COALESCE($2, cvt_number), 
+        serial_number = COALESCE($3, serial_number), 
+        cvt_type = COALESCE($4, cvt_type), 
+        cvt_date = COALESCE($5, cvt_date), 
+        expiry_date = COALESCE($6, expiry_date), 
+        issuing_authority = COALESCE($7, issuing_authority), 
+        provider = COALESCE($8, provider), 
+        cabinet = COALESCE($9, cabinet), 
+        game_mix = COALESCE($10, game_mix), 
+        approval_type = COALESCE($11, approval_type), 
+        software = COALESCE($12, software), 
+        notes = COALESCE($13, notes), 
+        updated_at = CURRENT_TIMESTAMP 
+        WHERE id = $14 
+        RETURNING *, cvt_file as "cvtFile"`
       params = [cvt_series, cvt_number, serial_number, cvt_type, cvt_date, calculatedExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, notes, id]
     }
     
@@ -4347,7 +4429,7 @@ app.post('/api/approvals', authenticateUser, upload.single('file'), async (req, 
 })
 
 // Update approval - PUT endpoint
-app.put('/api/approvals/:id', authenticateUser, upload.single('file'), async (req, res) => {
+app.put('/api/approvals/:id', authenticateUser, async (req, res) => {
   try {
     const pool = req.app.get('pool')
     if (!pool) {
@@ -4355,36 +4437,57 @@ app.put('/api/approvals/:id', authenticateUser, upload.single('file'), async (re
     }
     
     const { id } = req.params
-    const { name, provider, cabinet, game_mix, checksum_md5, checksum_sha256, notes } = req.body
+    const { 
+      name, 
+      provider, 
+      cabinet, 
+      game_mix, 
+      game_mix_name,
+      checksum_md5, 
+      checksum_sha256, 
+      notes,
+      attachments,  // Citește attachments din body (base64) - EXACT CA LA CONTRACTS!
+      issuing_authority
+    } = req.body
     
-    // Get existing attachments
-    const existingResult = await pool.query('SELECT attachments FROM approvals WHERE id = $1', [id])
+    console.log('Approvals PUT:', { id, name, attachmentsLength: attachments?.length })
+    
+    // Verifică dacă approval există
+    const existingResult = await pool.query('SELECT * FROM approvals WHERE id = $1', [id])
     if (existingResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Approval not found' })
     }
     
-    let attachments = existingResult.rows[0].attachments || []
-    
-    // Add new file if uploaded
-    if (req.file) {
-      const fileUrl = `/uploads/${req.file.filename}`
-      attachments.push({
-        filename: req.file.originalname,
-        url: fileUrl,
-        uploadedAt: new Date().toISOString()
-      })
+    // Folosește attachments din body direct (sunt deja în format JSON string sau array)
+    let attachmentsToSave = attachments
+    if (typeof attachments === 'string') {
+      // Deja string JSON, lasă așa
+      attachmentsToSave = attachments
+    } else if (Array.isArray(attachments)) {
+      attachmentsToSave = JSON.stringify(attachments)
+    } else {
+      attachmentsToSave = existingResult.rows[0].attachments || '[]'
     }
     
     const result = await pool.query(
       `UPDATE approvals 
-       SET name = $1, provider = $2, cabinet = $3, game_mix = $4, 
-           checksum_md5 = $5, checksum_sha256 = $6, attachments = $7, 
-           notes = $8, updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $9 
+       SET name = COALESCE($1, name), 
+           provider = COALESCE($2, provider), 
+           cabinet = COALESCE($3, cabinet), 
+           game_mix = COALESCE($4, game_mix),
+           game_mix_name = COALESCE($5, game_mix_name),
+           checksum_md5 = COALESCE($6, checksum_md5), 
+           checksum_sha256 = COALESCE($7, checksum_sha256), 
+           attachments = $8, 
+           notes = COALESCE($9, notes),
+           issuing_authority = COALESCE($10, issuing_authority),
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $11 
        RETURNING *`,
-      [name, provider, cabinet, game_mix, checksum_md5, checksum_sha256, JSON.stringify(attachments), notes, id]
+      [name, provider, cabinet, game_mix, game_mix_name, checksum_md5, checksum_sha256, attachmentsToSave, notes, issuing_authority, id]
     )
     
+    console.log('Approvals PUT success:', result.rows[0]?.id)
     res.json(result.rows[0])
   } catch (error) {
     console.error('Approvals PUT error:', error)

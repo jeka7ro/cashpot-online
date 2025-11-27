@@ -6,12 +6,15 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import App from './App.jsx'
 import './index.css'
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+const root = ReactDOM.createRoot(document.getElementById('root'))
+
+root.render(
   <React.StrictMode>
     <ThemeProvider>
       <BrowserRouter>
         <App />
-        <Toaster 
+      </BrowserRouter>
+      <Toaster 
         position="top-right"
         toastOptions={{
           duration: 4000,
@@ -37,7 +40,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           },
         }}
       />
-      </BrowserRouter>
     </ThemeProvider>
-  </React.StrictMode>,
+  </React.StrictMode>
 )

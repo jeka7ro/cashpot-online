@@ -182,8 +182,8 @@ const LocationMap = ({ location }) => {
         
         // If no coordinates, geocode the address
         const fullAddress = getFullAddress(location)
-        console.log('🗺️ Geocoding pentru:', location.name)
-        console.log('📍 Adresă completă:', fullAddress)
+        // console.log('🗺️ Geocoding pentru:', location.name)
+        // console.log('📍 Adresă completă:', fullAddress)
 
         if (!coords && fullAddress) {
           // Clean address: remove spaces before commas
@@ -194,9 +194,9 @@ const LocationMap = ({ location }) => {
             ? cleanAddress
             : `${cleanAddress}, România`
           
-          console.log('🌍 Geocoding cu (curățat):', addressWithCountry)
+          // console.log('🌍 Geocoding cu (curățat):', addressWithCountry)
           coords = await geocodeAddress(addressWithCountry)
-          console.log('✅ Coordonate găsite:', coords)
+          // console.log('✅ Coordonate găsite:', coords)
           
           // Save coordinates back to database for future use
           if (coords && location.id) {
@@ -206,15 +206,16 @@ const LocationMap = ({ location }) => {
                 ...location,
                 coordinates: coordsString
               })
-              console.log('💾 Coordonate salvate în DB:', coordsString)
+              // console.log('💾 Coordonate salvate în DB:', coordsString)
             } catch (saveError) {
-              console.warn('⚠️ Could not save coordinates to DB:', saveError)
+              // Silent fail - don't spam console
+              // console.warn('⚠️ Could not save coordinates to DB:', saveError)
             }
           }
         }
         
         if (!coords) {
-          console.error('❌ NU s-au găsit coordonate pentru:', fullAddress)
+          // console.error('❌ NU s-au găsit coordonate pentru:', fullAddress)
           setError('Nu s-au putut determina coordonatele locației')
           setLoading(false)
           return
@@ -224,16 +225,16 @@ const LocationMap = ({ location }) => {
 
         // 2. Check if location has pre-cached competitors (INSTANT!)
         if (location.competitors && location.competitors.competitors) {
-          console.log('⚡ INSTANT LOAD: Using cached competitors from DB!')
-          console.log(`   Total: ${location.competitors.total} competitors`)
-          console.log(`   Last updated: ${location.competitors.updated_at}`)
+          // console.log('⚡ INSTANT LOAD: Using cached competitors from DB!')
+          // console.log(`   Total: ${location.competitors.total} competitors`)
+          // console.log(`   Last updated: ${location.competitors.updated_at}`)
           
           setCompetitors(location.competitors.competitors)
           setLoading(false)
           return
         }
         
-        console.log('🐌 SLOW MODE: Fetching competitors from ONJN API...')
+        // console.log('🐌 SLOW MODE: Fetching competitors from ONJN API...')
 
         // 3. Extract city from address (for ONJN API fallback)
         const addressForCity = fullAddress || location.address || ''
@@ -243,7 +244,7 @@ const LocationMap = ({ location }) => {
         const city = extractCityFromAddress(citySource)
         
         if (!city) {
-          console.warn('Could not extract city from address')
+          // console.warn('Could not extract city from address')
           setLoading(false)
           return
         }
@@ -275,11 +276,11 @@ const LocationMap = ({ location }) => {
               return cityMatch
             })
             
-            console.log(`🏢 Competitors în ${city}: ${competitorLocations.length} (filtrat din ${response.data.locations.length} total)`)
-            console.log('   Operatori:', competitorLocations.map(c => c.operator))
+            // console.log(`🏢 Competitors în ${city}: ${competitorLocations.length} (filtrat din ${response.data.locations.length} total)`)
+            // console.log('   Operatori:', competitorLocations.map(c => c.operator))
             
             if (competitorLocations.length === 0) {
-              console.log(`   ⚠️ NU există competitori în ${city}!`)
+              // console.log(`   ⚠️ NU există competitori în ${city}!`)
               setCompetitors([])
               setLoading(false)
               return
@@ -287,7 +288,7 @@ const LocationMap = ({ location }) => {
             
             // Geocode competitor addresses (limit to first 10 to avoid rate limiting)
             const geocodedCompetitors = []
-            console.log(`🔍 Geocoding ${Math.min(competitorLocations.length, 10)} competitori din ${city}...`)
+            // console.log(`🔍 Geocoding ${Math.min(competitorLocations.length, 10)} competitori din ${city}...`)
             
             for (let i = 0; i < Math.min(competitorLocations.length, 10); i++) {
               const comp = competitorLocations[i]
@@ -295,14 +296,14 @@ const LocationMap = ({ location }) => {
                 ? comp.address
                 : `${comp.address}, România`
               
-              console.log(`🔍 Geocoding competitor ${i+1}/${Math.min(competitorLocations.length, 10)}: ${comp.operator}`)
-              console.log(`   Address: ${compAddress}`)
+              // console.log(`🔍 Geocoding competitor ${i+1}/${Math.min(competitorLocations.length, 10)}: ${comp.operator}`)
+              // console.log(`   Address: ${compAddress}`)
               
               let compCoords = await geocodeAddress(compAddress)
               
               // FALLBACK: Dacă geocoding eșuează, folosește coords MAIN location cu offset
               if (!compCoords && mainLocationCoords) {
-                console.log(`   ⚠️ Geocoding failed, using main location coords with offset`)
+                // console.log(`   ⚠️ Geocoding failed, using main location coords with offset`)
                 // Offset aleatoriu CIRCULAR în jurul CASHPOT (radius 500m-1500m)
                 const angle = Math.random() * 2 * Math.PI // Unghi aleatoriu
                 const radius = 0.005 + Math.random() * 0.015 // 0.005-0.02 lat/lng ≈ 500m-2km
@@ -312,11 +313,11 @@ const LocationMap = ({ location }) => {
                   lat: mainLocationCoords.lat + offsetLat,
                   lng: mainLocationCoords.lng + offsetLng
                 }
-                console.log(`   🎯 Fallback coords (${Math.round(radius * 111)}km radius): [${compCoords.lat.toFixed(4)}, ${compCoords.lng.toFixed(4)}]`)
+                // console.log(`   🎯 Fallback coords (${Math.round(radius * 111)}km radius): [${compCoords.lat.toFixed(4)}, ${compCoords.lng.toFixed(4)}]`)
               } else if (compCoords) {
-                console.log(`   ✅ Coords found: [${compCoords.lat}, ${compCoords.lng}]`)
+                // console.log(`   ✅ Coords found: [${compCoords.lat}, ${compCoords.lng}]`)
               } else {
-                console.log(`   ❌ SKIP competitor (no mainLocationCoords available)`)
+                // console.log(`   ❌ SKIP competitor (no mainLocationCoords available)`)
               }
               
               // PUSH doar dacă există coords!
@@ -333,16 +334,18 @@ const LocationMap = ({ location }) => {
               }
             }
             
-            console.log(`✅ Geocoded ${geocodedCompetitors.length} competitors successfully`)
+            // console.log(`✅ Geocoded ${geocodedCompetitors.length} competitors successfully`)
             setCompetitors(geocodedCompetitors)
           }
         } catch (err) {
-          console.error('Error fetching ONJN competitors:', err)
+          // Silent fail - don't spam console
+          // console.error('Error fetching ONJN competitors:', err)
           // Don't show error - just show map without competitors
         }
         
       } catch (err) {
-        console.error('Error loading map data:', err)
+        // Only log critical errors
+        // console.error('Error loading map data:', err)
         setError('Eroare la încărcarea hărții')
       } finally {
         setLoading(false)

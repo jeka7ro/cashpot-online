@@ -1,11 +1,67 @@
 import express from 'express'
 import pg from 'pg'
 import { authenticateToken } from '../middleware/auth.js'
-import { upload } from '../config/s3.js'
+import { upload, isS3Enabled, s3Client } from '../config/s3.js'
+import { GetObjectCommand } from '@aws-sdk/client-s3'
+import multer from 'multer'
+import pdfParse from 'pdf-parse'
 import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+// Upload local dedicat pentru facturile electrice (nu depinde de AWS)
+const electricInvoiceUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const uploadDir = path.join(__dirname, '..', 'uploads', 'electric-invoices')
+      // Creează directorul dacă nu există
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true })
+      }
+      cb(null, uploadDir)
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+      cb(null, `electric-invoice-${uniqueSuffix}${path.extname(file.originalname)}`)
+    }
+  }),
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB
+  },
+  fileFilter: (req, file, cb) => {
+    // Acceptă doar PDF pentru facturi electrice
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true)
+    } else {
+      cb(new Error('Doar fișiere PDF sunt acceptate pentru facturi electrice'))
+    }
+  }
+})
 
 const router = express.Router()
 const { Pool } = pg
+
+// JSON fallback loader (la fel ca în incasari.js)
+const loadExportedData = (filename) => {
+  try {
+    const filePath = path.join(__dirname, '..', 'cyber-data', filename)
+    if (fs.existsSync(filePath)) {
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+      console.log(`✅ [EXPENDITURES] Loaded ${data.length} items from ${filename}`)
+      return data
+    }
+  } catch (error) {
+    console.error(`[EXPENDITURES] Error loading ${filename}:`, error.message)
+  }
+  return []
+}
+
+// Helper: normalizează numele de locație (EXACT ca în incasari.js)
+// NOTĂ: Această funcție este definită mai jos, la linia 4097, cu logica completă
+// Aici doar declarăm că o folosim
 
 // DELETE /api/expenditures/all-data - ȘTERGE ABSOLUT TOTUL (BAT, Google Sheets, Preferences, etc.)
 // IMPORTANT: Această rută trebuie să fie definită LA ÎNCEPUT pentru a evita conflictele cu rutele parametrizate
@@ -128,20 +184,9 @@ const buildSqlTableWhereClause = (query, includedFilters) => {
 
   const { departments, types, locations } = includedFilters
 
-  if (departments && departments.length > 0) {
-    filters.push(`department_name = ANY($${paramIndex++}::text[])`)
-    values.push(departments)
-  }
-
-  if (types && types.length > 0) {
-    filters.push(`expenditure_type = ANY($${paramIndex++}::text[])`)
-    values.push(types)
-  }
-
-  if (locations && locations.length > 0) {
-    filters.push(`location_name = ANY($${paramIndex++}::text[])`)
-    values.push(locations)
-  }
+  // IMPORTANT: Dacă utilizatorul selectează explicit un filtru din dropdown,
+  // folosim DOAR acel filtru, nu și filtrele de utilizator
+  // Astfel, utilizatorul poate vedea orice department/tip/locație dacă îl selectează explicit
 
   if (startDate) {
     // Convertim la DATE pentru comparație corectă (evită probleme cu timezone/time)
@@ -155,19 +200,34 @@ const buildSqlTableWhereClause = (query, includedFilters) => {
     values.push(endDate)
   }
 
+  // Department: dacă e selectat explicit, folosim doar acela; altfel folosim filtrele de utilizator
   if (department && department !== 'all') {
     filters.push(`department_name = $${paramIndex++}`)
     values.push(department)
+  } else if (departments && departments.length > 0) {
+    // Aplică filtrele de utilizator doar dacă nu e selectat un department explicit
+    filters.push(`department_name = ANY($${paramIndex++}::text[])`)
+    values.push(departments)
   }
 
+  // Type: dacă e selectat explicit, folosim doar acela; altfel folosim filtrele de utilizator
   if (type && type !== 'all') {
     filters.push(`expenditure_type = $${paramIndex++}`)
     values.push(type)
+  } else if (types && types.length > 0) {
+    // Aplică filtrele de utilizator doar dacă nu e selectat un type explicit
+    filters.push(`expenditure_type = ANY($${paramIndex++}::text[])`)
+    values.push(types)
   }
 
+  // Location: dacă e selectat explicit, folosim doar acela; altfel folosim filtrele de utilizator
   if (location && location !== 'all') {
     filters.push(`location_name = $${paramIndex++}`)
     values.push(location)
+  } else if (locations && locations.length > 0) {
+    // Aplică filtrele de utilizator doar dacă nu e selectat o locație explicită
+    filters.push(`location_name = ANY($${paramIndex++}::text[])`)
+    values.push(locations)
   }
 
   if (dataSource && dataSource !== 'all') {
@@ -332,43 +392,60 @@ router.get('/external-locations', async (req, res) => {
   try {
     const localPool = req.app.get('pool')
     
-    // HARDCODED locations (din Power BI + datele user-ului)
-    const hardcodedLocations = [
-      { id: 1, name: 'Pitesti', record_count: 0, total_amount: 0 },
-      { id: 2, name: 'Craiova', record_count: 0, total_amount: 0 },
-      { id: 3, name: 'Ploiesti (nord)', record_count: 0, total_amount: 0 },
-      { id: 4, name: 'Ploiesti (centru)', record_count: 0, total_amount: 0 },
-      { id: 5, name: 'Valcea', record_count: 0, total_amount: 0 }
-    ]
-    
-    // Try to get from local sync data (dacă există)
-    try {
-      const result = await localPool.query(`
-        SELECT DISTINCT 
-          ROW_NUMBER() OVER (ORDER BY location_name) as id,
-          location_name as name,
-          COUNT(*) as record_count,
-          SUM(amount) as total_amount
-        FROM expenditures_sync
-        WHERE location_name IS NOT NULL AND location_name != ''
-        GROUP BY location_name
-        ORDER BY location_name
-      `)
-      
-      if (result.rows.length > 0) {
-        console.log(`✅ Found ${result.rows.length} locations in local sync data`)
-        return res.json(result.rows)
-      }
-    } catch (dbError) {
-      console.log('⚠️ No sync data yet, returning hardcoded locations')
+    if (!localPool) {
+      return res.json({ success: true, locations: [], locationsWithNLC: [] })
     }
     
-    // Fallback: Return hardcoded list
-    console.log(`✅ Returning ${hardcodedLocations.length} hardcoded locations`)
-    res.json(hardcodedLocations)
+    // Obține locațiile din tabelul locations cu NLC-uri (dacă există)
+    try {
+      const locationsResult = await localPool.query(`
+        SELECT id, name, nlc_code
+        FROM locations
+        WHERE name IS NOT NULL 
+          AND name != ''
+          AND status = 'Active'
+        ORDER BY name
+      `)
+      
+      const locationsWithNLC = locationsResult.rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        nlc_code: row.nlc_code || null
+      }))
+      
+      const locations = locationsResult.rows.map(row => row.name)
+      
+      if (locations.length > 0) {
+        console.log(`✅ Found ${locations.length} locations with ${locationsWithNLC.filter(l => l.nlc_code).length} NLC codes`)
+        console.log(`   Sample locations:`, locations.slice(0, 5))
+        // Log locațiile care conțin "Pitești" sau "Pitesti"
+        const pitestiLocations = locations.filter(loc => 
+          loc.toLowerCase().includes('pitest') || loc.toLowerCase().includes('pitești')
+        )
+        if (pitestiLocations.length > 0) {
+          console.log(`   🔍 Locații Pitești găsite:`, pitestiLocations)
+        }
+        return res.json({ 
+          success: true, 
+          locations,
+          locationsWithNLC // Include NLC-uri pentru matching precis
+        })
+      }
+    } catch (dbError) {
+      console.log('⚠️ Error fetching locations from database:', dbError.message)
+    }
+    
+    // Fallback: returnează locațiile standard (cu diacritice corecte!)
+    const defaultLocations = ['Pitești', 'Craiova', 'Ploiești (nord)', 'Ploiești (centru)', 'Vâlcea', 'București']
+    console.log(`✅ Returning ${defaultLocations.length} default locations:`, defaultLocations)
+    return res.json({ 
+      success: true, 
+      locations: defaultLocations,
+      locationsWithNLC: defaultLocations.map(name => ({ name, nlc_code: null }))
+    })
   } catch (error) {
     console.error('❌ Error fetching locations:', error)
-    res.json([])
+    res.json({ success: true, locations: [], locationsWithNLC: [] })
   }
 })
 
@@ -1096,8 +1173,15 @@ router.post('/import-all', authenticateToken, async (req, res) => {
       // Log date range for debugging
       if (existingData.length > 0) {
         const dates = existingData.map(r => r.operational_date).filter(d => d)
-        const minDate = dates.length > 0 ? new Date(Math.min(...dates.map(d => new Date(d)))) : null
-        const maxDate = dates.length > 0 ? new Date(Math.max(...dates.map(d => new Date(d)))) : null
+        // FIXED: Use loop instead of spread to avoid stack overflow with large arrays
+        let minTime = Infinity, maxTime = -Infinity
+        dates.forEach(d => {
+          const time = new Date(d).getTime()
+          if (time < minTime) minTime = time
+          if (time > maxTime) maxTime = time
+        })
+        const minDate = dates.length > 0 ? new Date(minTime) : null
+        const maxDate = dates.length > 0 ? new Date(maxTime) : null
         console.log(`✅ Found ${existingData.length} existing records in expenditures_sync`)
         console.log(`📅 Date range in SQL: ${minDate ? minDate.toISOString().split('T')[0] : 'N/A'} to ${maxDate ? maxDate.toISOString().split('T')[0] : 'N/A'}`)
       } else {
@@ -1141,491 +1225,64 @@ router.post('/import-all', authenticateToken, async (req, res) => {
       if (importSources.bat) {
         _importAllProgress.currentStep = 'Se conectează la baza de date externă (BAT)...'
         try {
-          console.log('📊 Step 3: Getting data from external DB (BAT sync)...')
-          let externalPool
-        try {
-          externalPool = getExternalPool()
+          console.log('📊 Step 3: Getting data from external DB (BAT sync) - SIMPLIFIED VERSION...')
+          const externalPool = getExternalPool()
+          
+          // Test connection
           const testResult = await externalPool.query('SELECT NOW() as current_time')
           console.log('✅ External DB connection successful')
-        } catch (poolError) {
-          console.warn('⚠️ Cannot connect to external DB, skipping API sync source:', poolError.message)
-          externalPool = null
-        }
-        
-        if (externalPool) {
-          console.log('✅ External DB pool available, starting data fetch...')
           
-          // IMPORT-ALL: NU ÎNCĂRCĂM syncSettings PENTRU IMPORT-ALL!
-          // Import-all aduce TOATE datele, fără nicio filtrare (nici pe date, nici pe tipuri, nici pe departamente, nici pe locații)
-          // Doar pentru URL Google Sheets citim setările, dar ignorăm complet filtrele!
+          // Get total count first
+          const countResult = await externalPool.query('SELECT COUNT(*) as cnt FROM public.casino_payments WHERE is_deleted = false')
+          const totalCount = parseInt(countResult.rows[0].cnt || 0)
+          console.log(`📊 Total records in external DB: ${totalCount}`)
+          _importAllProgress.totalFound = totalCount
           
-          try {
-            const settingsResult = await localPool.query(`
-              SELECT setting_value 
-              FROM global_settings 
-              WHERE setting_key = 'expenditures_sync_config'
-            `)
-            
-            if (settingsResult.rows.length > 0 && settingsResult.rows[0].setting_value) {
-              const settingValue = settingsResult.rows[0].setting_value
-              const parsed = typeof settingValue === 'string' ? JSON.parse(settingValue) : settingValue
-              
-              // Doar pentru Google Sheets URL, ignorăm toate celelalte setări!
-              if (!googleSheetsUrl && parsed.googleSheetsUrl) {
-                googleSheetsUrl = parsed.googleSheetsUrl
-              }
-            }
-          } catch (settingsError) {
-            console.warn('⚠️ Error loading settings for Google Sheets URL:', settingsError.message)
-          }
+          // Fetch ALL data in one query (simplified approach)
+          _importAllProgress.currentStep = `Se preiau ${totalCount} înregistrări din BAT...`
+          console.log('📥 Fetching ALL data from BAT...')
           
-          // IMPORT-ALL: Aducem TOATE datele din API extern în BATCH-URI pentru a evita timeout-uri!
-          // NU aplicăm filtre pe date, tipuri, departamente, locații - DOAR is_deleted = false
-          // Procesăm în batch-uri de 1000 pentru a aduce TOATE datele (din 2023 până acum!)
-          let whereConditions = ['p.is_deleted = false']
-          const whereClause = whereConditions.join(' AND ')
+          const fetchResult = await externalPool.query(`
+            SELECT 
+              l.name as location_name,
+              d.name as department_name,
+              et.name as expenditure_type,
+              p.amount,
+              p.operational_date,
+              p.id as payment_id
+            FROM public.casino_payments p
+            LEFT JOIN public.casino_locations l ON p.location_id = l.id
+            LEFT JOIN public.casino_departments d ON p.department_id = d.id
+            LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
+            WHERE p.is_deleted = false
+            ORDER BY p.operational_date DESC
+          `)
           
-          console.log('🔍 IMPORT-ALL: NO FILTERS - Only filtering is_deleted = false')
-          console.log('🔍 IMPORT-ALL: Will fetch ALL records from external DB in batches (no date limits, no type filters, no department filters, no location filters)')
-          console.log('🔍 IMPORT-ALL: Where clause:', whereClause)
+          externalData = fetchResult.rows
+          _importAllProgress.fromExternalAPI = externalData.length
+          console.log(`✅ Fetched ${externalData.length} records from BAT`)
           
-          // Test query pentru a verifica că conexiunea funcționează
-          try {
-            console.log('🧪 Testing external DB connection with simple query...')
-            const testQuery = await externalPool.query('SELECT COUNT(*) as total FROM public.casino_payments WHERE is_deleted = false')
-            const testTotal = parseInt(testQuery.rows[0].total || 0)
-            console.log(`✅ External DB connection OK! Total records (is_deleted = false): ${testTotal}`)
-          } catch (testError) {
-            console.error('❌ External DB test query failed:', testError.message)
-            console.error('❌ Error details:', testError.stack)
-            throw testError
-          }
-          
-          // NOUĂ ABORDARE: Fetch pe intervale de timp (year-by-year) pentru a aduce TOATE datele
-          // ORDER BY DESC aduce doar date noi, ORDER BY ASC + query pe ani = toate datele
-          
-          console.log('🔍 IMPORT-ALL: Starting DATE-RANGE based fetching (NEW APPROACH - year-by-year)')
-          
-          // First, get date range and total count
-          let totalRecords = 0
-          let minDateInDB = null
-          let maxDateInDB = null
-          
-          try {
-            const countQuery = `
-              SELECT 
-                COUNT(*) as total,
-                MIN(p.operational_date) as min_date,
-                MAX(p.operational_date) as max_date
-              FROM public.casino_payments p
-              WHERE ${whereClause}
-            `
-            console.log('🔍 IMPORT-ALL: Getting date range and total count from external DB...')
-            console.log('🔍 Count query:', countQuery)
-            console.log('🔍 Where clause:', whereClause)
-            console.log('🔍 External pool config:', {
-              host: process.env.EXPENDITURES_DB_HOST || '82.76.35.50',
-              port: process.env.EXPENDITURES_DB_PORT || '26257',
-              database: process.env.EXPENDITURES_DB_NAME || 'cashpot',
-              user: process.env.EXPENDITURES_DB_USER || 'cashpot'
+          if (externalData.length > 0) {
+            console.log('📊 Sample record:', {
+              date: externalData[0].operational_date,
+              location: externalData[0].location_name,
+              amount: externalData[0].amount,
+              department: externalData[0].department_name
             })
-            
-            const countResult = await externalPool.query(countQuery)
-            totalRecords = parseInt(countResult.rows[0].total || 0)
-            minDateInDB = countResult.rows[0].min_date
-            maxDateInDB = countResult.rows[0].max_date
-            
-            console.log(`📊 IMPORT-ALL: Total records: ${totalRecords}`)
-            console.log(`📅 IMPORT-ALL: Date range in DB: ${minDateInDB} to ${maxDateInDB}`)
-            
-            if (totalRecords === 0) {
-              console.error('⚠️⚠️⚠️ CRITICAL: Total records is 0! No data in external DB or query is wrong!')
-            }
-            
-            if (!minDateInDB || !maxDateInDB) {
-              console.error('⚠️⚠️⚠️ CRITICAL: Could not get date range from DB! minDate:', minDateInDB, 'maxDate:', maxDateInDB)
-              console.error('⚠️ This might mean there is no data in external DB or the query failed!')
-            }
-            
-            _importAllProgress.totalFound = totalRecords
-          } catch (countError) {
-            console.error('❌ CRITICAL ERROR: Could not get date range from external DB!')
-            console.error('❌ Error message:', countError.message)
-            console.error('❌ Error stack:', countError.stack)
-            console.error('❌ Error code:', countError.code)
-            console.warn('⚠️ Will try fallback approach, but data might not be fetched correctly')
           }
           
-          let allExternalRows = []
-          const batchSize = 2000
-          const maxRetries = 3
-          const retryDelay = 1000
-          
-          // Strategy: Fetch by year chunks (most reliable)
-          if (minDateInDB && maxDateInDB) {
-            const startDate = new Date(minDateInDB)
-            const endDate = new Date(maxDateInDB)
-            const startYear = startDate.getFullYear()
-            const endYear = endDate.getFullYear()
-            
-            console.log(`📅 Fetching data year by year: ${startYear} to ${endYear}`)
-            console.log(`📅 Start date: ${minDateInDB}, End date: ${maxDateInDB}`)
-            console.log(`📅 Start year: ${startYear}, End year: ${endYear}`)
-            
-            if (isNaN(startYear) || isNaN(endYear)) {
-              console.error('⚠️⚠️⚠️ CRITICAL: Invalid year range! startYear:', startYear, 'endYear:', endYear)
-              throw new Error('Invalid date range from external DB')
-            }
-            
-            for (let year = startYear; year <= endYear; year++) {
-              const yearStart = `${year}-01-01`
-              const yearEnd = `${year}-12-31`
-              
-              console.log(`\n📅 ========== FETCHING YEAR ${year} ==========`)
-              console.log(`📅 Year range: ${yearStart} to ${yearEnd}`)
-              _importAllProgress.currentStep = `Se preiau datele pentru anul ${year}...`
-              
-              // First, check how many records exist for this year
-              try {
-                const yearCountQuery = `
-                  SELECT COUNT(*) as total
-                  FROM public.casino_payments p
-                  WHERE ${whereClause}
-                    AND p.operational_date >= $1
-                    AND p.operational_date <= $2
-                `
-                const yearCountResult = await externalPool.query(yearCountQuery, [yearStart, yearEnd])
-                const yearTotal = parseInt(yearCountResult.rows[0].total || 0)
-                console.log(`📊 Year ${year}: Total records in external DB: ${yearTotal}`)
-              } catch (countError) {
-                console.warn(`⚠️ Could not get count for year ${year}:`, countError.message)
-              }
-              
-              let yearOffset = 0
-              let yearHasMore = true
-              let yearBatchNumber = 0
-              let yearTotalFetched = 0
-              
-              while (yearHasMore && yearBatchNumber < 1000) { // Max 1000 batches per year
-                yearBatchNumber++
-                let batchRows = []
-                let batchSuccess = false
-                let retryCount = 0
-                
-                while (!batchSuccess && retryCount < maxRetries) {
-                  try {
-                    const yearQuery = `
-                      SELECT 
-                        l.id as location_id,
-                        l.name as location_name,
-                        d.name as department_name,
-                        et.name as expenditure_type,
-                        p.amount,
-                        p.operational_date,
-                        p.id as payment_id
-                      FROM public.casino_payments p
-                      LEFT JOIN public.casino_locations l ON p.location_id = l.id
-                      LEFT JOIN public.casino_departments d ON p.department_id = d.id
-                      LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
-                      WHERE ${whereClause}
-                        AND p.operational_date >= $1
-                        AND p.operational_date <= $2
-                      ORDER BY p.operational_date ASC, p.id ASC
-                      LIMIT $3 OFFSET $4
-                    `
-                    
-                    console.log(`📊 Year ${year}, Batch ${yearBatchNumber}: LIMIT ${batchSize} OFFSET ${yearOffset}`)
-                    
-                    const batchResult = await externalPool.query(yearQuery, [yearStart, yearEnd, batchSize, yearOffset])
-                    batchRows = batchResult.rows
-                    batchSuccess = true
-                    
-                    if (batchRows.length > 0) {
-                      const firstDate = batchRows[0].operational_date
-                      const lastDate = batchRows[batchRows.length - 1].operational_date
-                      console.log(`✅ Year ${year}, Batch ${yearBatchNumber}: Fetched ${batchRows.length} records (${firstDate} to ${lastDate})`)
-                    } else {
-                      console.log(`✅ Year ${year}, Batch ${yearBatchNumber}: Fetched 0 records (no more data)`)
-                    }
-                    
-                  } catch (batchError) {
-                    retryCount++
-                    console.error(`❌ Year ${year}, Batch ${yearBatchNumber} failed (attempt ${retryCount}/${maxRetries}):`, batchError.message)
-                    console.error(`❌ Error details:`, batchError.stack)
-                    
-                    if (retryCount < maxRetries) {
-                      await new Promise(resolve => setTimeout(resolve, retryDelay))
-                    } else {
-                      console.error(`❌ Year ${year} FAILED after ${maxRetries} attempts - continuing to next year`)
-                      yearHasMore = false
-                      break
-                    }
-                  }
-                }
-                
-                if (batchRows.length === 0) {
-                  yearHasMore = false
-                } else {
-                  allExternalRows = allExternalRows.concat(batchRows)
-                  yearOffset += batchRows.length
-                  yearTotalFetched += batchRows.length
-                  _importAllProgress.fromExternalAPI = allExternalRows.length
-                  
-                  if (batchRows.length < batchSize) {
-                    yearHasMore = false
-                  }
-                }
-              }
-              
-              console.log(`✅ Year ${year} complete: ${yearTotalFetched} records fetched (offset: ${yearOffset})`)
-              console.log(`📊 Year ${year} total so far: ${allExternalRows.length} records`)
-              
-              // Log date range for this year
-              const yearData = allExternalRows.filter(r => {
-                if (!r.operational_date) return false
-                const rowYear = new Date(r.operational_date).getFullYear()
-                return rowYear === year
-              })
-              if (yearData.length > 0) {
-                const yearDates = yearData.map(r => r.operational_date).filter(d => d)
-                const yearMinDate = new Date(Math.min(...yearDates.map(d => new Date(d))))
-                const yearMaxDate = new Date(Math.max(...yearDates.map(d => new Date(d))))
-                console.log(`📅 Year ${year} date range: ${yearMinDate.toISOString().split('T')[0]} to ${yearMaxDate.toISOString().split('T')[0]}`)
-              } else {
-                console.error(`⚠️⚠️⚠️ WARNING: Year ${year} has NO data in allExternalRows!`)
-              }
-              
-              console.log(`📅 =========================================\n`)
-            }
-            
-            // Final summary by year - CRITICAL FOR DEBUGGING!
-            console.log(`\n📊 ========== YEAR-BY-YEAR SUMMARY ==========`)
-            const byYearFinal = {}
-            allExternalRows.forEach(row => {
-              if (row.operational_date) {
-                const year = new Date(row.operational_date).getFullYear()
-                byYearFinal[year] = (byYearFinal[year] || 0) + 1
-              }
-            })
-            
-            if (Object.keys(byYearFinal).length === 0) {
-              console.error(`⚠️⚠️⚠️ CRITICAL: NO RECORDS BY YEAR! Total rows: ${allExternalRows.length}`)
-            } else {
-              Object.keys(byYearFinal).sort().forEach(year => {
-                console.log(`📅 Year ${year}: ${byYearFinal[year]} records`)
-              })
-            }
-            
-            console.log(`📊 TOTAL FROM EXTERNAL DB: ${allExternalRows.length} records`)
-            
-            // Find min and max dates in fetched data
-            const dates = allExternalRows.map(r => r.operational_date).filter(d => d)
-            if (dates.length > 0) {
-              const minFetchedDate = new Date(Math.min(...dates.map(d => new Date(d))))
-              const maxFetchedDate = new Date(Math.max(...dates.map(d => new Date(d))))
-              console.log(`📅 Date range in fetched data: ${minFetchedDate.toISOString().split('T')[0]} to ${maxFetchedDate.toISOString().split('T')[0]}`)
-            } else {
-              console.error(`⚠️⚠️⚠️ CRITICAL: NO DATES IN FETCHED DATA!`)
-            }
-            
-            console.log(`📊 ==========================================\n`)
-          } else {
-            // Fallback: Original approach with ASC ordering
-            console.log('⚠️ Fallback: Using batch approach with ASC ordering')
-            let offset = 0
-            let hasMore = true
-            let batchNumber = 0
-            const maxBatches = 1000
-            
-            _importAllProgress.currentStep = 'Se preiau datele din API extern (batch 0)...'
-            
-            while (hasMore && batchNumber < maxBatches) {
-              batchNumber++
-              let batchRows = []
-              let batchSuccess = false
-              let retryCount = 0
-              
-              while (!batchSuccess && retryCount < maxRetries) {
-                try {
-                  const query = `
-                    SELECT 
-                      l.id as location_id,
-                      l.name as location_name,
-                      d.name as department_name,
-                      et.name as expenditure_type,
-                      p.amount,
-                      p.operational_date,
-                      p.id as payment_id
-                    FROM public.casino_payments p
-                    LEFT JOIN public.casino_locations l ON p.location_id = l.id
-                    LEFT JOIN public.casino_departments d ON p.department_id = d.id
-                    LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
-                    WHERE ${whereClause}
-                    ORDER BY p.operational_date ASC, p.id ASC
-                    LIMIT $1 OFFSET $2
-                  `
-                  
-                  console.log(`📊 Fallback Batch ${batchNumber}: LIMIT ${batchSize} OFFSET ${offset}`)
-                  _importAllProgress.currentStep = `Se preiau datele din API extern (batch ${batchNumber}, ${offset} înregistrări)...`
-                  
-                  const batchResult = await externalPool.query(query, [batchSize, offset])
-                  batchRows = batchResult.rows
-                  batchSuccess = true
-                  
-                  console.log(`✅ Fallback Batch ${batchNumber}: Fetched ${batchRows.length} records`)
-                
-              } catch (batchError) {
-                retryCount++
-                console.error(`❌ Batch ${batchNumber} failed (attempt ${retryCount}/${maxRetries}):`, batchError.message)
-                console.error(`❌ Batch error details:`, batchError.stack)
-                
-                if (retryCount < maxRetries) {
-                  console.log(`⏳ Retrying batch ${batchNumber} in ${retryDelay}ms...`)
-                  await new Promise(resolve => setTimeout(resolve, retryDelay))
-                } else {
-                  console.error(`❌ Batch ${batchNumber} failed after ${maxRetries} attempts - stopping import`)
-                  throw batchError
-                }
-              }
-            }
-            
-            if (batchRows.length === 0) {
-              hasMore = false
-              console.log(`✅ No more records - finished fetching all batches. Total: ${allExternalRows.length} records`)
-              console.log(`📊 Final offset: ${offset}, Final batch number: ${batchNumber}`)
-            } else {
-              allExternalRows = allExternalRows.concat(batchRows)
-              offset += batchRows.length
-              
-              // Dacă am primit mai puțin decât batchSize, am ajuns la final
-              if (batchRows.length < batchSize) {
-                hasMore = false
-                console.log(`✅ Last batch received (${batchRows.length} < ${batchSize}) - finished fetching all batches. Total: ${allExternalRows.length} records`)
-                console.log(`📊 Final offset: ${offset}, Final batch number: ${batchNumber}`)
-              } else {
-                // Continuăm cu următorul batch - log pentru debugging
-                console.log(`➡️ Continuing to next batch (offset will be ${offset})...`)
-              }
-              
-              // Update progress
-              _importAllProgress.fromExternalAPI = allExternalRows.length
-              
-              // Log progress periodic
-              if (batchNumber % 5 === 0 || !hasMore) {
-                const dates = allExternalRows.map(r => r.operational_date).filter(d => d)
-                const minDate = dates.length > 0 ? new Date(Math.min(...dates.map(d => new Date(d)))) : null
-                const maxDate = dates.length > 0 ? new Date(Math.max(...dates.map(d => new Date(d)))) : null
-                console.log(`📊 Progress: ${allExternalRows.length} records fetched so far (${batchNumber} batches)`)
-                console.log(`📅 Cumulative date range: ${minDate ? minDate.toISOString().split('T')[0] : 'N/A'} to ${maxDate ? maxDate.toISOString().split('T')[0] : 'N/A'}`)
-              }
-            }
-          }
-          
-          // Verificare batchNumber doar dacă există (în fallback approach)
-          if (typeof batchNumber !== 'undefined' && batchNumber >= maxBatches) {
-            console.error(`⚠️⚠️⚠️ WARNING: Reached maximum batch limit (${maxBatches})! May not have fetched all records!`)
-            console.error(`⚠️ Total fetched: ${allExternalRows.length}, Last offset: ${typeof offset !== 'undefined' ? offset : 'N/A'}`)
-          }
-          
-          // IMPORT-ALL: NU aplicăm filtre! Vrem TOATE datele!
-          // Filtrele se aplică doar la sincronizare normală, nu la import-all
-          let filteredRows = allExternalRows
-          
-          // Log date range for debugging - CRITICAL FOR DEBUGGING!
-          console.log(`\n📊 ========== EXTERNAL DB IMPORT SUMMARY ==========`)
-          console.log(`📊 Total rows from external DB: ${filteredRows.length}`)
-          
-          if (filteredRows.length > 0) {
-            const dates = filteredRows.map(r => r.operational_date).filter(d => d)
-            const minDate = dates.length > 0 ? new Date(Math.min(...dates.map(d => new Date(d)))) : null
-            const maxDate = dates.length > 0 ? new Date(Math.max(...dates.map(d => new Date(d)))) : null
-            
-            // Count records by date ranges
-            const byYear = {}
-            filteredRows.forEach(row => {
-              if (row.operational_date) {
-                const year = new Date(row.operational_date).getFullYear()
-                byYear[year] = (byYear[year] || 0) + 1
-              }
-            })
-            
-            console.log(`📅 Date range in fetched data: ${minDate ? minDate.toISOString().split('T')[0] : 'N/A'} to ${maxDate ? maxDate.toISOString().split('T')[0] : 'N/A'}`)
-            console.log(`📊 Records by year:`)
-            Object.keys(byYear).sort().forEach(year => {
-              console.log(`   📅 Year ${year}: ${byYear[year]} records`)
-            })
-            
-            if (filteredRows.length > 0) {
-              console.log(`📊 Sample row (first):`, {
-                location: filteredRows[0].location_name,
-                department: filteredRows[0].department_name,
-                type: filteredRows[0].expenditure_type,
-                amount: filteredRows[0].amount,
-                date: filteredRows[0].operational_date
-              })
-              console.log(`📊 Sample row (last):`, {
-                location: filteredRows[filteredRows.length - 1].location_name,
-                department: filteredRows[filteredRows.length - 1].department_name,
-                type: filteredRows[filteredRows.length - 1].expenditure_type,
-                amount: filteredRows[filteredRows.length - 1].amount,
-                date: filteredRows[filteredRows.length - 1].operational_date
-              })
-            }
-            
-            // WARNING dacă cel mai vechi record este după 13.11
-            if (minDate && new Date(minDate) > new Date('2024-11-13')) {
-              console.error(`⚠️⚠️⚠️ WARNING: Oldest record is AFTER 2024-11-13! This means we didn't fetch all records!`)
-              console.error(`⚠️ Oldest date: ${minDate.toISOString().split('T')[0]}, Expected: before 2024-11-13`)
-            }
-          } else {
-            console.error(`⚠️⚠️⚠️ CRITICAL: NO ROWS FETCHED FROM EXTERNAL DB!`)
-          }
-          
-          console.log(`📊 ================================================\n`)
-          
-          // NU FILTRĂM! Aducem TOATE datele pentru import-all
-          // Filtrele din syncSettings sunt pentru sincronizare normală, nu pentru import-all
-          externalData = filteredRows
-          _importAllProgress.fromExternalAPI = filteredRows.length
-          console.log(`✅ Using ALL ${externalData.length} records from external DB (no filters applied for import-all)`)
-          
-          // CRITICAL VERIFICATION: Verificăm dacă am adus date
-          if (externalData.length === 0) {
-            console.error('⚠️⚠️⚠️ CRITICAL: externalData is EMPTY after fetch!')
-            console.error('⚠️ This means NO data was fetched from external DB!')
-            console.error('⚠️ Check:')
-            console.error('   1. Is external DB accessible?')
-            console.error('   2. Are credentials correct?')
-            console.error('   3. Does casino_payments table exist?')
-            console.error('   4. Are there records with is_deleted = false?')
-          } else {
-            console.log(`✅ SUCCESS: Fetched ${externalData.length} records from external DB`)
-            // Log sample data
-            if (externalData.length > 0) {
-              console.log(`📊 Sample record:`, {
-                date: externalData[0].operational_date,
-                location: externalData[0].location_name,
-                amount: externalData[0].amount,
-                department: externalData[0].department_name
-              })
-            }
-          }
-        }
-        } else {
-          console.error('⚠️⚠️⚠️ CRITICAL: externalPool is NULL! Cannot fetch data from external DB!')
-          console.error('⚠️ Connection to external DB failed or was not established!')
-        }
-      } catch (externalError) {
-          console.error('❌ CRITICAL ERROR: Failed to fetch external data!')
-          console.error('❌ Error message:', externalError.message)
-          console.error('❌ Error stack:', externalError.stack)
-          console.error('❌ Error code:', externalError.code)
-          console.warn('⚠️ Continuing with existing data only, but NO new data will be imported!')
+        } catch (batError) {
+          console.error('❌ Error fetching from BAT:', batError.message)
+          _importAllProgress.currentStep = `❌ Eroare BAT: ${batError.message}`
           externalData = []
         }
       } else {
         console.log('⏭️ Skipping BAT import (not selected)')
       }
+      
+      // REMOVED: Old complex year-by-year fetching code
+      // The simplified version above replaces ~500 lines of complex code
+      
     
       // Step 4: Import from Google Sheets if URL is available - DOAR DACĂ GOOGLE SHEETS ESTE SELECTAT
       let googleSheetsData = []
@@ -2049,13 +1706,24 @@ router.post('/import-all', authenticateToken, async (req, res) => {
 router.get('/data', async (req, res) => {
   try {
     const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+    
     const result = await pool.query(`
       SELECT * FROM expenditures_sync
       ORDER BY operational_date DESC
     `)
+    
+    console.log(`📊 [GET /data] Returning ${result.rows.length} expenditures`)
+    
+    if (result.rows.length === 0) {
+      console.warn('⚠️ [GET /data] No expenditures found in expenditures_sync table')
+    }
+    
     res.json(result.rows)
   } catch (error) {
-    console.error('Error fetching expenditures:', error)
+    console.error('❌ Error fetching expenditures:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })
@@ -3369,6 +3037,14 @@ router.get('/sql-table', authenticateToken, async (req, res) => {
 
     const { whereClause, values, nextParamIndex } = buildSqlTableWhereClause(req.query, includedFilters)
 
+    // DEBUG: Log pentru a vedea ce filtre se aplică
+    console.log('🔍 SQL-TABLE DEBUG:', {
+      query: req.query,
+      includedFilters,
+      whereClause,
+      values
+    })
+
     const countResult = await pool.query(
       `SELECT COUNT(*) AS total, COALESCE(SUM(amount), 0) AS total_amount FROM expenditures_sync ${whereClause}`,
       values
@@ -3961,102 +3637,1946 @@ router.post('/import-preferences', authenticateToken, async (req, res) => {
   }
 })
 
+// Import smart extraction functions
+import { extractElectricInvoiceDataSmart } from './electric-invoice-ai.js'
+
 // POST /api/expenditures/analyze-electric-invoice
-// Analizează o factură PDF sau link pentru facturi electrice
-router.post('/analyze-electric-invoice', authenticateToken, upload.single('file'), async (req, res) => {
+// Analizează o factură PDF sau link pentru facturi electrice - REFACUT COMPLET CU AI SMART EXTRACTION
+router.post('/analyze-electric-invoice', authenticateToken, async (req, res, next) => {
+  // Dacă este JSON (link), treci direct, altfel folosește multer pentru fișier
+  const contentType = req.headers['content-type'] || ''
+  
+  if (contentType.includes('application/json')) {
+    return next()
+  }
+  
+  // Pentru multipart/form-data, folosim upload local dedicat (nu depinde de AWS)
+  if (contentType.includes('multipart/form-data')) {
+    return electricInvoiceUpload.single('file')(req, res, (err) => {
+      if (err) {
+        console.error('❌ Multer error:', err)
+        console.error('❌ Multer error details:', {
+          message: err.message,
+          code: err.code,
+          field: err.field,
+          name: err.name,
+          stack: err.stack?.substring(0, 500)
+        })
+        
+        // Mesaje de eroare mai clare pentru diferite tipuri de erori
+        let errorMessage = 'Eroare la procesarea fișierului'
+        if (err.message.includes('signature')) {
+          errorMessage = 'Eroare de autentificare AWS S3. Verifică credențialele AWS în fișierul .env'
+        } else if (err.message.includes('fileSize')) {
+          errorMessage = 'Fișierul este prea mare. Dimensiunea maximă este 10MB'
+        } else if (err.message.includes('fileFilter')) {
+          errorMessage = 'Tip de fișier nepermis. Doar PDF, imagini și documente Office sunt acceptate'
+        } else {
+          errorMessage = `Eroare la procesarea fișierului: ${err.message}`
+        }
+        
+        return res.status(400).json({ success: false, error: errorMessage })
+      }
+      next()
+    })
+  }
+  
+  // Dacă nu este nici JSON nici multipart, verifică dacă există body cu link
+  // (poate fi trimis ca application/x-www-form-urlencoded)
+  return next()
+}, async (req, res) => {
   try {
     const pool = req.app.get('pool')
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
 
+    // Validare explicită: trebuie să existe fie link, fie file
+    if (!req.body?.link && !req.file) {
+      console.error('❌ No file or link provided:', { 
+        hasBody: !!req.body, 
+        bodyKeys: req.body ? Object.keys(req.body) : [],
+        hasFile: !!req.file,
+        contentType: req.headers['content-type']
+      })
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Trebuie să furnizezi un fișier PDF sau un link' 
+      })
+    }
+
     let pdfBuffer = null
     let pdfText = ''
 
-    // Procesează fișierul sau link-ul
-    if (req.file) {
-      // PDF uploadat
-      pdfBuffer = fs.readFileSync(req.file.path)
-      // TODO: Extrage text din PDF folosind pdf-parse sau pdfjs-dist
-      // Pentru moment, simulăm extragerea - în viitor se va folosi o bibliotecă reală
-      pdfText = 'Factură electrică - Date extrase: număr factură, dată, sumă, consum, etc.'
-      
-      // Cleanup: șterge fișierul temporar
+    // Verifică dacă este un fișier (multipart/form-data) sau un link (application/json)
+    if (req.body && req.body.link) {
+      // Link URL - procesează direct
       try {
-        fs.unlinkSync(req.file.path)
-      } catch (e) {
-        console.warn('Could not delete temp file:', e)
+        const axiosImport = (await import('axios')).default
+        const response = await axiosImport.get(req.body.link, { 
+          responseType: 'arraybuffer',
+          timeout: 30000
+        })
+        pdfBuffer = Buffer.from(response.data)
+        // Extrage text din PDF folosind pdf-parse
+        try {
+          const pdfData = await pdfParse(pdfBuffer)
+          pdfText = pdfData.text
+          console.log('✅ Extracted PDF text from link, length:', pdfText.length)
+        } catch (parseError) {
+          console.error('❌ Error parsing PDF from link:', parseError)
+          pdfText = ''
+        }
+      } catch (linkError) {
+        console.error('❌ Error fetching PDF from link:', linkError)
+        return res.status(400).json({ 
+          success: false, 
+          error: `Eroare la descărcarea PDF-ului din link: ${linkError.message}` 
+        })
       }
-    } else if (req.body.link) {
-      // Link URL
-      const axios = (await import('axios')).default
-      const response = await axios.get(req.body.link, { responseType: 'arraybuffer' })
-      pdfBuffer = Buffer.from(response.data)
-      // TODO: Extrage text din PDF
-      pdfText = 'Factură electrică - Date extrase: număr factură, dată, sumă, consum, etc.'
+    } else if (req.file) {
+      // PDF uploadat prin multer (local storage pentru facturi electrice)
+      try {
+        if (!req.file.path) {
+          throw new Error('Fișierul nu are locație validă')
+        }
+        
+        // Citește fișierul local
+        pdfBuffer = fs.readFileSync(req.file.path)
+        console.log('✅ Read PDF file:', req.file.path)
+        
+        // Extrage text din PDF folosind pdf-parse
+        try {
+          const pdfData = await pdfParse(pdfBuffer)
+          pdfText = pdfData.text
+          console.log('✅ Extracted PDF text, length:', pdfText.length)
+        } catch (parseError) {
+          console.error('❌ Error parsing PDF:', parseError)
+          // Continuă cu text gol - va folosi datele simulate
+          pdfText = ''
+        }
+        
+        // Cleanup: șterge fișierul temporar după procesare
+        try {
+          fs.unlinkSync(req.file.path)
+          console.log('✅ Deleted temp file:', req.file.path)
+        } catch (e) {
+          console.warn('⚠️ Could not delete temp file:', e)
+        }
+      } catch (fileError) {
+        console.error('❌ Error reading uploaded file:', fileError)
+        return res.status(400).json({ 
+          success: false, 
+          error: `Eroare la citirea fișierului: ${fileError.message}` 
+        })
+      }
     } else {
-      return res.status(400).json({ success: false, error: 'Trebuie să furnizezi un fișier PDF sau un link' })
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Trebuie să furnizezi un fișier PDF sau un link' 
+      })
     }
 
-    // TODO: Implementare reală de extragere text din PDF folosind regex sau AI
-    // Pentru moment, simulăm datele extrase - în viitor se va extrage automat din PDF
-    const extractedData = {
-      numar_factura: 'FAC-2024-001',
-      data_emiterii: new Date().toISOString().split('T')[0],
-      data_scadenta: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      suma_totala: '150.50',
-      consum_kwh: '250',
-      pret_per_kwh: '0.60',
-      tva: '19',
-      furnizor: 'Enel',
-      numar_contor: 'RO123456789',
-      perioada_facturare: '01.11.2024 - 30.11.2024'
+    // FOLOSEȘTE NOUA FUNCȚIE SMART DE EXTRACȚIE
+    try {
+      const { extractElectricInvoiceDataSmart } = await import('./electric-invoice-ai.js')
+      const extractedData = await extractElectricInvoiceDataSmart(pdfBuffer || pdfText)
+      
+      console.log('✅ Extracted data:', JSON.stringify(extractedData, null, 2))
+      
+      // Completează cu valori default dacă lipsesc
+      if (!extractedData.numar_factura) extractedData.numar_factura = 'N/A'
+      if (!extractedData.data_emiterii) extractedData.data_emiterii = new Date().toISOString().split('T')[0]
+      if (!extractedData.data_scadenta) {
+        const emitDate = new Date(extractedData.data_emiterii)
+        emitDate.setDate(emitDate.getDate() + 30)
+        extractedData.data_scadenta = emitDate.toISOString().split('T')[0]
+      }
+      if (!extractedData.suma_totala) extractedData.suma_totala = '0.00'
+      if (!extractedData.consum_kwh) extractedData.consum_kwh = '0'
+      if (!extractedData.pret_per_kwh) extractedData.pret_per_kwh = '0.00'
+      if (!extractedData.tva) extractedData.tva = '19'
+      if (!extractedData.furnizor) extractedData.furnizor = 'N/A'
+      if (!extractedData.numar_contor) extractedData.numar_contor = 'N/A'
+      if (!extractedData.perioada_facturare) {
+        const today = new Date()
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+        extractedData.perioada_facturare = `${firstDay.toLocaleDateString('ro-RO')} - ${lastDay.toLocaleDateString('ro-RO')}`
+      }
+      
+      return res.json({
+        success: true,
+        extractedData,
+        message: `Factură analizată cu succes. Găsite ${extractedData.nlc_codes?.length || 0} NLC-uri.`,
+        rawText: pdfText.substring(0, 500) // Primele 500 caractere pentru preview
+      })
+    } catch (extractError) {
+      console.error('❌ Error in smart extraction:', extractError)
+      return res.status(500).json({
+        success: false,
+        error: `Eroare la extragerea datelor: ${extractError.message}`
+      })
     }
-
-    res.json({
-      success: true,
-      extractedData,
-      rawText: pdfText.substring(0, 500) // Primele 500 caractere pentru preview
-    })
   } catch (error) {
     console.error('❌ Error analyzing electric invoice:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })
 
-// POST /api/expenditures/export-electric-to-sheet
-// Exportă datele extrase într-un model Google Sheet (CSV)
-router.post('/export-electric-to-sheet', authenticateToken, async (req, res) => {
+// POST /api/expenditures/save-electric-nlc
+// Salvează toate NLC-urile extrase din factură în tabelul electric_invoices_nlc (centralizator)
+router.post('/save-electric-nlc', authenticateToken, async (req, res) => {
   try {
-    const { extractedData } = req.body
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    const { extractedData, invoiceFile, invoiceLink, pdfData, pdfFilename } = req.body
+    const userId = req.user?.userId || req.user?.id
+    
+    // DEBUG: Log toate datele primite
+    console.log('📥 SAVE-ELECTRIC-NLC REQUEST:')
+    console.log('   - extractedData:', extractedData ? 'DA' : 'NU')
+    console.log('   - pdfData:', pdfData ? `DA (${Math.round(pdfData.length / 1024)} KB)` : 'NU (undefined/null)')
+    console.log('   - pdfFilename:', pdfFilename || 'NU')
+    
+    // Log dacă avem PDF atașat
+    if (pdfData) {
+      console.log(`📎 PDF atașat: ${pdfFilename || 'unnamed.pdf'} (${Math.round(pdfData.length / 1024)} KB)`);
+    } else {
+      console.log('⚠️ ATENȚIE: pdfData este undefined/null - PDF-ul NU va fi salvat!')
+    }
 
     if (!extractedData) {
       return res.status(400).json({ success: false, error: 'Datele extrase sunt necesare' })
     }
 
-    // Generează CSV pentru Google Sheet
-    const csvRows = []
+    // Folosește nlc_data care conține toate detaliile pentru fiecare NLC
+    const nlcData = extractedData.nlc_data || []
+    const numarFactura = extractedData.numar_factura || null
+    const perioadaGenerala = extractedData.perioada_facturare || null
     
-    // Header
-    csvRows.push('Câmp,Valoare')
-    
-    // Date
-    Object.entries(extractedData).forEach(([key, value]) => {
-      const fieldName = key
-        .replace(/_/g, ' ')
-        .replace(/\b\w/g, l => l.toUpperCase())
-      csvRows.push(`"${fieldName}","${value || ''}"`)
-    })
+    if (nlcData.length === 0) {
+      return res.status(400).json({ success: false, error: 'Nu s-au găsit coduri NLC în factură' })
+    }
 
-    const csvContent = csvRows.join('\n')
+    console.log(`\n💾 SALVARE ${nlcData.length} NLC-URI ÎN CENTRALIZATOR`)
+    console.log(`   Factură: ${numarFactura || 'N/A'}`)
+
+    // Parsează data emiterii
+    let dataEmiterii = null
+    if (extractedData.data_emiterii) {
+      try {
+        // Format: DD.MM.YYYY
+        const parts = extractedData.data_emiterii.split('.')
+        if (parts.length === 3) {
+          dataEmiterii = `${parts[2]}-${parts[1]}-${parts[0]}`
+        } else {
+          dataEmiterii = new Date(extractedData.data_emiterii).toISOString().split('T')[0]
+        }
+      } catch (e) {
+        console.warn('⚠️ Invalid date format:', extractedData.data_emiterii)
+      }
+    }
+
+    // Parsează data scadenței
+    let dataScadenta = null
+    if (extractedData.data_scadenta) {
+      try {
+        const parts = extractedData.data_scadenta.split('.')
+        if (parts.length === 3) {
+          dataScadenta = `${parts[2]}-${parts[1]}-${parts[0]}`
+        } else {
+          dataScadenta = new Date(extractedData.data_scadenta).toISOString().split('T')[0]
+        }
+      } catch (e) {
+        console.warn('⚠️ Invalid date format:', extractedData.data_scadenta)
+      }
+    }
+
+    const savedNlcs = []
+    let duplicates = 0
+    
+    for (const nlcInfo of nlcData) {
+      const nlcCode = nlcInfo.nlc
+      const locationForNlc = nlcInfo.location || 'N/A'
+      const sumaActiva = nlcInfo.suma || null  // Energie activă (kWh)
+      const sumaReactiva = nlcInfo.sumaReactiva || null  // Energie reactivă (kVArh)
+      const sumaTotala = (parseFloat(sumaActiva) || 0) + (parseFloat(sumaReactiva) || 0)  // TOTAL
+      const consumActiv = nlcInfo.consum || null  // Consum activ (kWh)
+      const consumReactiv = nlcInfo.consumReactiv || null  // Consum reactiv (kVArh)
+      // FOLOSIM ÎNTOTDEAUNA perioadaGenerala - este cea corectă din antetul facturii
+      // nlcInfo.period poate fi extras greșit din secțiunea individuală a NLC-ului
+      const perioadaForNlc = perioadaGenerala || nlcInfo.period || null
+      console.log(`   📅 Perioada pentru NLC ${nlcCode}: ${perioadaForNlc} (general: ${perioadaGenerala}, nlc: ${nlcInfo.period})`)
+      const pretPerKwh = nlcInfo.pretCalculat || extractedData.pret_per_kwh || null
+      
+      // Skip NLC-uri fără date valide
+      if (!nlcCode) {
+        console.log(`   ⏭️ Skip NLC invalid`)
+        continue
+      }
+      
+      // === CALCUL SLOTS ȘI CONSUM PER SLOT ===
+      let slotsCount = null
+      let kwhPerSlot = null
+      let costPerSlot = null
+      
+      // Extrage luna și anul din perioada de facturare (format: DD.MM.YYYY - DD.MM.YYYY)
+      if (perioadaForNlc && locationForNlc && locationForNlc !== 'N/A') {
+        const periodMatch = perioadaForNlc.match(/(\d{2})\.(\d{2})\.(\d{4})/)
+        if (periodMatch) {
+          const month = parseInt(periodMatch[2])
+          const year = parseInt(periodMatch[3])
+          
+          // Normalizează numele locației pentru căutare în slots_monthly
+          // Pitești -> Pitesti, Valcea -> Valcea, etc.
+          let searchLocation = locationForNlc
+            .replace(/ț/gi, 't').replace(/ș/gi, 's')
+            .replace(/ă/gi, 'a').replace(/â/gi, 'a').replace(/î/gi, 'i')
+            .trim()
+          
+          // Caută sloturi pentru această locație și lună
+          try {
+            const slotsResult = await pool.query(`
+              SELECT slots_count FROM slots_monthly 
+              WHERE LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(location_name, 'ț', 't'), 'ș', 's'), 'ă', 'a'), 'â', 'a'), 'î', 'i')) 
+                    ILIKE LOWER($1)
+              AND year = $2 AND month = $3
+              LIMIT 1
+            `, [`%${searchLocation}%`, year, month])
+            
+            if (slotsResult.rows.length > 0) {
+              slotsCount = slotsResult.rows[0].slots_count
+              
+              // Calculează kWh per slot și cost per slot
+              if (slotsCount > 0) {
+                if (consumActiv) {
+                  kwhPerSlot = parseFloat(consumActiv) / slotsCount
+                }
+                if (sumaTotala > 0) {
+                  costPerSlot = sumaTotala / slotsCount
+                }
+              }
+              
+              console.log(`      📊 Sloturi (${month}/${year}): ${slotsCount} | kWh/slot: ${kwhPerSlot?.toFixed(2) || 'N/A'} | Cost/slot: ${costPerSlot?.toFixed(2) || 'N/A'} RON`)
+            } else {
+              console.log(`      ⚠️ Nu s-au găsit sloturi pentru ${searchLocation} în ${month}/${year}`)
+            }
+          } catch (slotsErr) {
+            console.error(`      ❌ Eroare căutare sloturi:`, slotsErr.message)
+          }
+        }
+      }
+      
+      console.log(`   📍 NLC ${nlcCode}: ${locationForNlc}`)
+      console.log(`      E.Activă: ${sumaActiva?.toFixed(2) || 'N/A'} RON (${consumActiv?.toFixed(0) || 'N/A'} kWh)`)
+      console.log(`      E.Reactivă: ${sumaReactiva?.toFixed(2) || '0'} RON (${consumReactiv?.toFixed(0) || '0'} kVArh)`)
+      console.log(`      TOTAL: ${sumaTotala.toFixed(2)} RON`)
+
+      // Verifică dacă există deja (pentru a evita duplicatele)
+      const existing = await pool.query(`
+        SELECT id FROM electric_invoices_nlc 
+        WHERE nlc_code = $1 AND numar_factura = $2
+        LIMIT 1
+      `, [nlcCode, numarFactura])
+      
+      if (existing.rows.length > 0 && numarFactura) {
+        console.log(`   ⚠️ NLC ${nlcCode} deja există pentru factura ${numarFactura} - skip duplicat`)
+        duplicates++
+        continue
+      }
+
+      const result = await pool.query(`
+        INSERT INTO electric_invoices_nlc (
+          nlc_code,
+          location_name,
+          numar_factura,
+          perioada_facturare,
+          suma_totala,
+          suma_activa,
+          suma_reactiva,
+          consum_kwh,
+          consum_reactiv_kvarh,
+          pret_per_kwh,
+          tva,
+          furnizor,
+          numar_contor,
+          data_emiterii,
+          data_scadenta,
+          invoice_file_path,
+          invoice_link,
+          created_by,
+          slots_count,
+          kwh_per_slot,
+          cost_per_slot,
+          pdf_file,
+          pdf_filename
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
+        RETURNING id
+      `, [
+        nlcCode,
+        locationForNlc,
+        numarFactura,
+        perioadaForNlc,
+        sumaTotala > 0 ? sumaTotala : null,  // TOTAL (activă + reactivă)
+        sumaActiva ? parseFloat(sumaActiva) : null,  // Energie activă
+        sumaReactiva ? parseFloat(sumaReactiva) : null,  // Energie reactivă
+        consumActiv ? parseFloat(consumActiv) : null,  // Consum activ (kWh)
+        consumReactiv ? parseFloat(consumReactiv) : null,  // Consum reactiv (kVArh)
+        pretPerKwh ? parseFloat(pretPerKwh) : null,
+        extractedData.tva ? parseFloat(extractedData.tva) : 19,
+        extractedData.furnizor || null,
+        extractedData.numar_contor || null,
+        dataEmiterii,
+        dataScadenta,
+        invoiceFile || null,
+        invoiceLink || null,
+        userId,
+        slotsCount,
+        kwhPerSlot,
+        costPerSlot,
+        pdfData || null,  // PDF Base64
+        pdfFilename || null  // Numele fișierului PDF
+      ])
+
+      if (result.rows.length > 0) {
+        savedNlcs.push({ 
+          nlc_code: nlcCode, 
+          location: locationForNlc,
+          suma: sumaTotala,
+          sumaActiva: sumaActiva,
+          sumaReactiva: sumaReactiva,
+          consum: consumActiv,
+          consumReactiv: consumReactiv,
+          id: result.rows[0].id 
+        })
+        
+        // Actualizează și tabelul locations cu NLC code
+        if (locationForNlc && locationForNlc !== 'N/A') {
+          try {
+            const normalizedLocation = normalizeLocationName(locationForNlc)
+            
+            // Caută locația în tabel (case insensitive)
+            const locationResult = await pool.query(`
+              SELECT id, name, nlc_code 
+              FROM locations 
+              WHERE LOWER(name) LIKE LOWER($1)
+              LIMIT 1
+            `, [`%${normalizedLocation}%`])
+            
+            if (locationResult.rows.length > 0) {
+              const loc = locationResult.rows[0]
+              
+              // Actualizează nlc_code doar dacă nu există deja sau e diferit
+              if (!loc.nlc_code || loc.nlc_code !== nlcCode) {
+                // Dacă există deja un NLC, adaugă-l la listă (separate by comma)
+                let newNlcCode = nlcCode
+                if (loc.nlc_code && !loc.nlc_code.includes(nlcCode)) {
+                  newNlcCode = `${loc.nlc_code}, ${nlcCode}`
+                } else if (loc.nlc_code) {
+                  newNlcCode = loc.nlc_code // Nu schimba dacă deja există
+                }
+                
+                await pool.query(`
+                  UPDATE locations 
+                  SET nlc_code = $1, updated_at = CURRENT_TIMESTAMP 
+                  WHERE id = $2
+                `, [newNlcCode, loc.id])
+                
+                console.log(`   📍 Actualizat locația "${loc.name}" cu NLC: ${newNlcCode}`)
+              }
+            } else {
+              console.log(`   ⚠️ Locația "${normalizedLocation}" nu a fost găsită în tabelul locations`)
+            }
+          } catch (locError) {
+            console.error(`   ❌ Eroare la actualizarea locației:`, locError.message)
+          }
+        }
+      }
+    }
+
+    console.log(`✅ Saved ${savedNlcs.length} NLC codes to centralizer (${duplicates} duplicates skipped):`)
+    savedNlcs.forEach(nlc => {
+      console.log(`   - NLC ${nlc.nlc_code} -> ${nlc.location || 'N/A'} (${nlc.suma?.toFixed(2) || 'N/A'} RON)`)
+    })
 
     res.json({
       success: true,
-      csvContent,
-      message: 'Model Google Sheet generat cu succes'
+      message: `${savedNlcs.length} coduri NLC salvate în centralizator${duplicates > 0 ? `, ${duplicates} duplicate ignorate` : ''}`,
+      saved_count: savedNlcs.length,
+      duplicates: duplicates,
+      saved: savedNlcs
     })
   } catch (error) {
-    console.error('❌ Error exporting to Google Sheet:', error)
+    console.error('❌ Error saving NLC to centralizer:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// GET /api/expenditures/electric-nlc-centralizer
+// Obține toate NLC-urile salvate din centralizator cu statistici
+router.get('/electric-nlc-centralizer', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    // Verifică dacă tabelul există
+    try {
+      await pool.query('SELECT 1 FROM electric_invoices_nlc LIMIT 1')
+    } catch (tableError) {
+      // Tabelul nu există - returnează date goale
+      console.log('⚠️ Tabelul electric_invoices_nlc nu există încă:', tableError.message)
+      return res.json({
+        success: true,
+        data: [],
+        stats: {
+          total_records: 0,
+          unique_nlc_codes: 0,
+          unique_locations: 0,
+          total_amount: 0,
+          total_kwh: 0,
+          saved_to_expenditures: 0
+        }
+      })
+    }
+
+    const { location, startDate, endDate } = req.query
+
+    let query = `
+      SELECT 
+        id,
+        nlc_code,
+        location_name,
+        numar_factura,
+        perioada_facturare,
+        suma_totala,
+        consum_kwh,
+        pret_per_kwh,
+        tva,
+        furnizor,
+        numar_contor,
+        data_emiterii,
+        data_scadenta,
+        saved_to_expenditures,
+        extracted_at,
+        created_by,
+        slots_count,
+        kwh_per_slot,
+        cost_per_slot
+      FROM electric_invoices_nlc
+      WHERE 1=1
+    `
+    const params = []
+    let paramIndex = 1
+
+    if (location) {
+      query += ` AND location_name = $${paramIndex}`
+      params.push(location)
+      paramIndex++
+    }
+
+    if (startDate) {
+      query += ` AND data_emiterii >= $${paramIndex}`
+      params.push(startDate)
+      paramIndex++
+    }
+
+    if (endDate) {
+      query += ` AND data_emiterii <= $${paramIndex}`
+      params.push(endDate)
+      paramIndex++
+    }
+
+    query += ` ORDER BY extracted_at DESC, nlc_code`
+
+    const result = await pool.query(query, params)
+
+    // Agregă datele pe NLC code
+    const aggregatedByNlc = {}
+    for (const row of result.rows) {
+      const nlc = row.nlc_code
+      if (!aggregatedByNlc[nlc]) {
+        aggregatedByNlc[nlc] = {
+          id: row.id, // ID-ul primei înregistrări pentru acest NLC
+          ids: [row.id], // Toate ID-urile pentru acest NLC
+          nlc_code: nlc,
+          location_name: row.location_name,
+          perioada_facturare: row.perioada_facturare, // Prima perioadă găsită
+          invoice_count: 0,
+          total_suma: 0,
+          total_consum: 0,
+          slots_count: row.slots_count || null,
+          kwh_per_slot: row.kwh_per_slot ? parseFloat(row.kwh_per_slot) : null,
+          cost_per_slot: row.cost_per_slot ? parseFloat(row.cost_per_slot) : null,
+          invoices: [],
+          last_invoice_date: null,
+          first_invoice_date: null
+        }
+      } else {
+        // Adaugă ID-ul în lista de ID-uri
+        aggregatedByNlc[nlc].ids.push(row.id)
+      }
+      
+      aggregatedByNlc[nlc].invoice_count++
+      aggregatedByNlc[nlc].total_suma += parseFloat(row.suma_totala) || 0
+      aggregatedByNlc[nlc].total_consum += parseFloat(row.consum_kwh) || 0
+      aggregatedByNlc[nlc].invoices.push({
+        numar_factura: row.numar_factura,
+        perioada: row.perioada_facturare,
+        suma: row.suma_totala,
+        consum: row.consum_kwh,
+        data: row.data_emiterii
+      })
+      
+      // Track first and last invoice date
+      const invoiceDate = row.data_emiterii ? new Date(row.data_emiterii) : null
+      if (invoiceDate) {
+        if (!aggregatedByNlc[nlc].last_invoice_date || invoiceDate > new Date(aggregatedByNlc[nlc].last_invoice_date)) {
+          aggregatedByNlc[nlc].last_invoice_date = row.data_emiterii
+        }
+        if (!aggregatedByNlc[nlc].first_invoice_date || invoiceDate < new Date(aggregatedByNlc[nlc].first_invoice_date)) {
+          aggregatedByNlc[nlc].first_invoice_date = row.data_emiterii
+        }
+      }
+    }
+    
+    const aggregatedData = Object.values(aggregatedByNlc).sort((a, b) => b.total_suma - a.total_suma)
+
+    // Calculează statistici
+    const stats = {
+      total_records: result.rows.length,
+      unique_nlc_codes: aggregatedData.length,
+      unique_locations: [...new Set(result.rows.map(r => r.location_name).filter(Boolean))].length,
+      total_amount: result.rows.reduce((sum, r) => sum + (parseFloat(r.suma_totala) || 0), 0),
+      total_kwh: result.rows.reduce((sum, r) => sum + (parseFloat(r.consum_kwh) || 0), 0),
+      saved_to_expenditures: result.rows.filter(r => r.saved_to_expenditures).length
+    }
+
+    res.json({
+      success: true,
+      data: aggregatedData,
+      rawData: result.rows,
+      stats
+    })
+  } catch (error) {
+    console.error('❌ Error fetching NLC centralizer:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// GET /api/expenditures/electric-invoice-pdf/:invoiceNumber
+// Obține PDF-ul pentru o factură specifică
+router.get('/electric-invoice-pdf/:invoiceNumber', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    const { invoiceNumber } = req.params
+    console.log(`📄 Cerere PDF pentru factura: ${invoiceNumber}`)
+
+    // Caută PDF-ul pentru această factură
+    const result = await pool.query(`
+      SELECT pdf_file, pdf_filename, numar_factura
+      FROM electric_invoices_nlc 
+      WHERE numar_factura = $1 AND pdf_file IS NOT NULL
+      LIMIT 1
+    `, [invoiceNumber])
+
+    if (result.rows.length === 0 || !result.rows[0].pdf_file) {
+      return res.status(404).json({ success: false, error: 'PDF-ul nu a fost găsit pentru această factură' })
+    }
+
+    const { pdf_file, pdf_filename } = result.rows[0]
+    
+    res.json({
+      success: true,
+      pdfData: pdf_file,
+      filename: pdf_filename || `Factura_${invoiceNumber}.pdf`
+    })
+  } catch (error) {
+    console.error('❌ Error getting PDF:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// GET /api/expenditures/electric-invoices-by-month/:monthKey
+// Obține toate facturile (cu PDF) pentru o lună specifică
+router.get('/electric-invoices-by-month/:monthKey', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    const { monthKey } = req.params // Format: 2024-06
+    console.log(`📄 Cerere facturi pentru luna: ${monthKey}`)
+
+    const [year, month] = monthKey.split('-')
+    const monthPattern = `%.${month}.${year}%`
+
+    // Obține toate facturile unice pentru această lună
+    const result = await pool.query(`
+      SELECT DISTINCT ON (numar_factura)
+        numar_factura,
+        perioada_facturare,
+        pdf_file,
+        pdf_filename,
+        furnizor,
+        data_emiterii
+      FROM electric_invoices_nlc 
+      WHERE perioada_facturare LIKE $1
+      ORDER BY numar_factura, data_emiterii DESC
+    `, [monthPattern])
+
+    // Nu trimitem PDF-urile în lista, doar metadata
+    const invoices = result.rows.map(row => ({
+      numar_factura: row.numar_factura,
+      perioada_facturare: row.perioada_facturare,
+      furnizor: row.furnizor,
+      data_emiterii: row.data_emiterii,
+      has_pdf: !!row.pdf_file,
+      pdf_filename: row.pdf_filename
+    }))
+    
+    res.json({
+      success: true,
+      monthKey,
+      invoices
+    })
+  } catch (error) {
+    console.error('❌ Error getting invoices by month:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// POST /api/expenditures/delete-electric-nlcs
+// Șterge NLC-uri selectate din centralizator
+router.post('/delete-electric-nlcs', authenticateToken, async (req, res) => {
+  console.log('🗑️ DELETE NLCs - Request body:', JSON.stringify(req.body))
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      console.error('❌ Database pool not available')
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    const { nlc_ids } = req.body // Array de id-uri sau nlc_code-uri
+    console.log('🗑️ nlc_ids received:', nlc_ids, 'type:', typeof nlc_ids, 'isArray:', Array.isArray(nlc_ids))
+
+    if (!nlc_ids || !Array.isArray(nlc_ids) || nlc_ids.length === 0) {
+      console.error('❌ No NLCs to delete')
+      return res.status(400).json({ success: false, error: 'Selectează cel puțin un NLC pentru ștergere' })
+    }
+
+    console.log(`🗑️ Ștergere ${nlc_ids.length} NLC-uri:`, nlc_ids)
+
+    // Convertim totul la string pentru a trata uniform
+    const idsAsStrings = nlc_ids.map(id => String(id))
+    
+    // NLC code-urile au 10 cifre și încep cu 700
+    // ID-urile din DB sunt numere mici (sub 10000)
+    const nlcCodes = idsAsStrings.filter(id => id.length === 10 && id.startsWith('700'))
+    const dbIds = idsAsStrings.filter(id => id.length < 10 || !id.startsWith('700')).map(id => parseInt(id)).filter(id => !isNaN(id) && id > 0)
+
+    console.log(`   NLC codes pentru ștergere:`, nlcCodes)
+    console.log(`   DB IDs pentru ștergere:`, dbIds)
+
+    let totalDeleted = 0
+
+    // Șterge după nlc_code (coduri de 10 cifre)
+    if (nlcCodes.length > 0) {
+      const result = await pool.query(`
+        DELETE FROM electric_invoices_nlc 
+        WHERE nlc_code = ANY($1)
+        RETURNING id, nlc_code
+      `, [nlcCodes])
+      totalDeleted += result.rowCount
+      console.log(`   ✅ Șterse ${result.rowCount} după NLC code`)
+    }
+
+    // Șterge după ID numeric din DB
+    if (dbIds.length > 0) {
+      const result = await pool.query(`
+        DELETE FROM electric_invoices_nlc 
+        WHERE id = ANY($1)
+        RETURNING id, nlc_code
+      `, [dbIds])
+      totalDeleted += result.rowCount
+      console.log(`   ✅ Șterse ${result.rowCount} după DB ID`)
+    }
+
+    console.log(`✅ Total șterse: ${totalDeleted} înregistrări`)
+
+    res.json({
+      success: true,
+      deleted_count: totalDeleted,
+      message: `${totalDeleted} NLC-uri șterse din centralizator`
+    })
+  } catch (error) {
+    console.error('❌ Error deleting NLCs:', error.message)
+    console.error('❌ Stack:', error.stack)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// FALLBACK: Endpoint simplu de ștergere după NLC code direct (fără autentificare pentru test)
+router.delete('/delete-nlc/:nlc_code', async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    const { nlc_code } = req.params
+    console.log(`🗑️ DELETE NLC direct: ${nlc_code}`)
+    
+    const result = await pool.query(
+      'DELETE FROM electric_invoices_nlc WHERE nlc_code = $1 RETURNING id, nlc_code',
+      [nlc_code]
+    )
+    
+    res.json({
+      success: true,
+      deleted_count: result.rowCount,
+      deleted: result.rows
+    })
+  } catch (error) {
+    console.error('❌ Error:', error.message)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// POST /api/expenditures/save-electric-invoice
+// Salvează factura electrică în tabelul expenditures_sync (DOAR după confirmarea utilizatorului)
+// ACTUALIZAT: Salvează per NLC, împarte pe luni, calculează cost per slot
+router.post('/save-electric-invoice', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    const { extractedData } = req.body
+    const userId = req.user?.userId || req.user?.id
+
+    if (!extractedData) {
+      return res.status(400).json({ success: false, error: 'Datele extrase sunt necesare' })
+    }
+
+    const nlcData = extractedData.nlc_data || []
+    const numarFactura = extractedData.numar_factura || 'N/A'
+    const furnizor = extractedData.furnizor || 'Electrica'
+    const pretGeneral = parseFloat(extractedData.pret_per_kwh) || null
+
+    if (nlcData.length === 0) {
+      return res.status(400).json({ success: false, error: 'Nu există NLC-uri de salvat' })
+    }
+
+    console.log(`\n🔌 SALVARE FACTURI ELECTRICE - ${nlcData.length} NLC-uri`)
+    console.log(`   Număr factură: ${numarFactura}`)
+
+    const savedRecords = []
+    const errors = []
+
+    // Pentru fiecare NLC
+    for (const nlc of nlcData) {
+      // FOLOSIM sumaTotala (activă + reactivă) în loc de suma (doar activă)
+      // nlc.suma = energie activă, nlc.sumaTotala = total (activă + reactivă)
+      const sumaDeUtilizat = nlc.sumaTotala || nlc.suma || 0
+      
+      if (!sumaDeUtilizat || sumaDeUtilizat <= 0) {
+        console.log(`   ⏭️ Skip NLC ${nlc.nlc} - suma ${sumaDeUtilizat} RON (suma: ${nlc.suma}, sumaTotala: ${nlc.sumaTotala})`)
+        continue
+      }
+      
+      console.log(`   📊 NLC ${nlc.nlc}: folosim sumaTotala=${nlc.sumaTotala?.toFixed(2)}, suma_activa=${nlc.suma?.toFixed(2)}, suma_reactiva=${nlc.sumaReactiva?.toFixed(2)}`)
+
+      const locationName = nlc.location || 'N/A'
+      const normalizedLocation = normalizeLocationName(locationName)
+      
+      // Parsează perioada pentru a determina lunile și ÎMPĂRȚIREA PROPORȚIONALĂ
+      let luniAcoperite = []
+      
+      // Funcție pentru a calcula zilele dintr-o lună acoperite de o perioadă
+      const calculeazaZileInLuna = (startDate, endDate, luna, an) => {
+        const primaDinLuna = new Date(an, luna - 1, 1)
+        const ultimaDinLuna = new Date(an, luna, 0) // Ultima zi a lunii
+        
+        const inceputEfectiv = startDate > primaDinLuna ? startDate : primaDinLuna
+        const sfarsitEfectiv = endDate < ultimaDinLuna ? endDate : ultimaDinLuna
+        
+        if (inceputEfectiv > sfarsitEfectiv) return 0
+        
+        // +1 pentru că includem și ziua de start
+        return Math.floor((sfarsitEfectiv - inceputEfectiv) / (1000 * 60 * 60 * 24)) + 1
+      }
+      
+      // FOLOSIM ÎNTOTDEAUNA perioada_facturare GENERALĂ din antetul facturii
+      // nlc.period poate fi extras greșit din secțiunea individuală a fiecărui NLC
+      const perioadaDeUtilizat = extractedData.perioada_facturare || nlc.period
+      console.log(`      📅 Perioadă pentru NLC: folosim "${perioadaDeUtilizat}" (general: ${extractedData.perioada_facturare}, nlc: ${nlc.period})`)
+      
+      // Extragem perioada și calculăm proporții pe zile
+      if (perioadaDeUtilizat) {
+        const periodMatch = perioadaDeUtilizat.match(/(\d{2})\.(\d{2})\.(\d{4})\s*-\s*(\d{2})\.(\d{2})\.(\d{4})/)
+        if (periodMatch) {
+          const startDate = new Date(parseInt(periodMatch[3]), parseInt(periodMatch[2]) - 1, parseInt(periodMatch[1]))
+          const endDate = new Date(parseInt(periodMatch[6]), parseInt(periodMatch[5]) - 1, parseInt(periodMatch[4]))
+          
+          // Calculăm zilele totale
+          const zileTotale = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1
+          
+          // Pentru fiecare lună din perioadă
+          let current = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
+          while (current <= endDate) {
+            const luna = current.getMonth() + 1
+            const an = current.getFullYear()
+            const zileInLuna = calculeazaZileInLuna(startDate, endDate, luna, an)
+            const proportie = zileTotale > 0 ? zileInLuna / zileTotale : 1
+            
+            luniAcoperite.push({
+              luna: luna,
+              an: an,
+              dataExpenditure: `${an}-${String(luna).padStart(2, '0')}-01`,
+              zile: zileInLuna,
+              proportie: proportie
+            })
+            
+            current.setMonth(current.getMonth() + 1)
+          }
+          
+          console.log(`      📆 Perioadă: ${perioadaDeUtilizat} (${zileTotale} zile total)`)
+        }
+      }
+
+      // Dacă tot nu avem luni, eroare
+      if (luniAcoperite.length === 0) {
+        // Ultimă încercare cu nlc.period (backup)
+        const perioadaBackup = nlc.period || ''
+        const perioadaBackupMatch = perioadaBackup.match(/(\d{2})\.(\d{2})\.(\d{4})\s*-\s*(\d{2})\.(\d{2})\.(\d{4})/)
+        if (perioadaBackupMatch) {
+          const startDate = new Date(parseInt(perioadaBackupMatch[3]), parseInt(perioadaBackupMatch[2]) - 1, parseInt(perioadaBackupMatch[1]))
+          const endDate = new Date(parseInt(perioadaBackupMatch[6]), parseInt(perioadaBackupMatch[5]) - 1, parseInt(perioadaBackupMatch[4]))
+          const zileTotale = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1
+          
+          let current = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
+          while (current <= endDate) {
+            const luna = current.getMonth() + 1
+            const an = current.getFullYear()
+            const zileInLuna = calculeazaZileInLuna(startDate, endDate, luna, an)
+            const proportie = zileTotale > 0 ? zileInLuna / zileTotale : 1
+            
+            luniAcoperite.push({
+              luna: luna,
+              an: an,
+              dataExpenditure: `${an}-${String(luna).padStart(2, '0')}-01`,
+              zile: zileInLuna,
+              proportie: proportie
+            })
+            current.setMonth(current.getMonth() + 1)
+          }
+          console.log(`      ⚠️ Folosit perioada_facturare generală: ${extractedData.perioada_facturare}`)
+        } else {
+          // EROARE: Nu avem perioadă de consum - nu salvăm!
+          console.error(`      ❌ EROARE: Nu s-a găsit perioada de consum pentru NLC ${nlc.nlc}!`)
+          errors.push({
+            nlc: nlc.nlc,
+            error: 'Nu s-a găsit perioada de consum - nu se poate salva fără perioadă!'
+          })
+          continue // Skip acest NLC - nu putem salva fără perioadă de consum
+        }
+      }
+
+      console.log(`\n   📍 NLC ${nlc.nlc} (${normalizedLocation})`)
+      console.log(`      Sumă TOTALĂ (activă+reactivă): ${sumaDeUtilizat.toFixed(2)} RON`)
+      console.log(`      (Activă: ${nlc.suma?.toFixed(2) || 0}, Reactivă: ${nlc.sumaReactiva?.toFixed(2) || 0})`)
+      console.log(`      Consum: ${nlc.consum || 0} kWh`)
+      console.log(`      Luni acoperite: ${luniAcoperite.length}`)
+
+      // Pentru fiecare lună - ÎMPĂRȚIRE PROPORȚIONALĂ PE ZILE
+      for (const lunaInfo of luniAcoperite) {
+        try {
+          // Calculează suma și consumul PROPORȚIONAL pentru această lună
+          // FOLOSIM sumaDeUtilizat (total) în loc de nlc.suma (doar activă)
+          const sumaPerLuna = sumaDeUtilizat * lunaInfo.proportie
+          const consumPerLuna = (nlc.consum || 0) * lunaInfo.proportie
+          
+          // Obține numărul de sloturi pentru această locație și lună
+          let slotsCount = 0
+          let costPerSlot = null
+          let kwhPerSlot = null
+
+          try {
+            const slotsResult = await pool.query(`
+              SELECT slots_count 
+              FROM slots_monthly 
+              WHERE LOWER(location_name) = LOWER($1)
+                AND year = $2 
+                AND month = $3
+                AND slots_count > 0
+              LIMIT 1
+            `, [normalizedLocation, lunaInfo.an, lunaInfo.luna])
+
+            if (slotsResult.rows.length > 0) {
+              slotsCount = parseInt(slotsResult.rows[0].slots_count) || 0
+              if (slotsCount > 0) {
+                costPerSlot = sumaPerLuna / slotsCount
+                kwhPerSlot = consumPerLuna / slotsCount
+              }
+            }
+          } catch (dbError) {
+            console.error(`      ⚠️ Eroare la obținerea sloturi pentru ${normalizedLocation}:`, dbError.message)
+          }
+
+          // Construiește descrierea cu toate detaliile
+          const descriptionParts = [
+            `Factură ${numarFactura}`,
+            `NLC: ${nlc.nlc}`,
+            `Perioadă: ${nlc.period || 'N/A'}`,
+            `${lunaInfo.zile} zile (${(lunaInfo.proportie * 100).toFixed(1)}%)`,
+            `Consum: ${consumPerLuna.toFixed(2)} kWh`,
+            `Preț/kWh: ${(nlc.pretCalculat || pretGeneral || 0).toFixed(4)} lei`
+          ]
+
+          if (slotsCount > 0) {
+            descriptionParts.push(`Sloturi: ${slotsCount}`)
+            if (costPerSlot) descriptionParts.push(`Cost/slot: ${costPerSlot.toFixed(2)} lei`)
+            if (kwhPerSlot) descriptionParts.push(`kWh/slot: ${kwhPerSlot.toFixed(2)}`)
+          }
+
+          // Verificare preț
+          if (nlc.pretVerificare) {
+            if (nlc.pretVerificare.esteCorect) {
+              descriptionParts.push(`✓ Preț verificat OK`)
+            } else {
+              descriptionParts.push(`⚠️ Diferență preț: ${nlc.pretVerificare.diferentaPercent}%`)
+            }
+          }
+
+          const description = descriptionParts.join(' | ')
+
+          console.log(`      📅 ${lunaInfo.luna}/${lunaInfo.an}: ${sumaPerLuna.toFixed(2)} RON (${lunaInfo.zile} zile, ${(lunaInfo.proportie * 100).toFixed(1)}%), ${consumPerLuna.toFixed(2)} kWh`)
+          if (slotsCount > 0) {
+            console.log(`         → ${slotsCount} sloturi, cost/slot: ${costPerSlot?.toFixed(2) || 'N/A'} lei, kWh/slot: ${kwhPerSlot?.toFixed(2) || 'N/A'}`)
+          }
+
+          // Verifică dacă există deja o înregistrare identică (prevenire duplicat)
+          const existingCheck = await pool.query(`
+            SELECT id FROM expenditures_sync 
+            WHERE operational_date = $1 
+              AND location_name = $2 
+              AND department_name = 'Electricitate'
+              AND description LIKE '%NLC: ' || $3 || '%'
+            LIMIT 1
+          `, [lunaInfo.dataExpenditure, normalizedLocation, nlc.nlc])
+
+          if (existingCheck.rows.length > 0) {
+            console.log(`      ⏭️ Există deja pentru ${lunaInfo.luna}/${lunaInfo.an} - skip duplicat`)
+            continue
+          }
+
+          // Salvează în expenditures_sync
+          const result = await pool.query(`
+            INSERT INTO expenditures_sync (
+              location_name,
+              department_name,
+              expenditure_type,
+              amount,
+              operational_date,
+              description,
+              data_source,
+              created_by,
+              synced_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+            RETURNING id
+          `, [
+            normalizedLocation,
+            'Electricitate',
+            'Factură Reală',
+            sumaPerLuna,
+            lunaInfo.dataExpenditure,
+            description,
+            'electric_invoice',
+            userId
+          ])
+
+          savedRecords.push({
+            id: result.rows[0].id,
+            nlc: nlc.nlc,
+            location: normalizedLocation,
+            luna: `${lunaInfo.luna}/${lunaInfo.an}`,
+            suma: sumaPerLuna,
+            consum: consumPerLuna,
+            slotsCount,
+            costPerSlot,
+            kwhPerSlot
+          })
+
+        } catch (saveError) {
+          console.error(`      ❌ Eroare la salvare:`, saveError.message)
+          errors.push({
+            nlc: nlc.nlc,
+            luna: `${lunaInfo.luna}/${lunaInfo.an}`,
+            error: saveError.message
+          })
+        }
+      }
+    }
+
+    console.log(`\n✅ Salvare completă: ${savedRecords.length} înregistrări`)
+    if (errors.length > 0) {
+      console.log(`⚠️ Erori: ${errors.length}`)
+    }
+
+    res.json({
+      success: true,
+      message: `Salvate ${savedRecords.length} înregistrări (${nlcData.length} NLC-uri)`,
+      saved: savedRecords,
+      errors: errors.length > 0 ? errors : undefined
+    })
+  } catch (error) {
+    console.error('❌ Error saving electric invoice:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// POST /api/expenditures/export-electric-to-sheet
+// Exportă datele extrase într-un model Excel cu calcul kWh/slot din slots_monthly
+router.post('/export-electric-to-sheet', authenticateToken, async (req, res) => {
+  console.log('\n📤 EXPORT ELECTRIC TO EXCEL')
+  try {
+    const { extractedData } = req.body
+
+    console.log('📋 Received extractedData:', JSON.stringify(extractedData, null, 2).substring(0, 500))
+
+    if (!extractedData) {
+      console.log('❌ No extractedData provided')
+      return res.status(400).json({ success: false, error: 'Datele extrase sunt necesare' })
+    }
+
+    const pool = req.app.get('pool')
+    if (!pool) {
+      console.log('❌ No pool available')
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    console.log('📦 Importing XLSX...')
+    // Import XLSX pentru generare Excel
+    const XLSX = (await import('xlsx')).default
+    console.log('✅ XLSX imported')
+
+    // Extrage datele necesare
+    const locationName = extractedData.location_name || extractedData.location || ''
+    const consumKwh = parseFloat(extractedData.consum_kwh || extractedData.consum || 0)
+    const numarFactura = extractedData.numar_factura || extractedData.factura || ''
+    const perioadaFacturare = extractedData.perioada_facturare || extractedData.perioada || ''
+    
+    // Extrage anul și luna din perioada_facturare sau data_emiterii
+    let year = null
+    let month = null
+    
+    if (perioadaFacturare) {
+      // Format: "01.11.2024 - 30.11.2024" sau "01/11/2024 - 30/11/2024"
+      const dateMatch = perioadaFacturare.match(/(\d{1,2})[./](\d{1,2})[./](\d{4})/)
+      if (dateMatch) {
+        month = parseInt(dateMatch[2])
+        year = parseInt(dateMatch[3])
+      }
+    }
+    
+    if (!year || !month) {
+      // Încearcă din data_emiterii
+      const dataEmiterii = extractedData.data_emiterii || extractedData.data || ''
+      if (dataEmiterii) {
+        const date = new Date(dataEmiterii)
+        if (!isNaN(date.getTime())) {
+          year = date.getFullYear()
+          month = date.getMonth() + 1
+        }
+      }
+    }
+    
+    // Dacă încă nu avem an/lună, folosim data curentă
+    if (!year || !month) {
+      const now = new Date()
+      year = year || now.getFullYear()
+      month = month || now.getMonth() + 1
+    }
+
+    // Calculează kWh/slot din slots_monthly
+    let kwhPerSlot = null
+    let slotsCount = null
+    
+    if (locationName && year && month) {
+      try {
+        // Query pentru slots_count din slots_monthly
+        const result = await pool.query(`
+          SELECT slots_count
+          FROM slots_monthly
+          WHERE location_name = $1
+            AND year = $2
+            AND month = $3
+            AND slots_count > 0
+          LIMIT 1
+        `, [locationName, year, month])
+        
+        if (result.rows.length > 0) {
+          slotsCount = parseInt(result.rows[0].slots_count) || 0
+          if (slotsCount > 0 && consumKwh > 0) {
+            kwhPerSlot = (consumKwh / slotsCount).toFixed(2)
+          }
+        }
+      } catch (dbError) {
+        console.error('❌ Error querying slots_monthly:', dbError)
+      }
+    }
+
+    // Construiește textul pentru coloana Explanation
+    const explanationParts = []
+    if (numarFactura) {
+      explanationParts.push(`Factură: ${numarFactura}`)
+    }
+    if (perioadaFacturare) {
+      explanationParts.push(`Perioadă: ${perioadaFacturare}`)
+    }
+    if (kwhPerSlot !== null) {
+      explanationParts.push(`kWh/slot: ${kwhPerSlot}`)
+    }
+    const explanation = explanationParts.join(' | ')
+
+    // Creează workbook Excel
+    const workbook = XLSX.utils.book_new()
+    
+    // FOAIE 1: Rezumat factură
+    const summaryData = [
+      ['REZUMAT FACTURĂ ELECTRICĂ'],
+      [],
+      ['Număr Factură', extractedData.numar_factura || 'N/A'],
+      ['Data Emiterii', extractedData.data_emiterii || 'N/A'],
+      ['Data Scadentă', extractedData.data_scadenta || 'N/A'],
+      ['Perioadă Facturare', perioadaFacturare || 'N/A'],
+      ['Furnizor', extractedData.furnizor || 'N/A'],
+      [],
+      ['TOTALURI'],
+      ['Sumă Totală', `${extractedData.suma_totala || 0} RON`],
+      ['Consum Total', `${extractedData.consum_kwh || 0} kWh`],
+      ['Preț/kWh (general)', `${extractedData.pret_per_kwh || 'N/A'} lei/kWh`],
+      ['TVA', `${extractedData.tva || 19}%`],
+      [],
+      ['STATISTICI'],
+      ['Nr. sloturi', slotsCount || 'N/A'],
+      ['kWh/slot', kwhPerSlot || 'N/A'],
+      ['Cost/slot', slotsCount && extractedData.suma_totala ? `${(parseFloat(extractedData.suma_totala) / slotsCount).toFixed(2)} RON` : 'N/A']
+    ]
+    
+    const summarySheet = XLSX.utils.aoa_to_sheet(summaryData)
+    summarySheet['!cols'] = [{ wch: 25 }, { wch: 40 }]
+    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Rezumat')
+    
+    // FOAIE 2: Detalii NLC-uri
+    const nlcData = extractedData.nlc_data || []
+    if (nlcData.length > 0) {
+      const nlcSheetData = [
+        ['NLC', 'Locație', 'Sumă (RON)', 'Consum (kWh)', 'Preț/kWh', 'Perioadă', 'Verificare Preț']
+      ]
+      
+      let totalSum = 0
+      let totalConsum = 0
+      
+      for (const nlc of nlcData) {
+        try {
+          const suma = parseFloat(nlc.suma) || 0
+          const consum = parseFloat(nlc.consum) || 0
+          let pret = 'N/A'
+          if (nlc.pretCalculat && typeof nlc.pretCalculat === 'number') {
+            pret = nlc.pretCalculat.toFixed(4)
+          } else if (consum > 0 && suma > 0) {
+            pret = (suma / consum).toFixed(4)
+          }
+          
+          let verificare = '-'
+          if (nlc.pretVerificare && typeof nlc.pretVerificare === 'object') {
+            verificare = nlc.pretVerificare.esteCorect 
+              ? `OK (${nlc.pretVerificare.diferentaPercent || '0'}%)`
+              : `Dif ${nlc.pretVerificare.diferentaPercent || '?'}%`
+          }
+          
+          nlcSheetData.push([
+            String(nlc.nlc || 'N/A'),
+            String(nlc.location || 'N/A'),
+            suma.toFixed(2),
+            consum.toFixed(2),
+            String(pret),
+            String(nlc.period || 'N/A'),
+            String(verificare)
+          ])
+          
+          totalSum += suma
+          totalConsum += consum
+        } catch (nlcError) {
+          console.error('Error processing NLC:', nlc, nlcError)
+        }
+      }
+      
+      // Rând TOTAL
+      nlcSheetData.push([])
+      nlcSheetData.push(['TOTAL', '', totalSum.toFixed(2), totalConsum.toFixed(2), '', '', ''])
+      
+      const nlcSheet = XLSX.utils.aoa_to_sheet(nlcSheetData)
+      nlcSheet['!cols'] = [
+        { wch: 15 }, // NLC
+        { wch: 20 }, // Locație
+        { wch: 15 }, // Sumă
+        { wch: 15 }, // Consum
+        { wch: 12 }, // Preț
+        { wch: 25 }, // Perioadă
+        { wch: 20 }  // Verificare
+      ]
+      XLSX.utils.book_append_sheet(workbook, nlcSheet, 'NLC-uri')
+    }
+    
+    // FOAIE 3: Explanation (pentru import în alte sisteme)
+    const explanationSheet = XLSX.utils.aoa_to_sheet([
+      ['Explanation'],
+      [explanation]
+    ])
+    XLSX.utils.book_append_sheet(workbook, explanationSheet, 'Explanation')
+    
+    console.log('📊 Creating Excel buffer...')
+    // Generează buffer Excel
+    const excelBuffer = XLSX.write(workbook, { 
+      type: 'buffer', 
+      bookType: 'xlsx' 
+    })
+    
+    console.log(`✅ Excel buffer created, size: ${excelBuffer.length} bytes`)
+
+    // Setează headers pentru download Excel
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    res.setHeader('Content-Disposition', `attachment; filename="Factura_Electrica_${new Date().toISOString().split('T')[0]}.xlsx"`)
+    
+    console.log('📤 Sending Excel file...')
+    res.send(excelBuffer)
+    console.log('✅ Export complete!')
+  } catch (error) {
+    console.error('❌ Error exporting to Excel:', error)
+    console.error('Stack:', error.stack)
+    res.status(500).json({ success: false, error: error.message || 'Eroare la export' })
+  }
+})
+
+// ==================== SLOTS MONTHLY ENDPOINTS ====================
+// Folosesc EXACT aceeași logică ca în /api/incasari/slots-by-month-location
+
+// Helper function pentru normalizarea numelor de locații (EXACT ca în incasari.js)
+// Folosește doar logica simplă de eliminare E.S, restul se face prin locations.json
+const normalizeLocationName = (name) => {
+  if (!name) return ''
+  let n = name.toString().trim()
+  // Elimină sufixe de tip E.S / E.S. / ES
+  n = n.replace(/\s+E\.?S\.?$/i, '')
+  return n.trim()
+}
+
+// Helper function pentru a încărca datele din locations (similar cu incasari.js)
+const loadLocationsData = async (pool) => {
+  try {
+    // Încearcă să încarce din tabelul locations din baza de date
+    const result = await pool.query(`
+      SELECT id, name 
+      FROM locations 
+      WHERE name IS NOT NULL 
+      ORDER BY name
+    `)
+    
+    if (result.rows.length > 0) {
+      return result.rows.map(row => ({
+        id: row.id,
+        name: row.name
+      }))
+    }
+    
+    // Fallback: încarcă din JSON (dacă există)
+    const fs = await import('fs')
+    const path = await import('path')
+    const { fileURLToPath } = await import('url')
+    const { dirname } = await import('path')
+    
+    const __filename = fileURLToPath(import.meta.url)
+    const __dirname = dirname(__filename)
+    const filePath = path.join(__dirname, '..', 'cyber-data', 'locations.json')
+    
+    if (fs.existsSync(filePath)) {
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+      return data
+    }
+    
+    return []
+  } catch (error) {
+    console.error('Error loading locations:', error)
+    return []
+  }
+}
+
+// GET /api/expenditures/slots-monthly
+// Returnează datele din slots_monthly cu filtrare
+router.get('/slots-monthly', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    const { location, year, month, search } = req.query
+
+    let query = `
+      SELECT 
+        sm.id,
+        sm.location_name,
+        sm.year,
+        sm.month,
+        sm.slots_count,
+        sm.source,
+        sm.notes,
+        sm.created_at,
+        sm.updated_at,
+        COALESCE(u.full_name, u.username) as created_by_name,
+        COALESCE(u2.full_name, u2.username) as updated_by_name
+      FROM slots_monthly sm
+      LEFT JOIN users u ON sm.created_by = u.id
+      LEFT JOIN users u2 ON sm.updated_by = u2.id
+      WHERE 1=1
+    `
+    const params = []
+    let paramIndex = 1
+
+    if (location && location !== 'all' && location !== 'Toate locațiile') {
+      query += ` AND sm.location_name = $${paramIndex}`
+      params.push(location)
+      paramIndex++
+    }
+
+    if (year) {
+      query += ` AND sm.year = $${paramIndex}`
+      params.push(parseInt(year))
+      paramIndex++
+    }
+
+    if (month && month !== 'all' && month !== 'Toate lunile') {
+      query += ` AND sm.month = $${paramIndex}`
+      params.push(parseInt(month))
+      paramIndex++
+    }
+
+    if (search) {
+      query += ` AND (
+        sm.location_name ILIKE $${paramIndex} OR
+        sm.notes ILIKE $${paramIndex}
+      )`
+      params.push(`%${search}%`)
+      paramIndex++
+    }
+
+    query += ` ORDER BY sm.year DESC, sm.month DESC, sm.location_name ASC`
+
+    const result = await pool.query(query, params)
+
+    res.json({
+      success: true,
+      data: result.rows
+    })
+  } catch (error) {
+    console.error('❌ Error fetching slots-monthly:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// GET /api/expenditures/slots-monthly/summary
+// Returnează date agregate pentru tabelul centralizator pentru toți anii disponibili (2024, 2025, etc.)
+router.get('/slots-monthly/summary', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    // Obține toți anii disponibili din slots_monthly (minim 2024)
+    const yearsResult = await pool.query(`
+      SELECT DISTINCT year
+      FROM slots_monthly
+      WHERE year >= 2024
+      ORDER BY year ASC
+    `)
+    
+    const availableYears = yearsResult.rows.map(row => row.year)
+    if (availableYears.length === 0) {
+      availableYears.push(2024, 2025) // Default years
+    }
+
+    // Folosește locations.json pentru mapping (EXACT ca în incasari.js)
+    const locationsData = loadExportedData('locations.json')
+    const locationMap = new Map()
+    locationsData.forEach((loc) => {
+      if (loc && typeof loc.id !== 'undefined') {
+        const locationName = normalizeLocationName(loc.name || loc.location || `Loc ${loc.id}`)
+        // Exclude "Depozit" din tabel
+        if (locationName.toLowerCase() !== 'depozit') {
+          locationMap.set(String(loc.id), locationName)
+        }
+      }
+    })
+    
+    // Obține toate locațiile unice (normalizate)
+    const allLocationNames = new Set()
+    locationMap.forEach((name) => {
+      if (name.toLowerCase() !== 'depozit') {
+        allLocationNames.add(name)
+      }
+    })
+    const sortedLocationNames = Array.from(allLocationNames).sort()
+
+    // Construiește structura de date: an -> lună -> locație -> count
+    // Folosește datele din slots_monthly (care includ și modificările manuale)
+    const allData = {}
+    
+    for (const year of availableYears) {
+      // Inițializează structura pentru acest an
+      allData[year] = {}
+      
+      // Obține datele din slots_monthly pentru acest an (inclusiv cele editate manual)
+      const slotsMonthlyResult = await pool.query(`
+        SELECT 
+          month,
+          location_name,
+          slots_count
+        FROM slots_monthly
+        WHERE year = $1
+          AND location_name IS NOT NULL
+          AND location_name != ''
+          AND LOWER(location_name) != 'depozit'
+        ORDER BY month, location_name
+      `, [year])
+      
+      // Populează cu datele din slots_monthly (care includ modificările)
+      slotsMonthlyResult.rows.forEach(row => {
+        const month = row.month
+        const locationName = row.location_name
+        
+        if (month && locationName && locationName.toLowerCase() !== 'depozit') {
+          if (!allData[year][month]) {
+            allData[year][month] = {}
+          }
+          allData[year][month][locationName] = Number(row.slots_count || 0)
+        }
+      })
+      
+      // Dacă nu există date în slots_monthly pentru acest an, folosește incasari_daily ca fallback
+      if (Object.keys(allData[year]).length === 0) {
+        const startDate = `${year}-01-01`
+        const endDate = `${year}-12-31`
+
+        const sql = `
+          SELECT 
+            EXTRACT(MONTH FROM audit_date)::INTEGER AS month,
+            location_id,
+            COUNT(DISTINCT serial_number) AS slots_count
+          FROM incasari_daily
+          WHERE audit_date BETWEEN $1 AND $2
+            AND location_id IS NOT NULL
+            AND serial_number IS NOT NULL
+            AND serial_number != ''
+          GROUP BY EXTRACT(MONTH FROM audit_date), location_id
+          ORDER BY month, location_id
+        `
+
+        const result = await pool.query(sql, [startDate, endDate])
+        
+        // Populează cu datele din incasari_daily (fallback)
+        result.rows.forEach(row => {
+          const month = row.month
+          const locationId = String(row.location_id || '')
+          const locationName = locationMap.get(locationId)
+          
+          if (month && locationName && locationName.toLowerCase() !== 'depozit') {
+            if (!allData[year][month]) {
+              allData[year][month] = {}
+            }
+            const currentCount = allData[year][month][locationName] || 0
+            const newCount = Number(row.slots_count || 0)
+            allData[year][month][locationName] = Math.max(currentCount, newCount)
+          }
+        })
+      }
+    }
+
+    res.json({
+      success: true,
+      years: availableYears,
+      locations: sortedLocationNames,
+      data: allData
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/expenditures/slots-monthly/summary:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// GET /api/expenditures/slots-monthly/years
+// Returnează anii disponibili din slots_monthly
+router.get('/slots-monthly/years', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    const result = await pool.query(`
+      SELECT DISTINCT year
+      FROM slots_monthly
+      WHERE year >= 2024
+      ORDER BY year ASC
+    `)
+    
+    const years = result.rows.map(row => row.year)
+    
+    // Dacă nu există date, returnează anii default
+    if (years.length === 0) {
+      const currentYear = new Date().getFullYear()
+      years.push(2024, 2025)
+      if (currentYear >= 2026) {
+        years.push(2026)
+      }
+    }
+
+    res.json({
+      success: true,
+      years
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/expenditures/slots-monthly/years:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// POST /api/expenditures/slots-monthly/sync-from-incasari
+// Sincronizează datele din incasari_daily în slots_monthly folosind EXACT aceeași logică
+router.post('/slots-monthly/sync-from-incasari', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    const { onlyNew = true } = req.body
+    const userId = req.user?.userId || req.user?.id
+
+    console.log(`🔄 [slots-monthly/sync] Starting sync from incasari_daily (onlyNew: ${onlyNew})`)
+
+    // Folosește EXACT aceeași logică ca în /api/incasari/slots-by-month-location
+    // Numără serial_number distincte (1 serial = 1 slot) grupate pe lună și locație
+    const sql = `
+      SELECT 
+        EXTRACT(YEAR FROM audit_date)::INTEGER AS year,
+        EXTRACT(MONTH FROM audit_date)::INTEGER AS month,
+        location_id,
+        COUNT(DISTINCT serial_number) AS slots_count
+      FROM incasari_daily
+      WHERE location_id IS NOT NULL
+        AND serial_number IS NOT NULL
+        AND serial_number != ''
+      GROUP BY EXTRACT(YEAR FROM audit_date), EXTRACT(MONTH FROM audit_date), location_id
+      ORDER BY year, month, location_id
+    `
+
+    const result = await pool.query(sql)
+    console.log(`📊 [slots-monthly/sync] Găsite ${result.rows.length} rânduri în incasari_daily`)
+    
+    // Folosește locations.json pentru mapping (EXACT ca în incasari.js)
+    const locationsData = loadExportedData('locations.json')
+    const locationMap = new Map()
+    locationsData.forEach((loc) => {
+      if (loc && typeof loc.id !== 'undefined') {
+        const locationName = normalizeLocationName(loc.name || loc.location || `Loc ${loc.id}`)
+        // Exclude "Depozit" din tabel
+        if (locationName.toLowerCase() !== 'depozit') {
+          locationMap.set(String(loc.id), locationName)
+        }
+      }
+    })
+    
+    // Debug: verifică dacă există date pentru Craiova
+    const craiovaLocationIds = []
+    locationMap.forEach((name, id) => {
+      if (name === 'Craiova') {
+        craiovaLocationIds.push(id)
+      }
+    })
+    console.log(`🔍 [slots-monthly/sync] Location IDs pentru Craiova:`, craiovaLocationIds)
+    
+    const craiovaRows = result.rows.filter(r => craiovaLocationIds.includes(String(r.location_id)))
+    console.log(`🔍 [slots-monthly/sync] Rânduri pentru Craiova (după mapping): ${craiovaRows.length}`)
+    if (craiovaRows.length > 0) {
+      console.log(`🔍 [slots-monthly/sync] Primele 3 rânduri Craiova:`, craiovaRows.slice(0, 3))
+    } else {
+      // Verifică ce locații sunt găsite
+      const uniqueLocationIds = [...new Set(result.rows.map(r => String(r.location_id)))]
+      console.log(`🔍 [slots-monthly/sync] Location IDs găsite:`, uniqueLocationIds.slice(0, 10))
+      
+      // Verifică dacă există date în incasari_daily pentru locații care conțin "craiova"
+      const debugQuery = `
+        SELECT DISTINCT l.id, l.name, COUNT(DISTINCT id.serial_number) as slots_count
+        FROM incasari_daily id
+        INNER JOIN locations l ON id.location_id = l.id
+        WHERE LOWER(l.name) LIKE '%craiova%'
+          AND id.serial_number IS NOT NULL
+          AND id.serial_number != ''
+        GROUP BY l.id, l.name
+        LIMIT 10
+      `
+      const debugResult = await pool.query(debugQuery)
+      console.log(`🔍 [slots-monthly/sync] Debug - Locații cu "craiova" în nume:`, debugResult.rows)
+    }
+    
+    // Procesează rândurile și normalizează numele locațiilor
+    const processedRows = []
+    result.rows.forEach(row => {
+      const locationId = String(row.location_id || '')
+      const locationName = locationMap.get(locationId)
+      
+      if (locationName && locationName.toLowerCase() !== 'depozit') {
+        processedRows.push({
+          year: row.year,
+          month: row.month,
+          location_name: locationName,
+          slots_count: Number(row.slots_count || 0)
+        })
+      }
+    })
+    
+    console.log(`📊 [slots-monthly/sync] După procesare: ${processedRows.length} rânduri`)
+
+    let inserted = 0
+    let updated = 0
+    let skipped = 0
+
+    for (const row of processedRows) {
+      try {
+        const { year, month, location_name, slots_count } = row
+
+        // Verifică dacă există deja
+        const existing = await pool.query(
+          `SELECT id, slots_count, source FROM slots_monthly 
+           WHERE year = $1 AND month = $2 AND location_name = $3`,
+          [year, month, location_name]
+        )
+
+        if (existing.rows.length > 0) {
+          const existingRecord = existing.rows[0]
+          
+          // Dacă onlyNew = true, actualizează doar dacă:
+          // 1. slots_count este 0 (date lipsă)
+          // 2. slots_count este diferit (date greșite)
+          // 3. source nu este 'edited' (nu suprascriem date editate manual)
+          if (onlyNew) {
+            if (existingRecord.source === 'edited') {
+              skipped++
+              continue
+            }
+            
+            if (existingRecord.slots_count === 0 || existingRecord.slots_count !== slots_count) {
+              await pool.query(
+                `UPDATE slots_monthly 
+                 SET slots_count = $1, source = 'cyber', updated_at = NOW(), updated_by = $2
+                 WHERE id = $3`,
+                [slots_count, userId, existingRecord.id]
+              )
+              updated++
+              console.log(`✅ [slots-monthly/sync] Updated: ${location_name} ${year}-${month}: ${existingRecord.slots_count} -> ${slots_count}`)
+            } else {
+              skipped++
+            }
+          } else {
+            // Dacă onlyNew = false, actualizează întotdeauna (dar nu suprascriem 'edited')
+            if (existingRecord.source !== 'edited') {
+              await pool.query(
+                `UPDATE slots_monthly 
+                 SET slots_count = $1, source = 'cyber', updated_at = NOW(), updated_by = $2
+                 WHERE id = $3`,
+                [slots_count, userId, existingRecord.id]
+              )
+              updated++
+            } else {
+              skipped++
+            }
+          }
+        } else {
+          // Inserare nouă
+          await pool.query(
+            `INSERT INTO slots_monthly (year, month, location_name, slots_count, source, created_by, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, 'cyber', $5, NOW(), NOW())`,
+            [year, month, location_name, slots_count, userId]
+          )
+          inserted++
+          console.log(`✅ [slots-monthly/sync] Inserted: ${location_name} ${year}-${month}: ${slots_count} sloturi`)
+        }
+      } catch (error) {
+        console.error(`❌ [slots-monthly/sync] Error processing ${row.location_name} ${row.year}-${row.month}:`, error)
+      }
+    }
+
+    console.log(`✅ [slots-monthly/sync] Sync complete: ${inserted} inserted, ${updated} updated, ${skipped} skipped`)
+
+    res.json({
+      success: true,
+      message: `Sincronizare completă: ${inserted} noi, ${updated} actualizate, ${skipped} omise`,
+      inserted,
+      updated,
+      skipped,
+      total: result.rows.length
+    })
+  } catch (error) {
+    console.error('❌ Error syncing slots-monthly from incasari_daily:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// POST /api/expenditures/slots-monthly
+// Creează sau actualizează o înregistrare în slots_monthly
+router.post('/slots-monthly', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    const { year, month, location_name, slots_count, notes } = req.body
+    const userId = req.user?.userId || req.user?.id
+
+    if (!year || !month || !location_name || slots_count === undefined) {
+      return res.status(400).json({ success: false, error: 'Missing required fields' })
+    }
+
+    // Verifică dacă există deja
+    const existing = await pool.query(
+      `SELECT id FROM slots_monthly 
+       WHERE year = $1 AND month = $2 AND location_name = $3`,
+      [year, month, location_name]
+    )
+
+    if (existing.rows.length > 0) {
+      // Actualizează
+      const result = await pool.query(
+        `UPDATE slots_monthly 
+         SET slots_count = $1, notes = $2, source = 'edited', updated_at = NOW(), updated_by = $3
+         WHERE id = $4
+         RETURNING *`,
+        [slots_count, notes || null, userId, existing.rows[0].id]
+      )
+      res.json({ success: true, data: result.rows[0] })
+    } else {
+      // Creează nou
+      const result = await pool.query(
+        `INSERT INTO slots_monthly (year, month, location_name, slots_count, notes, source, created_by, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, 'edited', $6, NOW(), NOW())
+         RETURNING *`,
+        [year, month, location_name, slots_count, notes || null, userId]
+      )
+      res.json({ success: true, data: result.rows[0] })
+    }
+  } catch (error) {
+    console.error('❌ Error creating/updating slots-monthly:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// PUT /api/expenditures/slots-monthly/:id
+// Actualizează o înregistrare existentă
+router.put('/slots-monthly/:id', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    const { id } = req.params
+    const { slots_count, notes } = req.body
+    const userId = req.user?.userId || req.user?.id
+
+    if (slots_count === undefined) {
+      return res.status(400).json({ success: false, error: 'slots_count is required' })
+    }
+
+    const result = await pool.query(
+      `UPDATE slots_monthly 
+       SET slots_count = $1, notes = $2, source = 'edited', updated_at = NOW(), updated_by = $3
+       WHERE id = $4
+       RETURNING *`,
+      [slots_count, notes || null, userId, id]
+    )
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Record not found' })
+    }
+
+    res.json({ success: true, data: result.rows[0] })
+  } catch (error) {
+    console.error('❌ Error updating slots-monthly:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// DELETE /api/expenditures/slots-monthly/:id
+// Șterge o înregistrare
+router.delete('/slots-monthly/:id', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    const { id } = req.params
+
+    const result = await pool.query(
+      `DELETE FROM slots_monthly WHERE id = $1 RETURNING id`,
+      [id]
+    )
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Record not found' })
+    }
+
+    res.json({ success: true, message: 'Record deleted successfully' })
+  } catch (error) {
+    console.error('❌ Error deleting slots-monthly:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// DELETE /api/expenditures/slots-monthly/cleanup-old
+// Șterge toate înregistrările dinainte de 2024
+router.delete('/slots-monthly/cleanup-old', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    const result = await pool.query(
+      `DELETE FROM slots_monthly WHERE year < 2024 RETURNING id, year, month, location_name`
+    )
+
+    console.log(`🗑️ [slots-monthly/cleanup-old] Șterse ${result.rowCount} înregistrări dinainte de 2024`)
+
+    res.json({
+      success: true,
+      message: `Șterse ${result.rowCount} înregistrări dinainte de 2024`,
+      deletedCount: result.rowCount
+    })
+  } catch (error) {
+    console.error('❌ Error cleaning up old slots-monthly:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })

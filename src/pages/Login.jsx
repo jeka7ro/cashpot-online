@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Eye, EyeOff } from 'lucide-react'
@@ -14,6 +14,15 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [rememberPassword, setRememberPassword] = useState(false)
+  
+  // CIRCUIT BREAKER pentru global-settings - oprește loop-ul infinit!
+  const settingsLoadAttempted = useRef(false)
+  const settingsFailures = useRef(0)
+  const lastSettingsFailure = useRef(0)
+  const autoLoginAttempted = useRef(false) // Previne auto-login repetat
+  const SETTINGS_CIRCUIT_BREAKER_THRESHOLD = 1 // OPRESTE după PRIMUL eșec 500!
+  const SETTINGS_CIRCUIT_BREAKER_RESET_TIME = 120000 // 2 minute înainte de retry
+  
   const [settings, setSettings] = useState({
     logo: { type: 'upload', url: '', file: null },
     loginImage: { type: 'upload', url: '', file: null },
@@ -38,29 +47,109 @@ const Login = () => {
   })
 
   useEffect(() => {
-    // Load global login settings from server
+    // Verifică circuit breaker-ul din localStorage la mount
+    const storedFailure = localStorage.getItem('settings_circuit_breaker_failure')
+    const storedTime = localStorage.getItem('settings_circuit_breaker_time')
+    const now = Date.now()
+    
+    // Load global login settings from server - DOAR O DATĂ!
     const loadGlobalSettings = async () => {
+      // Dacă circuit breaker-ul e activ, TESTEAZĂ backend-ul înainte de a bloca!
+      if (storedFailure && storedTime) {
+        const timeSinceFailure = now - parseInt(storedTime)
+        if (timeSinceFailure < SETTINGS_CIRCUIT_BREAKER_RESET_TIME) {
+          // Testează backend-ul înainte de a bloca complet
+          try {
+            const healthCheck = await axios.get('/health', { timeout: 3000 })
+            if (healthCheck.data.status === 'OK') {
+              // Backend-ul funcționează! Șterge circuit breaker-ul
+              localStorage.removeItem('settings_circuit_breaker_failure')
+              localStorage.removeItem('settings_circuit_breaker_time')
+              localStorage.removeItem('backend_circuit_breaker_failure')
+              localStorage.removeItem('backend_circuit_breaker_time')
+              settingsFailures.current = 0
+              settingsLoadAttempted.current = false // Permite încercarea din nou
+              // Continuă cu loadGlobalSettings
+            } else {
+              // Backend-ul e încă down - oprește
+              settingsFailures.current = SETTINGS_CIRCUIT_BREAKER_THRESHOLD
+              lastSettingsFailure.current = parseInt(storedTime)
+              settingsLoadAttempted.current = true
+              return
+            }
+          } catch (healthError) {
+            // Backend-ul e încă down - oprește
+            settingsFailures.current = SETTINGS_CIRCUIT_BREAKER_THRESHOLD
+            lastSettingsFailure.current = parseInt(storedTime)
+            settingsLoadAttempted.current = true
+            return
+          }
+        } else {
+          // Reset după 2 minute
+          localStorage.removeItem('settings_circuit_breaker_failure')
+          localStorage.removeItem('settings_circuit_breaker_time')
+          settingsFailures.current = 0
+        }
+      }
+      // CIRCUIT BREAKER: Oprește loop-ul infinit!
+      if (settingsLoadAttempted.current) {
+        return // Deja încercat, nu mai încerca!
+      }
+      
+      const now2 = Date.now()
+      if (settingsFailures.current >= SETTINGS_CIRCUIT_BREAKER_THRESHOLD) {
+        if (now2 - lastSettingsFailure.current < SETTINGS_CIRCUIT_BREAKER_RESET_TIME) {
+          // Circuit breaker activ - nu mai încerca!
+          return
+        } else {
+          // Reset după 2 minute
+          settingsFailures.current = 0
+          localStorage.removeItem('settings_circuit_breaker_failure')
+          localStorage.removeItem('settings_circuit_breaker_time')
+        }
+      }
+      
+      settingsLoadAttempted.current = true
+      
       try {
-        const response = await axios.get('/api/global-settings')
+        const response = await axios.get('/api/global-settings', { timeout: 5000 })
         if (response.data.login_settings) {
           const globalSettings = response.data.login_settings
-          setSettings({
-            logo: globalSettings.logo || settings.logo,
-            loginImage: globalSettings.loginImage || settings.loginImage,
-            loginButtonColor: globalSettings.loginButtonColor || settings.loginButtonColor,
-            loginPageColor: globalSettings.loginPageColor || settings.loginPageColor,
-            loginCardColor: globalSettings.loginCardColor || settings.loginCardColor,
-            loginTextColor: globalSettings.loginTextColor || settings.loginTextColor,
-            loginTexts: globalSettings.loginTexts || settings.loginTexts
-          })
-          console.log('✅ Loaded global login settings from server')
+          setSettings(prev => ({
+            logo: globalSettings.logo || prev.logo,
+            loginImage: globalSettings.loginImage || prev.loginImage,
+            loginButtonColor: globalSettings.loginButtonColor || prev.loginButtonColor,
+            loginPageColor: globalSettings.loginPageColor || prev.loginPageColor,
+            loginCardColor: globalSettings.loginCardColor || prev.loginCardColor,
+            loginTextColor: globalSettings.loginTextColor || prev.loginTextColor,
+            loginTexts: globalSettings.loginTexts || prev.loginTexts
+          }))
+          settingsFailures.current = 0 // Reset failures on success
+          localStorage.removeItem('settings_circuit_breaker_failure')
+          localStorage.removeItem('settings_circuit_breaker_time')
+          // console.log('✅ Loaded global login settings from server')
         }
       } catch (error) {
-        console.log('⚠️ Could not load global login settings from server')
+        // Dacă e 500, backend-ul e DOWN - oprește complet!
+        if (error.response?.status === 500) {
+          settingsFailures.current = SETTINGS_CIRCUIT_BREAKER_THRESHOLD // Oprește complet!
+          lastSettingsFailure.current = Date.now()
+          // Salvează în localStorage pentru persistență
+          localStorage.setItem('settings_circuit_breaker_failure', SETTINGS_CIRCUIT_BREAKER_THRESHOLD.toString())
+          localStorage.setItem('settings_circuit_breaker_time', Date.now().toString())
+        } else {
+          settingsFailures.current++
+          lastSettingsFailure.current = Date.now()
+        }
+        // Silent fail - don't spam console
+        // console.log('⚠️ Could not load global login settings from server')
       }
     }
 
-    loadGlobalSettings()
+    // Apelează loadGlobalSettings() DOAR dacă circuit breaker-ul NU e activ!
+    if (!settingsLoadAttempted.current) {
+      loadGlobalSettings()
+    }
 
     // Load saved credentials from localStorage
     const savedCredentials = localStorage.getItem('cashpot_remember_credentials')
@@ -74,24 +163,38 @@ const Login = () => {
         setRememberPassword(true)
         
         // Auto-login if credentials are saved and user is not already authenticated
-        if (credentials.username && credentials.password && !isAuthenticated && !loading) {
-          console.log('🔄 Auto-logging in with saved credentials...')
+        // CIRCUIT BREAKER: Oprește auto-login-ul complet când backend-ul e down!
+        // NU mai face auto-login dacă settings-urile au eșuat (backend-ul e down)
+        const backendIsDown = settingsFailures.current >= SETTINGS_CIRCUIT_BREAKER_THRESHOLD
+        if (credentials.username && credentials.password && !isAuthenticated && !loading && !autoLoginAttempted.current && !backendIsDown) {
+          autoLoginAttempted.current = true
+          // console.log('🔄 Auto-logging in with saved credentials...')
           const autoLogin = async () => {
             try {
               await login(credentials.username, credentials.password)
             } catch (error) {
-              console.error('Auto-login failed:', error)
-              // Clear invalid credentials
-              localStorage.removeItem('cashpot_remember_credentials')
+              // Silent fail - don't spam console
+              // console.error('Auto-login failed:', error)
+              // Dacă e 500, backend-ul e down - nu mai încerca!
+              if (error.response?.status === 500) {
+                // Backend-ul e DOWN - nu mai încerca auto-login!
+                return
+              }
+              // Clear invalid credentials doar pentru erori de autentificare
+              if (error.response?.status === 401 || error.response?.status === 403) {
+                localStorage.removeItem('cashpot_remember_credentials')
+              }
             }
           }
           autoLogin()
         }
       } catch (error) {
-        console.error('Error loading saved credentials:', error)
+        // Silent fail
+        // console.error('Error loading saved credentials:', error)
       }
     }
-  }, [login, isAuthenticated, loading])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // DOAR la mount - nu mai depinde de login/isAuthenticated/loading!
 
   useEffect(() => {
     if (isAuthenticated) {

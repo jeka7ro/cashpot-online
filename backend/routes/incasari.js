@@ -572,6 +572,7 @@ router.get('/avg-in-by-location', authenticateToken, async (req, res) => {
           COALESCE(SUM(profit), 0) AS total_profit,
           COALESCE(SUM(in_amount), 0) AS total_in,
           COALESCE(SUM(bet), 0) AS total_bet,
+          COALESCE(SUM(win), 0) AS total_win,
           COALESCE(SUM(jackpot), 0) AS total_jackpot,
           COALESCE(SUM(hh), 0) AS total_hh,
           COALESCE(SUM(cb_real), 0) AS total_cb_real,
@@ -581,8 +582,6 @@ router.get('/avg-in-by-location', authenticateToken, async (req, res) => {
         FROM incasari_daily
         WHERE audit_date BETWEEN $1 AND $2
           AND machine_id = ANY($3)
-          AND serial_number IS NOT NULL
-          AND serial_number != ''
         GROUP BY location_id
         ORDER BY location_id
       `
@@ -595,6 +594,7 @@ router.get('/avg-in-by-location', authenticateToken, async (req, res) => {
           COALESCE(SUM(profit), 0) AS total_profit,
           COALESCE(SUM(in_amount), 0) AS total_in,
           COALESCE(SUM(bet), 0) AS total_bet,
+          COALESCE(SUM(win), 0) AS total_win,
           COALESCE(SUM(jackpot), 0) AS total_jackpot,
           COALESCE(SUM(hh), 0) AS total_hh,
           COALESCE(SUM(cb_real), 0) AS total_cb_real,
@@ -603,8 +603,6 @@ router.get('/avg-in-by-location', authenticateToken, async (req, res) => {
           COUNT(DISTINCT serial_number) AS slots_count
         FROM incasari_daily
         WHERE audit_date BETWEEN $1 AND $2
-          AND serial_number IS NOT NULL
-          AND serial_number != ''
         GROUP BY location_id
         ORDER BY location_id
       `
@@ -647,6 +645,7 @@ router.get('/avg-in-by-location', authenticateToken, async (req, res) => {
         totalProfit: Number(row.total_profit || 0),
         totalIn,
         totalBet: Number(row.total_bet || 0),
+        totalWin: Number(row.total_win || 0),
         totalJackpot: Number(row.total_jackpot || 0),
         totalHh: Number(row.total_hh || 0),
         totalCbReal: Number(row.total_cb_real || 0),
@@ -1267,7 +1266,7 @@ router.get('/overview', authenticateToken, async (req, res) => {
       console.warn(`⚠️ [overview] ATENȚIE: Luna curentă are IN = 0! Verifică dacă există date în incasari_daily pentru ${currentMonthStartStr} - ${currentMonthEndStr}`)
     }
 
-    // Calculate estimated profit for each period (average of last 15 days excluding the period end date)
+    // Calculate estimated profit for each period (average DAILY profit of last 15 days excluding the period end date)
     const calculateEstimatedProfit = async (endDateStr) => {
       const endDateObj = new Date(endDateStr + 'T00:00:00')
       const endExclusive = new Date(endDateObj)
@@ -1278,12 +1277,15 @@ router.get('/overview', authenticateToken, async (req, res) => {
       const startStr = formatDateLocal(startDateObj)
       const endStr = formatDateLocal(endExclusive)
       
+      // CORECT: Mai întâi calculăm SUM(profit) per zi, apoi facem media zilnică
       const sql = `
-        SELECT
-          COALESCE(AVG(profit), 0) AS avg_profit
-        FROM incasari_daily
-        WHERE audit_date >= $1
-          AND audit_date <= $2
+        SELECT COALESCE(AVG(daily_profit), 0) AS avg_profit
+        FROM (
+          SELECT audit_date, SUM(profit) AS daily_profit
+          FROM incasari_daily
+          WHERE audit_date >= $1 AND audit_date <= $2
+          GROUP BY audit_date
+        ) daily_sums
       `
       
       const result = await pool.query(sql, [startStr, endStr])
@@ -1322,7 +1324,8 @@ router.get('/overview', authenticateToken, async (req, res) => {
           ggrEstimated: estimatedProfit,
           winBetPercent: 0,
           pos,
-          slotsCount
+          slotsCount,
+          slots: slotsCount // Alias pentru frontend
         }
       }
       const data = row.rows[0] || {}
@@ -1343,7 +1346,8 @@ router.get('/overview', authenticateToken, async (req, res) => {
         ggrEstimated: estimatedProfit,
         winBetPercent: bet > 0 ? (win / bet) * 100 : 0,
         pos,
-        slotsCount
+        slotsCount,
+        slots: slotsCount // Alias pentru frontend
       }
     }
 
@@ -2184,7 +2188,7 @@ router.get('/location-expenditures', authenticateToken, async (req, res) => {
     }
 
     // EXCLUDE departamentele care nu trebuie să apară în P&L (la fel ca în Expenditures.jsx)
-    const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
+    const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli', 'Nespecificat']
     
     let sql = `
       SELECT
@@ -2192,7 +2196,7 @@ router.get('/location-expenditures', authenticateToken, async (req, res) => {
         COALESCE(SUM(amount), 0) AS total_expenditures
       FROM expenditures_sync
       WHERE DATE(operational_date) BETWEEN DATE($1::text) AND DATE($2::text)
-        AND (department_name IS NULL OR department_name NOT IN ('POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli'))
+        AND (department_name IS NOT NULL AND department_name NOT IN ('POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli', 'Nespecificat'))
         AND (LOWER(TRIM(COALESCE(department_name, ''))) NOT IN ('unknown', 'null', ''))
     `
 
@@ -2262,27 +2266,36 @@ router.get('/estimated-profit', authenticateToken, async (req, res) => {
     let sql
     let params
     
+    // CORECT: Mai întâi calculăm SUM(profit) per zi, apoi facem media zilnică
     // Dacă avem activeIds, folosim filtrarea pe machine_id
     if (activeIds && activeIds.length > 0) {
       sql = `
-        SELECT
-          COALESCE(AVG(profit), 0) AS avg_profit,
-          COUNT(DISTINCT audit_date) AS days_count
-        FROM incasari_daily
-        WHERE audit_date >= $1
-          AND audit_date < $2
-          AND machine_id = ANY($3)
+        SELECT 
+          COALESCE(AVG(daily_profit), 0) AS avg_profit,
+          COUNT(*) AS days_count
+        FROM (
+          SELECT audit_date, SUM(profit) AS daily_profit
+          FROM incasari_daily
+          WHERE audit_date >= $1
+            AND audit_date < $2
+            AND machine_id = ANY($3)
+          GROUP BY audit_date
+        ) daily_sums
       `
       params = [fifteenDaysAgoStr, todayStr, activeIds]
     } else {
       // Dacă nu avem activeIds, afișăm toate datele disponibile (fără filtrare pe machine_id)
       sql = `
-        SELECT
-          COALESCE(AVG(profit), 0) AS avg_profit,
-          COUNT(DISTINCT audit_date) AS days_count
-        FROM incasari_daily
-        WHERE audit_date >= $1
-          AND audit_date < $2
+        SELECT 
+          COALESCE(AVG(daily_profit), 0) AS avg_profit,
+          COUNT(*) AS days_count
+        FROM (
+          SELECT audit_date, SUM(profit) AS daily_profit
+          FROM incasari_daily
+          WHERE audit_date >= $1
+            AND audit_date < $2
+          GROUP BY audit_date
+        ) daily_sums
       `
       params = [fifteenDaysAgoStr, todayStr]
     }

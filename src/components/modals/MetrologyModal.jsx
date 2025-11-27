@@ -219,13 +219,13 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
     // Prepare payload - Base64 direct (EXACT CA LocationModal!)
     const dataToSave = {
       ...formData,
-      cvt_file: formData.cvtFile // Map cvtFile → cvt_file pentru backend
+      cvt_file: formData.cvtFile, // Map cvtFile → cvt_file pentru backend
+      cvt_filename: formData.cvtFileName // Include numele fișierului
     }
     
     // Clean up properties
     delete dataToSave.cvtFile
     delete dataToSave.cvtPreview
-    delete dataToSave.cvtFileName
     
     console.log('💾 Saving metrology certificate:')
     console.log('   Serial:', dataToSave.serial_number)

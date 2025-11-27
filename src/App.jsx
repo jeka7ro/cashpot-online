@@ -27,6 +27,7 @@ import CyberImport from './pages/CyberImport'
 import Warehouse from './pages/Warehouse'
 import Metrology from './pages/Metrology'
 import ApprovalDetail from './pages/ApprovalDetail'
+import CVTDetail from './pages/CVTDetail'
 import CommissionDetail from './pages/CommissionDetail'
 import Jackpots from './pages/Jackpots'
 import Invoices from './pages/Invoices'
@@ -52,6 +53,9 @@ import ExpendituresSettings from './pages/ExpendituresSettings'
 import ExpendituresPOS from './pages/ExpendituresPOS'
 import ExpendituresSQLTable from './pages/ExpendituresSQLTable'
 import ExpendituresDetail from './pages/ExpendituresDetail'
+import ExpendituresSlotsMonthly from './pages/ExpendituresSlotsMonthly'
+import ExpendituresElectric from './pages/ExpendituresElectric'
+import ExpendituresElectricMonth from './pages/ExpendituresElectricMonth'
 import CyberTable from './pages/CyberTable'
 import IncasariSettings from './pages/IncasariSettings'
 import Incasari from './pages/Incasari'
@@ -94,6 +98,7 @@ function App() {
             <Route path="/slots/:id" element={<RoleProtectedRoute module={MODULES.SLOTS}><SlotDetail /></RoleProtectedRoute>} />
             <Route path="/warehouse" element={<RoleProtectedRoute module={MODULES.WAREHOUSE}><Warehouse /></RoleProtectedRoute>} />
             <Route path="/metrology" element={<RoleProtectedRoute module={MODULES.METROLOGY}><Metrology /></RoleProtectedRoute>} />
+            <Route path="/metrology/cvt/:id" element={<RoleProtectedRoute module={MODULES.METROLOGY}><CVTDetail /></RoleProtectedRoute>} />
             <Route path="/approval-detail/:id" element={<RoleProtectedRoute module={MODULES.METROLOGY}><ApprovalDetail /></RoleProtectedRoute>} />
             <Route path="/metrology/commission/:id" element={<RoleProtectedRoute module={MODULES.METROLOGY}><CommissionDetail /></RoleProtectedRoute>} />
             <Route path="/jackpots" element={<RoleProtectedRoute module={MODULES.JACKPOTS}><Jackpots /></RoleProtectedRoute>} />
@@ -126,6 +131,9 @@ function App() {
             <Route path="/expenditures/pos-banca/ai-analysis" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><POSBancaAIAnalysis /></RoleProtectedRoute>} />
             <Route path="/expenditures/advanced-analytics" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><AdvancedAnalytics /></RoleProtectedRoute>} />
             <Route path="/expenditures/sql-table" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><ExpendituresSQLTable /></RoleProtectedRoute>} />
+            <Route path="/expenditures/slots-monthly" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><ExpendituresSlotsMonthly /></RoleProtectedRoute>} />
+            <Route path="/expenditures/electric" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><ExpendituresElectric /></RoleProtectedRoute>} />
+            <Route path="/expenditures/electric/:monthKey" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><ExpendituresElectricMonth /></RoleProtectedRoute>} />
             <Route path="/expenditures/detail" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><ExpendituresDetail /></RoleProtectedRoute>} />
             <Route path="/ai-insights" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><AIInsights /></RoleProtectedRoute>} />
             <Route path="/incasari" element={<RoleProtectedRoute module={MODULES.INCASARI}><Incasari /></RoleProtectedRoute>} />

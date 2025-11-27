@@ -423,10 +423,15 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                         pdfUrl = `${backend}/api/cvt-pdf/${itemToUse.id}`
                       }
                       // Folosim MultiPDFViewer EXACT CA LocationContracts!
+                      // Folosim cvt_filename dacă există, altfel generăm un nume din cvt_series
+                      const fileName = itemToUse.cvt_filename || 
+                                      (itemToUse.cvt_series ? `CVT ${itemToUse.cvt_series}` : 
+                                       itemToUse.cvt_number ? `CVT ${itemToUse.cvt_number}` : 
+                                       'Document CVT')
                       return (
                         <MultiPDFViewer
                           files={rawUrl ? [{
-                            name: `CVT ${itemToUse.cvt_series || itemToUse.cvt_number || 'Document'}`,
+                            name: fileName,
                             type: 'Document CVT',
                             file_path: rawUrl,
                             url: rawUrl,

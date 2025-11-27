@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Edit, Trash2, FileText, Download, Upload, CheckCircle, AlertCircle, Settings, Building2, Wrench, Package } from 'lucide-react'
+import { ArrowLeft, Edit, Trash2, FileText, Upload, CheckCircle, AlertCircle, Building2, Wrench, Package, Shield } from 'lucide-react'
 import Layout from '../components/Layout'
 import MultiPDFViewer from '../components/MultiPDFViewer'
 import { useData } from '../contexts/DataContext'
 import { toast } from 'react-hot-toast'
 import ApprovalModal from '../components/modals/ApprovalModal'
 import { getGameMixName } from '../utils/gameMixFormatter'
-import axios from 'axios'
 
 const ApprovalDetail = () => {
   const { id } = useParams()
@@ -17,8 +16,6 @@ const ApprovalDetail = () => {
   const [loading, setLoading] = useState(true)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
-  const [showAttachments, setShowAttachments] = useState(true)
   const [attachments, setAttachments] = useState([])
   const [uploading, setUploading] = useState(false)
 
@@ -26,19 +23,16 @@ const ApprovalDetail = () => {
     const foundApproval = approvals.find(a => a.id === parseInt(id))
     if (foundApproval) {
       setApproval(foundApproval)
-      // Load attachments if they exist
+      // Parse attachments
       if (foundApproval.attachments) {
         try {
-          const parsedAttachments = typeof foundApproval.attachments === 'string' 
+          const parsed = typeof foundApproval.attachments === 'string' 
             ? JSON.parse(foundApproval.attachments)
             : foundApproval.attachments
-          setAttachments(Array.isArray(parsedAttachments) ? parsedAttachments : [])
+          setAttachments(Array.isArray(parsed) ? parsed : [])
         } catch (e) {
-          console.error('Error parsing attachments:', e)
           setAttachments([])
         }
-      } else {
-        setAttachments([])
       }
       setLoading(false)
     } else {
@@ -47,54 +41,38 @@ const ApprovalDetail = () => {
     }
   }, [id, approvals, navigate])
 
-  // Re-load attachments when approval changes
+  // Re-sync attachments when approval changes
   useEffect(() => {
-    if (approval && approval.attachments) {
+    if (approval?.attachments) {
       try {
-        const parsedAttachments = typeof approval.attachments === 'string' 
+        const parsed = typeof approval.attachments === 'string' 
           ? JSON.parse(approval.attachments)
           : approval.attachments
-        setAttachments(Array.isArray(parsedAttachments) ? parsedAttachments : [])
+        setAttachments(Array.isArray(parsed) ? parsed : [])
       } catch (e) {
-        console.error('Error parsing attachments in useEffect:', e)
         setAttachments([])
       }
-    } else if (approval && !approval.attachments) {
-      setAttachments([])
     }
   }, [approval])
 
   const handleDelete = async () => {
     try {
       await deleteItem('approvals', approval.id)
-      toast.success('Aprobarea a fost ștearsă cu succes')
+      toast.success('Aprobarea a fost ștearsă')
       navigate('/metrology?tab=approvals')
     } catch (error) {
-      toast.error('Eroare la ștergerea aprobării')
+      toast.error('Eroare la ștergere')
     }
   }
 
   const handleEdit = async (data) => {
     try {
       await updateItem('approvals', approval.id, data)
-      toast.success('Aprobarea a fost actualizată cu succes')
+      toast.success('Actualizat cu succes!')
       setShowEditModal(false)
-      // Update local state
-      const updatedApproval = { ...approval, ...data }
-      setApproval(updatedApproval)
-      // Reload attachments if they were updated
-      if (data.attachments !== undefined) {
-        try {
-          const parsedAttachments = typeof data.attachments === 'string' 
-            ? JSON.parse(data.attachments)
-            : data.attachments
-          setAttachments(Array.isArray(parsedAttachments) ? parsedAttachments : [])
-        } catch (e) {
-          setAttachments([])
-        }
-      }
+      setApproval({ ...approval, ...data })
     } catch (error) {
-      toast.error('Eroare la actualizarea aprobării')
+      toast.error('Eroare la actualizare')
     }
   }
 
@@ -103,114 +81,75 @@ const ApprovalDetail = () => {
     if (files.length === 0) return
     
     setUploading(true)
-    let processedCount = 0
     const newAttachments = []
+    let processed = 0
     
-    files.forEach((file) => {
-      // Verifică dimensiune (max 10MB per fișier)
+    files.forEach(file => {
       if (file.size > 10 * 1024 * 1024) {
-        toast.error(`${file.name} este prea mare! Maxim 10MB per fișier.`)
-        processedCount++
-        if (processedCount === files.length) {
-          finishUpload(newAttachments)
-        }
+        toast.error(`${file.name} prea mare (max 10MB)`)
+        processed++
+        if (processed === files.length) finishUpload(newAttachments)
         return
       }
       
       const reader = new FileReader()
-      
       reader.onload = (e) => {
-        const base64String = e.target.result
         newAttachments.push({
-          id: Date.now() + Math.random() + processedCount,
+          id: Date.now() + Math.random(),
           name: file.name,
-          url: base64String, // base64 pentru vizualizare directă
-          file_path: base64String, // base64 pentru compatibilitate
+          url: e.target.result,
+          file_path: e.target.result,
           size: file.size,
-          type: file.type,
-          uploaded: true
+          type: file.type
         })
-        
-        processedCount++
-        if (processedCount === files.length) {
-          finishUpload(newAttachments)
-        }
+        processed++
+        if (processed === files.length) finishUpload(newAttachments)
       }
-      
       reader.onerror = () => {
-        toast.error(`Eroare la citirea ${file.name}`)
-        processedCount++
-        if (processedCount === files.length) {
-          finishUpload(newAttachments)
-        }
+        toast.error(`Eroare citire ${file.name}`)
+        processed++
+        if (processed === files.length) finishUpload(newAttachments)
       }
-      
       reader.readAsDataURL(file)
     })
     
-    function finishUpload(validResults) {
-      if (validResults.length > 0) {
-        const updatedAttachments = [...attachments, ...validResults]
-        setAttachments(updatedAttachments)
-        
-        // Update approval in backend with new attachments (base64)
-        updateItem('approvals', approval.id, {
-          attachments: JSON.stringify(updatedAttachments)
-        }).then(() => {
-          // Update local approval state with new attachments
-          setApproval(prev => ({
-            ...prev,
-            attachments: JSON.stringify(updatedAttachments)
-          }))
-          toast.success(`${validResults.length} fișier${validResults.length > 1 ? 'e' : ''} încărcat${validResults.length > 1 ? 'e' : ''} cu succes`)
-        }).catch((error) => {
-          console.error('Error updating approvals:', error)
-          toast.error('Eroare la salvarea atașamentelor')
-        })
+    async function finishUpload(valid) {
+      if (valid.length > 0) {
+        const updated = [...attachments, ...valid]
+        setAttachments(updated)
+        try {
+          await updateItem('approvals', approval.id, {
+            attachments: JSON.stringify(updated)
+          })
+          setApproval(prev => ({ ...prev, attachments: JSON.stringify(updated) }))
+          toast.success(`${valid.length} fișier${valid.length > 1 ? 'e' : ''} încărcat${valid.length > 1 ? 'e' : ''}`)
+        } catch (error) {
+          toast.error('Eroare salvare')
+        }
       }
       setUploading(false)
     }
   }
 
-  const removeAttachment = async (attachmentId) => {
-    const updatedAttachments = attachments.filter(att => att.id !== attachmentId)
-    setAttachments(updatedAttachments)
-    
+  const removeAttachment = async (attId) => {
+    const updated = attachments.filter(a => a.id !== attId)
+    setAttachments(updated)
     try {
       await updateItem('approvals', approval.id, {
-        attachments: JSON.stringify(updatedAttachments)
+        attachments: JSON.stringify(updated)
       })
-      // Update local approval state
-      setApproval(prev => ({
-        ...prev,
-        attachments: JSON.stringify(updatedAttachments)
-      }))
+      setApproval(prev => ({ ...prev, attachments: JSON.stringify(updated) }))
       toast.success('Atașament șters')
     } catch (error) {
-      toast.error('Eroare la ștergerea atașamentului')
+      toast.error('Eroare ștergere')
     }
   }
-
-  const getProviderName = (providerId) => {
-    const provider = providers.find(prov => prov.id === providerId || prov.name === providerId)
-    return provider ? provider.name : providerId
-  }
-
-  const getCabinetName = (cabinetId) => {
-    const cabinet = cabinets.find(cab => cab.id === cabinetId || cab.name === cabinetId)
-    return cabinet ? cabinet.name : cabinetId
-  }
-
-  // Using imported getGameMixName helper function
 
   if (loading) {
     return (
       <Layout>
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-600 mx-auto mb-4"></div>
-            <p className="text-slate-600 dark:text-slate-400">Se încarcă...</p>
-          </div>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-green-600"></div>
         </div>
       </Layout>
     )
@@ -219,14 +158,13 @@ const ApprovalDetail = () => {
   if (!approval) {
     return (
       <Layout>
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center">
+        <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
             <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-2">Aprobarea nu a fost găsită</h2>
-            <p className="text-slate-600 dark:text-slate-400 mb-4">Aprobarea pe care o căutați nu există sau a fost ștearsă.</p>
+            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-2">Aprobare negăsită</h2>
             <button
               onClick={() => navigate('/metrology?tab=approvals')}
-              className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg hover:from-green-600 hover:to-emerald-600 transition-colors"
+              className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700"
             >
               Înapoi la Metrologie
             </button>
@@ -236,11 +174,20 @@ const ApprovalDetail = () => {
     )
   }
 
+  // Prepare files for MultiPDFViewer
+  const approvalFiles = attachments.map((att, idx) => ({
+    name: att.name || att.filename || `Document ${idx + 1}`,
+    type: 'Atașament Aprobare',
+    file_path: att.url || att.file_path,
+    url: att.url || att.file_path,
+    id: att.id || `att-${idx}`
+  }))
+
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
         <div className="container mx-auto px-4 py-6">
-          {/* Header compact - same as SlotDetail */}
+          {/* Header - EXACT CA LA CVT */}
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 mb-6">
             <div className="bg-gradient-to-r from-emerald-800 via-green-800 to-teal-800 px-6 py-4">
               <div className="flex items-center justify-between">
@@ -252,25 +199,14 @@ const ApprovalDetail = () => {
                     <ArrowLeft className="w-5 h-5 text-white" />
                   </button>
                   <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl">
-                    <FileText className="w-6 h-6 text-white" />
+                    <Shield className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h1 className="text-2xl font-bold text-white">
-                      {approval.name}
-                    </h1>
-                    <p className="text-emerald-100">
-                      {approval.provider} | {approval.cabinet}
-                    </p>
+                    <h1 className="text-2xl font-bold text-white">{approval.name}</h1>
+                    <p className="text-emerald-100">{approval.provider} • {approval.cabinet}</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => setShowSettings(true)}
-                    className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-                    title="Setări"
-                  >
-                    <Settings className="w-5 h-5 text-white" />
-                  </button>
                   <button
                     onClick={() => setShowEditModal(true)}
                     className="p-2 hover:bg-white/20 rounded-lg transition-colors"
@@ -289,50 +225,39 @@ const ApprovalDetail = () => {
               </div>
             </div>
 
-            {/* Main Info Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-6">
+            {/* Info Cards - sub header */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-6">
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-                <div className="flex items-center justify-between mb-2">
-                  <Building2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">Furnizor</p>
-                <p className="text-lg font-bold text-slate-800 dark:text-slate-200">{getProviderName(approval.provider) || 'N/A'}</p>
+                <Building2 className="w-5 h-5 text-blue-600 dark:text-blue-400 mb-2" />
+                <p className="text-xs text-slate-600 dark:text-slate-400">Furnizor</p>
+                <p className="font-bold text-slate-800 dark:text-slate-200">{approval.provider || 'N/A'}</p>
               </div>
-
               <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-4 rounded-lg border border-purple-200 dark:border-purple-800">
-                <div className="flex items-center justify-between mb-2">
-                  <Wrench className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                </div>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">Cabinet</p>
-                <p className="text-lg font-bold text-slate-800 dark:text-slate-200">{getCabinetName(approval.cabinet) || 'N/A'}</p>
+                <Wrench className="w-5 h-5 text-purple-600 dark:text-purple-400 mb-2" />
+                <p className="text-xs text-slate-600 dark:text-slate-400">Cabinet</p>
+                <p className="font-bold text-slate-800 dark:text-slate-200">{approval.cabinet || 'N/A'}</p>
               </div>
-
               <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
-                <div className="flex items-center justify-between mb-2">
-                  <Package className="w-5 h-5 text-green-600 dark:text-green-400" />
-                </div>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">Game Mix</p>
-                <p className="text-lg font-bold text-slate-800 dark:text-slate-200">{getGameMixName(approval.game_mix_name || approval.game_mix, gameMixes)}</p>
+                <Package className="w-5 h-5 text-green-600 dark:text-green-400 mb-2" />
+                <p className="text-xs text-slate-600 dark:text-slate-400">Game Mix</p>
+                <p className="font-bold text-slate-800 dark:text-slate-200">{getGameMixName(approval.game_mix_name || approval.game_mix, gameMixes)}</p>
               </div>
-
               <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-4 rounded-lg border border-amber-200 dark:border-amber-800">
-                <div className="flex items-center justify-between mb-2">
-                  <CheckCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                </div>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">Autoritate</p>
-                <p className="text-lg font-bold text-slate-800 dark:text-slate-200">{approval.issuing_authority || 'N/A'}</p>
+                <CheckCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 mb-2" />
+                <p className="text-xs text-slate-600 dark:text-slate-400">Autoritate</p>
+                <p className="font-bold text-slate-800 dark:text-slate-200">{approval.issuing_authority || 'N/A'}</p>
               </div>
             </div>
           </div>
 
-          {/* Main Content Grid */}
+          {/* Main Content - LAYOUT CA LA CVT: 1 col stânga, 2 col dreapta */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Column - Main Info */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Checksums */}
+            {/* Left Column - Info + Upload */}
+            <div className="space-y-6">
+              {/* Checksums - specific pentru Aprobări */}
               <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-6">
                 <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center">
-                  <CheckCircle className="w-5 h-5 mr-2 text-blue-500" />
+                  <Shield className="w-5 h-5 mr-2 text-green-500" />
                   Checksums
                 </h3>
                 <div className="space-y-4">
@@ -358,81 +283,8 @@ const ApprovalDetail = () => {
               {/* Notes */}
               {approval.notes && (
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-6">
-                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center">
-                    <FileText className="w-5 h-5 mr-2 text-green-500" />
-                    Note
-                  </h3>
-                  <p className="text-slate-800 dark:text-slate-200">{approval.notes}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Right Column - Sidebar */}
-            <div className="space-y-6">
-              {/* PDF VIEWER AUTOMAT - Afișează TOATE fișierele */}
-              {showAttachments && attachments.length > 0 && (
-                <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-6">
-                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center">
-                    <FileText className="w-5 h-5 mr-2 text-blue-500" />
-                    Preview Documente
-                  </h3>
-                  <MultiPDFViewer 
-                    files={attachments}
-                    title="Atașamente Aprobare"
-                    onDelete={async (file) => {
-                      await removeAttachment(file.id)
-                    }}
-                  />
-                </div>
-              )}
-
-              {/* File Upload - Only show if showAttachments is true */}
-              {showAttachments && (
-                <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-6">
-                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center">
-                    <Upload className="w-5 h-5 mr-2 text-blue-500" />
-                    Adaugă Atașamente
-                  </h3>
-                  
-                  <div className="space-y-4">
-                    <label className="block">
-                      <input
-                        type="file"
-                        multiple
-                        onChange={handleFileUpload}
-                        className="hidden"
-                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                        disabled={uploading}
-                      />
-                      <div className={`w-full p-4 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg hover:border-green-500 transition-colors cursor-pointer text-center ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                        <Upload className={`w-8 h-8 text-slate-400 mx-auto mb-2 ${uploading ? 'animate-pulse' : ''}`} />
-                        <p className="text-slate-600 dark:text-slate-400">
-                          {uploading ? 'Se încarcă...' : 'Apasă pentru a adăuga fișiere'}
-                        </p>
-                        <p className="text-sm text-slate-500 dark:text-slate-500">PDF, DOC, JPG, PNG (Multiple fișiere, max 10MB)</p>
-                      </div>
-                    </label>
-
-                    {/* Attachments List - Compact version */}
-                    {attachments.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                          {attachments.length} fișier{attachments.length !== 1 ? 'e' : ''} atașat{attachments.length !== 1 ? 'e' : ''}
-                        </p>
-                        {attachments.map((attachment) => (
-                          <div key={attachment.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-700 rounded-lg text-xs">
-                            <div className="flex items-center space-x-2 flex-1 min-w-0">
-                              <FileText className="w-3 h-3 text-slate-500 flex-shrink-0" />
-                              <span className="font-medium text-slate-700 dark:text-slate-300 truncate">{attachment.name}</span>
-                              <span className="text-slate-500 dark:text-slate-500">
-                                {(attachment.size / 1024).toFixed(1)} KB
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Note</h3>
+                  <p className="text-slate-800 dark:text-slate-200 whitespace-pre-wrap">{approval.notes}</p>
                 </div>
               )}
 
@@ -460,36 +312,77 @@ const ApprovalDetail = () => {
                   )}
                 </div>
               </div>
+
+              {/* Upload Section - CA LA CVT */}
+              <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-6">
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center">
+                  <Upload className="w-5 h-5 mr-2 text-green-500" />
+                  Încarcă Documente
+                </h3>
+                <label className="block">
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    disabled={uploading}
+                  />
+                  <div className={`w-full p-4 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg hover:border-green-500 transition-colors cursor-pointer text-center ${uploading ? 'opacity-50' : ''}`}>
+                    <Upload className={`w-6 h-6 text-slate-400 mx-auto mb-2 ${uploading ? 'animate-pulse' : ''}`} />
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      {uploading ? 'Se încarcă...' : 'Adaugă fișiere PDF'}
+                    </p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Right Column - DOCUMENTE (2 coloane) - VIZIBIL AUTOMAT CA LA CVT */}
+            <div className="lg:col-span-2">
+              <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-6">
+                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-6 flex items-center">
+                  <FileText className="w-5 h-5 mr-2 text-green-600" />
+                  Documente Aprobare ({attachments.length})
+                </h3>
+                
+                {/* MultiPDFViewer - AFIȘAT MEREU */}
+                <MultiPDFViewer 
+                  files={approvalFiles}
+                  title="Documente Aprobare"
+                  placeholder="Nu există documente atașate"
+                  placeholderSubtext="Încarcă documente PDF din panoul din stânga"
+                  onDelete={(file) => removeAttachment(file.id)}
+                />
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md p-6">
             <div className="flex items-center space-x-3 mb-4">
               <div className="p-2 bg-red-100 dark:bg-red-900/20 rounded-lg">
-                <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+                <AlertCircle className="w-6 h-6 text-red-600" />
               </div>
-              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
-                Confirmă ștergerea
-              </h3>
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Confirmă ștergerea</h3>
             </div>
             <p className="text-slate-600 dark:text-slate-400 mb-6">
-              Ești sigur că vrei să ștergi aprobarea "{approval.name}"? Această acțiune nu poate fi anulată.
+              Ești sigur că vrei să ștergi aprobarea "{approval.name}"?
             </p>
             <div className="flex space-x-3">
               <button
                 onClick={() => setShowDeleteModal(false)}
-                className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
               >
                 Anulează
               </button>
               <button
                 onClick={handleDelete}
-                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
               >
                 Șterge
               </button>
@@ -506,54 +399,10 @@ const ApprovalDetail = () => {
           onSave={handleEdit}
         />
       )}
-
-      {/* Settings Modal */}
-      {showSettings && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
-                Setări Vizualizare
-              </h3>
-              <button
-                onClick={() => setShowSettings(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <AlertCircle className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="text-slate-700 dark:text-slate-300">Afișează Atașamente</label>
-                <button
-                  onClick={() => {
-                    setShowAttachments(!showAttachments)
-                  }}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    showAttachments ? 'bg-green-600' : 'bg-slate-300 dark:bg-slate-600'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      showAttachments ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={() => setShowSettings(false)}
-                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-              >
-                Închide
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </Layout>
   )
 }
 
 export default ApprovalDetail
+
+

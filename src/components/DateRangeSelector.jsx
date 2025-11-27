@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Calendar, ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Clock, Timer, CalendarCheck, CalendarX } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
 
@@ -6,6 +6,8 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const [isOpen, setIsOpen] = useState(false)
+  const triggerRef = useRef(null)
+  const dropdownRef = useRef(null)
   const [granularity, setGranularity] = useState('M') // Y, Q, M, D
   const [selectedMonths, setSelectedMonths] = useState([]) // Pentru multi-select luni
   const [selectedQuarters, setSelectedQuarters] = useState([]) // Pentru multi-select trimestre
@@ -252,13 +254,15 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
     }
   }
   
+  // No positioning calculation needed - using absolute positioning
+  
   return (
-    <div className="relative z-[3000]">
+    <div className="relative">
       {/* Trigger Button */}
-      <div className="flex items-center space-x-2 relative z-[3000]">
+      <div ref={triggerRef} className="flex items-center space-x-2">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center space-x-2 px-4 py-2 text-white rounded-xl font-semibold text-sm transition-all shadow-md hover:shadow-lg relative z-[3000]"
+          className="flex items-center space-x-2 px-4 py-2 text-white rounded-xl font-semibold text-sm transition-all shadow-md hover:shadow-lg"
           style={{
             background: isDark 
               ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
@@ -289,14 +293,17 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
       {/* Backdrop Overlay */}
       {isOpen && (
         <div 
-          className="fixed inset-0 z-[2999]" 
+          className="fixed inset-0 z-[100]" 
           onClick={() => setIsOpen(false)}
         />
       )}
       
-      {/* DROPDOWN (ABSOLUTE) - Cade peste conținut */}
+      {/* DROPDOWN - ABSOLUTE, direct sub buton */}
       {isOpen && (
-        <div className="absolute top-full left-0 mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4 z-[3000] w-[480px]">
+        <div 
+          ref={dropdownRef}
+          className="absolute left-0 top-full mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4 z-[101] w-[480px]"
+        >
           {/* Header */}
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-200 dark:border-slate-700">
             <div className="flex items-center space-x-3">
@@ -375,21 +382,30 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
             {granularity === 'Q' && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{selectedYear}</h3>
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => setSelectedYear(selectedYear - 1)}
-                      className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded"
+                      className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg border border-slate-300 dark:border-slate-600"
                     >
-                      <ChevronLeft className="w-5 h-5" />
+                      <ChevronLeft className="w-4 h-4" />
                     </button>
+                    <select 
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                      className="text-lg font-bold text-slate-900 dark:text-slate-100 bg-transparent border-none focus:ring-0 cursor-pointer px-2"
+                    >
+                      {[2020, 2021, 2022, 2023, 2024, 2025].map(y => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
                     <button
                       onClick={() => setSelectedYear(selectedYear + 1)}
-                      className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded"
+                      className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg border border-slate-300 dark:border-slate-600"
                     >
-                      <ChevronRight className="w-5 h-5" />
+                      <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
+                  <span className="text-xs text-slate-500">Click sau dropdown pentru an</span>
                 </div>
                 
                 <div className="grid grid-cols-4 gap-2">
@@ -431,21 +447,31 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
             {granularity === 'M' && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{selectedYear}</h3>
+                  {/* DROPDOWN pentru an - mai rapid! */}
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => setSelectedYear(selectedYear - 1)}
-                      className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded"
+                      className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg border border-slate-300 dark:border-slate-600"
                     >
-                      <ChevronLeft className="w-5 h-5" />
+                      <ChevronLeft className="w-4 h-4" />
                     </button>
+                    <select 
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                      className="text-lg font-bold text-slate-900 dark:text-slate-100 bg-transparent border-none focus:ring-0 cursor-pointer px-2"
+                    >
+                      {[2020, 2021, 2022, 2023, 2024, 2025].map(y => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
                     <button
                       onClick={() => setSelectedYear(selectedYear + 1)}
-                      className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded"
+                      className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg border border-slate-300 dark:border-slate-600"
                     >
-                      <ChevronRight className="w-5 h-5" />
+                      <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
+                  <span className="text-xs text-slate-500">Click sau dropdown pentru an</span>
                 </div>
                 
                 <div className="grid grid-cols-4 gap-2">
@@ -591,7 +617,9 @@ export const QuickDateButtons = ({ onChange }) => {
     { id: 'thisWeek', label: 'Săpt', icon: <Clock className="w-4 h-4" /> },
     { id: 'thisMonth', label: 'Luna curentă', icon: <CalendarRange className="w-4 h-4" /> },
     { id: 'lastMonth', label: 'Luna trecută', icon: <CalendarX className="w-4 h-4" /> },
-    { id: 'thisYear', label: 'Anul curent', icon: <CalendarCheck className="w-4 h-4" /> }
+    { id: 'thisYear', label: 'Anul curent', icon: <CalendarCheck className="w-4 h-4" /> },
+    { id: 'lastYear', label: 'Anul trecut', icon: <Calendar className="w-4 h-4" /> },
+    { id: 'all', label: 'Toate', icon: <Calendar className="w-4 h-4" /> }
   ]
   
   const handleQuickAction = (action) => {
@@ -626,6 +654,14 @@ export const QuickDateButtons = ({ onChange }) => {
       case 'thisYear':
         newStart = new Date(now.getFullYear(), 0, 1)
         newEnd = new Date(now.getFullYear(), 11, 31)
+        break
+      case 'lastYear':
+        newStart = new Date(now.getFullYear() - 1, 0, 1)
+        newEnd = new Date(now.getFullYear() - 1, 11, 31)
+        break
+      case 'all':
+        newStart = new Date(2020, 0, 1)
+        newEnd = new Date(2030, 11, 31)
         break
       default:
         return

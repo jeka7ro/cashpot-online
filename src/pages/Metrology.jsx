@@ -373,10 +373,7 @@ const Metrology = () => {
       sortable: true,
       render: (item) => (
         <button
-          onClick={() => {
-            setViewingItem(item)
-            setShowDetailModal(true)
-          }}
+          onClick={() => navigate(`/metrology/cvt/${item.id}`)}
           className="text-cyan-600 hover:text-cyan-800 font-semibold hover:underline transition-colors"
         >
           {item.cvt_series || item.cvt_number || 'N/A'}

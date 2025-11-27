@@ -14,6 +14,7 @@ const LocationModal = ({ item, onClose, onSave }) => {
     status: 'Activ',
     coordinates: '',
     contact_person: '',
+    nlc_code: '', // NLC (Număr Loc de Consum) pentru facturi electrice
     notes: ''
   })
 
@@ -30,6 +31,7 @@ const LocationModal = ({ item, onClose, onSave }) => {
         status: item.status || 'Activ',
         coordinates: item.coordinates || '',
         contact_person: item.contact_person || '',
+        nlc_code: item.nlc_code || '', // NLC (Număr Loc de Consum)
         notes: item.notes || ''
       })
     }
@@ -253,6 +255,24 @@ const LocationModal = ({ item, onClose, onSave }) => {
                   className="input-field" 
                   placeholder="ex: 44.4268, 26.1025"
                 />
+              </div>
+
+              {/* NLC Code (Număr Loc de Consum) */}
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-slate-700">
+                  NLC (Număr Loc de Consum)
+                </label>
+                <input 
+                  type="text" 
+                  name="nlc_code" 
+                  value={formData.nlc_code} 
+                  onChange={handleChange} 
+                  className="input-field" 
+                  placeholder="ex: 7003511117"
+                />
+                <p className="text-xs text-slate-500">
+                  Codul NLC de pe factura electrică (folosit pentru identificare automată)
+                </p>
               </div>
 
               {/* Plan Upload */}

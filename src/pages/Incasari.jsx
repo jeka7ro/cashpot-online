@@ -110,6 +110,7 @@ const Incasari = () => {
   const [locationDailyData, setLocationDailyData] = useState([])
   const [loading, setLoading] = useState(false)
   const [avgInByLocation, setAvgInByLocation] = useState([])
+  const [prevMonthByLocation, setPrevMonthByLocation] = useState([]) // Pentru dinamica Bonus Cost
   const [avgInByCabinet, setAvgInByCabinet] = useState([])
   const [locationExpenditures, setLocationExpenditures] = useState([])
   const [slotsByMonthLocation, setSlotsByMonthLocation] = useState(() => {
@@ -559,6 +560,12 @@ const Incasari = () => {
         const { startDate, endDate } = dateRange
         if (!startDate || !endDate) return
 
+        // Calculează luna anterioară pentru Dinamica Bonus Cost
+        const start = new Date(startDate)
+        const prevMonthStart = new Date(start.getFullYear(), start.getMonth() - 1, 1)
+        const prevMonthEnd = new Date(start.getFullYear(), start.getMonth(), 0)
+        const formatDate = (d) => d.toISOString().split('T')[0]
+
         const commonParams = {
           startDate,
           endDate,
@@ -572,13 +579,23 @@ const Incasari = () => {
               : undefined
         }
 
-        const [locResp, cabResp] = await Promise.all([
+        const prevMonthParams = {
+          ...commonParams,
+          startDate: formatDate(prevMonthStart),
+          endDate: formatDate(prevMonthEnd)
+        }
+
+        const [locResp, cabResp, prevLocResp] = await Promise.all([
           axios.get('/api/incasari/avg-in-by-location', { 
             params: commonParams,
             signal: abortController.signal
           }),
           axios.get('/api/incasari/avg-in-by-cabinet', { 
             params: commonParams,
+            signal: abortController.signal
+          }),
+          axios.get('/api/incasari/avg-in-by-location', { 
+            params: prevMonthParams,
             signal: abortController.signal
           })
         ])
@@ -588,6 +605,9 @@ const Incasari = () => {
         }
         if (cabResp.data?.success) {
           setAvgInByCabinet(cabResp.data.rows || [])
+        }
+        if (prevLocResp.data?.success) {
+          setPrevMonthByLocation(prevLocResp.data.rows || [])
         }
       } catch (error) {
         if (error.name !== 'CanceledError' && error.code !== 'ECONNABORTED') {
@@ -1525,7 +1545,7 @@ const Incasari = () => {
       }
       
       const rows = [
-        ['Locație', 'IN', 'BET', 'GGR', 'Marketing', 'Bonus cost (%)', 'Cheltuieli', 'P&L', 'Profit %']
+        ['Locație', 'IN', 'BET', 'GGR', 'Marketing', 'Bonus cost (%)', 'Win/Bet %', 'Cheltuieli', 'P&L', 'Profit %']
       ]
       
       plByLocation.forEach((row) => {
@@ -1535,7 +1555,8 @@ const Incasari = () => {
           row.bet || 0,
           row.ggr || 0,
           row.marketing || 0,
-          row.bonusCost || 0,
+          row.bonusCostDynamics !== null ? `${row.bonusCostDynamics > 0 ? '+' : ''}${row.bonusCostDynamics.toFixed(2)}%` : (row.bonusCost || 0),
+          row.winBetPercent || 0,
           row.expenses || 0,
           row.pl || 0,
           row.profitPercent || 0
@@ -1550,6 +1571,7 @@ const Incasari = () => {
         plTotals.ggr || 0,
         plTotals.marketing || 0,
         plTotals.bonusCost || 0,
+        plTotals.winBetPercent || 0,
         plTotals.expenses || 0,
         plTotals.pl || 0,
         '' // Nu calculăm profit % pentru total
@@ -1994,6 +2016,21 @@ const Incasari = () => {
     
     if (dataToUse.length === 0) return []
 
+    // Creează map pentru datele din luna anterioară (pentru Dinamica Bonus Cost)
+    const prevMonthMap = new Map()
+    ;(prevMonthByLocation || []).forEach((row) => {
+      const locName = row.locationName || 'Nespecificat'
+      const bet = Number(row.totalBet || row.total_bet || 0)
+      const marketing =
+        Number(row.totalJackpot || row.total_jackpot || 0) +
+        Number(row.totalHh || row.total_hh || 0) +
+        Number(row.totalCbReal || row.total_cb_real || 0) +
+        Number(row.totalCbBirthday || row.total_cb_birthday || 0) +
+        Number(row.totalCbRaffle || row.total_cb_raffle || 0)
+      const bonusCost = bet > 0 ? (marketing / bet) * 100 : 0
+      prevMonthMap.set(locName, bonusCost)
+    })
+
     // Verifică dacă este luna curentă și dacă avem date din overview
     const currentDate = new Date()
     const currentMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
@@ -2024,6 +2061,7 @@ const Incasari = () => {
       const expenses = expMap.get(locationName) || 0
       const pl = ggr - expenses
       const bet = Number(row.totalBet || row.total_bet || 0)
+      const win = Number(row.totalWin || row.total_win || 0)
       const marketing =
         Number(row.totalJackpot || row.total_jackpot || 0) +
         Number(row.totalHh || row.total_hh || 0) +
@@ -2031,14 +2069,24 @@ const Incasari = () => {
         Number(row.totalCbBirthday || row.total_cb_birthday || 0) +
         Number(row.totalCbRaffle || row.total_cb_raffle || 0)
       const bonusCost = bet > 0 ? (marketing / bet) * 100 : 0
+      const winBetPercent = bet > 0 ? (win / bet) * 100 : 0
       const profitPercent = totalIn > 0 ? (pl / totalIn) * 100 : 0
+      
+      // Dinamica Bonus Cost - comparație cu luna anterioară
+      const prevBonusCost = prevMonthMap.get(locationName) || 0
+      const bonusCostDynamics = prevBonusCost > 0 ? bonusCost - prevBonusCost : null
+      
       return {
         locationName,
         totalIn,
         bet,
+        win,
         ggr,
         marketing,
         bonusCost,
+        prevBonusCost,
+        bonusCostDynamics,
+        winBetPercent,
         expenses,
         pl,
         profitPercent
@@ -2061,28 +2109,36 @@ const Incasari = () => {
         const inRatio = statsIn > 0 && overviewIn > 0 ? overviewIn / statsIn : ggrRatio
         const betRatio = statsBet > 0 && overviewBet > 0 ? overviewBet / statsBet : ggrRatio
         
+        // Calculăm și winRatio pentru a păstra Win/Bet corect
+        const statsWin = plData.reduce((sum, d) => sum + (d.win || 0), 0)
+        const overviewWin = Number(overview.currentMonth.win || 0)
+        const winRatio = statsWin > 0 && overviewWin > 0 ? overviewWin / statsWin : betRatio
+        
         plData = plData.map((d) => {
           const adjustedGgr = d.ggr * ggrRatio
           const adjustedIn = d.totalIn * inRatio
           const adjustedBet = d.bet * betRatio
+          const adjustedWin = d.win * winRatio
           const adjustedMarketing = d.marketing * ggrRatio
           const adjustedPl = adjustedGgr - d.expenses
           return {
             ...d,
             totalIn: adjustedIn,
             bet: adjustedBet,
+            win: adjustedWin,
             ggr: adjustedGgr,
             marketing: adjustedMarketing,
             pl: adjustedPl,
             profitPercent: adjustedIn > 0 ? (adjustedPl / adjustedIn) * 100 : 0,
-            bonusCost: adjustedBet > 0 ? (adjustedMarketing / adjustedBet) * 100 : 0
+            bonusCost: adjustedBet > 0 ? (adjustedMarketing / adjustedBet) * 100 : 0,
+            winBetPercent: adjustedBet > 0 ? (adjustedWin / adjustedBet) * 100 : 0
           }
         })
       }
     }
 
     return plData
-  }, [avgInByLocation, locationExpenditures, overview, dateRange])
+  }, [avgInByLocation, prevMonthByLocation, locationExpenditures, overview, dateRange])
 
   // Calculează totalurile pentru tabelul P&L
   const plTotals = useMemo(() => {
@@ -2094,13 +2150,15 @@ const Incasari = () => {
         marketing: 0,
         expenses: 0,
         pl: 0,
-        bonusCost: 0
+        bonusCost: 0,
+        bonusCostDynamics: null
       }
     }
 
     const totals = plByLocation.reduce((acc, row) => {
       acc.totalIn += row.totalIn
       acc.bet += row.bet
+      acc.win += row.win || 0
       acc.ggr += row.ggr
       acc.marketing += row.marketing
       acc.expenses += row.expenses
@@ -2109,6 +2167,7 @@ const Incasari = () => {
     }, {
       totalIn: 0,
       bet: 0,
+      win: 0,
       ggr: 0,
       marketing: 0,
       expenses: 0,
@@ -2117,9 +2176,25 @@ const Incasari = () => {
 
     // Calculează bonus cost-ul mediu ponderat (marketing / BET)
     totals.bonusCost = totals.bet > 0 ? (totals.marketing / totals.bet) * 100 : 0
+    // Calculează Win/Bet % din sumele totale
+    totals.winBetPercent = totals.bet > 0 ? (totals.win / totals.bet) * 100 : 0
+    
+    // Calculează bonus cost total pentru luna anterioară
+    const prevTotals = (prevMonthByLocation || []).reduce((acc, row) => {
+      acc.bet += Number(row.totalBet || row.total_bet || 0)
+      acc.marketing += Number(row.totalJackpot || row.total_jackpot || 0) +
+        Number(row.totalHh || row.total_hh || 0) +
+        Number(row.totalCbReal || row.total_cb_real || 0) +
+        Number(row.totalCbBirthday || row.total_cb_birthday || 0) +
+        Number(row.totalCbRaffle || row.total_cb_raffle || 0)
+      return acc
+    }, { bet: 0, marketing: 0 })
+    
+    const prevBonusCost = prevTotals.bet > 0 ? (prevTotals.marketing / prevTotals.bet) * 100 : 0
+    totals.bonusCostDynamics = prevBonusCost > 0 ? totals.bonusCost - prevBonusCost : null
 
     return totals
-  }, [plByLocation])
+  }, [plByLocation, prevMonthByLocation])
 
   // Construim structura DRILL-DOWN pentru tabelul centralizator
   const centralizerData = useMemo(() => {
@@ -2632,11 +2707,11 @@ const Incasari = () => {
                 <p className="text-xs text-slate-400 dark:text-slate-500">WIN/BET %</p>
                 <p className="mt-2 text-xl font-bold text-emerald-400 dark:text-emerald-500">
                   {displayData.winBetPercent
-                    ? `${Math.round(displayData.winBetPercent).toLocaleString('ro-RO', {
-                        maximumFractionDigits: 0,
-                        minimumFractionDigits: 0
+                    ? `${Number(displayData.winBetPercent).toLocaleString('ro-RO', {
+                        maximumFractionDigits: 2,
+                        minimumFractionDigits: 2
                       })}%`
-                    : '0%'}
+                    : '0,00%'}
                 </p>
               </div>
               <div className="bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl p-4 shadow-lg text-center">
@@ -2678,9 +2753,11 @@ const Incasari = () => {
                   <th className="py-2 px-3 text-left">Locație</th>
                   <th className="py-2 px-3 text-right">IN</th>
                   <th className="py-2 px-3 text-right">Bet</th>
+                  <th className="py-2 px-3 text-right">Win</th>
                   <th className="py-2 px-3 text-right">GGR</th>
                   <th className="py-2 px-3 text-right">Marketing</th>
                   <th className="py-2 px-3 text-right">Bonus cost (%)</th>
+                  <th className="py-2 px-3 text-right">Win/Bet %</th>
                   <th className="py-2 px-3 text-right">Cheltuieli</th>
                   <th className="py-2 px-3 text-right">P&L</th>
                 </tr>
@@ -2688,7 +2765,7 @@ const Incasari = () => {
               <tbody>
                 {plByLocation.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="py-8 px-3 text-center text-slate-500 dark:text-slate-400">
+                    <td colSpan="10" className="py-8 px-3 text-center text-slate-500 dark:text-slate-400">
                       Nu există date pentru perioada selectată
                     </td>
                   </tr>
@@ -2722,16 +2799,36 @@ const Incasari = () => {
                       <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
                         {formatNumber(row.bet)} RON
                       </td>
-                      <td className="py-2 px-3 text-right text-emerald-600 dark:text-emerald-400">
+                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                        {formatNumber(row.win)} RON
+                      </td>
+                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
                         {formatNumber(row.ggr)} RON
                       </td>
                       <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
                         {formatNumber(row.marketing)} RON
                       </td>
-                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                        {formatPercent(row.bonusCost)}
+                      <td className="py-2 px-3 text-right">
+                        <div className="flex items-center justify-end gap-2 text-sm">
+                          <span className="text-slate-300">{formatPercent(row.bonusCost)}</span>
+                          {row.bonusCostDynamics !== null && (
+                            <span className="inline-flex items-center gap-1">
+                              {row.bonusCostDynamics < 0 ? (
+                                <TrendingDown className="w-3.5 h-3.5 text-emerald-500" />
+                              ) : row.bonusCostDynamics > 0 ? (
+                                <TrendingUp className="w-3.5 h-3.5 text-red-500" />
+                              ) : null}
+                              <span className={row.bonusCostDynamics < 0 ? 'text-emerald-500' : row.bonusCostDynamics > 0 ? 'text-red-500' : 'text-slate-400'}>
+                                {row.bonusCostDynamics > 0 ? '+' : ''}{row.bonusCostDynamics.toFixed(2)}%
+                              </span>
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td className="py-2 px-3 text-right text-amber-600 dark:text-amber-300">
+                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                        {formatPercent(row.winBetPercent)}
+                      </td>
+                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
                         {formatNumber(row.expenses)} RON
                       </td>
                       <td
@@ -2753,16 +2850,36 @@ const Incasari = () => {
                     <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
                       {formatNumber(plTotals.bet)} RON
                     </td>
-                    <td className="py-3 px-3 text-right text-emerald-600 dark:text-emerald-400">
+                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
+                      {formatNumber(plTotals.win)} RON
+                    </td>
+                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
                       {formatNumber(plTotals.ggr)} RON
                     </td>
                     <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
                       {formatNumber(plTotals.marketing)} RON
                     </td>
-                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                      {formatPercent(plTotals.bonusCost)}
+                    <td className="py-3 px-3 text-right">
+                      <div className="flex items-center justify-end gap-2 text-sm">
+                        <span className="text-slate-100">{formatPercent(plTotals.bonusCost)}</span>
+                        {plTotals.bonusCostDynamics !== null && (
+                          <span className="inline-flex items-center gap-1">
+                            {plTotals.bonusCostDynamics < 0 ? (
+                              <TrendingDown className="w-3.5 h-3.5 text-emerald-500" />
+                            ) : plTotals.bonusCostDynamics > 0 ? (
+                              <TrendingUp className="w-3.5 h-3.5 text-red-500" />
+                            ) : null}
+                            <span className={plTotals.bonusCostDynamics < 0 ? 'text-emerald-500' : plTotals.bonusCostDynamics > 0 ? 'text-red-500' : 'text-slate-400'}>
+                              {plTotals.bonusCostDynamics > 0 ? '+' : ''}{plTotals.bonusCostDynamics.toFixed(2)}%
+                            </span>
+                          </span>
+                        )}
+                      </div>
                     </td>
-                    <td className="py-3 px-3 text-right text-amber-600 dark:text-amber-300">
+                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
+                      {formatPercent(plTotals.winBetPercent)}
+                    </td>
+                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
                       {formatNumber(plTotals.expenses)} RON
                     </td>
                     <td

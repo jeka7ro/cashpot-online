@@ -221,9 +221,51 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true)
       
-      // Reset circuit breaker before login attempt - allow fresh attempts
-      backendFailures.current = 0
-      lastFailureTime.current = 0
+      // Verifică circuit breaker-ul din localStorage ÎNAINTE de login
+      // DAR verifică mai întâi dacă backend-ul funcționează!
+      const storedFailure = localStorage.getItem('settings_circuit_breaker_failure')
+      const storedTime = localStorage.getItem('settings_circuit_breaker_time')
+      const now = Date.now()
+      
+      if (storedFailure && storedTime) {
+        const timeSinceFailure = now - parseInt(storedTime)
+        if (timeSinceFailure < 120000) { // 2 minute
+          // Testează backend-ul înainte de a bloca login-ul!
+          try {
+            const healthCheck = await axios.get('/health', { timeout: 3000 })
+            if (healthCheck.data.status === 'OK') {
+              // Backend-ul funcționează! Șterge circuit breaker-ul
+              localStorage.removeItem('settings_circuit_breaker_failure')
+              localStorage.removeItem('settings_circuit_breaker_time')
+              localStorage.removeItem('backend_circuit_breaker_failure')
+              localStorage.removeItem('backend_circuit_breaker_time')
+              backendFailures.current = 0
+            } else {
+              // Backend-ul e încă down
+              setLoading(false)
+              toast.error('🔴 Backend-ul este temporar indisponibil. Te rugăm să încerci din nou în câteva minute.', { 
+                duration: 5000, 
+                id: 'backend-down' 
+              })
+              return { success: false, error: 'Backend unavailable' }
+            }
+          } catch (healthError) {
+            // Backend-ul e încă down
+            setLoading(false)
+            toast.error('🔴 Backend-ul este temporar indisponibil. Te rugăm să încerci din nou în câteva minute.', { 
+              duration: 5000, 
+              id: 'backend-down' 
+            })
+            return { success: false, error: 'Backend unavailable' }
+          }
+        } else {
+          // Circuit breaker expirat - șterge-l
+          localStorage.removeItem('settings_circuit_breaker_failure')
+          localStorage.removeItem('settings_circuit_breaker_time')
+          localStorage.removeItem('backend_circuit_breaker_failure')
+          localStorage.removeItem('backend_circuit_breaker_time')
+        }
+      }
       
       // Clear token verification cache to force fresh verification
       tokenVerificationCache.current = {
@@ -281,7 +323,8 @@ export const AuthProvider = ({ children }) => {
         throw new Error('No user data received after login')
       }
     } catch (error) {
-      console.error('Login error:', error)
+      // Silent fail - don't spam console
+      // console.error('Login error:', error)
       
       const isTimeout = error.code === 'ECONNABORTED'
       const is503 = error.response?.status === 503
@@ -291,9 +334,14 @@ export const AuthProvider = ({ children }) => {
       
       let message
       if (is503 || is500) {
-        message = '🔴 Backend-ul are probleme tehnice. Te rugăm să încerci din nou în câteva momente.'
+        message = '🔴 Backend-ul este temporar indisponibil. Te rugăm să încerci din nou mai târziu.'
         backendFailures.current++
         lastFailureTime.current = Date.now()
+        // Salvează circuit breaker pentru settings și keep-alive
+        localStorage.setItem('settings_circuit_breaker_failure', '1')
+        localStorage.setItem('settings_circuit_breaker_time', Date.now().toString())
+        localStorage.setItem('backend_circuit_breaker_failure', '1')
+        localStorage.setItem('backend_circuit_breaker_time', Date.now().toString())
       } else if (isTimeout || isNetworkError) {
         message = '⏱️ Nu s-a putut conecta la server. Verifică conexiunea la internet.'
         backendFailures.current++
