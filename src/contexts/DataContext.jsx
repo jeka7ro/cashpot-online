@@ -43,6 +43,9 @@ export const DataProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([])
   const [loading, setLoading] = useState(false)
   
+  // Prevenire încărcare multiplă simultană
+  const isFetching = React.useRef(false)
+  
   // CIRCUIT BREAKER pentru DataContext (împiedică cascada de erori!)
   const dataFetchFailures = React.useRef(0)
   const lastDataFetchFailureTime = React.useRef(0)
@@ -77,7 +80,14 @@ export const DataProvider = ({ children }) => {
 
   // Fetch all data in parallel for maximum speed
   const fetchAllData = async () => {
+    // Prevenire apeluri simultane
+    if (isFetching.current) {
+      console.log('⏸️ Data fetch already in progress, skipping...')
+      return
+    }
+    
     console.log('🚀 Starting OPTIMIZED data fetch...')
+    isFetching.current = true
     setLoading(true)
     
     // Check cache first
@@ -98,6 +108,7 @@ export const DataProvider = ({ children }) => {
             }
           })
           setLoading(false)
+          isFetching.current = false
           console.log('✅ All data loaded from cache!')
           return
         } catch (e) {
@@ -250,6 +261,7 @@ export const DataProvider = ({ children }) => {
       }
     } finally {
       setLoading(false)
+      isFetching.current = false
     }
   }
 

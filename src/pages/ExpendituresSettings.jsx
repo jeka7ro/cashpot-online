@@ -929,7 +929,10 @@ const ExpendituresSettings = () => {
       })
       
       // Șterge duplicatele
-      await axios.post('/api/expenditures/sql-table/bulk-delete', { ids: idsToDelete })
+      await axios.post('/api/expenditures/sql-table/bulk-delete', { 
+        ids: idsToDelete,
+        confirmDelete: true
+      })
       
       // Actualizează descrierile pentru înregistrările păstrate (dacă e nevoie)
       if (updatesToApply.length > 0) {
@@ -1771,7 +1774,9 @@ const ExpendituresSettings = () => {
                             
                             try {
                               toast.loading('Se șterg datele...', { id: 'delete-google-sheets' })
-                              await axios.delete('/api/expenditures/google-sheets-data')
+                              await axios.delete('/api/expenditures/google-sheets-data', {
+                                data: { confirmDelete: true }
+                              })
                               toast.success('Datele Google Sheets au fost șterse cu succes!', { id: 'delete-google-sheets' })
                               await loadGoogleSheetsStatus()
                             } catch (error) {
@@ -3495,7 +3500,12 @@ const ExpendituresSettings = () => {
                         console.log('🔍 Environment:', import.meta.env.MODE, 'PROD:', import.meta.env.PROD)
                         console.log('🔍 Axios baseURL:', axios.defaults.baseURL)
                         
-                        const response = await axios.delete(deleteUrl)
+                        const response = await axios.delete(deleteUrl, {
+                          data: {
+                            confirmDelete: true,
+                            confirmationToken: 'DELETE_ALL_DATA_CONFIRMED_2025'
+                          }
+                        })
                         console.log('✅ DELETE response:', response.data)
                         toast.success(
                           `✅ Șterse ${response.data.deletedCount.toLocaleString('ro-RO')} înregistrări! Baza de date este acum goală.`,

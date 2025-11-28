@@ -59,6 +59,8 @@ import ExpendituresElectricMonth from './pages/ExpendituresElectricMonth'
 import CyberTable from './pages/CyberTable'
 import IncasariSettings from './pages/IncasariSettings'
 import Incasari from './pages/Incasari'
+import IncasariMonthly from './pages/IncasariMonthly'
+import IncasariOperational from './pages/IncasariOperational'
 import IncasariSmartAnalytics from './pages/IncasariSmartAnalytics'
 import LocationPLDetail from './pages/LocationPLDetail'
 import POSBancaAIAnalysis from './pages/POSBancaAIAnalysis'
@@ -136,7 +138,10 @@ function App() {
             <Route path="/expenditures/electric/:monthKey" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><ExpendituresElectricMonth /></RoleProtectedRoute>} />
             <Route path="/expenditures/detail" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><ExpendituresDetail /></RoleProtectedRoute>} />
             <Route path="/ai-insights" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><AIInsights /></RoleProtectedRoute>} />
-            <Route path="/incasari" element={<RoleProtectedRoute module={MODULES.INCASARI}><Incasari /></RoleProtectedRoute>} />
+            <Route path="/incasari/operational" element={<RoleProtectedRoute module={MODULES.INCASARI}><IncasariOperational /></RoleProtectedRoute>} />
+            <Route path="/incasari/monthly" element={<RoleProtectedRoute module={MODULES.INCASARI}><IncasariMonthly /></RoleProtectedRoute>} />
+            <Route path="/incasari/dashboard" element={<RoleProtectedRoute module={MODULES.INCASARI}><Incasari /></RoleProtectedRoute>} />
+            <Route path="/incasari" element={<Navigate to="/incasari/monthly" replace />} />
             <Route path="/incasari/smart-analytics" element={<RoleProtectedRoute module={MODULES.INCASARI}><IncasariSmartAnalytics /></RoleProtectedRoute>} />
             <Route path="/incasari/location-pl/:locationName" element={<RoleProtectedRoute module={MODULES.INCASARI}><LocationPLDetail /></RoleProtectedRoute>} />
             <Route path="/incasari/cyber-table" element={<RoleProtectedRoute module={MODULES.INCASARI}><CyberTable /></RoleProtectedRoute>} />

@@ -64,10 +64,26 @@ const loadExportedData = (filename) => {
 // Aici doar declarăm că o folosim
 
 // DELETE /api/expenditures/all-data - ȘTERGE ABSOLUT TOTUL (BAT, Google Sheets, Preferences, etc.)
+// SECURIZAT: Necesită confirmare suplimentară pentru a preveni ștergerea accidentală
 // IMPORTANT: Această rută trebuie să fie definită LA ÎNCEPUT pentru a evita conflictele cu rutele parametrizate
 router.delete('/all-data', authenticateToken, async (req, res) => {
   try {
     console.log('🗑️ DELETE /api/expenditures/all-data - Request received')
+    
+    // SECURITATE: Verifică dacă există confirmarea suplimentară
+    const { confirmDelete, confirmationToken } = req.body
+    
+    // Token de confirmare: trebuie să fie exact "DELETE_ALL_DATA_CONFIRMED_2025"
+    const REQUIRED_CONFIRMATION_TOKEN = 'DELETE_ALL_DATA_CONFIRMED_2025'
+    
+    if (!confirmDelete || confirmationToken !== REQUIRED_CONFIRMATION_TOKEN) {
+      console.warn('⚠️ DELETE /all-data - Confirmare invalidă sau lipsă')
+      return res.status(400).json({
+        success: false,
+        error: 'Confirmare necesară pentru ștergerea tuturor datelor. Trimite confirmDelete: true și confirmationToken: "DELETE_ALL_DATA_CONFIRMED_2025"'
+      })
+    }
+    
     const pool = req.app.get('pool')
     if (!pool) {
       console.error('❌ Database pool not initialized')
@@ -78,6 +94,19 @@ router.delete('/all-data', authenticateToken, async (req, res) => {
     const countResult = await pool.query('SELECT COUNT(*) as total FROM expenditures_sync')
     const totalCount = parseInt(countResult.rows[0].total) || 0
     console.log(`📊 Total records before deletion: ${totalCount}`)
+    
+    if (totalCount === 0) {
+      return res.json({
+        success: true,
+        deletedCount: 0,
+        totalCountBefore: 0,
+        message: 'Nu există date de șters.'
+      })
+    }
+
+    // SECURITATE: Creează backup înainte de ștergere (opțional - poate fi activat mai târziu)
+    // Pentru moment, doar logăm
+    console.log(`⚠️ ATENȚIE: Se vor șterge ${totalCount} înregistrări!`)
 
     // Șterge ABSOLUT TOTUL
     const deleteResult = await pool.query('DELETE FROM expenditures_sync RETURNING id')
@@ -546,10 +575,21 @@ router.get('/departments', async (req, res) => {
 })
 
 // UPLOAD data directly from LOCAL sync script (bypass external DB connection!)
+// SECURIZAT: Necesită token de confirmare pentru a preveni ștergerea accidentală
 router.post('/upload', async (req, res) => {
   try {
-    const { records } = req.body
+    const { records, syncToken } = req.body
     const localPool = req.app.get('pool')
+    
+    // SECURITATE: Verifică token-ul de sync
+    const REQUIRED_SYNC_TOKEN = 'SYNC_UPLOAD_TOKEN_2025'
+    if (!syncToken || syncToken !== REQUIRED_SYNC_TOKEN) {
+      console.warn('⚠️ /upload - Token de sync invalid sau lipsă')
+      return res.status(403).json({
+        success: false,
+        error: 'Token de sync necesar pentru upload. Contactează administratorul.'
+      })
+    }
     
     if (!records || !Array.isArray(records)) {
       return res.status(400).json({ 
@@ -559,6 +599,11 @@ router.post('/upload', async (req, res) => {
     }
     
     console.log(`📤 Receiving ${records.length} expenditure records from LOCAL sync...`)
+    
+    // Verifică câte înregistrări există înainte de ștergere
+    const countResult = await localPool.query('SELECT COUNT(*) as total FROM expenditures_sync')
+    const totalCount = parseInt(countResult.rows[0].total) || 0
+    console.log(`📊 Total records before deletion: ${totalCount}`)
     
     // Clear old data
     await localPool.query('DELETE FROM expenditures_sync')
@@ -2859,8 +2904,18 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
 
 // Check if Google Sheets data exists
 // DELETE /api/expenditures/google-sheets-data - Șterge toate datele din Google Sheets
+// SECURIZAT: Necesită confirmare
 router.delete('/google-sheets-data', authenticateToken, async (req, res) => {
   try {
+    // SECURITATE: Verifică confirmarea
+    const { confirmDelete } = req.body
+    if (!confirmDelete || confirmDelete !== true) {
+      return res.status(400).json({
+        success: false,
+        error: 'Confirmare necesară. Trimite confirmDelete: true'
+      })
+    }
+    
     const pool = req.app.get('pool')
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database pool not initialized' })
@@ -3297,8 +3352,19 @@ router.put('/sql-table/:id', authenticateToken, async (req, res) => {
 })
 
 // SQL TABLE DELETE
+// SECURIZAT: Necesită confirmare
 router.delete('/sql-table/:id', authenticateToken, async (req, res) => {
   try {
+    const { confirmDelete } = req.body || {}
+    
+    // SECURITATE: Verifică confirmarea
+    if (!confirmDelete || confirmDelete !== true) {
+      return res.status(400).json({
+        success: false,
+        error: 'Confirmare necesară pentru ștergere. Trimite confirmDelete: true în body'
+      })
+    }
+    
     const pool = req.app.get('pool')
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database pool not initialized' })
@@ -3322,6 +3388,7 @@ router.delete('/sql-table/:id', authenticateToken, async (req, res) => {
 })
 
 // BULK DELETE pentru SQL TABLE (ștergere multiplă după id-uri)
+// SECURIZAT: Necesită confirmare
 router.post('/sql-table/bulk-delete', authenticateToken, async (req, res) => {
   try {
     const pool = req.app.get('pool')
@@ -3329,7 +3396,15 @@ router.post('/sql-table/bulk-delete', authenticateToken, async (req, res) => {
       return res.status(500).json({ success: false, error: 'Database pool not initialized' })
     }
 
-    const { ids } = req.body || {}
+    const { ids, confirmDelete } = req.body || {}
+
+    // SECURITATE: Verifică confirmarea
+    if (!confirmDelete || confirmDelete !== true) {
+      return res.status(400).json({
+        success: false,
+        error: 'Confirmare necesară pentru ștergere. Trimite confirmDelete: true'
+      })
+    }
 
     if (!Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ success: false, error: 'Lista de ID-uri este goală sau invalidă' })
@@ -3373,8 +3448,19 @@ router.post('/sql-table/bulk-delete', authenticateToken, async (req, res) => {
 })
 
 // POST /api/expenditures/clean-duplicates - Remove duplicate records from expenditures_sync
+// SECURIZAT: Necesită confirmare
 router.post('/clean-duplicates', authenticateToken, async (req, res) => {
   try {
+    const { confirmDelete } = req.body || {}
+    
+    // SECURITATE: Verifică confirmarea
+    if (!confirmDelete || confirmDelete !== true) {
+      return res.status(400).json({
+        success: false,
+        error: 'Confirmare necesară pentru ștergerea duplicatelor. Trimite confirmDelete: true'
+      })
+    }
+    
     const pool = req.app.get('pool')
     
     if (!pool) {

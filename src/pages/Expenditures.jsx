@@ -612,7 +612,9 @@ const Expenditures = () => {
       
       toast.loading('Se curăță duplicatele...', { id: 'clean-duplicates' })
       
-      const response = await axios.post('/api/expenditures/clean-duplicates')
+      const response = await axios.post('/api/expenditures/clean-duplicates', {
+        confirmDelete: true
+      })
       
       if (response.data.success) {
         toast.success(`✅ ${response.data.message}\n📊 Total înregistrări după curățare: ${response.data.totalRecordsAfter}`, { 

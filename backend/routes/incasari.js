@@ -54,8 +54,10 @@ const loadExportedData = (filename) => {
 const normalizeLocationName = (name) => {
   if (!name) return ''
   let n = name.toString().trim()
-  // Elimină sufixe de tip E.S / E.S. / ES
-  n = n.replace(/\s+E\.?S\.?$/i, '')
+  // Elimină sufixe de tip E.S / E.S. / ES / E.S / E.S. (cu sau fără puncte, cu sau fără spații)
+  n = n.replace(/\s*E\.?\s*S\.?\s*$/i, '')
+  // Elimină și alte variante posibile
+  n = n.replace(/\s*ES\s*$/i, '')
   return n.trim()
 }
 
@@ -2226,6 +2228,357 @@ router.get('/location-expenditures', authenticateToken, async (req, res) => {
     return res.status(500).json({
       success: false,
       error: error.message || 'Eroare la agregarea cheltuielilor pe locație'
+    })
+  }
+})
+
+// GET /api/incasari/monthly-by-location - Date lunare grupate pe ani, luni și locații
+router.get('/monthly-by-location', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available'
+      })
+    }
+
+    const { location, provider, cabinet, gameMix, includeLocations } = req.query
+
+    const locationsArray =
+      typeof includeLocations === 'string' && includeLocations.length > 0
+        ? includeLocations.split(',').map((s) => normalizeLocationName(s)).filter(Boolean)
+        : undefined
+
+    const activeIds = getActiveMachineIds({
+      location,
+      provider,
+      cabinet,
+      gameMix,
+      includeLocations: locationsArray
+    })
+
+    let sql
+    let params
+
+    // Query OPTIMIZAT pentru date lunare grupate pe an, lună și locație
+    // Folosește DATE_TRUNC pentru performanță mai bună și limitează la ultimii 5 ani
+    const currentYear = new Date().getFullYear()
+    const startYear = currentYear - 4 // Ultimii 5 ani
+    
+    if (activeIds && activeIds.length > 0) {
+      sql = `
+        SELECT
+          EXTRACT(YEAR FROM audit_date)::INTEGER AS year,
+          EXTRACT(MONTH FROM audit_date)::INTEGER AS month,
+          location_id,
+          COALESCE(SUM(profit), 0) AS total_ggr,
+          COALESCE(SUM(in_amount), 0) AS total_in,
+          COALESCE(SUM(bet), 0) AS total_bet,
+          COALESCE(SUM(win), 0) AS total_win,
+          COALESCE(SUM(jackpot), 0) AS total_jackpot,
+          COALESCE(SUM(hh), 0) AS total_hh,
+          COALESCE(SUM(cb_real), 0) AS total_cb_real,
+          COALESCE(SUM(cb_birthday), 0) AS total_cb_birthday,
+          COALESCE(SUM(cb_raffle), 0) AS total_cb_raffle,
+          COUNT(DISTINCT serial_number) AS slots_count
+        FROM incasari_daily
+        WHERE machine_id = ANY($1)
+          AND audit_date >= $2::date
+        GROUP BY EXTRACT(YEAR FROM audit_date), EXTRACT(MONTH FROM audit_date), location_id
+        ORDER BY year DESC, month DESC, location_id
+      `
+      params = [activeIds, `${startYear}-01-01`]
+    } else {
+      sql = `
+        SELECT
+          EXTRACT(YEAR FROM audit_date)::INTEGER AS year,
+          EXTRACT(MONTH FROM audit_date)::INTEGER AS month,
+          location_id,
+          COALESCE(SUM(profit), 0) AS total_ggr,
+          COALESCE(SUM(in_amount), 0) AS total_in,
+          COALESCE(SUM(bet), 0) AS total_bet,
+          COALESCE(SUM(win), 0) AS total_win,
+          COALESCE(SUM(jackpot), 0) AS total_jackpot,
+          COALESCE(SUM(hh), 0) AS total_hh,
+          COALESCE(SUM(cb_real), 0) AS total_cb_real,
+          COALESCE(SUM(cb_birthday), 0) AS total_cb_birthday,
+          COALESCE(SUM(cb_raffle), 0) AS total_cb_raffle,
+          COUNT(DISTINCT serial_number) AS slots_count
+        FROM incasari_daily
+        WHERE audit_date >= $1::date
+        GROUP BY EXTRACT(YEAR FROM audit_date), EXTRACT(MONTH FROM audit_date), location_id
+        ORDER BY year DESC, month DESC, location_id
+      `
+      params = [`${startYear}-01-01`]
+    }
+
+    console.log('📊 [monthly-by-location] Executare query optimizat pentru ultimii 5 ani...')
+    const startTime = Date.now()
+    const result = await pool.query(sql, params)
+    console.log(`✅ [monthly-by-location] Query incasari_daily completat în ${Date.now() - startTime}ms, ${result.rows.length} rânduri`)
+
+    // Încarcă datele pentru locații
+    let locationsData = []
+    try {
+      locationsData = loadExportedData('locations.json')
+      if (!Array.isArray(locationsData)) {
+        locationsData = []
+      }
+    } catch (error) {
+      console.error('❌ Eroare la încărcarea locations.json:', error)
+      locationsData = []
+    }
+
+    const locationMap = new Map()
+    locationsData.forEach((loc) => {
+      if (loc && typeof loc.id !== 'undefined') {
+        locationMap.set(String(loc.id), loc.name || loc.location || `Loc ${loc.id}`)
+      }
+    })
+
+    // Obține cheltuielile din expenditures_sync grupate pe an, lună și locație (OPTIMIZAT - ultimii 5 ani)
+    // EXCLUDE departamentele care nu trebuie să apară în P&L (la fel ca în location-expenditures)
+    const expendituresStartTime = Date.now()
+    const expendituresSql = `
+      SELECT
+        EXTRACT(YEAR FROM operational_date)::INTEGER AS year,
+        EXTRACT(MONTH FROM operational_date)::INTEGER AS month,
+        location_name,
+        COALESCE(SUM(amount), 0) AS total_expenditures
+      FROM expenditures_sync
+      WHERE operational_date IS NOT NULL
+        AND operational_date >= $1::date
+        AND location_name IS NOT NULL
+        AND location_name != ''
+        AND location_name != 'Depozit'
+        AND (department_name IS NOT NULL AND department_name NOT IN ('POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli', 'Nespecificat'))
+        AND (LOWER(TRIM(COALESCE(department_name, ''))) NOT IN ('unknown', 'null', ''))
+      GROUP BY EXTRACT(YEAR FROM operational_date), EXTRACT(MONTH FROM operational_date), location_name
+      ORDER BY year DESC, month DESC, location_name
+    `
+    const expendituresResult = await pool.query(expendituresSql, [`${startYear}-01-01`])
+    console.log(`✅ [monthly-by-location] Query expenditures_sync completat în ${Date.now() - expendituresStartTime}ms, ${expendituresResult.rows.length} rânduri`)
+
+    // Creează un map pentru cheltuieli: key = "year-month-normalizedLocationName"
+    // Normalizează numele locațiilor pentru a potrivi "Craiova E.S" cu "Craiova"
+    const expendituresMap = new Map()
+    expendituresResult.rows.forEach((row) => {
+      const normalizedLocationName = normalizeLocationName(row.location_name)
+      const key = `${parseInt(row.year)}-${parseInt(row.month)}-${normalizedLocationName}`
+      // Dacă există deja o cheie, adună valorile (pentru cazurile în care există atât "Craiova" cât și "Craiova E.S")
+      const existingValue = expendituresMap.get(key) || 0
+      expendituresMap.set(key, existingValue + Number(row.total_expenditures || 0))
+    })
+
+    const rows = (result.rows || []).map((row) => {
+      const locationId = row.location_id
+      const key =
+        locationId === null || typeof locationId === 'undefined' ? null : String(locationId)
+      const locationName = key ? locationMap.get(key) || `Loc ${key}` : 'Nesetat'
+      const normalizedLocationName = normalizeLocationName(locationName)
+      
+      // Caută cheltuielile pentru această combinație an-lună-locație (folosind nume normalizat)
+      const expendituresKey = `${parseInt(row.year)}-${parseInt(row.month)}-${normalizedLocationName}`
+      const totalExpenditures = expendituresMap.get(expendituresKey) || 0
+      
+      return {
+        year: parseInt(row.year),
+        month: parseInt(row.month),
+        locationId,
+        locationName,
+        totalGgr: Number(row.total_ggr || 0),
+        totalIn: Number(row.total_in || 0),
+        totalBet: Number(row.total_bet || 0),
+        totalWin: Number(row.total_win || 0),
+        totalJackpot: Number(row.total_jackpot || 0),
+        totalHh: Number(row.total_hh || 0),
+        totalCbReal: Number(row.total_cb_real || 0),
+        totalCbBirthday: Number(row.total_cb_birthday || 0),
+        totalCbRaffle: Number(row.total_cb_raffle || 0),
+        slotsCount: Number(row.slots_count || 0),
+        totalExpenditures
+      }
+    })
+
+    return res.json({
+      success: true,
+      rows
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/monthly-by-location:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la obținerea datelor lunare'
+    })
+  }
+})
+
+// GET /api/incasari/operational - Date lunare agregate pentru tabelul Operational
+router.get('/operational', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available'
+      })
+    }
+
+    // Creează indexuri pentru performanță (dacă nu există deja)
+    try {
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_incasari_daily_audit_date 
+        ON incasari_daily (audit_date)
+      `)
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_incasari_daily_machine_audit 
+        ON incasari_daily (machine_id, audit_date)
+      `)
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_expenditures_sync_operational_date 
+        ON expenditures_sync (operational_date)
+      `)
+      console.log('✅ [operational] Indexuri verificate/create')
+    } catch (indexError) {
+      console.warn('⚠️ [operational] Eroare la crearea indexurilor:', indexError.message)
+    }
+
+    const { location, provider, cabinet, gameMix, includeLocations } = req.query
+
+    const locationsArray =
+      typeof includeLocations === 'string' && includeLocations.length > 0
+        ? includeLocations.split(',').map((s) => normalizeLocationName(s)).filter(Boolean)
+        : undefined
+
+    const activeIds = getActiveMachineIds({
+      location,
+      provider,
+      cabinet,
+      gameMix,
+      includeLocations: locationsArray
+    })
+
+    let sql
+    let params
+
+    // Query OPTIMIZAT pentru date lunare agregate (fără locații, doar totaluri pe lună)
+    // Folosește DATE_TRUNC pentru performanță mai bună și limitează la ultimii 5 ani
+    const currentYear = new Date().getFullYear()
+    const startYear = currentYear - 4 // Ultimii 5 ani
+    
+    if (activeIds && activeIds.length > 0) {
+      sql = `
+        SELECT
+          EXTRACT(YEAR FROM DATE_TRUNC('month', audit_date))::INTEGER AS year,
+          EXTRACT(MONTH FROM DATE_TRUNC('month', audit_date))::INTEGER AS month,
+          COALESCE(SUM(in_amount), 0) AS total_in,
+          COALESCE(SUM(out_amount), 0) AS total_out,
+          COALESCE(SUM(win), 0) AS total_win,
+          COALESCE(SUM(bet), 0) AS total_bet,
+          COALESCE(SUM(profit), 0) AS total_ggr,
+          COALESCE(SUM(jackpot), 0) AS total_jackpot,
+          COALESCE(SUM(cb_raffle), 0) AS total_raffles,
+          COALESCE(SUM(hh), 0) AS total_hh,
+          COALESCE(SUM(cb_real), 0) AS total_cashback_real
+        FROM incasari_daily
+        WHERE machine_id = ANY($1)
+          AND audit_date >= $2::date
+        GROUP BY DATE_TRUNC('month', audit_date)
+        ORDER BY DATE_TRUNC('month', audit_date) DESC
+      `
+      params = [activeIds, `${startYear}-01-01`]
+    } else {
+      sql = `
+        SELECT
+          EXTRACT(YEAR FROM DATE_TRUNC('month', audit_date))::INTEGER AS year,
+          EXTRACT(MONTH FROM DATE_TRUNC('month', audit_date))::INTEGER AS month,
+          COALESCE(SUM(in_amount), 0) AS total_in,
+          COALESCE(SUM(out_amount), 0) AS total_out,
+          COALESCE(SUM(win), 0) AS total_win,
+          COALESCE(SUM(bet), 0) AS total_bet,
+          COALESCE(SUM(profit), 0) AS total_ggr,
+          COALESCE(SUM(jackpot), 0) AS total_jackpot,
+          COALESCE(SUM(cb_raffle), 0) AS total_raffles,
+          COALESCE(SUM(hh), 0) AS total_hh,
+          COALESCE(SUM(cb_real), 0) AS total_cashback_real
+        FROM incasari_daily
+        WHERE audit_date >= $1::date
+        GROUP BY DATE_TRUNC('month', audit_date)
+        ORDER BY DATE_TRUNC('month', audit_date) DESC
+      `
+      params = [`${startYear}-01-01`]
+    }
+
+    console.log('📊 [operational] Executare query optimizat pentru ultimii 5 ani...')
+    const startTime = Date.now()
+    
+    // Debug: EXPLAIN ANALYZE pentru performanță
+    try {
+      const explainSql = `EXPLAIN ANALYZE ${sql}`
+      const explainResult = await pool.query(explainSql, params)
+      console.log('📊 [operational] EXPLAIN ANALYZE:', explainResult.rows.map(r => r['QUERY PLAN']).join('\n'))
+    } catch (explainError) {
+      console.warn('⚠️ [operational] Nu s-a putut executa EXPLAIN ANALYZE:', explainError.message)
+    }
+    
+    const result = await pool.query(sql, params)
+    console.log(`✅ [operational] Query incasari_daily completat în ${Date.now() - startTime}ms, ${result.rows.length} rânduri`)
+
+    // Obține cheltuielile de marketing din expenditures_sync grupate pe an și lună (OPTIMIZAT)
+    const marketingStartTime = Date.now()
+    const marketingSql = `
+      SELECT
+        EXTRACT(YEAR FROM DATE_TRUNC('month', operational_date))::INTEGER AS year,
+        EXTRACT(MONTH FROM DATE_TRUNC('month', operational_date))::INTEGER AS month,
+        COALESCE(SUM(amount), 0) AS total_marketing
+      FROM expenditures_sync
+      WHERE operational_date IS NOT NULL
+        AND operational_date >= $1::date
+        AND (LOWER(TRIM(COALESCE(department_name, ''))) LIKE '%marketing%'
+             OR LOWER(TRIM(COALESCE(expenditure_type, ''))) LIKE '%marketing%')
+      GROUP BY DATE_TRUNC('month', operational_date)
+      ORDER BY DATE_TRUNC('month', operational_date) DESC
+    `
+    const marketingResult = await pool.query(marketingSql, [`${startYear}-01-01`])
+    console.log(`✅ [operational] Query marketing completat în ${Date.now() - marketingStartTime}ms, ${marketingResult.rows.length} rânduri`)
+
+    // Creează un map pentru marketing: key = "year-month"
+    const marketingMap = new Map()
+    marketingResult.rows.forEach((row) => {
+      const key = `${parseInt(row.year)}-${parseInt(row.month)}`
+      marketingMap.set(key, Number(row.total_marketing || 0))
+    })
+
+    const rows = (result.rows || []).map((row) => {
+      const key = `${parseInt(row.year)}-${parseInt(row.month)}`
+      const totalMarketing = marketingMap.get(key) || 0
+      
+      return {
+        year: parseInt(row.year),
+        month: parseInt(row.month),
+        in: Number(row.total_in || 0),
+        out: Number(row.total_out || 0),
+        win: Number(row.total_win || 0),
+        bet: Number(row.total_bet || 0),
+        ggr: Number(row.total_ggr || 0),
+        jackpots: Number(row.total_jackpot || 0),
+        raffles: Number(row.total_raffles || 0),
+        hh: Number(row.total_hh || 0),
+        cashbackReal: Number(row.total_cashback_real || 0),
+        marketing: totalMarketing
+      }
+    })
+
+    return res.json({
+      success: true,
+      rows
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/operational:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la obținerea datelor operational'
     })
   }
 })

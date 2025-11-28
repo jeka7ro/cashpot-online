@@ -2487,6 +2487,20 @@ const Incasari = () => {
               <MapPin className="w-4 h-4" />
               <span>Floorplan Locație</span>
             </button>
+            <button
+              onClick={() => navigate('/incasari/monthly')}
+              className="flex items-center space-x-2 rounded-2xl bg-slate-900/60 text-slate-100 text-xs px-3 py-2 border border-slate-700 hover:bg-slate-800/80"
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>Lunare</span>
+            </button>
+            <button
+              onClick={() => navigate('/incasari/operational')}
+              className="flex items-center space-x-2 rounded-2xl bg-slate-900/60 text-slate-100 text-xs px-3 py-2 border border-slate-700 hover:bg-slate-800/80"
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>Operational</span>
+            </button>
           </div>
         </div>
 

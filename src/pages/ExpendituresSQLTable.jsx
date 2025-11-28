@@ -758,7 +758,9 @@ const ExpendituresSQLTable = () => {
 
     try {
       setDeletingId(record.id)
-      await axios.delete(`/api/expenditures/sql-table/${record.id}`)
+      await axios.delete(`/api/expenditures/sql-table/${record.id}`, {
+        data: { confirmDelete: true }
+      })
       toast.success('Înregistrare ștearsă')
       setData((prev) => prev.filter((item) => item.id !== record.id))
       setPagination((prev) => ({
@@ -817,7 +819,9 @@ const ExpendituresSQLTable = () => {
       
       for (const id of selectedItems) {
         try {
-          await axios.delete(`/api/expenditures/sql-table/${id}`)
+          await axios.delete(`/api/expenditures/sql-table/${id}`, {
+            data: { confirmDelete: true }
+          })
           deleted++
         } catch (error) {
           console.error(`Error deleting ${id}:`, error)
@@ -1156,7 +1160,10 @@ const ExpendituresSQLTable = () => {
     setDeletingDuplicates(true)
     try {
       toast.loading(`Se șterg ${idsToDelete.length} duplicate...`, { id: 'delete-duplicates' })
-      await axios.post('/api/expenditures/sql-table/bulk-delete', { ids: idsToDelete })
+      await axios.post('/api/expenditures/sql-table/bulk-delete', { 
+        ids: idsToDelete,
+        confirmDelete: true
+      })
       toast.success(`${idsToDelete.length} duplicate șterse cu succes!`, { id: 'delete-duplicates' })
       setShowDuplicatesModal(false)
       setDuplicateGroups([])
