@@ -351,11 +351,11 @@ const getExternalPool = () => {
     database: dbName,
     ssl: process.env.EXPENDITURES_DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
     max: 5,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 60000, // 60 secunde timeout pentru conexiuni externe (firewall delay)
-    query_timeout: 120000, // 120 secunde timeout pentru query-uri (mărit pentru batch-uri mari)
-    statement_timeout: 120000, // 120 secunde timeout pentru statements
-    idle_in_transaction_session_timeout: 120000 // 120 secunde timeout pentru sesiuni idle
+    idleTimeoutMillis: 60000,
+    connectionTimeoutMillis: 30000, // 30 secunde pentru conexiune
+    query_timeout: 300000, // 5 MINUTE pentru query-uri mari (42k records)
+    statement_timeout: 300000, // 5 MINUTE pentru statements
+    idle_in_transaction_session_timeout: 300000 // 5 MINUTE pentru sesiuni idle
   })
   
   externalPool.on('error', (err) => {
@@ -600,46 +600,96 @@ router.post('/upload', async (req, res) => {
     
     console.log(`📤 Receiving ${records.length} expenditure records from LOCAL sync...`)
     
-    // Verifică câte înregistrări există înainte de ștergere
+    // Verifică câte înregistrări există înainte de import
     const countResult = await localPool.query('SELECT COUNT(*) as total FROM expenditures_sync')
     const totalCount = parseInt(countResult.rows[0].total) || 0
-    console.log(`📊 Total records before deletion: ${totalCount}`)
+    console.log(`📊 Total records before import: ${totalCount}`)
     
-    // Clear old data
-    await localPool.query('DELETE FROM expenditures_sync')
-    console.log('🗑️ Cleared old expenditures data')
+    // NU ȘTERGEM DATELE VECHI! Folosim INSERT cu ON CONFLICT pentru a păstra datele existente
+    // și a actualiza doar dacă există duplicate
+    console.log('🔄 Import cu păstrare date vechi - verificare duplicate...')
     
-    // Insert new records
+    // Insert new records cu verificare duplicate
     let inserted = 0
+    let updated = 0
+    let skipped = 0
+    
     for (const record of records) {
-      await localPool.query(`
-        INSERT INTO expenditures_sync (
-          location_name,
-          department_name,
-          expenditure_type,
-          amount,
-          operational_date,
-          description,
-          data_source,
-          synced_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-      `, [
-        record.location_name || 'Unknown',
-        record.department_name || 'Unknown',
-        record.expenditure_type || 'Unknown',
-        parseFloat(record.amount || 0),
-        record.operational_date,
-        record.description || null,
-        record.data_source || 'bat_sync'
-      ])
-      inserted++
+      try {
+        // Verifică dacă există deja (duplicat)
+        const existingCheck = await localPool.query(`
+          SELECT id FROM expenditures_sync 
+          WHERE operational_date = $1 
+            AND location_name = $2 
+            AND department_name = $3 
+            AND expenditure_type = $4 
+            AND amount = $5
+            AND data_source = $6
+        `, [
+          record.operational_date,
+          record.location_name || 'Unknown',
+          record.department_name || 'Unknown',
+          record.expenditure_type || 'Unknown',
+          parseFloat(record.amount || 0),
+          record.data_source || 'bat_sync'
+        ])
+        
+        if (existingCheck.rows.length > 0) {
+          // Există deja - actualizează doar dacă datele sunt diferite
+          await localPool.query(`
+            UPDATE expenditures_sync SET
+              description = COALESCE($1, description),
+              synced_at = NOW()
+            WHERE id = $2
+          `, [
+            record.description || null,
+            existingCheck.rows[0].id
+          ])
+          updated++
+        } else {
+          // Nu există - inserează nou
+          await localPool.query(`
+            INSERT INTO expenditures_sync (
+              location_name,
+              department_name,
+              expenditure_type,
+              amount,
+              operational_date,
+              description,
+              data_source,
+              synced_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+          `, [
+            record.location_name || 'Unknown',
+            record.department_name || 'Unknown',
+            record.expenditure_type || 'Unknown',
+            parseFloat(record.amount || 0),
+            record.operational_date,
+            record.description || null,
+            record.data_source || 'bat_sync'
+          ])
+          inserted++
+        }
+      } catch (error) {
+        console.error('❌ Error processing record:', error)
+        skipped++
+      }
     }
     
-    console.log(`✅ Successfully inserted ${inserted} expenditure records!`)
+    const finalCountResult = await localPool.query('SELECT COUNT(*) as total FROM expenditures_sync')
+    const finalCount = parseInt(finalCountResult.rows[0].total) || 0
+    
+    console.log(`✅ Import complet: ${inserted} noi, ${updated} actualizate, ${skipped} erori`)
+    console.log(`📊 Total înregistrări în DB: ${finalCount} (înainte: ${totalCount})`)
+    
     res.json({ 
       success: true, 
-      message: `Uploaded ${inserted} records`, 
-      records: inserted 
+      message: `Import complet: ${inserted} înregistrări noi, ${updated} actualizate. Total în DB: ${finalCount}`,
+      records: inserted,
+      updated: updated,
+      skipped: skipped,
+      totalBefore: totalCount,
+      totalAfter: finalCount
     })
   } catch (error) {
     console.error('❌ Error uploading expenditures:', error)
@@ -1192,6 +1242,7 @@ router.post('/import-all', authenticateToken, async (req, res) => {
         status: 'running',
         currentStep: 'Inițializare...',
         totalFound: 0,
+        totalRecords: 0, // Pentru UI
         totalProcessed: 0,
         imported: 0,
         skipped: 0,
@@ -1202,6 +1253,7 @@ router.post('/import-all', authenticateToken, async (req, res) => {
         startTime: startTime.toISOString(),
         endTime: null
       }
+      console.log('✅ Progress initialized:', JSON.stringify(_importAllProgress, null, 2))
       
       console.log('🔄 Starting import ALL expenditures from all sources...')
       
@@ -1270,20 +1322,22 @@ router.post('/import-all', authenticateToken, async (req, res) => {
       if (importSources.bat) {
         _importAllProgress.currentStep = 'Se conectează la baza de date externă (BAT)...'
         try {
-          console.log('📊 Step 3: Getting data from external DB (BAT sync) - SIMPLIFIED VERSION...')
+          console.log('📊 Step 3: Getting data from external DB (BAT sync) - OPTIMIZED VERSION...')
           const externalPool = getExternalPool()
           
           // Test connection
+          console.log('🔌 Testing BAT connection...')
           const testResult = await externalPool.query('SELECT NOW() as current_time')
           console.log('✅ External DB connection successful')
           
-          // Get total count first
+          // Get count for progress tracking
+          _importAllProgress.currentStep = 'Se numără înregistrările din BAT...'
           const countResult = await externalPool.query('SELECT COUNT(*) as cnt FROM public.casino_payments WHERE is_deleted = false')
           const totalCount = parseInt(countResult.rows[0].cnt || 0)
-          console.log(`📊 Total records in external DB: ${totalCount}`)
+          console.log(`📊 Total records in BAT: ${totalCount}`)
           _importAllProgress.totalFound = totalCount
           
-          // Fetch ALL data in one query (simplified approach)
+          // Fetch ALL data - NO LIMIT, NO ORDER BY for maximum speed
           _importAllProgress.currentStep = `Se preiau ${totalCount} înregistrări din BAT...`
           console.log('📥 Fetching ALL data from BAT...')
           
@@ -1300,11 +1354,17 @@ router.post('/import-all', authenticateToken, async (req, res) => {
             LEFT JOIN public.casino_departments d ON p.department_id = d.id
             LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
             WHERE p.is_deleted = false
-            ORDER BY p.operational_date DESC
+              AND p.operational_date >= '2023-01-01'
+              AND p.operational_date <= '2025-12-31'
           `)
           
-          externalData = fetchResult.rows
+          externalData = fetchResult.rows.map(row => ({
+            ...row,
+            data_source: 'bat_sync',
+            description: null
+          }))
           _importAllProgress.fromExternalAPI = externalData.length
+          _importAllProgress.totalFound = externalData.length
           console.log(`✅ Fetched ${externalData.length} records from BAT`)
           
           if (externalData.length > 0) {
@@ -1312,14 +1372,19 @@ router.post('/import-all', authenticateToken, async (req, res) => {
               date: externalData[0].operational_date,
               location: externalData[0].location_name,
               amount: externalData[0].amount,
-              department: externalData[0].department_name
+              department: externalData[0].department_name,
+              data_source: externalData[0].data_source
             })
           }
           
         } catch (batError) {
           console.error('❌ Error fetching from BAT:', batError.message)
+          console.error('❌ BAT Error stack:', batError.stack)
           _importAllProgress.currentStep = `❌ Eroare BAT: ${batError.message}`
+          _importAllProgress.errors = (_importAllProgress.errors || 0) + 1
           externalData = []
+          // Continue with other sources even if BAT fails
+          console.log('⚠️ Continuing without BAT data...')
         }
       } else {
         console.log('⏭️ Skipping BAT import (not selected)')
@@ -1556,14 +1621,11 @@ router.post('/import-all', authenticateToken, async (req, res) => {
       console.log(`✅ Deduplicated external data: ${externalData.length} → ${deduplicatedExternalData.length} (removed ${externalDuplicates} duplicates)`)
       externalData = deduplicatedExternalData
       _importAllProgress.totalFound = externalData.length
+      _importAllProgress.totalRecords = externalData.length // Setăm și totalRecords pentru UI
+      console.log(`📊 Total records to process: ${externalData.length}`)
       
-      // Build existing map from database cu aceeași normalizare
-      const existingMap = new Map()
-      existingData.forEach(record => {
-        const key = `${normalizeDate(record.operational_date)}|${normalizeAmount(record.amount)}|${normalizeString(record.location_name)}|${normalizeString(record.department_name)}|${normalizeString(record.expenditure_type)}`
-        existingMap.set(key, record)
-      })
-      console.log(`📊 Existing records in database: ${existingMap.size}`)
+      // Skip building existing map - let PostgreSQL handle duplicates via UNIQUE INDEX
+      console.log(`📊 Existing records in database: ${existingData.length} (will be handled by PostgreSQL UNIQUE INDEX)`)
       
       const mappingResult = await localPool.query('SELECT * FROM expenditure_location_mapping')
       const mapping = {}
@@ -1582,116 +1644,86 @@ router.post('/import-all', authenticateToken, async (req, res) => {
       // Batch size pentru inserare eficientă
       const batchSize = 100
       
+      console.log(`🔄 Starting to process ${externalData.length} records in batches of ${batchSize}...`)
+      
+      if (externalData.length === 0) {
+        console.warn('⚠️ WARNING: No external data to import!')
+        _importAllProgress.currentStep = 'Nu există date de importat!'
+        _importAllProgress.status = 'completed'
+        _importAllProgress.endTime = new Date().toISOString()
+        return
+      }
+      
       for (let batchStart = 0; batchStart < externalData.length; batchStart += batchSize) {
         const batch = externalData.slice(batchStart, batchStart + batchSize)
         const batchPromises = []
         
         for (const row of batch) {
-          // CRITICAL: Folosim aceleași funcții de normalizare pentru key!
-          const normalizedKey = `${normalizeDate(row.operational_date)}|${normalizeAmount(row.amount)}|${normalizeString(row.location_name)}|${normalizeString(row.department_name)}|${normalizeString(row.expenditure_type)}`
-          
-          // Verificăm duplicate în memory map
-          if (existingMap.has(normalizedKey)) {
-            skipped++
-            _importAllProgress.skipped = skipped
-            continue
-          }
-          
-          // Verificăm duplicate în baza de date CU QUERY - CRITICAL pentru siguranță!
           const mappedLocationId = mapping[row.location_name] || null
           const dataSource = row.data_source || 'api_sync'
           const description = row.description || null
           
-          // Folosim ON CONFLICT DO NOTHING pentru a preveni duplicate
-          // Dar trebuie să creăm un index unique pentru a funcționa
-          // Pentru moment, folosim verificare explicită + INSERT
-          const duplicateCheckPromise = localPool.query(`
-            SELECT id FROM expenditures_sync
-            WHERE operational_date = $1 
-              AND amount = $2 
-              AND location_name = $3 
-              AND department_name = $4
-              AND expenditure_type = $5
-            LIMIT 1
-          `, [
-            row.operational_date,
-            row.amount,
-            row.location_name,
-            row.department_name,
-            row.expenditure_type
-          ]).then(duplicateCheck => {
-            if (duplicateCheck.rows.length > 0) {
-              skipped++
-              _importAllProgress.skipped = skipped
-              existingMap.set(normalizedKey, duplicateCheck.rows[0])
-              return null // Skip insert
-            }
-            
-            // Insert cu ON CONFLICT DO NOTHING pentru a preveni duplicate la nivel de DB
-            // UNIQUE INDEX pe (operational_date, amount, location_name, department_name, expenditure_type)
-            // Folosim ON CONFLICT cu coloanele exacte din UNIQUE INDEX
-            // IMPORTANT: Datele trebuie să fie normalizate (normalizeDate, normalizeAmount, normalizeString)
-            const insertPromise = dataSource === 'google_sheets' && description
-              ? localPool.query(`
-                  INSERT INTO expenditures_sync (
-                    location_name, department_name, expenditure_type, amount, 
-                    operational_date, synced_at, mapped_location_id, data_source, description
-                  ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7, $8)
-                  ON CONFLICT (operational_date, amount, location_name, department_name, expenditure_type) 
-                  DO NOTHING
-                `, [
-                  row.location_name,  // Deja normalizat cu normalizeString
-                  row.department_name, // Deja normalizat cu normalizeString
-                  row.expenditure_type, // Deja normalizat cu normalizeString
-                  row.amount,          // Deja normalizat cu normalizeAmount
-                  row.operational_date, // Deja normalizat cu normalizeDate
-                  mappedLocationId,
-                  dataSource,
-                  description
-                ])
-              : localPool.query(`
-                  INSERT INTO expenditures_sync (
-                    location_name, department_name, expenditure_type, amount, 
-                    operational_date, synced_at, mapped_location_id, data_source
-                  ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7)
-                  ON CONFLICT (operational_date, amount, location_name, department_name, expenditure_type) 
-                  DO NOTHING
-                `, [
-                  row.location_name,  // Deja normalizat cu normalizeString
-                  row.department_name, // Deja normalizat cu normalizeString
-                  row.expenditure_type, // Deja normalizat cu normalizeString
-                  row.amount,          // Deja normalizat cu normalizeAmount
-                  row.operational_date, // Deja normalizat cu normalizeDate
-                  mappedLocationId,
-                  dataSource
-                ])
-            
-            return insertPromise.then(result => {
+          // Direct INSERT cu ON CONFLICT DO NOTHING
+          const insertPromise = (async () => {
+            try {
+              
+              const result = dataSource === 'google_sheets' && description
+                ? await localPool.query(`
+                    INSERT INTO expenditures_sync (
+                      location_name, department_name, expenditure_type, amount, 
+                      operational_date, synced_at, mapped_location_id, data_source, description
+                    ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7, $8)
+                    ON CONFLICT (operational_date, amount, location_name, department_name, expenditure_type) 
+                    DO NOTHING
+                  `, [
+                    row.location_name,
+                    row.department_name,
+                    row.expenditure_type,
+                    row.amount,
+                    row.operational_date,
+                    mappedLocationId,
+                    dataSource,
+                    description
+                  ])
+                : await localPool.query(`
+                    INSERT INTO expenditures_sync (
+                      location_name, department_name, expenditure_type, amount, 
+                      operational_date, synced_at, mapped_location_id, data_source
+                    ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7)
+                    ON CONFLICT (operational_date, amount, location_name, department_name, expenditure_type) 
+                    DO NOTHING
+                  `, [
+                    row.location_name,
+                    row.department_name,
+                    row.expenditure_type,
+                    row.amount,
+                    row.operational_date,
+                    mappedLocationId,
+                    dataSource
+                  ])
+              
               if (result.rowCount > 0) {
-                existingMap.set(normalizedKey, row)
                 imported++
                 _importAllProgress.imported = imported
               } else {
                 skipped++
                 _importAllProgress.skipped = skipped
               }
-              return result
-            }).catch(insertError => {
-              // Dacă este duplicate error (23505 = unique_violation), skipăm
+            } catch (insertError) {
               if (insertError.code === '23505' || insertError.message.includes('duplicate') || insertError.message.includes('unique')) {
                 skipped++
                 _importAllProgress.skipped = skipped
-                return null
+              } else {
+                errors++
+                _importAllProgress.errors = errors
+                if (errors <= 5) {
+                  console.error('❌ Error inserting record:', insertError.message, 'Data:', row)
+                }
               }
-              // Altfel, este o altă eroare
-              errors++
-              _importAllProgress.errors = errors
-              console.error('❌ Error inserting record:', insertError.message)
-              throw insertError
-            })
-          })
+            }
+          })()
           
-          batchPromises.push(duplicateCheckPromise)
+          batchPromises.push(insertPromise)
         }
         
         // Așteptăm batch-ul să se termine
@@ -1706,6 +1738,7 @@ router.post('/import-all', authenticateToken, async (req, res) => {
         // Update progress
         if ((batchStart + batchSize) % 200 === 0 || batchStart + batchSize >= externalData.length) {
           _importAllProgress.currentStep = `Se procesează... ${_importAllProgress.totalProcessed}/${externalData.length} (${imported} noi, ${skipped} duplicate, ${errors} erori)`
+          console.log(`📊 Progress: ${_importAllProgress.totalProcessed}/${externalData.length} (${imported} noi, ${skipped} duplicate, ${errors} erori)`)
         }
       }
       
@@ -1719,6 +1752,10 @@ router.post('/import-all', authenticateToken, async (req, res) => {
       _importAllProgress.currentStep = 'Import completat!'
       _importAllProgress.endTime = endTime.toISOString()
       _importAllProgress.total = totalRecords
+      _importAllProgress.totalRecords = totalRecords // Asigură-te că totalRecords este setat pentru UI
+      
+      console.log(`📊 Final database count: ${totalRecords} records`)
+      console.log(`📊 Import summary: ${imported} new, ${skipped} duplicate, ${errors} errors`)
       
       // Clear progress after 5 seconds
       setTimeout(() => {
@@ -4825,6 +4862,230 @@ router.post('/save-electric-invoice', authenticateToken, async (req, res) => {
     })
   } catch (error) {
     console.error('❌ Error saving electric invoice:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// POST /api/expenditures/transfer-electric-to-expenditures
+// Transferă facturile electrice din centralizator în cheltuieli (pentru facturile care nu au fost salvate încă)
+router.post('/transfer-electric-to-expenditures', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    const userId = req.user?.userId || req.user?.id
+
+    console.log('\n🔄 TRANSFER FACTURI ELECTRICE DIN CENTRALIZATOR ÎN CHELTUIELI')
+    
+    // Obține toate facturile din centralizator care NU au fost salvate în cheltuieli
+    const unsavedInvoices = await pool.query(`
+      SELECT * FROM electric_invoices_nlc
+      WHERE saved_to_expenditures = false OR saved_to_expenditures IS NULL
+      ORDER BY data_emiterii DESC, nlc_code
+    `)
+
+    if (unsavedInvoices.rows.length === 0) {
+      return res.json({
+        success: true,
+        message: 'Toate facturile electrice sunt deja salvate în cheltuieli',
+        transferred: 0,
+        skipped: 0,
+        errors: []
+      })
+    }
+
+    console.log(`📊 Găsite ${unsavedInvoices.rows.length} facturi de transferat`)
+
+    const transferred = []
+    const skipped = []
+    const errors = []
+
+    // Pentru fiecare factură, o transformăm în formatul necesar pentru save-electric-invoice
+    // Grupăm după număr factură pentru a procesa toate NLC-urile dintr-o factură odată
+    const invoicesByNumber = {}
+    unsavedInvoices.rows.forEach(invoice => {
+      const numarFactura = invoice.numar_factura || 'N/A'
+      if (!invoicesByNumber[numarFactura]) {
+        invoicesByNumber[numarFactura] = []
+      }
+      invoicesByNumber[numarFactura].push(invoice)
+    })
+
+    console.log(`📋 Procesăm ${Object.keys(invoicesByNumber).length} facturi unice`)
+
+    for (const [numarFactura, invoices] of Object.entries(invoicesByNumber)) {
+      try {
+        // Construim extractedData din facturile din centralizator
+        const firstInvoice = invoices[0]
+        
+        // Parsează perioada de facturare
+        const perioadaMatch = firstInvoice.perioada_facturare?.match(/(\d{2})\.(\d{2})\.(\d{4})\s*-\s*(\d{2})\.(\d{2})\.(\d{4})/)
+        if (!perioadaMatch) {
+          console.log(`   ⚠️ Skip factura ${numarFactura} - perioadă invalidă: ${firstInvoice.perioada_facturare}`)
+          skipped.push({ numarFactura, reason: 'Perioadă invalidă' })
+          continue
+        }
+
+        const extractedData = {
+          numar_factura: numarFactura,
+          furnizor: firstInvoice.furnizor || 'Electrica',
+          perioada_facturare: firstInvoice.perioada_facturare,
+          pret_per_kwh: firstInvoice.pret_per_kwh,
+          tva: firstInvoice.tva || 19,
+          nlc_data: invoices.map(inv => ({
+            nlc: inv.nlc_code,
+            location: inv.location_name,
+            period: inv.perioada_facturare,
+            suma: inv.suma_activa || 0,
+            sumaReactiva: inv.suma_reactiva || 0,
+            sumaTotala: inv.suma_totala || (inv.suma_activa || 0) + (inv.suma_reactiva || 0),
+            consum: inv.consum_kwh || 0,
+            pretCalculat: inv.pret_per_kwh
+          }))
+        }
+
+        // Folosim aceeași logică ca în save-electric-invoice
+        const nlcData = extractedData.nlc_data || []
+        const normalizedLocation = (locationName) => {
+          if (!locationName) return 'N/A'
+          return String(locationName).trim()
+        }
+
+        let savedCount = 0
+
+        for (const nlc of nlcData) {
+          const sumaDeUtilizat = nlc.sumaTotala || nlc.suma || 0
+          
+          if (!sumaDeUtilizat || sumaDeUtilizat <= 0) {
+            continue
+          }
+
+          const locationName = nlc.location || 'N/A'
+          const normalizedLoc = normalizedLocation(locationName)
+          
+          // Parsează perioada pentru a determina lunile
+          const periodMatch = extractedData.perioada_facturare?.match(/(\d{2})\.(\d{2})\.(\d{4})\s*-\s*(\d{2})\.(\d{2})\.(\d{4})/)
+          if (!periodMatch) continue
+
+          const startDate = new Date(parseInt(periodMatch[3]), parseInt(periodMatch[2]) - 1, parseInt(periodMatch[1]))
+          const endDate = new Date(parseInt(periodMatch[6]), parseInt(periodMatch[5]) - 1, parseInt(periodMatch[4]))
+          
+          const zileTotale = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1
+          
+          // Calculează luni acoperite
+          const luniAcoperite = []
+          let current = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
+          
+          while (current <= endDate) {
+            const luna = current.getMonth() + 1
+            const an = current.getFullYear()
+            const primaDinLuna = new Date(an, luna - 1, 1)
+            const ultimaDinLuna = new Date(an, luna, 0)
+            const inceputEfectiv = startDate > primaDinLuna ? startDate : primaDinLuna
+            const sfarsitEfectiv = endDate < ultimaDinLuna ? endDate : ultimaDinLuna
+            
+            if (inceputEfectiv <= sfarsitEfectiv) {
+              const zileInLuna = Math.floor((sfarsitEfectiv - inceputEfectiv) / (1000 * 60 * 60 * 24)) + 1
+              const proportie = zileTotale > 0 ? zileInLuna / zileTotale : 1
+              
+              luniAcoperite.push({
+                luna: luna,
+                an: an,
+                dataExpenditure: `${an}-${String(luna).padStart(2, '0')}-01`,
+                zile: zileInLuna,
+                proportie: proportie
+              })
+            }
+            
+            current.setMonth(current.getMonth() + 1)
+          }
+
+          // Salvează pentru fiecare lună
+          for (const lunaInfo of luniAcoperite) {
+            try {
+              const sumaPerLuna = sumaDeUtilizat * lunaInfo.proportie
+              const consumPerLuna = (nlc.consum || 0) * lunaInfo.proportie
+
+              // Verifică dacă există deja
+              const existingCheck = await pool.query(`
+                SELECT id FROM expenditures_sync 
+                WHERE operational_date = $1 
+                  AND location_name = $2 
+                  AND department_name = 'Electricitate'
+                  AND description LIKE '%NLC: ' || $3 || '%'
+                LIMIT 1
+              `, [lunaInfo.dataExpenditure, normalizedLoc, nlc.nlc])
+
+              if (existingCheck.rows.length > 0) {
+                continue
+              }
+
+              const description = `Factură ${numarFactura} | NLC: ${nlc.nlc} | Perioadă: ${extractedData.perioada_facturare} | ${lunaInfo.zile} zile (${(lunaInfo.proportie * 100).toFixed(1)}%) | Consum: ${consumPerLuna.toFixed(2)} kWh`
+
+              await pool.query(`
+                INSERT INTO expenditures_sync (
+                  location_name,
+                  department_name,
+                  expenditure_type,
+                  amount,
+                  operational_date,
+                  description,
+                  data_source,
+                  created_by,
+                  synced_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+                RETURNING id
+              `, [
+                normalizedLoc,
+                'Electricitate',
+                'Factură Reală',
+                sumaPerLuna,
+                lunaInfo.dataExpenditure,
+                description,
+                'electric_invoice',
+                userId
+              ])
+
+              savedCount++
+            } catch (saveError) {
+              console.error(`   ❌ Eroare la salvare pentru ${lunaInfo.luna}/${lunaInfo.an}:`, saveError.message)
+            }
+          }
+        }
+
+        // Marchează facturile ca salvate în cheltuieli
+        await pool.query(`
+          UPDATE electric_invoices_nlc
+          SET saved_to_expenditures = true
+          WHERE numar_factura = $1
+        `, [numarFactura])
+
+        transferred.push({ numarFactura, savedCount })
+        console.log(`   ✅ Factura ${numarFactura}: ${savedCount} înregistrări salvate`)
+
+      } catch (error) {
+        console.error(`   ❌ Eroare la procesarea facturii ${numarFactura}:`, error.message)
+        errors.push({ numarFactura, error: error.message })
+      }
+    }
+
+    const totalTransferred = transferred.reduce((sum, t) => sum + t.savedCount, 0)
+
+    console.log(`\n✅ Transfer complet: ${totalTransferred} înregistrări salvate din ${transferred.length} facturi`)
+
+    res.json({
+      success: true,
+      message: `Transferate ${totalTransferred} înregistrări din ${transferred.length} facturi în cheltuieli`,
+      transferred: totalTransferred,
+      invoices: transferred.length,
+      skipped: skipped.length,
+      errors: errors.length > 0 ? errors : undefined
+    })
+
+  } catch (error) {
+    console.error('❌ Error transferring electric invoices:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })
