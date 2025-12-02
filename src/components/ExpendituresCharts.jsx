@@ -84,7 +84,7 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
       })
       
       // Sortare CRONOLOGICĂ
-      return Object.entries(dayMap)
+      const sortedData = Object.entries(dayMap)
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([dayKey, value]) => {
           const [year, month, day] = dayKey.split('-')
@@ -95,6 +95,22 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
             originalDate: dayKey
           }
         })
+      
+      // EXCLUDE prima zi dacă are valoare MULT mai mare decât media (outlier)
+      // Acest lucru ajută la vizualizare când prima zi are cheltuieli lunare mari (taxe, salarii)
+      if (sortedData.length > 3) {
+        const firstDayValue = sortedData[0].value
+        const restValues = sortedData.slice(1).map(d => d.value)
+        const avgRest = restValues.reduce((sum, v) => sum + v, 0) / restValues.length
+        
+        // Dacă prima zi este de >10x mai mare decât media restului, o excludem
+        if (firstDayValue > avgRest * 10) {
+          console.log(`📊 Excludem prima zi (${sortedData[0].date}) din grafic - outlier: ${firstDayValue} vs media ${Math.round(avgRest)}`)
+          return sortedData.slice(1) // Exclude prima zi
+        }
+      }
+      
+      return sortedData
     } else {
       // AGREGARE PE LUNĂ (când e selectat interval mai mare)
       const monthMap = {}
