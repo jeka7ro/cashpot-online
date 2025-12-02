@@ -64,7 +64,7 @@ const defaultDateRange = () => ({
 
 const dataSourceOptions = [
   { value: 'all', label: 'Toate sursele' },
-  { value: 'bat', label: 'BAT Sync' },
+  { value: 'bat_sync', label: 'BAT Sync' },
   { value: 'electric_invoice', label: 'Facturi Electricitate' },
   { value: 'google_sheets', label: 'Google Sheets' },
   { value: 'manual', label: 'Manual' }
