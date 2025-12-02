@@ -115,7 +115,20 @@ const ExpendituresSQLTable = () => {
   const [searchInput, setSearchInput] = useState('')
 
   const [sort, setSort] = useState({ sortBy: 'operational_date', order: 'desc' })
-  const [pagination, setPagination] = useState({ page: 1, pageSize: 50, total: 0, totalPages: 1, totalAmount: 0 })
+  const [pagination, setPagination] = useState(() => {
+    try {
+      const savedPageSize = localStorage.getItem('expenditures_sql_pageSize')
+      return { 
+        page: 1, 
+        pageSize: savedPageSize ? (savedPageSize === 'all' ? 'all' : parseInt(savedPageSize)) : 50, 
+        total: 0, 
+        totalPages: 1, 
+        totalAmount: 0 
+      }
+    } catch {
+      return { page: 1, pageSize: 50, total: 0, totalPages: 1, totalAmount: 0 }
+    }
+  })
 
   const [editingRecord, setEditingRecord] = useState(null)
   const [editForm, setEditForm] = useState(null)
@@ -609,12 +622,12 @@ const ExpendituresSQLTable = () => {
 
   const handleQuickFilter = (range) => {
     setFilters((prev) => ({ ...prev, startDate: range.startDate, endDate: range.endDate }))
-    setPagination((prev) => ({ ...prev, page: 1, pageSize: 'all' }))
+    setPagination((prev) => ({ ...prev, page: 1 })) // NU mai setăm pageSize - păstrăm preferința utilizatorului
   }
 
   const handleDateChange = (range) => {
     setFilters((prev) => ({ ...prev, startDate: range.startDate, endDate: range.endDate }))
-    setPagination((prev) => ({ ...prev, page: 1, pageSize: 'all' }))
+    setPagination((prev) => ({ ...prev, page: 1 })) // NU mai setăm pageSize - păstrăm preferința utilizatorului
   }
 
   // Format date local
@@ -794,6 +807,8 @@ const ExpendituresSQLTable = () => {
 
   const handlePageSizeSelect = (value) => {
     const normalized = value === 'all' ? 'all' : Math.min(Math.max(parseInt(value, 10) || 50, 1), 500)
+    // Salvează preferința în localStorage
+    localStorage.setItem('expenditures_sql_pageSize', String(normalized))
     setPagination((prev) => ({
       ...prev,
       page: 1,
