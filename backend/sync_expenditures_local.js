@@ -46,16 +46,16 @@ async function syncExpenditures() {
         d.name as department_name,
         et.name as expenditure_type,
         p.amount,
-        p.operational_date,
+        p.date as operational_date,
         p.id as payment_id
       FROM public.casino_payments p
       LEFT JOIN public.casino_locations l ON p.location_id = l.id
       LEFT JOIN public.casino_departments d ON p.department_id = d.id
       LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
       WHERE p.is_deleted = false
-        AND p.operational_date >= '2023-01-01'
-        AND p.operational_date <= '2025-12-31'
-      ORDER BY p.operational_date DESC
+        AND p.date >= '2023-01-01'
+        AND p.date <= '2025-12-31'
+      ORDER BY p.date DESC
     `)
 
     const records = result.rows.map(row => ({
