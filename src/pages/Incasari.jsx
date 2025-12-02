@@ -3358,7 +3358,7 @@ const Incasari = () => {
 
         {/* Grafice principale - unul pe rând, mari */}
         <div className="space-y-6">
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
+          <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">
@@ -3499,7 +3499,7 @@ const Incasari = () => {
             )}
           </div>
 
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
+          <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">
@@ -3634,7 +3634,7 @@ const Incasari = () => {
 
         {/* Bar charts Top N pe locații și cabinete (IN mediu/slot) */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
+          <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">
                 GGR pe locații
@@ -3717,7 +3717,7 @@ const Incasari = () => {
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
+          <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">
                 Average Drop pe cabinete
