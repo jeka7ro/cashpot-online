@@ -2595,7 +2595,7 @@ const Incasari = () => {
         </div>
 
         {/* Filters - Nou Design */}
-        <div className="card p-5 bg-gradient-to-br from-emerald-50 to-cyan-50 dark:from-emerald-900/20 dark:to-cyan-900/20 rounded-2xl shadow-xl border border-transparent backdrop-blur-2xl">
+        <div className="card p-5 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-xl border border-transparent backdrop-blur-2xl">
           {/* Rând 1: Bară de Căutare + Filtre - Pe același rând */}
           <div className="flex flex-wrap items-end gap-3 mb-4">
             {/* Bară de Căutare - Ocupă spațiul rămas */}
