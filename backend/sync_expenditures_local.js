@@ -53,6 +53,7 @@ async function syncExpenditures() {
       LEFT JOIN public.casino_departments d ON p.department_id = d.id
       LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
       WHERE p.is_deleted = false
+        AND p.show_in_expenditures = true
         AND p.operational_date >= '2023-01-01'
         AND p.operational_date <= '2025-12-31'
       ORDER BY p.operational_date DESC
