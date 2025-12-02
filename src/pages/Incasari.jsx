@@ -2877,39 +2877,39 @@ const Incasari = () => {
           
           return (
             <div className="grid grid-cols-1 md:grid-cols-9 gap-4 mb-6">
-              <div className="bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl p-4 shadow-lg text-center">
-                <p className="text-xs text-slate-400 dark:text-slate-500">Total IN</p>
-                <p className="mt-2 text-xl font-bold text-emerald-400 dark:text-emerald-500">
+              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:bg-slate-900 border border-blue-200 dark:border-slate-800 rounded-xl p-4 shadow-lg text-center">
+                <p className="text-xs text-slate-600 dark:text-slate-500">Total IN</p>
+                <p className="mt-2 text-xl font-bold text-blue-600 dark:text-emerald-500">
                   {formatNumber(displayData.totalIn)}
                 </p>
               </div>
-              <div className="bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl p-4 shadow-lg text-center">
-                <p className="text-xs text-slate-400 dark:text-slate-500">Total BET</p>
-                <p className="mt-2 text-xl font-bold text-emerald-400 dark:text-emerald-500">
+              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:bg-slate-900 border border-blue-200 dark:border-slate-800 rounded-xl p-4 shadow-lg text-center">
+                <p className="text-xs text-slate-600 dark:text-slate-500">Total BET</p>
+                <p className="mt-2 text-xl font-bold text-blue-600 dark:text-emerald-500">
                   {formatNumber(displayData.totalBet)}
                 </p>
               </div>
-              <div className="bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl p-4 shadow-lg text-center">
-                <p className="text-xs text-slate-400 dark:text-slate-500">GGR Total</p>
-                <p className="mt-2 text-xl font-bold text-emerald-400 dark:text-emerald-500">
+              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:bg-slate-900 border border-blue-200 dark:border-slate-800 rounded-xl p-4 shadow-lg text-center">
+                <p className="text-xs text-slate-600 dark:text-slate-500">GGR Total</p>
+                <p className="mt-2 text-xl font-bold text-blue-600 dark:text-emerald-500">
                   {formatNumber(displayData.totalProfit)}
                 </p>
               </div>
-              <div className="bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl p-4 shadow-lg text-center">
-                <p className="text-xs text-slate-400 dark:text-slate-500">Număr sloturi</p>
-                <p className="mt-2 text-xl font-bold text-emerald-400 dark:text-emerald-500">
+              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:bg-slate-900 border border-blue-200 dark:border-slate-800 rounded-xl p-4 shadow-lg text-center">
+                <p className="text-xs text-slate-600 dark:text-slate-500">Număr sloturi</p>
+                <p className="mt-2 text-xl font-bold text-blue-600 dark:text-emerald-500">
                   {formatNumber(displayData.slotsCount)}
                 </p>
               </div>
-              <div className="bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl p-4 shadow-lg text-center">
-                <p className="text-xs text-slate-400 dark:text-slate-500">
+              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:bg-slate-900 border border-blue-200 dark:border-slate-800 rounded-xl p-4 shadow-lg text-center">
+                <p className="text-xs text-slate-600 dark:text-slate-500">
                   Average Drop ({displayData.daysCount || 0} zile)
                 </p>
-                <p className="mt-2 text-xl font-bold text-emerald-400 dark:text-emerald-500">
+                <p className="mt-2 text-xl font-bold text-blue-600 dark:text-emerald-500">
                   {formatNumber(displayData.averageDrop)}
                 </p>
               </div>
-          <div className="bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
+          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:bg-slate-900 border border-blue-200 dark:border-slate-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
             <p className="text-xs text-slate-400 dark:text-slate-500 text-center">Dinamica IN</p>
             <div className="mt-2 flex items-center justify-center gap-2">
               <p
@@ -2939,8 +2939,8 @@ const Incasari = () => {
               </div>
             </div>
           </div>
-          <div className="bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
-            <p className="text-xs text-slate-400 dark:text-slate-500 text-center">Dinamica GGR</p>
+          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:bg-slate-900 border border-blue-200 dark:border-slate-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
+            <p className="text-xs text-slate-600 dark:text-slate-500 text-center">Dinamica GGR</p>
             <div className="mt-2 flex items-center justify-center gap-2">
               <p
                 className={`text-xl font-bold ${
@@ -2969,9 +2969,9 @@ const Incasari = () => {
               </div>
             </div>
           </div>
-              <div className="bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl p-4 shadow-lg text-center">
-                <p className="text-xs text-slate-400 dark:text-slate-500">WIN/BET %</p>
-                <p className="mt-2 text-xl font-bold text-emerald-400 dark:text-emerald-500">
+              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:bg-slate-900 border border-blue-200 dark:border-slate-800 rounded-xl p-4 shadow-lg text-center">
+                <p className="text-xs text-slate-600 dark:text-slate-500">WIN/BET %</p>
+                <p className="mt-2 text-xl font-bold text-blue-600 dark:text-emerald-500">
                   {displayData.winBetPercent
                     ? `${Number(displayData.winBetPercent).toLocaleString('ro-RO', {
                         maximumFractionDigits: 2,
@@ -2980,11 +2980,11 @@ const Incasari = () => {
                     : '0,00%'}
                 </p>
               </div>
-              <div className="bg-slate-800 dark:bg-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl p-4 shadow-lg text-center">
-                <p className="text-xs text-slate-400 dark:text-slate-500">
+              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:bg-slate-900 border border-blue-200 dark:border-slate-800 rounded-xl p-4 shadow-lg text-center">
+                <p className="text-xs text-slate-600 dark:text-slate-500">
                   Profit estimat ({estimatedProfit.daysUsed || 0} zile)
                 </p>
-                <p className="mt-2 text-xl font-bold text-emerald-400 dark:text-emerald-500">
+                <p className="mt-2 text-xl font-bold text-blue-600 dark:text-emerald-500">
                   {formatNumber(estimatedProfit.estimatedProfit || 0)}
                 </p>
               </div>
@@ -2993,7 +2993,7 @@ const Incasari = () => {
         })()}
 
       {/* P&L pe locații pentru perioada selectată */}
-      <div className="card p-6">
+      <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
@@ -3164,7 +3164,7 @@ const Incasari = () => {
         </div>
 
         {/* Card Prezentare generală */}
-        <div className="card p-5">
+        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white">
               Prezentare generală
