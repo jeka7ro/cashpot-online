@@ -1045,9 +1045,74 @@ router.get('/overview', authenticateToken, async (req, res) => {
       return params
     }
 
+    // CITIM AZI ȘI IERI TOT DIN CYBER (ca și luna curentă) pentru date fresh!
+    const getTodayFromCyber = async () => {
+      try {
+        const cyberPool = await getCyberPool()
+        let cyberSql = `
+          SELECT
+            COALESCE(SUM(mas.in), 0) AS total_in,
+            COALESCE(SUM(mas.out), 0) AS total_out,
+            COALESCE(SUM(mas.in - mas.out), 0) AS total_profit,
+            COALESCE(SUM(mas.bet), 0) AS total_bet,
+            COALESCE(SUM(mas.win), 0) AS total_win,
+            COALESCE(SUM(mas.jackpot), 0) AS total_jackpot,
+            COALESCE(SUM(mas.hh), 0) AS total_hh,
+            COALESCE(SUM(mas.cb_real), 0) AS total_cb_real,
+            COALESCE(SUM(mas.cb_birthday), 0) AS total_cb_birthday,
+            COALESCE(SUM(mas.cb_raffle), 0) AS total_cb_raffle
+          FROM cyberslot_dbn.machine_audit_summaries mas
+          WHERE mas.date = ?
+        `
+        const cyberParams = [todayStr]
+        if (locationIdsFilter && locationIdsFilter.length > 0) {
+          const placeholders = locationIdsFilter.map(() => '?').join(',')
+          cyberSql += ` AND mas.location_id IN (${placeholders})`
+          cyberParams.push(...locationIdsFilter)
+        }
+        const [cyberRows] = await cyberPool.query(cyberSql, cyberParams)
+        return { rows: [cyberRows[0] || {}] }
+      } catch (error) {
+        console.error('❌ Error fetching today from Cyber, fallback to PostgreSQL:', error.message)
+        return await pool.query(buildOverviewSql(todayStr), overviewParams(todayStr))
+      }
+    }
+    
+    const getYesterdayFromCyber = async () => {
+      try {
+        const cyberPool = await getCyberPool()
+        let cyberSql = `
+          SELECT
+            COALESCE(SUM(mas.in), 0) AS total_in,
+            COALESCE(SUM(mas.out), 0) AS total_out,
+            COALESCE(SUM(mas.in - mas.out), 0) AS total_profit,
+            COALESCE(SUM(mas.bet), 0) AS total_bet,
+            COALESCE(SUM(mas.win), 0) AS total_win,
+            COALESCE(SUM(mas.jackpot), 0) AS total_jackpot,
+            COALESCE(SUM(mas.hh), 0) AS total_hh,
+            COALESCE(SUM(mas.cb_real), 0) AS total_cb_real,
+            COALESCE(SUM(mas.cb_birthday), 0) AS total_cb_birthday,
+            COALESCE(SUM(mas.cb_raffle), 0) AS total_cb_raffle
+          FROM cyberslot_dbn.machine_audit_summaries mas
+          WHERE mas.date = ?
+        `
+        const cyberParams = [yesterdayStr]
+        if (locationIdsFilter && locationIdsFilter.length > 0) {
+          const placeholders = locationIdsFilter.map(() => '?').join(',')
+          cyberSql += ` AND mas.location_id IN (${placeholders})`
+          cyberParams.push(...locationIdsFilter)
+        }
+        const [cyberRows] = await cyberPool.query(cyberSql, cyberParams)
+        return { rows: [cyberRows[0] || {}] }
+      } catch (error) {
+        console.error('❌ Error fetching yesterday from Cyber, fallback to PostgreSQL:', error.message)
+        return await pool.query(buildOverviewSql(yesterdayStr), overviewParams(yesterdayStr))
+      }
+    }
+
     const [todayResult, yesterdayResult] = await Promise.all([
-      pool.query(buildOverviewSql(todayStr), overviewParams(todayStr)),
-      pool.query(buildOverviewSql(yesterdayStr), overviewParams(yesterdayStr))
+      getTodayFromCyber(),
+      getYesterdayFromCyber()
     ])
 
     // Construiește query-ul pentru luni cu filtrare pe locații dacă este necesar
