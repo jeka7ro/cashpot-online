@@ -906,7 +906,7 @@ router.post('/sync', async (req, res) => {
       LEFT JOIN public.casino_locations l ON p.location_id = l.id
       LEFT JOIN public.casino_departments d ON p.department_id = d.id
       LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
-      WHERE p.show_in_expenditures = true AND ${whereClause}
+      WHERE ${whereClause}
       ORDER BY p.operational_date DESC, l.name, et.name
     `
     
@@ -1332,7 +1332,7 @@ router.post('/import-all', authenticateToken, async (req, res) => {
           
           // Get count for progress tracking
           _importAllProgress.currentStep = 'Se numără înregistrările din BAT...'
-          const countResult = await externalPool.query('SELECT COUNT(*) as cnt FROM public.casino_payments WHERE is_deleted = false AND show_in_expenditures = true')
+          const countResult = await externalPool.query('SELECT COUNT(*) as cnt FROM public.casino_payments WHERE is_deleted = false')
           const totalCount = parseInt(countResult.rows[0].cnt || 0)
           console.log(`📊 Total records in BAT: ${totalCount}`)
           _importAllProgress.totalFound = totalCount
@@ -1354,7 +1354,6 @@ router.post('/import-all', authenticateToken, async (req, res) => {
             LEFT JOIN public.casino_departments d ON p.department_id = d.id
             LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
             WHERE p.is_deleted = false
-              AND p.show_in_expenditures = true
               AND p.operational_date >= '2023-01-01'
               AND p.operational_date <= '2025-12-31'
           `)
