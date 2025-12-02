@@ -3,7 +3,7 @@ import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useNavigate } from 'react-router-dom'
-import { BarChart3, FileSpreadsheet, ArrowLeft } from 'lucide-react'
+import { BarChart3, FileSpreadsheet, ArrowLeft, Clock, ArrowUp, ArrowDown, ChevronRight, ChevronDown } from 'lucide-react'
 import DateRangeSelector, { QuickDateButtons } from '../components/DateRangeSelector'
 import { toast } from 'react-hot-toast'
 import axios from 'axios'
@@ -41,6 +41,14 @@ const IncasariOperational = () => {
       endDate: formatDateLocal(end)
     }
   })
+  const [sortColumn, setSortColumn] = useState(null)
+  const [sortDirection, setSortDirection] = useState('asc') // 'asc' sau 'desc'
+  const [expandedMonths, setExpandedMonths] = useState(new Set()) // Set de chei "year-month"
+  const [expandedLocations, setExpandedLocations] = useState(new Set()) // Set de chei "year-month-locationId"
+  const [locationData, setLocationData] = useState({}) // { "year-month": [...locations] }
+  const [providerCabinetData, setProviderCabinetData] = useState({}) // { "year-month-locationId": [...providers/cabinets] }
+  const [loadingLocations, setLoadingLocations] = useState({}) // { "year-month": true/false }
+  const [loadingProviders, setLoadingProviders] = useState({}) // { "year-month-locationId": true/false }
 
   // Funcție pentru schimbarea perioadei (pentru QuickDateButtons)
   const handleDateChange = (newRange) => {
@@ -54,6 +62,102 @@ const IncasariOperational = () => {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     })
+  }
+
+  // Funcție pentru sortare
+  const handleSort = (column) => {
+    if (sortColumn === column) {
+      // Dacă se face click pe aceeași coloană, schimbă direcția
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      // Dacă se face click pe o coloană nouă, setează coloana și direcția asc
+      setSortColumn(column)
+      setSortDirection('asc')
+    }
+  }
+
+  // Funcție pentru expand/collapse lună
+  const toggleMonth = async (year, month) => {
+    const key = `${year}-${month}`
+    const newExpanded = new Set(expandedMonths)
+    
+    if (newExpanded.has(key)) {
+      // Collapse - șterge și datele pentru locații
+      newExpanded.delete(key)
+      setExpandedMonths(newExpanded)
+      // Șterge datele pentru locații
+      const newLocationData = { ...locationData }
+      delete newLocationData[key]
+      setLocationData(newLocationData)
+      // Șterge și datele pentru provider/cabinet
+      const newProviderData = { ...providerCabinetData }
+      Object.keys(newProviderData).forEach(k => {
+        if (k.startsWith(key + '-')) {
+          delete newProviderData[k]
+        }
+      })
+      setProviderCabinetData(newProviderData)
+    } else {
+      // Expand - încarcă datele pentru locații
+      newExpanded.add(key)
+      setExpandedMonths(newExpanded)
+      
+      setLoadingLocations(prev => ({ ...prev, [key]: true }))
+      try {
+        const response = await axios.get('/api/incasari/operational-by-location', {
+          params: { year, month }
+        })
+        if (response.data && response.data.success) {
+          setLocationData(prev => ({
+            ...prev,
+            [key]: response.data.rows || []
+          }))
+        }
+      } catch (error) {
+        console.error('❌ Eroare la încărcarea datelor pe locații:', error)
+        toast.error('Eroare la încărcarea datelor')
+      } finally {
+        setLoadingLocations(prev => ({ ...prev, [key]: false }))
+      }
+    }
+  }
+
+  // Funcție pentru expand/collapse locație
+  const toggleLocation = async (year, month, locationId) => {
+    const key = `${year}-${month}-${locationId}`
+    const newExpanded = new Set(expandedLocations)
+    
+    if (newExpanded.has(key)) {
+      // Collapse
+      newExpanded.delete(key)
+      setExpandedLocations(newExpanded)
+      // Șterge datele pentru provider/cabinet
+      const newProviderData = { ...providerCabinetData }
+      delete newProviderData[key]
+      setProviderCabinetData(newProviderData)
+    } else {
+      // Expand - încarcă datele pentru provider/cabinet
+      newExpanded.add(key)
+      setExpandedLocations(newExpanded)
+      
+      setLoadingProviders(prev => ({ ...prev, [key]: true }))
+      try {
+        const response = await axios.get('/api/incasari/operational-by-provider-cabinet', {
+          params: { year, month, locationId }
+        })
+        if (response.data && response.data.success) {
+          setProviderCabinetData(prev => ({
+            ...prev,
+            [key]: response.data.rows || []
+          }))
+        }
+      } catch (error) {
+        console.error('❌ Eroare la încărcarea datelor pe provider/cabinet:', error)
+        toast.error('Eroare la încărcarea datelor')
+      } finally {
+        setLoadingProviders(prev => ({ ...prev, [key]: false }))
+      }
+    }
   }
 
   // Funcție pentru încărcarea datelor operational
@@ -217,8 +321,26 @@ const IncasariOperational = () => {
       })
     })
 
+    // Aplică sortarea dacă este selectată o coloană
+    if (sortColumn) {
+      monthRows.sort((a, b) => {
+        let aVal = a[sortColumn]
+        let bVal = b[sortColumn]
+        
+        // Pentru sortare după lună, folosim year și month
+        if (sortColumn === 'monthName') {
+          aVal = a.year * 12 + a.month
+          bVal = b.year * 12 + b.month
+        }
+        
+        if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1
+        if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1
+        return 0
+      })
+    }
+
     return { years, monthRows, yearTotals }
-  }, [operationalData, dateRange])
+  }, [operationalData, dateRange, sortColumn, sortDirection])
 
   // Export Excel
   const exportToExcel = () => {
@@ -401,38 +523,115 @@ const IncasariOperational = () => {
               <table className="min-w-full text-xs">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-800">
-                    <th className="py-2 px-3 text-left font-semibold text-slate-700 dark:text-slate-300 sticky left-0 bg-slate-50 dark:bg-slate-900 z-10 w-20">
-                      An / Lună
+                    <th 
+                      className="py-2 px-3 text-left font-semibold text-slate-700 dark:text-slate-300 sticky left-0 bg-slate-50 dark:bg-slate-900 z-10 w-20 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      onClick={() => handleSort('monthName')}
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>An / Lună</span>
+                        <Clock className="w-3 h-3" />
+                        {sortColumn === 'monthName' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+                      </div>
                     </th>
-                    <th className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-300">
-                      In
+                    <th 
+                      className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      onClick={() => handleSort('in')}
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>In</span>
+                        <Clock className="w-3 h-3" />
+                        {sortColumn === 'in' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+                      </div>
                     </th>
-                    <th className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-300">
-                      OUT
+                    <th 
+                      className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      onClick={() => handleSort('out')}
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>OUT</span>
+                        <Clock className="w-3 h-3" />
+                        {sortColumn === 'out' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+                      </div>
                     </th>
-                    <th className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-300">
-                      WIN
+                    <th 
+                      className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      onClick={() => handleSort('win')}
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>WIN</span>
+                        <Clock className="w-3 h-3" />
+                        {sortColumn === 'win' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+                      </div>
                     </th>
-                    <th className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-300">
-                      BET
+                    <th 
+                      className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      onClick={() => handleSort('bet')}
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>BET</span>
+                        <Clock className="w-3 h-3" />
+                        {sortColumn === 'bet' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+                      </div>
                     </th>
-                    <th className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-300">
-                      GGR
+                    <th 
+                      className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      onClick={() => handleSort('ggr')}
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>GGR</span>
+                        <Clock className="w-3 h-3" />
+                        {sortColumn === 'ggr' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+                      </div>
                     </th>
-                    <th className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-300">
-                      Jackpots
+                    <th 
+                      className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      onClick={() => handleSort('jackpots')}
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Jackpots</span>
+                        <Clock className="w-3 h-3" />
+                        {sortColumn === 'jackpots' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+                      </div>
                     </th>
-                    <th className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-300">
-                      Raffles
+                    <th 
+                      className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      onClick={() => handleSort('raffles')}
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Raffles</span>
+                        <Clock className="w-3 h-3" />
+                        {sortColumn === 'raffles' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+                      </div>
                     </th>
-                    <th className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-300">
-                      HH
+                    <th 
+                      className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      onClick={() => handleSort('hh')}
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>HH</span>
+                        <Clock className="w-3 h-3" />
+                        {sortColumn === 'hh' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+                      </div>
                     </th>
-                    <th className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-300">
-                      Cashback Real
+                    <th 
+                      className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      onClick={() => handleSort('cashbackReal')}
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Cashback Real</span>
+                        <Clock className="w-3 h-3" />
+                        {sortColumn === 'cashbackReal' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+                      </div>
                     </th>
-                    <th className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-300">
-                      Marketing
+                    <th 
+                      className="py-2 px-3 text-right font-semibold text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      onClick={() => handleSort('marketing')}
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Marketing</span>
+                        <Clock className="w-3 h-3" />
+                        {sortColumn === 'marketing' && (sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+                      </div>
                     </th>
                   </tr>
                 </thead>
@@ -477,46 +676,199 @@ const IncasariOperational = () => {
                             {formatNumber(totals.marketing)}
                           </td>
                         </tr>
-                        {yearRows.map((row, idx) => (
-                          <tr
-                            key={`${row.year}-${row.month}`}
-                            className={idx % 2 === 0 ? 'bg-slate-50 dark:bg-slate-900/50' : ''}
-                          >
-                            <td className="py-2 px-3 text-left font-medium text-slate-700 dark:text-slate-300 sticky left-0 bg-inherit z-10 whitespace-nowrap">
-                              {row.monthName}
-                            </td>
-                            <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
-                              {formatNumber(row.in)}
-                            </td>
-                            <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
-                              {formatNumber(row.out)}
-                            </td>
-                            <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
-                              {formatNumber(row.win)}
-                            </td>
-                            <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
-                              {formatNumber(row.bet)}
-                            </td>
-                            <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
-                              {formatNumber(row.ggr)}
-                            </td>
-                            <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
-                              {formatNumber(row.jackpots)}
-                            </td>
-                            <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
-                              {formatNumber(row.raffles)}
-                            </td>
-                            <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
-                              {formatNumber(row.hh)}
-                            </td>
-                            <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
-                              {formatNumber(row.cashbackReal)}
-                            </td>
-                            <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
-                              {formatNumber(row.marketing)}
-                            </td>
-                          </tr>
-                        ))}
+                        {yearRows.map((row, idx) => {
+                          const monthKey = `${row.year}-${row.month}`
+                          const isExpanded = expandedMonths.has(monthKey)
+                          const locations = locationData[monthKey] || []
+                          const isLoadingLocations = loadingLocations[monthKey]
+                          
+                          return (
+                            <React.Fragment key={`${row.year}-${row.month}`}>
+                              <tr
+                                className={`${idx % 2 === 0 ? 'bg-slate-50 dark:bg-slate-900/50' : ''} cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}
+                                onClick={() => toggleMonth(row.year, row.month)}
+                              >
+                                <td className="py-2 px-3 text-left font-medium text-slate-700 dark:text-slate-300 sticky left-0 bg-inherit z-10 whitespace-nowrap">
+                                  <div className="flex items-center gap-2">
+                                    {isExpanded ? (
+                                      <ChevronDown className="w-4 h-4" />
+                                    ) : (
+                                      <ChevronRight className="w-4 h-4" />
+                                    )}
+                                    <span>{row.monthName}</span>
+                                  </div>
+                                </td>
+                                <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                  {formatNumber(row.in)}
+                                </td>
+                                <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                  {formatNumber(row.out)}
+                                </td>
+                                <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                  {formatNumber(row.win)}
+                                </td>
+                                <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                  {formatNumber(row.bet)}
+                                </td>
+                                <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                  {formatNumber(row.ggr)}
+                                </td>
+                                <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                  {formatNumber(row.jackpots)}
+                                </td>
+                                <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                  {formatNumber(row.raffles)}
+                                </td>
+                                <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                  {formatNumber(row.hh)}
+                                </td>
+                                <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                  {formatNumber(row.cashbackReal)}
+                                </td>
+                                <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                  {formatNumber(row.marketing)}
+                                </td>
+                              </tr>
+                              {/* Rânduri expandate - Locații */}
+                              {isExpanded && (
+                                <>
+                                  {isLoadingLocations ? (
+                                    <tr>
+                                      <td colSpan={11} className="py-2 px-3 text-center text-slate-500 dark:text-slate-400">
+                                        Se încarcă locațiile...
+                                      </td>
+                                    </tr>
+                                  ) : locations.length > 0 ? (
+                                    locations.map((loc, locIdx) => {
+                                      const locationKey = `${monthKey}-${loc.locationId}`
+                                      const isLocationExpanded = expandedLocations.has(locationKey)
+                                      const providers = providerCabinetData[locationKey] || []
+                                      const isLoadingProviders = loadingProviders[locationKey]
+                                      
+                                      return (
+                                        <React.Fragment key={`loc-${loc.locationId}`}>
+                                          <tr
+                                            className="bg-slate-100 dark:bg-slate-800/50 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              toggleLocation(row.year, row.month, loc.locationId)
+                                            }}
+                                          >
+                                            <td className="py-2 px-3 text-left font-medium text-slate-700 dark:text-slate-300 sticky left-0 bg-inherit z-10 whitespace-nowrap pl-8">
+                                              <div className="flex items-center gap-2">
+                                                {isLocationExpanded ? (
+                                                  <ChevronDown className="w-4 h-4" />
+                                                ) : (
+                                                  <ChevronRight className="w-4 h-4" />
+                                                )}
+                                                <span>{loc.locationName}</span>
+                                              </div>
+                                            </td>
+                                            <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                              {formatNumber(loc.in)}
+                                            </td>
+                                            <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                              {formatNumber(loc.out)}
+                                            </td>
+                                            <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                              {formatNumber(loc.win)}
+                                            </td>
+                                            <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                              {formatNumber(loc.bet)}
+                                            </td>
+                                            <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                              {formatNumber(loc.ggr)}
+                                            </td>
+                                            <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                              {formatNumber(loc.jackpots)}
+                                            </td>
+                                            <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                              {formatNumber(loc.raffles)}
+                                            </td>
+                                            <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                              {formatNumber(loc.hh)}
+                                            </td>
+                                            <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                              {formatNumber(loc.cashbackReal)}
+                                            </td>
+                                            <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                              {formatNumber(loc.marketing)}
+                                            </td>
+                                          </tr>
+                                          {/* Rânduri expandate - Provider/Cabinet */}
+                                          {isLocationExpanded && (
+                                            <>
+                                              {isLoadingProviders ? (
+                                                <tr>
+                                                  <td colSpan={11} className="py-2 px-3 text-center text-slate-500 dark:text-slate-400 pl-12">
+                                                    Se încarcă provideri/cabinete...
+                                                  </td>
+                                                </tr>
+                                              ) : providers.length > 0 ? (
+                                                providers.map((pc, pcIdx) => (
+                                                  <tr
+                                                    key={`pc-${pcIdx}`}
+                                                    className="bg-slate-200 dark:bg-slate-700/50"
+                                                  >
+                                                    <td className="py-2 px-3 text-left font-medium text-slate-600 dark:text-slate-400 sticky left-0 bg-inherit z-10 whitespace-nowrap pl-16">
+                                                      {pc.cabinet} {pc.provider ? `(${pc.provider})` : ''}
+                                                    </td>
+                                                    <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                                      {formatNumber(pc.in)}
+                                                    </td>
+                                                    <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                                      {formatNumber(pc.out)}
+                                                    </td>
+                                                    <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                                      {formatNumber(pc.win)}
+                                                    </td>
+                                                    <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                                      {formatNumber(pc.bet)}
+                                                    </td>
+                                                    <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                                      {formatNumber(pc.ggr)}
+                                                    </td>
+                                                    <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                                      {formatNumber(pc.jackpots)}
+                                                    </td>
+                                                    <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                                      {formatNumber(pc.raffles)}
+                                                    </td>
+                                                    <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                                      {formatNumber(pc.hh)}
+                                                    </td>
+                                                    <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                                      {formatNumber(pc.cashbackReal)}
+                                                    </td>
+                                                    <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100">
+                                                      {formatNumber(pc.marketing)}
+                                                    </td>
+                                                  </tr>
+                                                ))
+                                              ) : (
+                                                <tr>
+                                                  <td colSpan={11} className="py-2 px-3 text-center text-slate-500 dark:text-slate-400 pl-12">
+                                                    Nu există date pentru provider/cabinet
+                                                  </td>
+                                                </tr>
+                                              )}
+                                            </>
+                                          )}
+                                        </React.Fragment>
+                                      )
+                                    })
+                                  ) : (
+                                    <tr>
+                                      <td colSpan={11} className="py-2 px-3 text-center text-slate-500 dark:text-slate-400">
+                                        Nu există locații disponibile
+                                      </td>
+                                    </tr>
+                                  )}
+                                </>
+                              )}
+                            </React.Fragment>
+                          )
+                        })}
                       </React.Fragment>
                     )
                   })}

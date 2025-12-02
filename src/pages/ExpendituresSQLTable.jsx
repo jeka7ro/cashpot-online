@@ -3,9 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import axios from 'axios'
 import { toast } from 'react-hot-toast'
 import Layout from '../components/Layout'
-import DateRangeSelector, { QuickDateButtons } from '../components/DateRangeSelector'
 import { useAuth } from '../contexts/AuthContext'
-import { Filter, Table2, Search, Loader2, ArrowLeft, ArrowRight, Pencil, Trash2, X, Save, Database, FileSpreadsheet, FileDown, CheckSquare, Square, AlertTriangle, Plus, Edit2 } from 'lucide-react'
+import { Filter, Table2, Search, Loader2, ArrowLeft, ArrowRight, Pencil, Trash2, X, Save, Database, FileSpreadsheet, FileDown, CheckSquare, Square, AlertTriangle, Plus, Edit2, Calendar, Clock, CalendarDays, CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react'
 
 const normalizeValue = (str) => {
   if (!str) return ''
@@ -616,6 +615,63 @@ const ExpendituresSQLTable = () => {
   const handleDateChange = (range) => {
     setFilters((prev) => ({ ...prev, startDate: range.startDate, endDate: range.endDate }))
     setPagination((prev) => ({ ...prev, page: 1, pageSize: 'all' }))
+  }
+
+  // Format date local
+  const formatDateLocal = (date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // Quick date filters
+  const applyQuickDateFilter = (filterType) => {
+    const today = new Date()
+    let startDate, endDate
+    
+    switch (filterType) {
+      case 'azi':
+        startDate = formatDateLocal(today)
+        endDate = formatDateLocal(today)
+        break
+      case 'saptamana-curenta':
+        const dayOfWeek = today.getDay()
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+        const monday = new Date(today)
+        monday.setDate(today.getDate() + mondayOffset)
+        startDate = formatDateLocal(monday)
+        endDate = formatDateLocal(today)
+        break
+      case 'luna-curenta':
+        const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+        const currentMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+        startDate = formatDateLocal(currentMonthStart)
+        endDate = formatDateLocal(currentMonthEnd)
+        break
+      case 'luna-anterioara':
+        const prevMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+        const prevMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0)
+        startDate = formatDateLocal(prevMonthStart)
+        endDate = formatDateLocal(prevMonthEnd)
+        break
+      case 'anul-curent':
+        startDate = formatDateLocal(new Date(today.getFullYear(), 0, 1))
+        endDate = formatDateLocal(new Date(today.getFullYear(), 11, 31))
+        break
+      case 'anul-trecut':
+        startDate = formatDateLocal(new Date(today.getFullYear() - 1, 0, 1))
+        endDate = formatDateLocal(new Date(today.getFullYear() - 1, 11, 31))
+        break
+      case 'toate':
+        startDate = '2020-01-01'
+        endDate = formatDateLocal(new Date(today.getFullYear() + 1, 11, 31))
+        break
+      default:
+        return
+    }
+    
+    handleDateChange({ startDate, endDate })
   }
 
   const handleFilterChange = (key, value) => {
@@ -1277,157 +1333,101 @@ const ExpendituresSQLTable = () => {
             </h2>
           </div>
 
-          {/* Rând 1: Quick Date Buttons (stânga) + Filtre & Toggle (aliniate la dreapta) */}
+          {/* Rând 1: Bară de Căutare + Filtre - Pe același rând */}
           <div className="flex flex-wrap items-end gap-3 mb-4">
-            {/* Quick Date Buttons - stânga, fără label, doar butoanele */}
-            <div className="flex items-center gap-2">
-              {[
-                { id: 'today', label: 'Azi' },
-                { id: 'thisWeek', label: 'Săpt' },
-                { id: 'thisMonth', label: 'Luna curentă' },
-                { id: 'lastMonth', label: 'Luna trecută' },
-                { id: 'thisYear', label: 'Anul curent' }
-              ].map((action) => {
-                const handleQuickAction = () => {
-                  const now = new Date()
-                  let newStart, newEnd
-                  
-                  switch (action.id) {
-                    case 'today':
-                      newStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-                      newEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-                      break
-                    case 'thisWeek':
-                      const dayOfWeek = now.getDay()
-                      const startOfWeek = new Date(now)
-                      startOfWeek.setDate(now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1))
-                      const endOfWeek = new Date(startOfWeek)
-                      endOfWeek.setDate(startOfWeek.getDate() + 6)
-                      newStart = startOfWeek
-                      newEnd = endOfWeek
-                      break
-                    case 'thisMonth':
-                      newStart = new Date(now.getFullYear(), now.getMonth(), 1)
-                      newEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-                      break
-                    case 'lastMonth':
-                      newStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-                      newEnd = new Date(now.getFullYear(), now.getMonth(), 0)
-                      break
-                    case 'thisYear':
-                      newStart = new Date(now.getFullYear(), 0, 1)
-                      newEnd = new Date(now.getFullYear(), 11, 31)
-                      break
-                    default:
-                      return
-                  }
-                  handleQuickFilter({ startDate: newStart.toISOString().split('T')[0], endDate: newEnd.toISOString().split('T')[0] })
-                }
-                
-                return (
+            {/* Bară de Căutare - Ocupă spațiul rămas */}
+            <div className="relative flex-1 min-w-[250px]">
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                Căutare
+              </label>
+              <div className="relative flex items-center">
+                <Search className="absolute left-3 w-4 h-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Caută în Descriere, Locație, Departament, Tip, Sumă..."
+                  className="w-full pl-10 pr-10 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                  disabled={showAll}
+                />
+                {searchInput && (
                   <button
-                    key={action.id}
-                    onClick={handleQuickAction}
-                    className="relative px-3 py-2 rounded-2xl text-white text-xs font-semibold transition-all overflow-hidden border hover:scale-105 active:scale-95"
-                    style={{
-                      height: '40px',
-                      minWidth: '80px',
-                      background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                      borderColor: 'rgba(255, 255, 255, 0.25)',
-                      boxShadow: '0 6px 18px rgba(37, 99, 235, 0.35)'
-                    }}
+                    onClick={() => setSearchInput('')}
+                    className="absolute right-3 p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded transition-colors"
+                    title="Șterge căutarea"
                   >
-                    <span className="relative z-10">{action.label}</span>
+                    <X className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                   </button>
-                )
-              })}
+                )}
+              </div>
             </div>
-            {/* Filtre + Toggle - grupate și împinse spre dreapta */}
-            <div className="flex items-end gap-3 ml-auto">
-              {/* Filtre Departament, Tip, Locație, Sursă - același stil cu butonul principal */}
+
+            {/* Filtre Departament, Tip, Locație, Sursă */}
+            <div className="flex items-end gap-3">
               <div className="relative">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Departament
+                </label>
                 <select
                   value={filters.department}
                   onChange={(e) => handleFilterChange('department', e.target.value)}
-                  className="rounded-2xl text-white text-sm font-semibold border transition-all"
-                  style={{
-                    height: '40px',
-                    paddingLeft: '12px',
-                    paddingRight: '32px',
-                    width: 'auto',
-                    minWidth: '140px',
-                    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                    borderColor: 'rgba(255, 255, 255, 0.25)',
-                    boxShadow: '0 6px 18px rgba(37, 99, 235, 0.35)'
-                  }}
+                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                  style={{ minWidth: '180px' }}
                 >
-                  <option value="all">Departament: Toate</option>
+                  <option value="all">Toate</option>
                   {departments.map((dept) => (
                     <option key={dept} value={dept}>{dept}</option>
                   ))}
                 </select>
               </div>
+
               <div className="relative">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Tip
+                </label>
                 <select
                   value={filters.type}
                   onChange={(e) => handleFilterChange('type', e.target.value)}
-                  className="rounded-2xl text-white text-sm font-semibold border transition-all"
                   disabled={filters.department === 'all' ? false : availableTypesForFilter.length === 0}
-                  style={{
-                    height: '40px',
-                    paddingLeft: '12px',
-                    paddingRight: '32px',
-                    width: 'auto',
-                    minWidth: '140px',
-                    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                    borderColor: 'rgba(255, 255, 255, 0.25)',
-                    boxShadow: '0 6px 18px rgba(37, 99, 235, 0.35)',
+                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                  style={{ 
+                    minWidth: '180px',
                     opacity: filters.department === 'all' ? 1 : (availableTypesForFilter.length === 0 ? 0.5 : 1)
                   }}
                 >
-                  <option value="all">Tip: Toate</option>
+                  <option value="all">Toate</option>
                   {availableTypesForFilter.map((type) => (
                     <option key={type} value={type}>{type}</option>
                   ))}
                 </select>
               </div>
+
               <div className="relative">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Locație
+                </label>
                 <select
                   value={filters.location}
                   onChange={(e) => handleFilterChange('location', e.target.value)}
-                  className="rounded-2xl text-white text-sm font-semibold border transition-all"
-                  style={{
-                    height: '40px',
-                    paddingLeft: '12px',
-                    paddingRight: '32px',
-                    width: 'auto',
-                    minWidth: '140px',
-                    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                    borderColor: 'rgba(255, 255, 255, 0.25)',
-                    boxShadow: '0 6px 18px rgba(37, 99, 235, 0.35)'
-                  }}
+                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                  style={{ minWidth: '180px' }}
                 >
-                  <option value="all">Locație: Toate</option>
+                  <option value="all">Toate</option>
                   {locations.map((loc) => (
                     <option key={loc} value={loc}>{loc}</option>
                   ))}
                 </select>
               </div>
+
               <div className="relative">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Sursă
+                </label>
                 <select
                   value={filters.dataSource}
                   onChange={(e) => handleFilterChange('dataSource', e.target.value)}
-                  className="rounded-2xl text-white text-sm font-semibold border transition-all"
-                  style={{
-                    height: '40px',
-                    paddingLeft: '12px',
-                    paddingRight: '32px',
-                    width: 'auto',
-                    minWidth: '140px',
-                    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                    borderColor: 'rgba(255, 255, 255, 0.25)',
-                    boxShadow: '0 6px 18px rgba(37, 99, 235, 0.35)'
-                  }}
+                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                  style={{ minWidth: '180px' }}
                 >
                   {dataSourceOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
@@ -1435,59 +1435,138 @@ const ExpendituresSQLTable = () => {
                 </select>
               </div>
 
-              {/* Toggle "Afișează toate" - la capătul din dreapta al grupului */}
+              {/* Toggle "Afișează toate" */}
               <button
                 onClick={() => {
                   setShowAll(!showAll)
                   setPagination((prev) => ({ ...prev, page: 1 }))
                 }}
-                className={`
-                  relative px-5 py-2.5 rounded-2xl font-semibold text-sm
-                  transition-all duration-300 ease-out overflow-hidden
-                  text-white
-                  hover:scale-105 active:scale-95
-                  border
-                `}
-                style={{
-                  height: '40px',
-                  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                  borderColor: 'rgba(255, 255, 255, 0.3)',
-                  boxShadow: showAll
-                    ? '0 10px 28px rgba(37, 99, 235, 0.6)'
-                    : '0 6px 18px rgba(37, 99, 235, 0.45)'
-                }}
+                className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500 flex items-center gap-2"
+                style={{ minWidth: '180px', height: '40px' }}
               >
-                <span className="relative z-10 flex items-center space-x-2">
-                  <Database className={`w-4 h-4 ${showAll ? 'drop-shadow-lg' : ''}`} />
-                  <span className="drop-shadow-sm">{showAll ? 'Afișează toate' : 'Filtre active'}</span>
-                </span>
+                <Database className="w-4 h-4" />
+                <span>{showAll ? 'Afișează toate' : 'Filtre active'}</span>
               </button>
             </div>
           </div>
 
           {/* Rând 2: Perioadă + Căutare + Info + Export - aliniate frumos pe un singur rând */}
-          <div className="flex flex-wrap items-end gap-4 mb-4">
-            <div className="flex-1 min-w-[260px] max-w-md">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Perioadă</label>
-              <DateRangeSelector
-                startDate={filters.startDate}
-                endDate={filters.endDate}
-                onChange={handleDateChange}
-              />
-            </div>
-            <div className="flex-[2] min-w-[280px] max-w-lg">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Căutare</label>
-              <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  placeholder="Caută după descriere / locație / departament / tip"
-                  className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                  disabled={showAll}
-                />
+          <div className="mb-4">
+            {/* Input-uri de date */}
+            <div className="flex items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm mb-2">
+              {/* Date Inputs - Clasic și Simplu */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                    De la:
+                  </label>
+                  <input
+                    type="date"
+                    value={filters.startDate}
+                    onChange={(e) => handleDateChange({ startDate: e.target.value, endDate: filters.endDate })}
+                    className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                    style={{ minWidth: '160px' }}
+                  />
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                    Până la:
+                  </label>
+                  <input
+                    type="date"
+                    value={filters.endDate}
+                    onChange={(e) => handleDateChange({ startDate: filters.startDate, endDate: e.target.value })}
+                    className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                    style={{ minWidth: '160px' }}
+                  />
+                </div>
+              </div>
+
+              {/* Săgeți Navigare Perioadă */}
+              <div className="flex items-center gap-1 border-l border-r border-slate-200 dark:border-slate-700 px-3">
+                <button
+                  onClick={() => {
+                    const start = new Date(filters.startDate)
+                    const end = new Date(filters.endDate)
+                    const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24))
+                    
+                    start.setDate(start.getDate() - diffDays - 1)
+                    end.setDate(end.getDate() - diffDays - 1)
+                    
+                    handleDateChange({
+                      startDate: formatDateLocal(start),
+                      endDate: formatDateLocal(end)
+                    })
+                  }}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                  title="Perioadă anterioară"
+                >
+                  <ChevronLeft className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                </button>
+                <button
+                  onClick={() => {
+                    const start = new Date(filters.startDate)
+                    const end = new Date(filters.endDate)
+                    const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24))
+                    
+                    start.setDate(start.getDate() + diffDays + 1)
+                    end.setDate(end.getDate() + diffDays + 1)
+                    
+                    handleDateChange({
+                      startDate: formatDateLocal(start),
+                      endDate: formatDateLocal(end)
+                    })
+                  }}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                  title="Perioadă următoare"
+                >
+                  <ChevronRight className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                </button>
+              </div>
+
+              {/* Text Perioadă Afișată */}
+              <div className="flex-1 text-sm text-slate-600 dark:text-slate-400">
+                <span className="font-semibold text-slate-900 dark:text-slate-100">
+                  {new Date(filters.startDate).toLocaleDateString('ro-RO', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                </span>
+                {' – '}
+                <span className="font-semibold text-slate-900 dark:text-slate-100">
+                  {new Date(filters.endDate).toLocaleDateString('ro-RO', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                </span>
               </div>
             </div>
+
+            {/* Butoane Rapide cu Iconițe și Text - Sub Input-uri */}
+            <div className="flex items-center gap-2 px-1 flex-wrap">
+              {[
+                { id: 'azi', label: 'Azi', icon: Clock },
+                { id: 'saptamana-curenta', label: 'Săpt', icon: CalendarDays },
+                { id: 'luna-curenta', label: 'Luna curentă', icon: Calendar },
+                { id: 'luna-anterioara', label: 'Luna trecută', icon: CalendarRange },
+                { id: 'anul-curent', label: 'Anul curent', icon: Calendar },
+                { id: 'anul-trecut', label: 'Anul trecut', icon: Calendar },
+                { id: 'toate', label: 'Toate', icon: Calendar }
+              ].map((btn) => {
+                const IconComponent = btn.icon
+                return (
+                  <button
+                    key={btn.id}
+                    onClick={() => applyQuickDateFilter(btn.id)}
+                    className="relative inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-all hover:scale-105 active:scale-95 text-sm font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600"
+                    title={btn.label}
+                  >
+                    <IconComponent className="w-4 h-4" />
+                    <span>{btn.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Rând 3: Info + Export */}
+          <div className="flex flex-wrap items-end gap-4 mb-4">
             <div className="flex items-end gap-3 flex-shrink-0">
               <div className="text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap hidden lg:block">
                 {pagination.total.toLocaleString('ro-RO')} înregistrări • {tableSummary.totalAmount.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON

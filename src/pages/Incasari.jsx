@@ -3,8 +3,7 @@ import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useNavigate } from 'react-router-dom'
-import { BarChart3, Table2, Settings, TrendingUp, TrendingDown, MapPin, FileSpreadsheet, Download, ArrowUp, ArrowDown, RefreshCw } from 'lucide-react'
-import DateRangeSelector, { QuickDateButtons } from '../components/DateRangeSelector'
+import { BarChart3, Table2, Settings, TrendingUp, TrendingDown, MapPin, FileSpreadsheet, Download, ArrowUp, ArrowDown, RefreshCw, Menu, Search, X, Calendar, Clock, CalendarDays, CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import axios from 'axios'
 import * as XLSX from 'xlsx'
@@ -272,6 +271,61 @@ const Incasari = () => {
     direction: 'asc' // 'asc' sau 'desc'
   })
   const [centralizerExpanded, setCentralizerExpanded] = useState(new Set())
+  const [searchText, setSearchText] = useState('')
+  const [selectedDateFilter, setSelectedDateFilter] = useState('luna-curenta')
+  const [showMenu, setShowMenu] = useState(false)
+  
+  // Format date local - funcție globală
+  const formatDateLocal = (date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+  
+  // Quick date filter
+  const applyQuickDateFilter = (filterId) => {
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    let startDate, endDate
+    
+    switch (filterId) {
+      case 'azi':
+        startDate = endDate = formatDateLocal(today)
+        break
+      case 'saptamana-curenta':
+        const dayOfWeek = now.getDay()
+        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+        startDate = formatDateLocal(new Date(today.getTime() + diff * 24 * 60 * 60 * 1000))
+        endDate = formatDateLocal(today)
+        break
+      case 'luna-curenta':
+        startDate = formatDateLocal(new Date(now.getFullYear(), now.getMonth(), 1))
+        endDate = formatDateLocal(new Date(now.getFullYear(), now.getMonth() + 1, 0))
+        break
+      case 'luna-anterioara':
+        startDate = formatDateLocal(new Date(now.getFullYear(), now.getMonth() - 1, 1))
+        endDate = formatDateLocal(new Date(now.getFullYear(), now.getMonth(), 0))
+        break
+      case 'anul-curent':
+        startDate = formatDateLocal(new Date(now.getFullYear(), 0, 1))
+        endDate = formatDateLocal(new Date(now.getFullYear(), 11, 31))
+        break
+      case 'anul-trecut':
+        startDate = formatDateLocal(new Date(now.getFullYear() - 1, 0, 1))
+        endDate = formatDateLocal(new Date(now.getFullYear() - 1, 11, 31))
+        break
+      case 'toate':
+        startDate = formatDateLocal(new Date(2020, 0, 1))
+        endDate = formatDateLocal(new Date(2030, 11, 31))
+        break
+      default:
+        return
+    }
+    
+    setDateRange({ startDate, endDate })
+    setSelectedDateFilter(filterId)
+  }
 
   useEffect(() => {
     if (!user) return
@@ -1336,6 +1390,7 @@ const Incasari = () => {
 
   const handleDateChange = (range) => {
     setDateRange({ startDate: range.startDate, endDate: range.endDate })
+    setSelectedDateFilter('custom')
   }
 
   const formatNumber = (value) => {
@@ -2424,160 +2479,357 @@ const Incasari = () => {
               Încasări
             </h1>
           </div>
-          <div className="flex items-center gap-3">
+          
+          {/* Meniu Hamburger */}
+          <div className="relative ml-auto">
             <button
-              onClick={async () => {
-                try {
-                  // Verifică mai întâi statusul
-                  const statusResp = await axios.get('/api/incasari/sync-status')
-                  if (statusResp.data?.running) {
-                    toast.warning('Sincronizare deja în curs. Vă rugăm să așteptați finalizarea.')
-                    setSyncModalOpen(true) // Arată modalul de progres
-                    return
-                  }
-                  
-                  const resp = await axios.post('/api/incasari/sync')
-                  if (resp.data?.success) {
-                    toast.success(resp.data.message || 'Sincronizare Încasări pornită')
-                    setSyncModalOpen(true)
-                  } else {
-                    toast.error(resp.data?.error || 'Nu am putut porni sincronizarea')
-                  }
-                } catch (error) {
-                  console.error('❌ Eroare la pornirea sincronizării încasărilor:', error)
-                  if (error.response?.status === 400) {
-                    toast.warning('Sincronizare deja în curs. Vă rugăm să așteptați finalizarea.')
-                    setSyncModalOpen(true) // Arată modalul de progres
-                  } else {
-                    toast.error(
-                      error.response?.data?.error ||
-                        error.message ||
-                        'Eroare la pornirea sincronizării încasărilor'
-                    )
-                  }
-                }
-              }}
-              className="flex items-center space-x-2 rounded-2xl bg-slate-900/60 text-slate-100 text-xs px-3 py-2 border border-slate-700 hover:bg-slate-800/80 disabled:opacity-60"
-              disabled={syncStatus.running}
+              onClick={() => setShowMenu(!showMenu)}
+              className="inline-flex items-center justify-center p-2.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-2 border-slate-300 dark:border-slate-600 transition-all hover:border-emerald-500 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 shadow-sm"
+              title="Meniu"
             >
-              <BarChart3 className="w-4 h-4" />
-              <span>{syncStatus.running ? 'Sincronizare în curs...' : 'Refresh Încasări (Cyber)'}</span>
-              {syncStatus.running && (
-                <span className="inline-flex w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              )}
+              <Menu className="w-5 h-5" />
             </button>
-            <button
-              onClick={() => navigate('/incasari/settings')}
-              className="flex items-center space-x-2 rounded-2xl bg-slate-900/60 text-slate-100 text-xs px-3 py-2 border border-slate-700 hover:bg-slate-800/80"
-            >
-              <Settings className="w-4 h-4" />
-              <span>Setări Încasări</span>
-            </button>
-            <button
-              onClick={() => navigate('/incasari/cyber-table')}
-              className="flex items-center space-x-2 rounded-2xl bg-slate-900/60 text-slate-100 text-xs px-3 py-2 border border-slate-700 hover:bg-slate-800/80"
-            >
-              <Table2 className="w-4 h-4" />
-              <span>Tabel Cyber</span>
-            </button>
-            <button
-              onClick={() => navigate('/incasari/floorplan')}
-              className="flex items-center space-x-2 rounded-2xl bg-slate-900/60 text-slate-100 text-xs px-3 py-2 border border-slate-700 hover:bg-slate-800/80"
-            >
-              <MapPin className="w-4 h-4" />
-              <span>Floorplan Locație</span>
-            </button>
-            <button
-              onClick={() => navigate('/incasari/monthly')}
-              className="flex items-center space-x-2 rounded-2xl bg-slate-900/60 text-slate-100 text-xs px-3 py-2 border border-slate-700 hover:bg-slate-800/80"
-            >
-              <BarChart3 className="w-4 h-4" />
-              <span>Lunare</span>
-            </button>
-            <button
-              onClick={() => navigate('/incasari/operational')}
-              className="flex items-center space-x-2 rounded-2xl bg-slate-900/60 text-slate-100 text-xs px-3 py-2 border border-slate-700 hover:bg-slate-800/80"
-            >
-              <BarChart3 className="w-4 h-4" />
-              <span>Operational</span>
-            </button>
+
+            {/* Dropdown Menu */}
+            {showMenu && (
+              <>
+                {/* Backdrop */}
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setShowMenu(false)}
+                />
+                
+                {/* Menu List */}
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-800 rounded-xl border-2 border-slate-200 dark:border-slate-700 shadow-xl z-50 py-2">
+                  <button
+                    onClick={async () => {
+                      try {
+                        const statusResp = await axios.get('/api/incasari/sync-status')
+                        if (statusResp.data?.running) {
+                          toast.warning('Sincronizare deja în curs. Vă rugăm să așteptați finalizarea.')
+                          setSyncModalOpen(true)
+                          return
+                        }
+                        const resp = await axios.post('/api/incasari/sync')
+                        if (resp.data?.success) {
+                          toast.success(resp.data.message || 'Sincronizare Încasări pornită')
+                          setSyncModalOpen(true)
+                        } else {
+                          toast.error(resp.data?.error || 'Nu am putut porni sincronizarea')
+                        }
+                      } catch (error) {
+                        console.error('❌ Eroare la pornirea sincronizării încasărilor:', error)
+                        if (error.response?.status === 400) {
+                          toast.warning('Sincronizare deja în curs. Vă rugăm să așteptați finalizarea.')
+                          setSyncModalOpen(true)
+                        } else {
+                          toast.error(error.response?.data?.error || error.message || 'Eroare la pornirea sincronizării încasărilor')
+                        }
+                      }
+                      setShowMenu(false)
+                    }}
+                    className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${syncStatus.running ? 'animate-spin' : ''}`} />
+                    <span className="text-sm font-medium">{syncStatus.running ? 'Sincronizare în curs...' : 'Refresh Încasări (Cyber)'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      navigate('/incasari/settings')
+                      setShowMenu(false)
+                    }}
+                    className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span className="text-sm font-medium">Setări Încasări</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      navigate('/incasari/cyber-table')
+                      setShowMenu(false)
+                    }}
+                    className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+                  >
+                    <Table2 className="w-4 h-4" />
+                    <span className="text-sm font-medium">Tabel Cyber</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      navigate('/incasari/floorplan')
+                      setShowMenu(false)
+                    }}
+                    className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+                  >
+                    <MapPin className="w-4 h-4" />
+                    <span className="text-sm font-medium">Floorplan Locație</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      navigate('/incasari/monthly')
+                      setShowMenu(false)
+                    }}
+                    className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    <span className="text-sm font-medium">Lunare</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      navigate('/incasari/operational')
+                      setShowMenu(false)
+                    }}
+                    className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    <span className="text-sm font-medium">Operational</span>
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Filtre timp + Locație / Provider / Cabinet / Game Mix (la fel ca în Cheltuieli) */}
-        {/* Rând 1: butoane perioadă rapidă (stânga) + filtre locații (dreapta) */}
-        <div className="flex flex-wrap items-center gap-3 mb-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <QuickDateButtons onChange={handleDateChange} />
+        {/* Filters - Nou Design */}
+        <div className="card p-5 bg-gradient-to-br from-emerald-50 to-cyan-50 dark:from-emerald-900/20 dark:to-cyan-900/20 rounded-2xl shadow-xl border border-transparent backdrop-blur-2xl">
+          {/* Rând 1: Bară de Căutare + Filtre - Pe același rând */}
+          <div className="flex flex-wrap items-end gap-3 mb-4">
+            {/* Bară de Căutare - Ocupă spațiul rămas */}
+            <div className="relative flex-1 min-w-[250px]">
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                Căutare
+              </label>
+              <div className="relative flex items-center">
+                <Search className="absolute left-3 w-4 h-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  placeholder="Caută în Locație, Provider, Cabinet, Game Mix..."
+                  className="w-full pl-10 pr-10 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-emerald-400 dark:hover:border-emerald-500"
+                />
+                {searchText && (
+                  <button
+                    onClick={() => setSearchText('')}
+                    className="absolute right-3 p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded transition-colors"
+                    title="Șterge căutarea"
+                  >
+                    <X className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Filtre Locație, Provider, Cabinet, Game Mix */}
+            <div className="flex items-end gap-3">
+              <div className="relative">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Locație
+                </label>
+                <select
+                  value={locationFilter}
+                  onChange={(e) => setLocationFilter(e.target.value)}
+                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-emerald-400 dark:hover:border-emerald-500"
+                  style={{ minWidth: '180px' }}
+                >
+                  <option value="all">Toate</option>
+                  {filtersMeta.locations.map((loc) => (
+                    <option key={loc} value={loc}>
+                      {loc}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="relative">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Provider
+                </label>
+                <select
+                  value={providerFilter}
+                  onChange={(e) => setProviderFilter(e.target.value)}
+                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-emerald-400 dark:hover:border-emerald-500"
+                  style={{ minWidth: '180px' }}
+                >
+                  <option value="all">Toți</option>
+                  {filtersMeta.providers.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="relative">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Cabinet
+                </label>
+                <select
+                  value={cabinetFilter}
+                  onChange={(e) => setCabinetFilter(e.target.value)}
+                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-emerald-400 dark:hover:border-emerald-500"
+                  style={{ minWidth: '180px' }}
+                >
+                  <option value="all">Toate</option>
+                  {filtersMeta.cabinets.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="relative">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Game Mix
+                </label>
+                <select
+                  value={gameMixFilter}
+                  onChange={(e) => setGameMixFilter(e.target.value)}
+                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-emerald-400 dark:hover:border-emerald-500"
+                  style={{ minWidth: '180px' }}
+                >
+                  <option value="all">Toate</option>
+                  {filtersMeta.gameMixes.map((gm) => (
+                    <option key={gm} value={gm}>
+                      {gm}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3 ml-auto">
-            <select
-              value={locationFilter}
-              onChange={(e) => setLocationFilter(e.target.value)}
-              className="rounded-2xl bg-slate-900/60 text-slate-100 text-xs px-3 py-2 border border-slate-700"
-            >
-              <option value="all">Locație: Toate</option>
-              {filtersMeta.locations.map((loc) => (
-                <option key={loc} value={loc}>
-                  {loc}
-                </option>
-              ))}
-            </select>
+          
+          {/* Rând 2: Date Picker Clasic și Comod */}
+          <div className="mb-4">
+            {/* Input-uri de date */}
+            <div className="flex items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm mb-2">
+              {/* Date Inputs - Clasic și Simplu */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                    De la:
+                  </label>
+                  <input
+                    type="date"
+                    value={dateRange.startDate}
+                    onChange={(e) => {
+                      setDateRange({ ...dateRange, startDate: e.target.value })
+                      setSelectedDateFilter('custom')
+                    }}
+                    className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-emerald-400 dark:hover:border-emerald-500"
+                    style={{ minWidth: '160px' }}
+                  />
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                    Până la:
+                  </label>
+                  <input
+                    type="date"
+                    value={dateRange.endDate}
+                    onChange={(e) => {
+                      setDateRange({ ...dateRange, endDate: e.target.value })
+                      setSelectedDateFilter('custom')
+                    }}
+                    className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-emerald-400 dark:hover:border-emerald-500"
+                    style={{ minWidth: '160px' }}
+                  />
+                </div>
+              </div>
 
-            <select
-              value={providerFilter}
-              onChange={(e) => setProviderFilter(e.target.value)}
-              className="rounded-2xl bg-slate-900/60 text-slate-100 text-xs px-3 py-2 border border-slate-700"
-            >
-              <option value="all">Provider: Toți</option>
-              {filtersMeta.providers.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
+              {/* Săgeți Navigare Perioadă */}
+              <div className="flex items-center gap-1 border-l border-r border-slate-200 dark:border-slate-700 px-3">
+                <button
+                  onClick={() => {
+                    const start = new Date(dateRange.startDate)
+                    const end = new Date(dateRange.endDate)
+                    const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24))
+                    
+                    start.setDate(start.getDate() - diffDays - 1)
+                    end.setDate(end.getDate() - diffDays - 1)
+                    
+                    setDateRange({
+                      startDate: formatDateLocal(start),
+                      endDate: formatDateLocal(end)
+                    })
+                    setSelectedDateFilter('custom')
+                  }}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                  title="Perioadă anterioară"
+                >
+                  <ChevronLeft className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                </button>
+                <button
+                  onClick={() => {
+                    const start = new Date(dateRange.startDate)
+                    const end = new Date(dateRange.endDate)
+                    const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24))
+                    
+                    start.setDate(start.getDate() + diffDays + 1)
+                    end.setDate(end.getDate() + diffDays + 1)
+                    
+                    setDateRange({
+                      startDate: formatDateLocal(start),
+                      endDate: formatDateLocal(end)
+                    })
+                    setSelectedDateFilter('custom')
+                  }}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                  title="Perioadă următoare"
+                >
+                  <ChevronRight className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                </button>
+              </div>
 
-            <select
-              value={cabinetFilter}
-              onChange={(e) => setCabinetFilter(e.target.value)}
-              className="rounded-2xl bg-slate-900/60 text-slate-100 text-xs px-3 py-2 border border-slate-700"
-            >
-              <option value="all">Cabinet: Toate</option>
-              {filtersMeta.cabinets.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+              {/* Text Perioadă Afișată */}
+              <div className="flex-1 text-sm text-slate-600 dark:text-slate-400">
+                <span className="font-semibold text-slate-900 dark:text-slate-100">
+                  {new Date(dateRange.startDate).toLocaleDateString('ro-RO', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                </span>
+                {' – '}
+                <span className="font-semibold text-slate-900 dark:text-slate-100">
+                  {new Date(dateRange.endDate).toLocaleDateString('ro-RO', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                </span>
+              </div>
+            </div>
 
-            <select
-              value={gameMixFilter}
-              onChange={(e) => setGameMixFilter(e.target.value)}
-              className="rounded-2xl bg-slate-900/60 text-slate-100 text-xs px-3 py-2 border border-slate-700"
-            >
-              <option value="all">Game mix: Toate</option>
-              {filtersMeta.gameMixes.map((gm) => (
-                <option key={gm} value={gm}>
-                  {gm}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Rând 2: DateRangeSelector + text Perioadă pe același rând (vizibil deasupra cardurilor) */}
-        <div className="flex flex-wrap items-center gap-3 mb-4">
-          <div className="min-w-[260px] max-w-md">
-            <DateRangeSelector
-              startDate={dateRange.startDate}
-              endDate={dateRange.endDate}
-              onChange={handleDateChange}
-            />
-          </div>
-          <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center">
-            Perioadă:{' '}
-            <span className="font-semibold ml-1">{dateRange.startDate}</span> –{' '}
-            <span className="font-semibold">{dateRange.endDate}</span>
+            {/* Butoane Rapide cu Iconițe și Text - Sub Input-uri */}
+            <div className="flex items-center gap-2 px-1 flex-wrap">
+              {[
+                { id: 'azi', label: 'Azi', icon: Clock },
+                { id: 'saptamana-curenta', label: 'Săpt', icon: CalendarDays },
+                { id: 'luna-curenta', label: 'Luna curentă', icon: Calendar },
+                { id: 'luna-anterioara', label: 'Luna trecută', icon: CalendarRange },
+                { id: 'anul-curent', label: 'Anul curent', icon: Calendar },
+                { id: 'anul-trecut', label: 'Anul trecut', icon: Calendar },
+                { id: 'toate', label: 'Toate', icon: Calendar }
+              ].map((btn) => {
+                const IconComponent = btn.icon
+                const isActive = selectedDateFilter === btn.id
+                return (
+                  <button
+                    key={btn.id}
+                    onClick={() => applyQuickDateFilter(btn.id)}
+                    className={`relative inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-all hover:scale-105 active:scale-95 text-sm font-medium ${
+                      isActive
+                        ? 'bg-emerald-500 text-white shadow-md'
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                    }`}
+                    title={btn.label}
+                  >
+                    <IconComponent className="w-4 h-4" />
+                    <span>{btn.label}</span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
 

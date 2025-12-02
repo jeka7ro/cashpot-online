@@ -89,22 +89,24 @@ async function run() {
 
   if (!hasManualRange) {
     const now = new Date()
-    // Importă toate zilele din luna curentă pentru a include toate datele
-    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0) // Ultima zi a lunii curente
+    // IMPORT COMPLET: Importă TOATE datele disponibile (2024-01-01 până în prezent)
+    // Nu doar luna curentă, ci TOATE datele pentru a asigura import complet
+    const fullStart = new Date(2024, 0, 1) // 2024-01-01
+    const fullEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0) // Ultima zi a lunii curente
     
-    const startYear = currentMonthStart.getFullYear()
-    const startMonth = String(currentMonthStart.getMonth() + 1).padStart(2, '0')
-    const startDay = String(currentMonthStart.getDate()).padStart(2, '0')
+    const startYear = fullStart.getFullYear()
+    const startMonth = String(fullStart.getMonth() + 1).padStart(2, '0')
+    const startDay = String(fullStart.getDate()).padStart(2, '0')
     start = `${startYear}-${startMonth}-${startDay}`
 
-    const endYear = currentMonthEnd.getFullYear()
-    const endMonth = String(currentMonthEnd.getMonth() + 1).padStart(2, '0')
-    const endDay = String(currentMonthEnd.getDate()).padStart(2, '0')
+    const endYear = fullEnd.getFullYear()
+    const endMonth = String(fullEnd.getMonth() + 1).padStart(2, '0')
+    const endDay = String(fullEnd.getDate()).padStart(2, '0')
     end = `${endYear}-${endMonth}-${endDay}`
 
-    console.log('🚀 Import încasări din Cyber DB → incasari_daily (mod AUTO: TOATE ZILELE DIN LUNA CURENTĂ)')
+    console.log('🚀 Import încasări din Cyber DB → incasari_daily (mod AUTO: TOATE DATELE DISPONIBILE)')
     console.log(`📅 Interval efectiv de import (auto): ${start} → ${end}`)
+    console.log(`⚠️ IMPORT COMPLET: Se vor importa TOATE datele din ${start} până în ${end}`)
   } else {
     // Mod manual (ex: import complet): păstrăm start/end primite sau valorile implicite.
     if (!start) start = '2024-01-01'
@@ -185,6 +187,7 @@ async function run() {
 
   try {
     // Număr total de GRUPURI (zi + aparat) în interval
+    console.log(`🔍 Verific date în Cyber DB pentru intervalul ${start} → ${end}...`)
     const [countRows] = await cyberPool.query(
       `SELECT COUNT(DISTINCT date, machine_id) AS c
        FROM cyberslot_dbn.machine_audit_summaries
@@ -193,6 +196,28 @@ async function run() {
     )
     const total = Number(countRows[0].c || 0)
     console.log(`📊 Grupuri (date+machine_id) de importat în interval: ${total}`)
+    
+    if (total === 0) {
+      console.warn(`⚠️ ATENȚIE: Nu s-au găsit date în Cyber DB pentru intervalul ${start} → ${end}!`)
+      console.log(`🔍 Verific dacă există date în Cyber DB...`)
+      
+      // Verifică dacă există date în general
+      const [allCountRows] = await cyberPool.query(
+        `SELECT COUNT(*) AS c, MIN(date) AS min_date, MAX(date) AS max_date
+         FROM cyberslot_dbn.machine_audit_summaries`
+      )
+      const allCount = Number(allCountRows[0].c || 0)
+      const minDate = allCountRows[0].min_date
+      const maxDate = allCountRows[0].max_date
+      console.log(`📊 Total înregistrări în Cyber DB: ${allCount}`)
+      console.log(`📅 Interval disponibil în Cyber DB: ${minDate} → ${maxDate}`)
+      
+      if (allCount === 0) {
+        console.error(`❌ Cyber DB este GOL! Nu există date de importat.`)
+      } else {
+        console.warn(`⚠️ Intervalul cerut (${start} → ${end}) nu se suprapune cu datele disponibile (${minDate} → ${maxDate})`)
+      }
+    }
 
     while (true) {
       const [rows] = await cyberPool.query(
@@ -236,11 +261,15 @@ async function run() {
         [start, end, batchSize, offset]
       )
 
-      if (!rows || rows.length === 0) break
+      if (!rows || rows.length === 0) {
+        console.log(`✅ Nu mai sunt date de importat (offset ${offset})`)
+        break
+      }
 
       console.log(
         `📦 Batch ${offset / batchSize + 1}: ${rows.length} grupuri (date+machine_id) din Cyber (offset ${offset})`
       )
+      console.log(`🔍 Exemplu primul rând: date=${rows[0]?.date}, machine_id=${rows[0]?.machine_id}, in_amount=${rows[0]?.in_amount}`)
 
       const client = await PG_POOL.connect()
       try {
@@ -329,9 +358,11 @@ async function run() {
 
         await client.query('COMMIT')
         totalImported += rows.length
+        console.log(`✅ Batch ${offset / batchSize + 1} salvat: ${rows.length} rânduri (total acum: ${totalImported})`)
       } catch (e) {
         await client.query('ROLLBACK')
         console.error('❌ Eroare la inserarea batch-ului în incasari_daily:', e.message)
+        console.error('❌ Detalii eroare:', e)
         throw e
       } finally {
         client.release()
@@ -341,9 +372,28 @@ async function run() {
     }
 
     console.log(`✅ Import complet: ${totalImported} rânduri procesate și salvate în incasari_daily`)
+    
+    // Verifică dacă s-au salvat efectiv datele
+    if (totalImported > 0) {
+      const checkResult = await PG_POOL.query(
+        `SELECT COUNT(*) AS count, MIN(audit_date) AS min_date, MAX(audit_date) AS max_date 
+         FROM incasari_daily 
+         WHERE audit_date >= $1 AND audit_date <= $2`,
+        [start, end]
+      )
+      const savedCount = Number(checkResult.rows[0].count || 0)
+      console.log(`✅ Verificare finală: ${savedCount} înregistrări salvate în incasari_daily pentru intervalul ${start} → ${end}`)
+      if (savedCount === 0 && totalImported > 0) {
+        console.error(`❌ PROBLEMĂ: S-au procesat ${totalImported} rânduri dar nu s-au salvat în DB!`)
+      }
+    } else {
+      console.warn(`⚠️ ATENȚIE: Nu s-au importat date! (totalImported = 0)`)
+    }
   } catch (error) {
     console.error('❌ Eroare generală în import-incasari-from-cyber:', error)
+    console.error('❌ Stack trace:', error.stack)
   } finally {
+    await cyberPool.end()
     await PG_POOL.end()
   }
 }

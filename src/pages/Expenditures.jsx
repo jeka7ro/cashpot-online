@@ -4,7 +4,7 @@ import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import axios from 'axios'
-import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp, TrendingDown, Table2, MapPin, Maximize2, Minimize2, Clock, CalendarDays, CalendarRange, Database, X, CheckCircle, AlertCircle, Trash2 } from 'lucide-react'
+import { DollarSign, RefreshCw, Settings, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, Briefcase, BarChart3, Brain, TrendingUp, TrendingDown, Table2, MapPin, Maximize2, Minimize2, Clock, CalendarDays, CalendarRange, Database, X, CheckCircle, AlertCircle, Trash2, ChevronLeft, ChevronRight, Search, Menu } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
@@ -175,6 +175,8 @@ const Expenditures = () => {
   const [expenditureTypeFilter, setExpenditureTypeFilter] = useState(savedPrefs?.expenditureTypeFilter || 'all')
   const [locationFilter, setLocationFilter] = useState(savedPrefs?.locationFilter || 'all') // NEW!
   const [selectedDateFilter, setSelectedDateFilter] = useState(savedPrefs?.selectedDateFilter || 'anul-curent')
+  const [searchText, setSearchText] = useState('') // Bară de căutare
+  const [showMenu, setShowMenu] = useState(false) // Meniu hamburger
   const [allDepartmentsExpanded, setAllDepartmentsExpanded] = useState(false)
   const [importProgress, setImportProgress] = useState(null) // Progress state for modal
   
@@ -888,6 +890,26 @@ const Expenditures = () => {
       console.log(`  After locationFilter (${locationFilter}): ${beforeLocFilter} → ${filteredData.length}`)
     }
     
+    // SEARCH TEXT FILTER - caută în Departament, Tip, Locație, Sumă
+    if (searchText && searchText.trim() !== '') {
+      const beforeSearch = filteredData.length
+      const searchLower = searchText.toLowerCase().trim()
+      filteredData = filteredData.filter(item => {
+        const dept = (item.department_name || '').toLowerCase()
+        const type = (item.expenditure_type || '').toLowerCase()
+        const loc = (item.location_name || '').toLowerCase()
+        const amount = String(item.amount || '')
+        const description = (item.description || '').toLowerCase()
+        
+        return dept.includes(searchLower) || 
+               type.includes(searchLower) || 
+               loc.includes(searchLower) || 
+               amount.includes(searchLower) ||
+               description.includes(searchLower)
+      })
+      console.log(`  After searchText (${searchText}): ${beforeSearch} → ${filteredData.length}`)
+    }
+    
     // Calculăm câte date ar trebui să fie după filtrele de bază (fără filtrele din setări)
     const afterBasicFilters = expendituresData.filter(item => {
       const dept = (item.department_name || '').toLowerCase().trim()
@@ -1007,10 +1029,10 @@ const Expenditures = () => {
     return { matrix, locations, expenditureTypes, totalsRow, filteredCount: filteredData.length, filteredDataForTable: filteredData }
   }
   
-  // Re-calculate matrix when filters change (INCLUDING locationFilter AND syncSettings!)
+  // Re-calculate matrix when filters change (INCLUDING locationFilter, searchText AND syncSettings!)
   const { matrix, locations, totalsRow, filteredCount, expenditureTypes, filteredDataForTable } = React.useMemo(() => {
     return processDataToMatrix()
-  }, [expendituresData, dateRange, departmentFilter, expenditureTypeFilter, locationFilter, syncSettings])
+  }, [expendituresData, dateRange, departmentFilter, expenditureTypeFilter, locationFilter, searchText, syncSettings])
   
   // Calculate previous month data for percentage comparison
   const previousMonthData = React.useMemo(() => {
@@ -1261,102 +1283,136 @@ const Expenditures = () => {
               <BarChart3 className="w-8 h-8 mr-3 text-blue-500" />
               Cheltuieli
             </h1>
-            <p className="text-slate-600 dark:text-slate-400 mt-2">
-              Monitorizare cheltuieli per locație din serverul extern
-            </p>
           </div>
           
-          <div className="flex space-x-3 ml-auto">
+          {/* Meniu Hamburger */}
+          <div className="relative ml-auto">
             <button
-              onClick={() => navigate('/expenditures/settings')}
-              className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-slate-800 dark:text-slate-100 text-sm font-semibold border transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 border-slate-300 dark:border-slate-500"
+              onClick={() => setShowMenu(!showMenu)}
+              className="inline-flex items-center justify-center p-2.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-2 border-slate-300 dark:border-slate-600 transition-all hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 shadow-sm"
+              title="Meniu"
             >
-              <Settings className="w-4 h-4" />
-              <span>Setări</span>
+              <Menu className="w-5 h-5" />
             </button>
 
-            <button
-              onClick={() => navigate('/expenditures/sql-table')}
-              className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-slate-800 dark:text-slate-100 text-sm font-semibold border transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 border-slate-300 dark:border-slate-500"
-            >
-              <Table2 className="w-4 h-4" />
-              <span>Tabel SQL</span>
-            </button>
+            {/* Dropdown Menu */}
+            {showMenu && (
+              <>
+                {/* Backdrop */}
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setShowMenu(false)}
+                />
+                
+                {/* Menu List */}
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-800 rounded-xl border-2 border-slate-200 dark:border-slate-700 shadow-xl z-50 py-2">
+                  <button
+                    onClick={() => {
+                      navigate('/expenditures/settings')
+                      setShowMenu(false)
+                    }}
+                    className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span className="text-sm font-medium">Setări</span>
+                  </button>
 
-            <button
-              onClick={() => navigate('/expenditures/slots-monthly')}
-              className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-slate-800 dark:text-slate-100 text-sm font-semibold border transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 border-slate-300 dark:border-slate-500"
-            >
-              <span>Tabel Sloturi</span>
-            </button>
+                  <button
+                    onClick={() => {
+                      navigate('/expenditures/sql-table')
+                      setShowMenu(false)
+                    }}
+                    className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                  >
+                    <Table2 className="w-4 h-4" />
+                    <span className="text-sm font-medium">Tabel SQL</span>
+                  </button>
 
-            <button
-              onClick={() => navigate('/expenditures/electric')}
-              className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-slate-800 dark:text-slate-100 text-sm font-semibold border transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 border-slate-300 dark:border-slate-500"
-            >
-              <span>Electrica</span>
-            </button>
-            
-            <button
-              onClick={() => navigate('/expenditures/advanced-analytics')}
-              className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-slate-800 dark:text-slate-100 text-sm font-semibold border transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 border-slate-300 dark:border-slate-500"
-            >
-              <span>Analiză Avansată</span>
-            </button>
-            
-            <button
-              onClick={() => navigate('/expenditures/pos-banca')}
-              className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-slate-800 dark:text-slate-100 text-sm font-semibold border transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 border-slate-300 dark:border-slate-500"
-            >
-              <Building2 className="w-4 h-4" />
-              <span>POS & Bancă</span>
-            </button>
+                  <button
+                    onClick={() => {
+                      navigate('/expenditures/slots-monthly')
+                      setShowMenu(false)
+                    }}
+                    className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                  >
+                    <Table2 className="w-4 h-4" />
+                    <span className="text-sm font-medium">Tabel Sloturi</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      navigate('/expenditures/electric')
+                      setShowMenu(false)
+                    }}
+                    className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                  >
+                    <span className="text-lg">⚡</span>
+                    <span className="text-sm font-medium">Electrica</span>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      navigate('/expenditures/advanced-analytics')
+                      setShowMenu(false)
+                    }}
+                    className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                  >
+                    <Brain className="w-4 h-4" />
+                    <span className="text-sm font-medium">Analiză Avansată</span>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      navigate('/expenditures/pos-banca')
+                      setShowMenu(false)
+                    }}
+                    className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                  >
+                    <Building2 className="w-4 h-4" />
+                    <span className="text-sm font-medium">POS & Bancă</span>
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
         
         {/* Filters - ordine corectă */}
         <div className="card p-5 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-2xl shadow-xl border border-transparent backdrop-blur-2xl">
-          {/* Rând 1: Quick Date Buttons + Filtre Departament/Tip/Locație + Export */}
+          {/* Rând 1: Bară de Căutare + Filtre Departament, Tip, Locație - Pe același rând */}
           <div className="flex flex-wrap items-end gap-3 mb-4">
-            {/* Quick Date Buttons (Azi / Săpt / Luna curentă / Luna trecută / Anul curent) */}
-            <div className="flex items-center gap-2">
-              {[
-                { id: 'azi', label: 'Azi', icon: Clock },
-                { id: 'saptamana-curenta', label: 'Săpt', icon: CalendarDays },
-                { id: 'luna-curenta', label: 'Luna curentă', icon: Calendar },
-                { id: 'luna-anterioara', label: 'Luna trecută', icon: CalendarRange },
-                { id: 'anul-curent', label: 'Anul curent', icon: Calendar },
-                { id: 'anul-trecut', label: 'Anul trecut', icon: Calendar },
-                { id: 'toate', label: 'Toate', icon: Calendar }
-                ].map((btn) => {
-                  const IconComponent = btn.icon
-                  return (
-              <button
-                      key={btn.id}
-                      onClick={() => applyQuickDateFilter(btn.id)}
-                      className="relative inline-flex items-center justify-center gap-2 px-3 py-2 rounded-2xl text-white text-xs font-semibold transition-all overflow-hidden border hover:scale-105 active:scale-95"
-                      style={{
-                        height: '40px',
-                        minWidth: '80px',
-                        background: isDark 
-                          ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
-                          : 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)',
-                        borderColor: 'rgba(255, 255, 255, 0.25)',
-                        boxShadow: isDark
-                          ? '0 6px 18px rgba(15, 23, 42, 0.5)'
-                          : '0 6px 18px rgba(30, 58, 138, 0.35)'
-                      }}
-                    >
-                      <IconComponent className="w-3.5 h-3.5 relative z-10" style={{ color: 'white' }} />
-                      <span className="relative z-10">{btn.label}</span>
-              </button>
-                  )
-                })}
+            {/* Bară de Căutare - Ocupă spațiul rămas */}
+            <div className="relative flex-1 min-w-[250px]">
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                Căutare
+              </label>
+              <div className="relative flex items-center">
+                <Search className="absolute left-3 w-4 h-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  placeholder="Caută în Departament, Tip, Locație, Sumă..."
+                  className="w-full pl-10 pr-10 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                />
+                {searchText && (
+                  <button
+                    onClick={() => setSearchText('')}
+                    className="absolute right-3 p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded transition-colors"
+                    title="Șterge căutarea"
+                  >
+                    <X className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* Filtre Departament, Tip, Locație - după "Anul curent", mutat cât mai aproape de capătul din dreapta */}
-            <div className="flex items-end gap-3 ml-auto">
+            {/* Filtre Departament, Tip, Locație */}
+            <div className="flex items-end gap-3">
               <div className="relative">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Departament
+                </label>
                 <select
                   value={departmentFilter}
                   onChange={(e) => {
@@ -1369,132 +1425,198 @@ const Expenditures = () => {
                     }
                     setDepartmentFilter(newValue)
                   }}
-                  className="rounded-2xl text-white text-sm font-semibold border transition-all"
-                  style={{
-                    height: '40px',
-                    paddingLeft: '12px',
-                    paddingRight: '32px',
-                    width: 'auto',
-                    minWidth: '180px',
-                    background: isDark 
-                      ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
-                      : 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)',
-                    borderColor: 'rgba(255, 255, 255, 0.25)',
-                    boxShadow: isDark
-                      ? '0 6px 18px rgba(15, 23, 42, 0.5)'
-                      : '0 6px 18px rgba(30, 58, 138, 0.35)'
-                  }}
+                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                  style={{ minWidth: '180px' }}
                 >
-                  <option value="all">Departament: Toate</option>
+                  <option value="all">Toate</option>
                   {uniqueDepartments.map((dept) => (
                     <option key={dept} value={dept}>
                       {dept}
                     </option>
                   ))}
                 </select>
-          </div>
+              </div>
 
               <div className="relative">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Tip
+                </label>
                 <select
                   value={expenditureTypeFilter}
                   onChange={(e) => setExpenditureTypeFilter(e.target.value)}
-                  className="rounded-2xl text-white text-sm font-semibold border transition-all"
-                  style={{
-                    height: '40px',
-                    paddingLeft: '12px',
-                    paddingRight: '32px',
-                    width: 'auto',
-                    minWidth: '180px',
-                    background: isDark 
-                      ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
-                      : 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)',
-                    borderColor: 'rgba(255, 255, 255, 0.25)',
-                    boxShadow: isDark
-                      ? '0 6px 18px rgba(15, 23, 42, 0.5)'
-                      : '0 6px 18px rgba(30, 58, 138, 0.35)'
-                  }}
+                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                  style={{ minWidth: '180px' }}
                 >
-                  <option value="all">Tip: Toate</option>
+                  <option value="all">Toate</option>
                   {uniqueExpenditureTypes.map((type) => (
                     <option key={type} value={type}>
                       {type}
                     </option>
                   ))}
                 </select>
-        </div>
+              </div>
         
               {uniqueLocations.length > 0 && (
                 <div className="relative">
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    Locație
+                  </label>
                   <select
                     value={locationFilter}
                     onChange={(e) => setLocationFilter(e.target.value)}
-                    className="rounded-2xl text-white text-sm font-semibold border transition-all"
-                    style={{
-                      height: '40px',
-                      paddingLeft: '12px',
-                      paddingRight: '32px',
-                      width: 'auto',
-                      minWidth: '180px',
-                      background: isDark 
-                        ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
-                        : 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)',
-                      borderColor: 'rgba(255, 255, 255, 0.25)',
-                      boxShadow: isDark
-                        ? '0 6px 18px rgba(15, 23, 42, 0.5)'
-                        : '0 6px 18px rgba(30, 58, 138, 0.35)'
-                    }}
+                    className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                    style={{ minWidth: '180px' }}
                   >
-                    <option value="all">Locație: Toate</option>
+                    <option value="all">Toate</option>
                     {uniqueLocations.map((loc) => (
                       <option key={loc} value={loc}>
                         {loc}
                       </option>
                     ))}
                   </select>
-            </div>
+                </div>
               )}
             </div>
           </div>
           
-          {/* Rând 2: DateRangeSelector + Text Perioadă pe același rând + Export Buttons la capătul din dreapta */}
-          <div className="flex items-center gap-3 mb-2 relative z-[50]">
-            <div className="min-w-[260px] max-w-md">
-                <DateRangeSelector
-                  startDate={dateRange.startDate}
-                  endDate={dateRange.endDate}
-                availableDays={availableDays}
-                  onChange={(newRange) => {
-                    setDateRange(newRange)
+          {/* Rând 2: Date Picker Clasic și Comod */}
+          <div className="mb-4">
+            {/* Input-uri de date */}
+            <div className="flex items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm mb-2">
+              {/* Date Inputs - Clasic și Simplu */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                    De la:
+                  </label>
+                  <input
+                    type="date"
+                    value={dateRange.startDate}
+                    onChange={(e) => {
+                      setDateRange({ ...dateRange, startDate: e.target.value })
+                      setSelectedDateFilter('custom')
+                    }}
+                    className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                    style={{ minWidth: '160px' }}
+                  />
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                    Până la:
+                  </label>
+                  <input
+                    type="date"
+                    value={dateRange.endDate}
+                    onChange={(e) => {
+                      setDateRange({ ...dateRange, endDate: e.target.value })
+                      setSelectedDateFilter('custom')
+                    }}
+                    className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                    style={{ minWidth: '160px' }}
+                  />
+                </div>
+              </div>
+
+              {/* Săgeți Navigare Perioadă */}
+              <div className="flex items-center gap-1 border-l border-r border-slate-200 dark:border-slate-700 px-3">
+                <button
+                  onClick={() => {
+                    const start = new Date(dateRange.startDate)
+                    const end = new Date(dateRange.endDate)
+                    const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24))
+                    
+                    start.setDate(start.getDate() - diffDays - 1)
+                    end.setDate(end.getDate() - diffDays - 1)
+                    
+                    setDateRange({
+                      startDate: formatDateLocal(start),
+                      endDate: formatDateLocal(end)
+                    })
                     setSelectedDateFilter('custom')
                   }}
-                />
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                  title="Perioadă anterioară"
+                >
+                  <ChevronLeft className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                </button>
+                <button
+                  onClick={() => {
+                    const start = new Date(dateRange.startDate)
+                    const end = new Date(dateRange.endDate)
+                    const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24))
+                    
+                    start.setDate(start.getDate() + diffDays + 1)
+                    end.setDate(end.getDate() + diffDays + 1)
+                    
+                    setDateRange({
+                      startDate: formatDateLocal(start),
+                      endDate: formatDateLocal(end)
+                    })
+                    setSelectedDateFilter('custom')
+                  }}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                  title="Perioadă următoare"
+                >
+                  <ChevronRight className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                </button>
               </div>
-              
-            {/* Text Perioadă pe același rând cu DateRangeSelector, centrat vertical cu săgețile < > */}
-            <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center">
-              Perioadă: <span className="font-semibold ml-1">{dateRange.startDate}</span> –{' '}
-              <span className="font-semibold">{dateRange.endDate}</span>
+
+              {/* Text Perioadă Afișată */}
+              <div className="flex-1 text-sm text-slate-600 dark:text-slate-400">
+                <span className="font-semibold text-slate-900 dark:text-slate-100">
+                  {new Date(dateRange.startDate).toLocaleDateString('ro-RO', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                </span>
+                {' – '}
+                <span className="font-semibold text-slate-900 dark:text-slate-100">
+                  {new Date(dateRange.endDate).toLocaleDateString('ro-RO', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                </span>
               </div>
-              
-            {/* Export PDF - la capătul din dreapta pe rândul 2 */}
-            <div className="flex items-center gap-3 ml-auto">
-              <button
-                onClick={handleExportPDF}
-                className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-xs font-semibold border transition-all hover:scale-105 active:scale-95"
-                style={{
-                  height: '40px',
-                  background: isDark 
-                    ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
-                    : 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)',
-                  borderColor: 'rgba(255, 255, 255, 0.25)',
-                  boxShadow: isDark
-                    ? '0 6px 18px rgba(15, 23, 42, 0.5)'
-                    : '0 6px 18px rgba(30, 58, 138, 0.35)'
-                }}
-              >
-                <FileText className="w-4 h-4" />
-                <span>Export PDF</span>
-              </button>
+                
+              {/* Export PDF - la capătul din dreapta */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleExportPDF}
+                  className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-all shadow-sm hover:shadow-md"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Export PDF</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Butoane Rapide cu Iconițe și Text - Sub Input-uri */}
+            <div className="flex items-center gap-2 px-1 flex-wrap">
+              {[
+                { id: 'azi', label: 'Azi', icon: Clock },
+                { id: 'saptamana-curenta', label: 'Săpt', icon: CalendarDays },
+                { id: 'luna-curenta', label: 'Luna curentă', icon: Calendar },
+                { id: 'luna-anterioara', label: 'Luna trecută', icon: CalendarRange },
+                { id: 'anul-curent', label: 'Anul curent', icon: Calendar },
+                { id: 'anul-trecut', label: 'Anul trecut', icon: Calendar },
+                { id: 'toate', label: 'Toate', icon: Calendar }
+              ].map((btn) => {
+                const IconComponent = btn.icon
+                const isActive = selectedDateFilter === btn.id || (
+                  btn.id === 'azi' && selectedDateFilter === 'azi'
+                )
+                return (
+                  <button
+                    key={btn.id}
+                    onClick={() => applyQuickDateFilter(btn.id)}
+                    className={`relative inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-all hover:scale-105 active:scale-95 text-sm font-medium ${
+                      isActive
+                        ? 'bg-blue-500 text-white shadow-md'
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                    }`}
+                    title={btn.label}
+                  >
+                    <IconComponent className="w-4 h-4" />
+                    <span>{btn.label}</span>
+                  </button>
+                )
+              })}
             </div>
           </div>
         </div>

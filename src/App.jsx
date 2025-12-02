@@ -25,6 +25,7 @@ import SlotDetail from './pages/SlotDetail'
 import SlotHistory from './pages/SlotHistory'
 import CyberImport from './pages/CyberImport'
 import Warehouse from './pages/Warehouse'
+import InventoryCentralizer from './pages/InventoryCentralizer'
 import Metrology from './pages/Metrology'
 import ApprovalDetail from './pages/ApprovalDetail'
 import CVTDetail from './pages/CVTDetail'
@@ -99,6 +100,7 @@ function App() {
             <Route path="/slots/cyber-import" element={<RoleProtectedRoute module={MODULES.CYBER_IMPORT}><CyberImport /></RoleProtectedRoute>} />
             <Route path="/slots/:id" element={<RoleProtectedRoute module={MODULES.SLOTS}><SlotDetail /></RoleProtectedRoute>} />
             <Route path="/warehouse" element={<RoleProtectedRoute module={MODULES.WAREHOUSE}><Warehouse /></RoleProtectedRoute>} />
+            <Route path="/warehouse/inventory-centralizer" element={<RoleProtectedRoute module={MODULES.WAREHOUSE}><InventoryCentralizer /></RoleProtectedRoute>} />
             <Route path="/metrology" element={<RoleProtectedRoute module={MODULES.METROLOGY}><Metrology /></RoleProtectedRoute>} />
             <Route path="/metrology/cvt/:id" element={<RoleProtectedRoute module={MODULES.METROLOGY}><CVTDetail /></RoleProtectedRoute>} />
             <Route path="/approval-detail/:id" element={<RoleProtectedRoute module={MODULES.METROLOGY}><ApprovalDetail /></RoleProtectedRoute>} />
@@ -141,7 +143,7 @@ function App() {
             <Route path="/incasari/operational" element={<RoleProtectedRoute module={MODULES.INCASARI}><IncasariOperational /></RoleProtectedRoute>} />
             <Route path="/incasari/monthly" element={<RoleProtectedRoute module={MODULES.INCASARI}><IncasariMonthly /></RoleProtectedRoute>} />
             <Route path="/incasari/dashboard" element={<RoleProtectedRoute module={MODULES.INCASARI}><Incasari /></RoleProtectedRoute>} />
-            <Route path="/incasari" element={<Navigate to="/incasari/monthly" replace />} />
+            <Route path="/incasari" element={<Navigate to="/incasari/dashboard" replace />} />
             <Route path="/incasari/smart-analytics" element={<RoleProtectedRoute module={MODULES.INCASARI}><IncasariSmartAnalytics /></RoleProtectedRoute>} />
             <Route path="/incasari/location-pl/:locationName" element={<RoleProtectedRoute module={MODULES.INCASARI}><LocationPLDetail /></RoleProtectedRoute>} />
             <Route path="/incasari/cyber-table" element={<RoleProtectedRoute module={MODULES.INCASARI}><CyberTable /></RoleProtectedRoute>} />

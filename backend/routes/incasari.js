@@ -2484,6 +2484,7 @@ router.get('/operational', authenticateToken, async (req, res) => {
         FROM incasari_daily
         WHERE machine_id = ANY($1)
           AND audit_date >= $2::date
+          AND location_id != 3
         GROUP BY DATE_TRUNC('month', audit_date)
         ORDER BY DATE_TRUNC('month', audit_date) DESC
       `
@@ -2504,6 +2505,7 @@ router.get('/operational', authenticateToken, async (req, res) => {
           COALESCE(SUM(cb_real), 0) AS total_cashback_real
         FROM incasari_daily
         WHERE audit_date >= $1::date
+          AND location_id != 3
         GROUP BY DATE_TRUNC('month', audit_date)
         ORDER BY DATE_TRUNC('month', audit_date) DESC
       `
@@ -2579,6 +2581,336 @@ router.get('/operational', authenticateToken, async (req, res) => {
     return res.status(500).json({
       success: false,
       error: error.message || 'Eroare la obținerea datelor operational'
+    })
+  }
+})
+
+// GET /api/incasari/operational-by-location - Date operational defalcate pe locații pentru o lună specifică
+router.get('/operational-by-location', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available'
+      })
+    }
+
+    const { year, month, location, provider, cabinet, gameMix, includeLocations } = req.query
+
+    if (!year || !month) {
+      return res.status(400).json({
+        success: false,
+        error: 'Year and month are required'
+      })
+    }
+
+    const locationsArray =
+      typeof includeLocations === 'string' && includeLocations.length > 0
+        ? includeLocations.split(',').map((s) => normalizeLocationName(s)).filter(Boolean)
+        : undefined
+
+    const activeIds = getActiveMachineIds({
+      location,
+      provider,
+      cabinet,
+      gameMix,
+      includeLocations: locationsArray
+    })
+
+    // Query pentru date pe locații pentru luna specificată
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`
+    const endDate = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0]
+    
+    let sql
+    let params
+
+    if (activeIds && activeIds.length > 0) {
+      sql = `
+        SELECT
+          location_id,
+          COALESCE(SUM(in_amount), 0) AS total_in,
+          COALESCE(SUM(out_amount), 0) AS total_out,
+          COALESCE(SUM(win), 0) AS total_win,
+          COALESCE(SUM(bet), 0) AS total_bet,
+          COALESCE(SUM(profit), 0) AS total_ggr,
+          COALESCE(SUM(jackpot), 0) AS total_jackpot,
+          COALESCE(SUM(cb_raffle), 0) AS total_raffles,
+          COALESCE(SUM(hh), 0) AS total_hh,
+          COALESCE(SUM(cb_real), 0) AS total_cashback_real
+        FROM incasari_daily
+        WHERE machine_id = ANY($1)
+          AND audit_date >= $2::date
+          AND audit_date <= $3::date
+          AND location_id != 3
+        GROUP BY location_id
+        ORDER BY location_id
+      `
+      params = [activeIds, startDate, endDate]
+    } else {
+      sql = `
+        SELECT
+          location_id,
+          COALESCE(SUM(in_amount), 0) AS total_in,
+          COALESCE(SUM(out_amount), 0) AS total_out,
+          COALESCE(SUM(win), 0) AS total_win,
+          COALESCE(SUM(bet), 0) AS total_bet,
+          COALESCE(SUM(profit), 0) AS total_ggr,
+          COALESCE(SUM(jackpot), 0) AS total_jackpot,
+          COALESCE(SUM(cb_raffle), 0) AS total_raffles,
+          COALESCE(SUM(hh), 0) AS total_hh,
+          COALESCE(SUM(cb_real), 0) AS total_cashback_real
+        FROM incasari_daily
+        WHERE audit_date >= $1::date
+          AND audit_date <= $2::date
+          AND location_id != 3
+        GROUP BY location_id
+        ORDER BY location_id
+      `
+      params = [startDate, endDate]
+    }
+
+    const result = await pool.query(sql, params)
+
+    // Încarcă datele pentru locații
+    let locationsData = []
+    try {
+      locationsData = loadExportedData('locations.json')
+      if (!Array.isArray(locationsData)) {
+        locationsData = []
+      }
+    } catch (error) {
+      console.error('❌ Eroare la încărcarea locations.json:', error)
+      locationsData = []
+    }
+
+    const locationMap = new Map()
+    locationsData.forEach((loc) => {
+      if (loc && typeof loc.id !== 'undefined') {
+        locationMap.set(String(loc.id), loc.name || loc.location || `Loc ${loc.id}`)
+      }
+    })
+
+    // Obține cheltuielile de marketing pe locații pentru luna specificată
+    const marketingSql = `
+      SELECT
+        location_name,
+        COALESCE(SUM(amount), 0) AS total_marketing
+      FROM expenditures_sync
+      WHERE operational_date >= $1::date
+        AND operational_date <= $2::date
+        AND (LOWER(TRIM(COALESCE(department_name, ''))) LIKE '%marketing%'
+             OR LOWER(TRIM(COALESCE(expenditure_type, ''))) LIKE '%marketing%')
+      GROUP BY location_name
+    `
+    const marketingResult = await pool.query(marketingSql, [startDate, endDate])
+    const marketingMap = new Map()
+    marketingResult.rows.forEach((row) => {
+      const normalizedLocationName = normalizeLocationName(row.location_name)
+      const existing = marketingMap.get(normalizedLocationName) || 0
+      marketingMap.set(normalizedLocationName, existing + Number(row.total_marketing || 0))
+    })
+
+    const rows = (result.rows || []).map((row) => {
+      const locationId = row.location_id
+      const key = locationId === null || typeof locationId === 'undefined' ? null : String(locationId)
+      const locationName = key ? locationMap.get(key) || `Loc ${key}` : 'Nesetat'
+      const normalizedLocationName = normalizeLocationName(locationName)
+      const totalMarketing = marketingMap.get(normalizedLocationName) || 0
+
+      return {
+        locationId,
+        locationName,
+        in: Number(row.total_in || 0),
+        out: Number(row.total_out || 0),
+        win: Number(row.total_win || 0),
+        bet: Number(row.total_bet || 0),
+        ggr: Number(row.total_ggr || 0),
+        jackpots: Number(row.total_jackpot || 0),
+        raffles: Number(row.total_raffles || 0),
+        hh: Number(row.total_hh || 0),
+        cashbackReal: Number(row.total_cashback_real || 0),
+        marketing: totalMarketing
+      }
+    })
+
+    return res.json({
+      success: true,
+      year: parseInt(year),
+      month: parseInt(month),
+      rows
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/operational-by-location:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la obținerea datelor operational pe locații'
+    })
+  }
+})
+
+// GET /api/incasari/operational-by-provider-cabinet - Date operational defalcate pe provider și cabinet pentru o locație și lună specifică
+router.get('/operational-by-provider-cabinet', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database pool not available'
+      })
+    }
+
+    const { year, month, locationId, location, provider, cabinet, gameMix, includeLocations } = req.query
+
+    if (!year || !month || !locationId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Year, month and locationId are required'
+      })
+    }
+
+    const locationsArray =
+      typeof includeLocations === 'string' && includeLocations.length > 0
+        ? includeLocations.split(',').map((s) => normalizeLocationName(s)).filter(Boolean)
+        : undefined
+
+    const activeIds = getActiveMachineIds({
+      location,
+      provider,
+      cabinet,
+      gameMix,
+      includeLocations: locationsArray
+    })
+
+    // Query pentru date pe provider și cabinet pentru locația și luna specificată
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`
+    const endDate = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0]
+    
+    let sql
+    let params
+
+    // Obține provider și cabinet din slots.json (fallback)
+    const slots = getActiveSlots()
+    const slotMap = new Map()
+    slots.forEach(slot => {
+      if (slot.id) {
+        slotMap.set(Number(slot.id), {
+          provider: slot.provider || '',
+          cabinet: slot.cabinet || ''
+        })
+      }
+    })
+
+    if (activeIds && activeIds.length > 0) {
+      sql = `
+        SELECT
+          i.machine_id,
+          COALESCE(SUM(i.in_amount), 0) AS total_in,
+          COALESCE(SUM(i.out_amount), 0) AS total_out,
+          COALESCE(SUM(i.win), 0) AS total_win,
+          COALESCE(SUM(i.bet), 0) AS total_bet,
+          COALESCE(SUM(i.profit), 0) AS total_ggr,
+          COALESCE(SUM(i.jackpot), 0) AS total_jackpot,
+          COALESCE(SUM(i.cb_raffle), 0) AS total_raffles,
+          COALESCE(SUM(i.hh), 0) AS total_hh,
+          COALESCE(SUM(i.cb_real), 0) AS total_cashback_real
+        FROM incasari_daily i
+        WHERE i.machine_id = ANY($1)
+          AND i.audit_date >= $2::date
+          AND i.audit_date <= $3::date
+          AND i.location_id = $4
+          AND i.location_id != 3
+        GROUP BY i.machine_id
+        ORDER BY i.machine_id
+      `
+      params = [activeIds, startDate, endDate, locationId]
+    } else {
+      sql = `
+        SELECT
+          i.machine_id,
+          COALESCE(SUM(i.in_amount), 0) AS total_in,
+          COALESCE(SUM(i.out_amount), 0) AS total_out,
+          COALESCE(SUM(i.win), 0) AS total_win,
+          COALESCE(SUM(i.bet), 0) AS total_bet,
+          COALESCE(SUM(i.profit), 0) AS total_ggr,
+          COALESCE(SUM(i.jackpot), 0) AS total_jackpot,
+          COALESCE(SUM(i.cb_raffle), 0) AS total_raffles,
+          COALESCE(SUM(i.hh), 0) AS total_hh,
+          COALESCE(SUM(i.cb_real), 0) AS total_cashback_real
+        FROM incasari_daily i
+        WHERE i.audit_date >= $1::date
+          AND i.audit_date <= $2::date
+          AND i.location_id = $3
+          AND i.location_id != 3
+        GROUP BY i.machine_id
+        ORDER BY i.machine_id
+      `
+      params = [startDate, endDate, locationId]
+    }
+
+    const result = await pool.query(sql, params)
+
+    // Grupează pe provider și cabinet folosind slotMap
+    const groupedData = new Map()
+    result.rows.forEach((row) => {
+      const slotInfo = slotMap.get(Number(row.machine_id)) || { provider: '', cabinet: '' }
+      const key = `${slotInfo.provider}|||${slotInfo.cabinet}`
+      
+      if (!groupedData.has(key)) {
+        groupedData.set(key, {
+          provider: slotInfo.provider,
+          cabinet: slotInfo.cabinet,
+          in: 0,
+          out: 0,
+          win: 0,
+          bet: 0,
+          ggr: 0,
+          jackpots: 0,
+          raffles: 0,
+          hh: 0,
+          cashbackReal: 0
+        })
+      }
+      
+      const group = groupedData.get(key)
+      group.in += Number(row.total_in || 0)
+      group.out += Number(row.total_out || 0)
+      group.win += Number(row.total_win || 0)
+      group.bet += Number(row.total_bet || 0)
+      group.ggr += Number(row.total_ggr || 0)
+      group.jackpots += Number(row.total_jackpot || 0)
+      group.raffles += Number(row.total_raffles || 0)
+      group.hh += Number(row.total_hh || 0)
+      group.cashbackReal += Number(row.total_cashback_real || 0)
+    })
+
+    const rows = Array.from(groupedData.values()).map((group) => ({
+      provider: group.provider,
+      cabinet: group.cabinet,
+      in: group.in,
+      out: group.out,
+      win: group.win,
+      bet: group.bet,
+      ggr: group.ggr,
+      jackpots: group.jackpots,
+      raffles: group.raffles,
+      hh: group.hh,
+      cashbackReal: group.cashbackReal,
+      marketing: 0 // Marketing nu se calculează pe provider/cabinet
+    }))
+
+    return res.json({
+      success: true,
+      year: parseInt(year),
+      month: parseInt(month),
+      locationId: parseInt(locationId),
+      rows
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/operational-by-provider-cabinet:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la obținerea datelor operational pe provider/cabinet'
     })
   }
 })
@@ -2771,7 +3103,14 @@ router.post('/sync', authenticateToken, async (req, res) => {
         console.log('✅ [INCASARI SYNC] Sincronizare finalizată cu succes')
       } else {
         console.error(`❌ [INCASARI SYNC] Sincronizare finalizată cu eroare (code: ${code})`)
+        console.error(`❌ [INCASARI SYNC] Output final:`, global._incasariSyncOutput)
       }
+    })
+    
+    child.on('error', (error) => {
+      global._incasariSyncRunning = false
+      console.error('❌ [INCASARI SYNC] Eroare la pornirea procesului:', error)
+      global._incasariSyncOutput += `\n❌ Eroare: ${error.message}\n`
     })
   } catch (error) {
     global._incasariSyncRunning = false

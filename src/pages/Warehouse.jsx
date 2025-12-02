@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import ExportButtons from '../components/ExportButtons'
 import { useData } from '../contexts/DataContext'
-import { Package, Plus, Search, Upload, Download, Edit, Trash2, Eye, BarChart3, CheckCircle, AlertCircle, Activity } from 'lucide-react'
+import { Package, Plus, Search, Upload, Download, Edit, Trash2, Eye, BarChart3, CheckCircle, AlertCircle, Activity, FileSpreadsheet } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import WarehouseModal from '../components/modals/WarehouseModal'
 import StatCard from '../components/StatCard'
@@ -10,6 +11,7 @@ import { toast } from 'react-hot-toast'
 import { formatGameMixName } from '../utils/gameMixFormatter'
 
 const Warehouse = () => {
+  const navigate = useNavigate()
   const { warehouse, slots, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedItems, setSelectedItems] = useState([])
@@ -358,6 +360,13 @@ const Warehouse = () => {
               </div>
             </div>
             <div className="flex items-center space-x-3">
+              <button
+                onClick={() => navigate('/warehouse/inventory-centralizer')}
+                className="btn-secondary flex items-center space-x-2"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Inventar Centralizator</span>
+              </button>
               <ExportButtons 
                 onExportExcel={handleExportExcel}
                 onExportPDF={handleExportPDF}

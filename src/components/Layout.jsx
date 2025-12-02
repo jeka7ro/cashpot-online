@@ -267,6 +267,14 @@ const Layout = ({ children }) => {
       module: MODULES.SLOTS
     },
     { 
+      id: 'warehouse', 
+      label: 'Depozit', 
+      icon: Package, 
+      path: '/warehouse',
+      count: warehouse.length,
+      module: MODULES.WAREHOUSE
+    },
+    { 
       id: 'metrology', 
       label: 'Metrologie CVT', 
       icon: Activity, 

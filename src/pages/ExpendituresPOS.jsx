@@ -3,15 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
-import { DollarSign, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, TrendingUp, TrendingDown, Table2, ArrowLeft, Coins, Brain, Briefcase, BarChart3, RefreshCw, Settings } from 'lucide-react'
+import { DollarSign, Download, FileSpreadsheet, FileText, Filter, Calendar, Building2, TrendingUp, TrendingDown, Table2, ArrowLeft, Coins, Brain, Briefcase, BarChart3, RefreshCw, Settings, Clock, CalendarDays, CalendarRange, Search, X } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 import ExpendituresCharts from '../components/ExpendituresCharts'
 import ExpendituresTableSimple from '../components/ExpendituresTableSimple'
-import DateRangeSelector from '../components/DateRangeSelector'
 import { generateAIInsights } from '../utils/aiInsights'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Label, LabelList } from 'recharts'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 const ExpendituresPOS = () => {
   const { user } = useAuth()
@@ -157,6 +157,7 @@ const ExpendituresPOS = () => {
   const [expenditureTypeFilter, setExpenditureTypeFilter] = useState(savedPrefs?.expenditureTypeFilter || 'all')
   const [locationFilter, setLocationFilter] = useState(savedPrefs?.locationFilter || 'all') // NEW!
   const [selectedDateFilter, setSelectedDateFilter] = useState(savedPrefs?.selectedDateFilter || 'anul-curent')
+  const [searchText, setSearchText] = useState('')
   
   // Save preferences whenever filters change
   useEffect(() => {
@@ -345,6 +346,21 @@ const ExpendituresPOS = () => {
       filteredData = filteredData.filter(item => item.location_name === locationFilter)
     }
     
+    // SEARCH FILTER
+    if (searchText.trim()) {
+      const searchLower = searchText.toLowerCase()
+      filteredData = filteredData.filter(item => {
+        const searchableText = [
+          item.department_name || '',
+          item.expenditure_type || '',
+          item.location_name || '',
+          item.description || '',
+          item.amount ? String(item.amount) : ''
+        ].join(' ').toLowerCase()
+        return searchableText.includes(searchLower)
+      })
+    }
+    
     // Get unique locations and expenditure types
     const locationsSet = new Set()
     const expenditureTypesSet = new Set()
@@ -435,7 +451,7 @@ const ExpendituresPOS = () => {
     }
     
     return { ...result, filteredData }
-  }, [expendituresData, dateRange, departmentFilter, expenditureTypeFilter, locationFilter])
+  }, [expendituresData, dateRange, departmentFilter, expenditureTypeFilter, locationFilter, searchText])
   
   // Filter data by date range for charts and cards (SAME FILTERS as matrix!)
   const filteredExpendituresForCharts = React.useMemo(() => {
@@ -473,8 +489,23 @@ const ExpendituresPOS = () => {
       filtered = filtered.filter(item => item.location_name === locationFilter)
     }
     
+    // SEARCH FILTER (pentru charts!)
+    if (searchText.trim()) {
+      const searchLower = searchText.toLowerCase()
+      filtered = filtered.filter(item => {
+        const searchableText = [
+          item.department_name || '',
+          item.expenditure_type || '',
+          item.location_name || '',
+          item.description || '',
+          item.amount ? String(item.amount) : ''
+        ].join(' ').toLowerCase()
+        return searchableText.includes(searchLower)
+      })
+    }
+    
     return filtered
-  }, [expendituresData, dateRange, departmentFilter, locationFilter])
+  }, [expendituresData, dateRange, departmentFilter, locationFilter, searchText])
   
   // Generate AI Insights (using filtered data)
   const aiInsights = React.useMemo(() => {
@@ -615,65 +646,65 @@ const ExpendituresPOS = () => {
           </div>
         </div>
         
-        {/* Filters - MUTAT ÎN VÂRFUL PAGINII! */}
-        <div className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center">
-              <Filter className="w-5 h-5 mr-2 text-blue-500" />
-              Filtre
-            </h2>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
-              💾 Preferințele tale sunt salvate automat
-            </div>
-          </div>
-          
-          <div className="space-y-4">
-              {/* Filters Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Date Range Selector */}
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  📅 Perioadă
-                </label>
-                <DateRangeSelector
-                  startDate={dateRange.startDate}
-                  endDate={dateRange.endDate}
-                  onChange={(newRange) => {
-                    setDateRange(newRange)
-                    setSelectedDateFilter('custom')
-                  }}
+        {/* Filters - Nou Design */}
+        <div className="card p-5 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-2xl shadow-xl border border-transparent backdrop-blur-2xl mb-6">
+          {/* Rând 1: Bară de Căutare + Filtre - Pe același rând */}
+          <div className="flex flex-wrap items-end gap-3 mb-4">
+            {/* Bară de Căutare - Ocupă spațiul rămas */}
+            <div className="relative flex-1 min-w-[250px]">
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                Căutare
+              </label>
+              <div className="relative flex items-center">
+                <Search className="absolute left-3 w-4 h-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  placeholder="Caută în Departament, Tip, Locație, Sumă..."
+                  className="w-full pl-10 pr-10 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
                 />
+                {searchText && (
+                  <button
+                    onClick={() => setSearchText('')}
+                    className="absolute right-3 p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded transition-colors"
+                    title="Șterge căutarea"
+                  >
+                    <X className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                  </button>
+                )}
               </div>
-              
-              {/* Department Filter */}
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  <Briefcase className="w-4 h-4 inline mr-1" />
+            </div>
+
+            {/* Filtre Departament, Tip, Locație */}
+            <div className="flex items-end gap-3">
+              <div className="relative">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
                   Departament
                 </label>
                 <select
                   value={departmentFilter}
                   onChange={(e) => setDepartmentFilter(e.target.value)}
-                  className="input-field"
+                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                  style={{ minWidth: '180px' }}
                 >
                   <option value="all">POS & Bancă</option>
                   <option value="POS">POS</option>
                   <option value="Bancă">Bancă</option>
                 </select>
               </div>
-              
-              {/* Expenditure Type Filter */}
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  <Filter className="w-4 h-4 inline mr-1" />
-                  Tip Cheltuială
+
+              <div className="relative">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Tip
                 </label>
                 <select
                   value={expenditureTypeFilter}
                   onChange={(e) => setExpenditureTypeFilter(e.target.value)}
-                  className="input-field"
+                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                  style={{ minWidth: '180px' }}
                 >
-                  <option value="all">Toate Tipurile</option>
+                  <option value="all">Toate</option>
                   {uniqueExpenditureTypes.map(type => (
                     <option key={type} value={type}>{type}</option>
                   ))}
@@ -682,26 +713,66 @@ const ExpendituresPOS = () => {
             </div>
           </div>
           
-          {/* Quick Actions */}
-          <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-            <div className="text-sm text-slate-600 dark:text-slate-400">
-              Perioadă: <span className="font-semibold">{dateRange.startDate}</span> - <span className="font-semibold">{dateRange.endDate}</span>
-            </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={handleExportExcel}
-                className="btn-secondary flex items-center space-x-2 text-sm"
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                <span>Excel</span>
-              </button>
-              <button
-                onClick={handleExportPDF}
-                className="btn-secondary flex items-center space-x-2 text-sm"
-              >
-                <FileText className="w-4 h-4" />
-                <span>PDF</span>
-              </button>
+          {/* Rând 2: Date Picker */}
+          <div className="mb-4">
+              {/* Filters Grid */}
+              <div className="space-y-2">
+              {/* Date Range Selector - Nou Design */}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  📅 Perioadă
+                </label>
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                  <input
+                    type="date"
+                    value={dateRange.startDate}
+                    onChange={(e) => {
+                      setDateRange({ ...dateRange, startDate: e.target.value })
+                      setSelectedDateFilter('custom')
+                    }}
+                    className="px-3 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500 flex-1"
+                  />
+                  <span className="text-slate-500 dark:text-slate-400">–</span>
+                  <input
+                    type="date"
+                    value={dateRange.endDate}
+                    onChange={(e) => {
+                      setDateRange({ ...dateRange, endDate: e.target.value })
+                      setSelectedDateFilter('custom')
+                    }}
+                    className="px-3 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500 flex-1"
+                  />
+                </div>
+                {/* Butoane Rapide */}
+                <div className="flex items-center gap-1 flex-wrap mt-2">
+                  {[
+                    { id: 'azi', label: 'Azi', icon: Clock },
+                    { id: 'saptamana-curenta', label: 'Săpt', icon: CalendarDays },
+                    { id: 'luna-curenta', label: 'Luna curentă', icon: Calendar },
+                    { id: 'luna-anterioara', label: 'Luna trecută', icon: CalendarRange },
+                    { id: 'anul-curent', label: 'Anul curent', icon: Calendar },
+                    { id: 'toate', label: 'Toate', icon: Calendar }
+                  ].map((btn) => {
+                    const IconComponent = btn.icon
+                    const isActive = selectedDateFilter === btn.id
+                    return (
+                      <button
+                        key={btn.id}
+                        onClick={() => applyQuickDateFilter(btn.id)}
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all ${
+                          isActive
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                        }`}
+                      >
+                        <IconComponent className="w-3 h-3" />
+                        <span>{btn.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </div>

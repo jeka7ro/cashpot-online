@@ -1428,13 +1428,24 @@ console.log('🌐 CORS allowed origins:', allowedOrigins)
 // Health check endpoint
 // PRIMARY HEALTH CHECK - NO DB DEPENDENCY (for Render health checks)
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    version: '1.0.49',
-    message: 'Server is running'
-  })
+  try {
+    res.status(200).json({ 
+      status: 'OK', 
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      version: '1.0.49',
+      message: 'Server is running'
+    })
+  } catch (error) {
+    console.error('Health check error:', error)
+    res.status(200).json({ 
+      status: 'OK', 
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      version: '1.0.49',
+      message: 'Server is running (error handled)'
+    })
+  }
 })
 
 // DETAILED HEALTH CHECK - includes DB status (optional)
@@ -4059,6 +4070,88 @@ app.put('/api/warehouse/:id', async (req, res) => {
     res.json(result.rows[0])
   } catch (error) {
     console.error('Warehouse PUT error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// Bulk insert pentru inventar centralizat
+app.post('/api/warehouse/bulk', authenticateUser, async (req, res) => {
+  try {
+    const { items } = req.body
+    const userId = req.user?.userId || 1
+    const username = req.user?.username || 'admin'
+    
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, error: 'Items array is required' })
+    }
+
+    let saved = 0
+    const errors = []
+
+    // Folosește transaction pentru a salva toate itemele
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+
+      for (const item of items) {
+        try {
+          // Verifică dacă există deja (după serial_number și location)
+          const existing = await client.query(
+            'SELECT id FROM warehouse WHERE serial_number = $1 AND location = $2',
+            [item.serial_number || '', item.location || 'Depozit']
+          )
+
+          if (existing.rows.length > 0) {
+            // Update dacă există
+            await client.query(
+              'UPDATE warehouse SET provider = $1, cabinet = $2, game_mix = $3, status = $4, notes = $5, updated_at = CURRENT_TIMESTAMP, updated_by = $6 WHERE id = $7',
+              [
+                item.provider || '',
+                item.cabinet || '',
+                item.game_mix || '',
+                item.status || 'Active',
+                item.notes || '',
+                username,
+                existing.rows[0].id
+              ]
+            )
+          } else {
+            // Insert dacă nu există
+            await client.query(
+              'INSERT INTO warehouse (serial_number, provider, location, cabinet, game_mix, status, notes, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)',
+              [
+                item.serial_number || '',
+                item.provider || '',
+                item.location || 'Depozit',
+                item.cabinet || '',
+                item.game_mix || '',
+                item.status || 'Active',
+                item.notes || '',
+                username
+              ]
+            )
+          }
+          saved++
+        } catch (itemError) {
+          errors.push({ item, error: itemError.message })
+        }
+      }
+
+      await client.query('COMMIT')
+      res.json({ 
+        success: true, 
+        saved, 
+        total: items.length,
+        errors: errors.length > 0 ? errors : undefined
+      })
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
+  } catch (error) {
+    console.error('Warehouse bulk insert error:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })

@@ -7,8 +7,8 @@ import { ArrowLeft, BarChart3, TrendingUp, TrendingDown, Brain } from 'lucide-re
 import { toast } from 'react-hot-toast'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, LabelList } from 'recharts'
 import ExpendituresAdvancedCharts from '../components/ExpendituresAdvancedCharts'
-import DateRangeSelector from '../components/DateRangeSelector'
 import { generateAIInsights } from '../utils/aiInsights'
+import { Calendar, Clock, CalendarDays, CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react'
 
 const AdvancedAnalytics = () => {
   const { user } = useAuth()
@@ -32,11 +32,68 @@ const AdvancedAnalytics = () => {
   const [selectedLocation, setSelectedLocation] = useState('all')
   const [analysisType, setAnalysisType] = useState('trends') // trends, comparison, distribution
   
+  // Format date local
+  const formatDateLocal = (date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   // Date range pentru graficele NOI
   const [dateRange, setDateRange] = useState({
-    startDate: new Date(new Date().getFullYear() - 2, 0, 1).toISOString().split('T')[0],
-    endDate: new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0]
+    startDate: formatDateLocal(new Date(new Date().getFullYear() - 2, 0, 1)),
+    endDate: formatDateLocal(new Date(new Date().getFullYear(), 11, 31))
   })
+
+  // Quick date filters
+  const applyQuickDateFilter = (filterType) => {
+    const today = new Date()
+    let startDate, endDate
+    
+    switch (filterType) {
+      case 'azi':
+        startDate = formatDateLocal(today)
+        endDate = formatDateLocal(today)
+        break
+      case 'saptamana-curenta':
+        const dayOfWeek = today.getDay()
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+        const monday = new Date(today)
+        monday.setDate(today.getDate() + mondayOffset)
+        startDate = formatDateLocal(monday)
+        endDate = formatDateLocal(today)
+        break
+      case 'luna-curenta':
+        const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+        const currentMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+        startDate = formatDateLocal(currentMonthStart)
+        endDate = formatDateLocal(currentMonthEnd)
+        break
+      case 'luna-anterioara':
+        const prevMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+        const prevMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0)
+        startDate = formatDateLocal(prevMonthStart)
+        endDate = formatDateLocal(prevMonthEnd)
+        break
+      case 'anul-curent':
+        startDate = formatDateLocal(new Date(today.getFullYear(), 0, 1))
+        endDate = formatDateLocal(new Date(today.getFullYear(), 11, 31))
+        break
+      case 'anul-trecut':
+        startDate = formatDateLocal(new Date(today.getFullYear() - 1, 0, 1))
+        endDate = formatDateLocal(new Date(today.getFullYear() - 1, 11, 31))
+        break
+      case 'toate':
+        startDate = '2020-01-01'
+        endDate = formatDateLocal(new Date(today.getFullYear() + 1, 11, 31))
+        break
+      default:
+        return
+    }
+    
+    setDateRange({ startDate, endDate })
+  }
   
   // Visible charts pentru graficele NOI (4)
   const [visibleCharts, setVisibleCharts] = useState({
@@ -347,11 +404,119 @@ const AdvancedAnalytics = () => {
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
                   📅 Perioadă Analiză
                 </label>
-                <DateRangeSelector
-                  startDate={dateRange.startDate}
-                  endDate={dateRange.endDate}
-                  onChange={(newRange) => setDateRange(newRange)}
-                />
+                <div className="mb-4">
+                  {/* Input-uri de date */}
+                  <div className="flex items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm mb-2">
+                    {/* Date Inputs - Clasic și Simplu */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                        <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                          De la:
+                        </label>
+                        <input
+                          type="date"
+                          value={dateRange.startDate}
+                          onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
+                          className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                          style={{ minWidth: '160px' }}
+                        />
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                          Până la:
+                        </label>
+                        <input
+                          type="date"
+                          value={dateRange.endDate}
+                          onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
+                          className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                          style={{ minWidth: '160px' }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Săgeți Navigare Perioadă */}
+                    <div className="flex items-center gap-1 border-l border-r border-slate-200 dark:border-slate-700 px-3">
+                      <button
+                        onClick={() => {
+                          const start = new Date(dateRange.startDate)
+                          const end = new Date(dateRange.endDate)
+                          const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24))
+                          
+                          start.setDate(start.getDate() - diffDays - 1)
+                          end.setDate(end.getDate() - diffDays - 1)
+                          
+                          setDateRange({
+                            startDate: formatDateLocal(start),
+                            endDate: formatDateLocal(end)
+                          })
+                        }}
+                        className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                        title="Perioadă anterioară"
+                      >
+                        <ChevronLeft className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          const start = new Date(dateRange.startDate)
+                          const end = new Date(dateRange.endDate)
+                          const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24))
+                          
+                          start.setDate(start.getDate() + diffDays + 1)
+                          end.setDate(end.getDate() + diffDays + 1)
+                          
+                          setDateRange({
+                            startDate: formatDateLocal(start),
+                            endDate: formatDateLocal(end)
+                          })
+                        }}
+                        className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                        title="Perioadă următoare"
+                      >
+                        <ChevronRight className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                      </button>
+                    </div>
+
+                    {/* Text Perioadă Afișată */}
+                    <div className="flex-1 text-sm text-slate-600 dark:text-slate-400">
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">
+                        {new Date(dateRange.startDate).toLocaleDateString('ro-RO', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      </span>
+                      {' – '}
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">
+                        {new Date(dateRange.endDate).toLocaleDateString('ro-RO', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Butoane Rapide cu Iconițe și Text - Sub Input-uri */}
+                  <div className="flex items-center gap-2 px-1 flex-wrap">
+                    {[
+                      { id: 'azi', label: 'Azi', icon: Clock },
+                      { id: 'saptamana-curenta', label: 'Săpt', icon: CalendarDays },
+                      { id: 'luna-curenta', label: 'Luna curentă', icon: Calendar },
+                      { id: 'luna-anterioara', label: 'Luna trecută', icon: CalendarRange },
+                      { id: 'anul-curent', label: 'Anul curent', icon: Calendar },
+                      { id: 'anul-trecut', label: 'Anul trecut', icon: Calendar },
+                      { id: 'toate', label: 'Toate', icon: Calendar }
+                    ].map((btn) => {
+                      const IconComponent = btn.icon
+                      return (
+                        <button
+                          key={btn.id}
+                          onClick={() => applyQuickDateFilter(btn.id)}
+                          className="relative inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-all hover:scale-105 active:scale-95 text-sm font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600"
+                          title={btn.label}
+                        >
+                          <IconComponent className="w-4 h-4" />
+                          <span>{btn.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
                   Filtrează toate graficele și analiza AI pentru perioada selectată
                 </p>

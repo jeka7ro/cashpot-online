@@ -4,9 +4,9 @@ import Layout from '../components/Layout'
 import { useTheme } from '../contexts/ThemeContext'
 import axios from 'axios'
 import { toast } from 'react-hot-toast'
-import { RefreshCw, Clock, Calendar, CalendarDays, CalendarRange, ArrowLeft, Settings, CheckCircle, XCircle } from 'lucide-react'
-import DateRangeSelector from '../components/DateRangeSelector'
+import { RefreshCw, Clock, Calendar, CalendarDays, CalendarRange, ArrowLeft, Settings, CheckCircle, XCircle, Search, X } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 const ExpendituresElectric = () => {
   const navigate = useNavigate()
@@ -19,6 +19,7 @@ const ExpendituresElectric = () => {
   const [loading, setLoading] = useState(true)
   const [selectedDateFilter, setSelectedDateFilter] = useState('toate')
   const [locationFilter, setLocationFilter] = useState('all')
+  const [searchText, setSearchText] = useState('')
   
   // Date range - default TOATE
   const [dateRange, setDateRange] = useState({
@@ -29,39 +30,52 @@ const ExpendituresElectric = () => {
   const monthNames = ['Ianuarie', 'Februarie', 'Martie', 'Aprilie', 'Mai', 'Iunie', 
                       'Iulie', 'August', 'Septembrie', 'Octombrie', 'Noiembrie', 'Decembrie']
 
+  // Format date local
+  const formatDateLocal = (date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   // Quick date filter
   const applyQuickDateFilter = (filterId) => {
     const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     let startDate, endDate
     
     switch (filterId) {
       case 'azi':
-        startDate = endDate = now.toISOString().split('T')[0]
+        startDate = formatDateLocal(today)
+        endDate = formatDateLocal(today)
         break
       case 'saptamana-curenta':
-        const dayOfWeek = now.getDay()
-        const startWeek = new Date(now)
-        startWeek.setDate(now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1))
-        const endWeek = new Date(startWeek)
-        endWeek.setDate(startWeek.getDate() + 6)
-        startDate = startWeek.toISOString().split('T')[0]
-        endDate = endWeek.toISOString().split('T')[0]
+        const dayOfWeek = today.getDay()
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+        const monday = new Date(today)
+        monday.setDate(today.getDate() + mondayOffset)
+        startDate = formatDateLocal(monday)
+        endDate = formatDateLocal(today)
         break
       case 'luna-curenta':
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
-        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
+        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+        const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+        startDate = formatDateLocal(currentMonthStart)
+        endDate = formatDateLocal(currentMonthEnd)
         break
       case 'luna-anterioara':
-        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0]
-        endDate = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0]
+        const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+        const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0)
+        startDate = formatDateLocal(prevMonthStart)
+        endDate = formatDateLocal(prevMonthEnd)
         break
       case 'anul-curent':
-        startDate = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0]
-        endDate = new Date(now.getFullYear(), 11, 31).toISOString().split('T')[0]
+        startDate = formatDateLocal(new Date(now.getFullYear(), 0, 1))
+        endDate = formatDateLocal(new Date(now.getFullYear(), 11, 31))
         break
       case 'anul-trecut':
-        startDate = new Date(now.getFullYear() - 1, 0, 1).toISOString().split('T')[0]
-        endDate = new Date(now.getFullYear() - 1, 11, 31).toISOString().split('T')[0]
+        startDate = formatDateLocal(new Date(now.getFullYear() - 1, 0, 1))
+        endDate = formatDateLocal(new Date(now.getFullYear() - 1, 11, 31))
         break
       case 'toate':
         startDate = '2020-01-01'
@@ -148,9 +162,28 @@ const ExpendituresElectric = () => {
       const parsed = parsePeriod(item.perioada_facturare)
       if (!parsed) return false
       const itemDate = new Date(parsed.year, parsed.month, 1)
-      return itemDate >= start && itemDate <= end
+      if (itemDate < start || itemDate > end) {
+        return false
+      }
+      // Search filter
+      if (searchText.trim()) {
+        const searchLower = searchText.toLowerCase()
+        const searchableText = [
+          item.location_name || '',
+          item.numar_factura || '',
+          item.nlc_code || '',
+          item.perioada_facturare || '',
+          item.total_factura ? String(item.total_factura) : ''
+        ].join(' ').toLowerCase()
+        
+        if (!searchableText.includes(searchLower)) {
+          return false
+        }
+      }
+      
+      return true
     })
-  }, [rawData, dateRange, locationFilter])
+  }, [rawData, dateRange, locationFilter, searchText])
 
   // Build matrix: month -> location -> data (LUNI pe rânduri, SĂLI pe coloane)
   // Include slots count pentru calcul RON/slot și kWh/slot
@@ -432,12 +465,155 @@ const ExpendituresElectric = () => {
           </div>
         </div>
         
-        {/* Filters - CU DateRangeSelector */}
+        {/* Filters - Nou Design */}
         <div className="card p-5 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-2xl shadow-xl border border-transparent backdrop-blur-2xl mb-6">
-          {/* Rând 1: Quick Date Buttons STÂNGA + Filtru Locație DREAPTA */}
+          {/* Rând 1: Bară de Căutare + Filtre - Pe același rând */}
           <div className="flex flex-wrap items-end gap-3 mb-4">
-            {/* Quick Date Buttons - STÂNGA */}
-            <div className="flex items-center gap-2">
+            {/* Bară de Căutare - Ocupă spațiul rămas */}
+            <div className="relative flex-1 min-w-[250px]">
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                Căutare
+              </label>
+              <div className="relative flex items-center">
+                <Search className="absolute left-3 w-4 h-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  placeholder="Caută în Locație, Număr Factură, NLC, Perioadă, Sumă..."
+                  className="w-full pl-10 pr-10 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                />
+                {searchText && (
+                  <button
+                    onClick={() => setSearchText('')}
+                    className="absolute right-3 p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded transition-colors"
+                    title="Șterge căutarea"
+                  >
+                    <X className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Filtre Locație */}
+            <div className="flex items-end gap-3">
+              <div className="relative">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Locație
+                </label>
+                <select
+                  value={locationFilter}
+                  onChange={(e) => setLocationFilter(e.target.value)}
+                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                  style={{ minWidth: '180px' }}
+                >
+                  <option value="all">Toate</option>
+                  {uniqueLocations.map((loc) => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          {/* Rând 2: Date Picker Clasic și Comod */}
+          <div className="mb-4">
+            {/* Input-uri de date */}
+            <div className="flex items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm mb-2">
+              {/* Date Inputs - Clasic și Simplu */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                    De la:
+                  </label>
+                  <input
+                    type="date"
+                    value={dateRange.startDate}
+                    onChange={(e) => {
+                      setDateRange({ ...dateRange, startDate: e.target.value })
+                      setSelectedDateFilter('custom')
+                    }}
+                    className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                    style={{ minWidth: '160px' }}
+                  />
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                    Până la:
+                  </label>
+                  <input
+                    type="date"
+                    value={dateRange.endDate}
+                    onChange={(e) => {
+                      setDateRange({ ...dateRange, endDate: e.target.value })
+                      setSelectedDateFilter('custom')
+                    }}
+                    className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                    style={{ minWidth: '160px' }}
+                  />
+                </div>
+              </div>
+
+              {/* Săgeți Navigare Perioadă */}
+              <div className="flex items-center gap-1 border-l border-r border-slate-200 dark:border-slate-700 px-3">
+                <button
+                  onClick={() => {
+                    const start = new Date(dateRange.startDate)
+                    const end = new Date(dateRange.endDate)
+                    const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24))
+                    
+                    start.setDate(start.getDate() - diffDays - 1)
+                    end.setDate(end.getDate() - diffDays - 1)
+                    
+                    setDateRange({
+                      startDate: formatDateLocal(start),
+                      endDate: formatDateLocal(end)
+                    })
+                    setSelectedDateFilter('custom')
+                  }}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                  title="Perioadă anterioară"
+                >
+                  <ChevronLeft className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                </button>
+                <button
+                  onClick={() => {
+                    const start = new Date(dateRange.startDate)
+                    const end = new Date(dateRange.endDate)
+                    const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24))
+                    
+                    start.setDate(start.getDate() + diffDays + 1)
+                    end.setDate(end.getDate() + diffDays + 1)
+                    
+                    setDateRange({
+                      startDate: formatDateLocal(start),
+                      endDate: formatDateLocal(end)
+                    })
+                    setSelectedDateFilter('custom')
+                  }}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                  title="Perioadă următoare"
+                >
+                  <ChevronRight className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                </button>
+              </div>
+
+              {/* Text Perioadă Afișată */}
+              <div className="flex-1 text-sm text-slate-600 dark:text-slate-400">
+                <span className="font-semibold text-slate-900 dark:text-slate-100">
+                  {new Date(dateRange.startDate).toLocaleDateString('ro-RO', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                </span>
+                {' – '}
+                <span className="font-semibold text-slate-900 dark:text-slate-100">
+                  {new Date(dateRange.endDate).toLocaleDateString('ro-RO', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                </span>
+              </div>
+            </div>
+
+            {/* Butoane Rapide cu Iconițe și Text - Sub Input-uri */}
+            <div className="flex items-center gap-2 px-1 flex-wrap">
               {[
                 { id: 'azi', label: 'Azi', icon: Clock },
                 { id: 'saptamana-curenta', label: 'Săpt', icon: CalendarDays },
@@ -448,74 +624,23 @@ const ExpendituresElectric = () => {
                 { id: 'toate', label: 'Toate', icon: Calendar }
               ].map((btn) => {
                 const IconComponent = btn.icon
+                const isActive = selectedDateFilter === btn.id
                 return (
                   <button
                     key={btn.id}
                     onClick={() => applyQuickDateFilter(btn.id)}
-                    className="relative inline-flex items-center justify-center gap-2 px-3 py-2 rounded-2xl text-white text-xs font-semibold transition-all overflow-hidden border hover:scale-105 active:scale-95"
-                    style={{
-                      height: '40px',
-                      minWidth: '80px',
-                      background: selectedDateFilter === btn.id
-                        ? 'linear-gradient(135deg, #059669 0%, #047857 100%)'
-                        : isDark 
-                          ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
-                          : 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)',
-                      borderColor: 'rgba(255, 255, 255, 0.25)',
-                      boxShadow: isDark
-                        ? '0 6px 18px rgba(15, 23, 42, 0.5)'
-                        : '0 6px 18px rgba(30, 58, 138, 0.35)'
-                    }}
+                    className={`relative inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-all hover:scale-105 active:scale-95 text-sm font-medium ${
+                      isActive
+                        ? 'bg-blue-500 text-white shadow-md'
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                    }`}
+                    title={btn.label}
                   >
-                    <IconComponent className="w-3.5 h-3.5 relative z-10" style={{ color: 'white' }} />
-                    <span className="relative z-10">{btn.label}</span>
+                    <IconComponent className="w-4 h-4" />
+                    <span>{btn.label}</span>
                   </button>
                 )
               })}
-            </div>
-
-            {/* Filtru Locație - DREAPTA */}
-            <div className="flex items-end gap-3 ml-auto">
-              <select
-                value={locationFilter}
-                onChange={(e) => setLocationFilter(e.target.value)}
-                className="rounded-2xl text-white text-sm font-semibold border transition-all"
-                style={{
-                  height: '40px',
-                  paddingLeft: '12px',
-                  paddingRight: '32px',
-                  minWidth: '180px',
-                  background: isDark 
-                    ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
-                    : 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)',
-                  borderColor: 'rgba(255, 255, 255, 0.25)',
-                  boxShadow: isDark
-                    ? '0 6px 18px rgba(15, 23, 42, 0.5)'
-                    : '0 6px 18px rgba(30, 58, 138, 0.35)'
-                }}
-              >
-                <option value="all">Locație: Toate</option>
-                {uniqueLocations.map((loc) => (
-                  <option key={loc} value={loc}>{loc}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          
-          {/* Rând 2: DateRangeSelector + Text Perioadă */}
-          <div className="flex items-center gap-3">
-            <DateRangeSelector
-              startDate={dateRange.startDate}
-              endDate={dateRange.endDate}
-              onChange={(newRange) => {
-                setDateRange(newRange)
-                setSelectedDateFilter('custom')
-              }}
-            />
-            
-            <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center">
-              Perioadă: <span className="font-semibold ml-1">{dateRange.startDate}</span> –{' '}
-              <span className="font-semibold">{dateRange.endDate}</span>
             </div>
           </div>
         </div>

@@ -281,6 +281,44 @@ const ExpendituresSettings = () => {
     }
   }, [activeTab, electricSubTab])
 
+  // Funcție pentru transferul facturilor electrice din centralizator în cheltuieli
+  const [transferringElectric, setTransferringElectric] = useState(false)
+  const handleTransferElectricToExpenditures = async () => {
+    const unsavedCount = nlcCentralizer.filter(nlc => !nlc.saved_to_expenditures).length
+    
+    if (unsavedCount === 0) {
+      toast.info('Toate facturile electrice sunt deja salvate în cheltuieli!')
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Transferi ${unsavedCount} facturi electrice din centralizator în Cheltuieli?\n\nFacturile vor fi salvate în expenditures_sync și vor apărea în modulul Cheltuieli.`
+    )
+    if (!confirmed) return
+
+    setTransferringElectric(true)
+    try {
+      toast.loading('Se transferă facturile în cheltuieli...', { id: 'transfer-electric' })
+      
+      const response = await axios.post('/api/expenditures/transfer-electric-to-expenditures')
+      
+      if (response.data?.success) {
+        toast.success(
+          `✅ ${response.data.transferred} înregistrări transferate din ${response.data.invoices} facturi în cheltuieli!`,
+          { id: 'transfer-electric', duration: 5000 }
+        )
+        loadNlcCentralizer() // Reîncarcă centralizatorul pentru a vedea statusul actualizat
+      } else {
+        toast.error(response.data?.error || 'Eroare la transfer', { id: 'transfer-electric' })
+      }
+    } catch (error) {
+      console.error('Error transferring electric invoices:', error)
+      toast.error('Eroare la transferul facturilor: ' + (error.response?.data?.error || error.message), { id: 'transfer-electric' })
+    } finally {
+      setTransferringElectric(false)
+    }
+  }
+
   // Funcție pentru ștergerea NLC-urilor selectate
   const handleDeleteSelectedNlcs = async () => {
     if (selectedNlcIds.length === 0) {
@@ -2925,14 +2963,25 @@ const ExpendituresSettings = () => {
                       Toate locurile de consum (NLC) extrase din facturi, cu statistici și istoric.
                     </p>
                   </div>
-                  <button
-                    onClick={loadNlcCentralizer}
-                    disabled={loadingNlcCentralizer}
-                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex items-center space-x-2"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${loadingNlcCentralizer ? 'animate-spin' : ''}`} />
-                    <span>Reîncarcă</span>
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleTransferElectricToExpenditures}
+                      disabled={transferringElectric || loadingNlcCentralizer}
+                      className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-400 text-white rounded-lg transition-colors flex items-center space-x-2 font-medium"
+                      title="Transferă facturile electrice din centralizator în Cheltuieli"
+                    >
+                      <Database className={`w-4 h-4 ${transferringElectric ? 'animate-pulse' : ''}`} />
+                      <span>{transferringElectric ? 'Se transferă...' : 'Transferă în Cheltuieli'}</span>
+                    </button>
+                    <button
+                      onClick={loadNlcCentralizer}
+                      disabled={loadingNlcCentralizer}
+                      className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex items-center space-x-2"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${loadingNlcCentralizer ? 'animate-spin' : ''}`} />
+                      <span>Reîncarcă</span>
+                    </button>
+                  </div>
                 </div>
 
                 {loadingNlcCentralizer ? (
@@ -3559,7 +3608,7 @@ const ExpendituresSettings = () => {
                           <div className="flex justify-between text-sm mb-1">
                             <span className="text-slate-600 dark:text-slate-400">Progres</span>
                             <span className="text-slate-900 dark:text-slate-100 font-semibold">
-                              {importAllProgress.totalProcessed || 0} / {importAllProgress.totalRecords || 0}
+                              {importAllProgress.totalProcessed || 0} / {importAllProgress.totalRecords || importAllProgress.totalFound || importAllProgress.total || 0}
                             </span>
                           </div>
                           <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
