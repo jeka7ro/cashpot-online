@@ -585,6 +585,37 @@ const ExpendituresDetail = () => {
     }).format(Number(amount || 0))
   }
 
+  // Calculează facturi unice pentru Electricitate
+  const electricInvoiceStats = useMemo(() => {
+    if (department !== 'Electricitate') return null
+    
+    const electricInvoices = filteredData.filter(item => 
+      item.data_source === 'electric_invoice' || 
+      (item.description && item.description.includes('Factură'))
+    )
+    
+    if (electricInvoices.length === 0) return null
+    
+    // Extrage numerele de facturi din description
+    const invoiceNumbers = new Set()
+    electricInvoices.forEach(item => {
+      if (item.description) {
+        // Caută pattern-uri: "Factură EFI/123" sau "Factură 123" sau "EFI/123"
+        const match = item.description.match(/Factură\s+(?:EFI\/)?([A-Z0-9\/\-]+)/i) || 
+                     item.description.match(/EFI\/([A-Z0-9\/\-]+)/i)
+        if (match) {
+          invoiceNumbers.add(match[1].trim())
+        }
+      }
+    })
+    
+    return {
+      totalRows: electricInvoices.length,
+      uniqueInvoices: invoiceNumbers.size,
+      invoiceNumbers: Array.from(invoiceNumbers).sort()
+    }
+  }, [filteredData, department])
+
   const detailInsights = useMemo(() => {
     if (!filteredData || filteredData.length === 0) return []
 
@@ -621,6 +652,16 @@ const ExpendituresDetail = () => {
       }
     ]
 
+    // Adaugă statistici pentru facturi electrice
+    if (electricInvoiceStats) {
+      insights.push({
+        icon: '📄',
+        title: 'Facturi electrice salvate',
+        message: `${electricInvoiceStats.totalRows} rânduri în cheltuieli din ${electricInvoiceStats.uniqueInvoices} factură${electricInvoiceStats.uniqueInvoices === 1 ? '' : 'i'} unică${electricInvoiceStats.uniqueInvoices === 1 ? '' : 'e'}. Fiecare factură poate genera mai multe rânduri (unul per lună per NLC).`,
+        recommendation: ''
+      })
+    }
+
     if (topDayEntry) {
       const [day, value] = topDayEntry
       insights.push({
@@ -634,7 +675,7 @@ const ExpendituresDetail = () => {
     }
 
     return insights
-  }, [filteredData, department, category, locationSummary])
+  }, [filteredData, department, category, locationSummary, electricInvoiceStats])
 
   if (!department) {
     return null

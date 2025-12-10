@@ -16,7 +16,7 @@ import ONJNCalendarModal from '../components/modals/ONJNCalendarModal'
 import { getGameMixName } from '../utils/gameMixFormatter'
 
 const Metrology = () => {
-  const { metrology, approvals, providers, cabinets, gameMixes, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
+  const { metrology, approvals, providers, cabinets, gameMixes, slots, warehouse, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [searchTerm, setSearchTerm] = useState('')
@@ -609,6 +609,111 @@ const Metrology = () => {
     )
   })
 
+  // Helper function to get serial numbers count
+  const getSerialNumbersCount = (item) => {
+    if (!item.serial_numbers) return 0
+    try {
+      const parsed = typeof item.serial_numbers === 'string' 
+        ? JSON.parse(item.serial_numbers)
+        : item.serial_numbers
+      return Array.isArray(parsed) ? parsed.length : 0
+    } catch (e) {
+      return 0
+    }
+  }
+
+  // Helper function to get serial numbers list
+  const getSerialNumbersList = (item) => {
+    if (!item.serial_numbers) return []
+    try {
+      let parsed
+      if (typeof item.serial_numbers === 'string') {
+        // Încearcă să parseze ca JSON
+        try {
+          parsed = JSON.parse(item.serial_numbers)
+        } catch (e) {
+          // Dacă nu e JSON valid, încearcă să parseze ca text cu virgule sau newlines
+          parsed = item.serial_numbers
+            .split(/[,\n\r]+/)
+            .map(s => s.trim())
+            .filter(s => s.length > 0)
+        }
+      } else {
+        parsed = item.serial_numbers
+      }
+      return Array.isArray(parsed) ? parsed : []
+    } catch (e) {
+      console.error('Error parsing serial_numbers:', e, item.serial_numbers)
+      return []
+    }
+  }
+
+  // Helper function to normalize serial number
+  const normalizeSerial = (serial) => {
+    if (!serial) return ''
+    return String(serial).trim().replace(/\s+/g, '').toLowerCase()
+  }
+
+  // Helper function to find slot by serial number
+  const findSlotBySerial = (serialNumber) => {
+    if (!serialNumber || !slots) return null
+    const normalized = normalizeSerial(serialNumber)
+    let slot = slots.find(s => normalizeSerial(s.serial_number) === normalized || normalizeSerial(s.slot_id) === normalized)
+    if (!slot && warehouse) {
+      const wh = warehouse.find(w => normalizeSerial(w.serial_number) === normalized)
+      if (wh) slot = wh
+    }
+    return slot
+  }
+
+  // Helper function to get total gaming places for a commission
+  const getGamingPlacesCount = (item) => {
+    const serials = getSerialNumbersList(item)
+    if (serials.length === 0) {
+      console.warn('⚠️ No serial numbers found for commission:', item.id, item.name)
+      return 0
+    }
+    
+    let total = 0
+    let foundCount = 0
+    serials.forEach(serial => {
+      const slot = findSlotBySerial(serial)
+      if (slot) {
+        foundCount++
+        const gamingPlaces = Number(slot.gaming_places) || 0
+        if (gamingPlaces > 0) {
+          total += gamingPlaces
+        }
+      }
+    })
+    
+    if (total === 0 && serials.length > 0) {
+      console.warn(`⚠️ Commission ${item.id} (${item.name}): ${serials.length} serials, ${foundCount} found in slots, but total gaming_places = 0`)
+      console.warn('   First 3 serials:', serials.slice(0, 3))
+      if (foundCount > 0) {
+        const firstFound = serials.find(s => findSlotBySerial(s))
+        if (firstFound) {
+          const slot = findSlotBySerial(firstFound)
+          console.warn('   First found slot:', { serial: firstFound, gaming_places: slot?.gaming_places, slot_id: slot?.slot_id })
+        }
+      }
+    }
+    
+    return total
+  }
+
+  // Helper function to calculate days until expiry
+  const getDaysUntilExpiry = (expiryDate) => {
+    if (!expiryDate) return null
+    const expiry = new Date(expiryDate)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    expiry.setHours(0, 0, 0, 0)
+    const diffTime = expiry - today
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    return diffDays
+  }
+
   // Commissions columns
   const commissionsColumns = [
     { 
@@ -625,30 +730,140 @@ const Metrology = () => {
       )
     },
     { 
-      key: 'date_formed', 
-      label: 'DATA FORMARE', 
+      key: 'commission_date', 
+      label: 'DATA COMISIE', 
       sortable: true,
-      render: (item) => (
-        <div className="text-slate-600">
-          {item.date_formed ? new Date(item.date_formed).toLocaleDateString('ro-RO') : 'N/A'}
-        </div>
-      )
+      render: (item) => {
+        if (!item.commission_date) return <div className="text-slate-600 dark:text-slate-400">N/A</div>
+        try {
+          // Parsează data corect - poate fi string ISO sau deja un obiect Date
+          let date
+          if (item.commission_date instanceof Date) {
+            date = item.commission_date
+          } else if (typeof item.commission_date === 'string') {
+            // Dacă e deja în format ISO complet, folosește direct
+            if (item.commission_date.includes('T')) {
+              date = new Date(item.commission_date)
+            } else {
+              // Dacă e doar YYYY-MM-DD, adaugă T00:00:00
+              date = new Date(item.commission_date + 'T00:00:00')
+            }
+          } else {
+            return <div className="text-slate-600 dark:text-slate-400">N/A</div>
+          }
+          
+          if (isNaN(date.getTime())) {
+            return <div className="text-slate-600 dark:text-slate-400">N/A</div>
+          }
+          
+          const day = String(date.getDate()).padStart(2, '0')
+          const month = String(date.getMonth() + 1).padStart(2, '0')
+          const year = date.getFullYear()
+          return (
+            <div className="text-slate-600 dark:text-slate-400">
+              {`${day}.${month}.${year}`}
+            </div>
+          )
+        } catch (e) {
+          return <div className="text-slate-600 dark:text-slate-400">N/A</div>
+        }
+      }
     },
-    { key: 'status', label: 'STATUS', sortable: true },
     { 
-      key: 'created_info', 
-      label: 'CREAT DE / DATA', 
-      sortable: true, 
-      render: (item) => (
-        <div className="space-y-1">
-          <div className="text-slate-800 dark:text-slate-200 font-medium text-sm">
-            {item.created_by || 'Necunoscut'}
+      key: 'expiry_date', 
+      label: 'DATA VALABILITĂȚII', 
+      sortable: true,
+      render: (item) => {
+        if (!item.expiry_date) return <div className="text-slate-600 dark:text-slate-400">N/A</div>
+        try {
+          // Parsează data corect - poate fi string ISO sau deja un obiect Date
+          let date
+          if (item.expiry_date instanceof Date) {
+            date = item.expiry_date
+          } else if (typeof item.expiry_date === 'string') {
+            // Dacă e deja în format ISO complet, folosește direct
+            if (item.expiry_date.includes('T')) {
+              date = new Date(item.expiry_date)
+            } else {
+              // Dacă e doar YYYY-MM-DD, adaugă T00:00:00
+              date = new Date(item.expiry_date + 'T00:00:00')
+            }
+          } else {
+            return <div className="text-slate-600 dark:text-slate-400">N/A</div>
+          }
+          
+          if (isNaN(date.getTime())) {
+            return <div className="text-slate-600 dark:text-slate-400">N/A</div>
+          }
+          
+          const day = String(date.getDate()).padStart(2, '0')
+          const month = String(date.getMonth() + 1).padStart(2, '0')
+          const year = date.getFullYear()
+          return (
+            <div className="text-slate-600 dark:text-slate-400">
+              {`${day}.${month}.${year}`}
+            </div>
+          )
+        } catch (e) {
+          return <div className="text-slate-600 dark:text-slate-400">N/A</div>
+        }
+      }
+    },
+    { 
+      key: 'days_until_expiry', 
+      label: 'ZILE PÂNĂ LA EXPIRARE', 
+      sortable: true,
+      render: (item) => {
+        const days = getDaysUntilExpiry(item.expiry_date)
+        if (days === null) return <div className="text-slate-400">N/A</div>
+        const isExpired = days < 0
+        const isExpiringSoon = days <= 30 && days >= 0
+        return (
+          <div className={`font-medium ${
+            isExpired 
+              ? 'text-red-600 dark:text-red-400' 
+              : isExpiringSoon 
+                ? 'text-amber-600 dark:text-amber-400' 
+                : 'text-slate-600 dark:text-slate-400'
+          }`}>
+            {isExpired ? `Expirat (${Math.abs(days)} zile)` : `${days} zile`}
           </div>
-          <div className="text-slate-500 dark:text-slate-400 text-xs">
-            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+        )
+      }
+    },
+    { 
+      key: 'slot_count', 
+      label: 'NUMĂR LOCURI DE JOC', 
+      sortable: true,
+      render: (item) => {
+        const count = getGamingPlacesCount(item)
+        return (
+          <div className="text-slate-800 dark:text-slate-200 font-medium">
+            {count}
           </div>
-        </div>
-      )
+        )
+      },
+      footer: (data) => {
+        const total = data.reduce((sum, item) => sum + getGamingPlacesCount(item), 0)
+        return (
+          <div className="text-slate-800 dark:text-slate-200 font-bold">
+            Total: {total}
+          </div>
+        )
+      }
+    },
+    { 
+      key: 'software', 
+      label: 'SOFTWARE', 
+      sortable: true,
+      render: (item) => {
+        const software = item.software || item.software_name || '-'
+        return (
+          <div className="text-slate-700 dark:text-slate-300">
+            {software}
+          </div>
+        )
+      }
     }
   ]
 

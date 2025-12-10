@@ -4,7 +4,7 @@ import Layout from '../components/Layout'
 import { useTheme } from '../contexts/ThemeContext'
 import axios from 'axios'
 import { toast } from 'react-hot-toast'
-import { RefreshCw, Clock, Calendar, CalendarDays, CalendarRange, ArrowLeft, Settings, CheckCircle, XCircle, Search, X } from 'lucide-react'
+import { RefreshCw, Clock, Calendar, CalendarDays, CalendarRange, ArrowLeft, Settings, CheckCircle, XCircle, Search, X, Trash2, FileCheck } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
@@ -20,6 +20,12 @@ const ExpendituresElectric = () => {
   const [selectedDateFilter, setSelectedDateFilter] = useState('toate')
   const [locationFilter, setLocationFilter] = useState('all')
   const [searchText, setSearchText] = useState('')
+  const [selectedInvoices, setSelectedInvoices] = useState(new Set())
+  const [deleting, setDeleting] = useState(false)
+  const [showVerifyModal, setShowVerifyModal] = useState(false)
+  const [verifyText, setVerifyText] = useState('')
+  const [verifying, setVerifying] = useState(false)
+  const [verifyResults, setVerifyResults] = useState(null)
   
   // Date range - default TOATE
   const [dateRange, setDateRange] = useState({
@@ -273,6 +279,59 @@ const ExpendituresElectric = () => {
     })
     return { ron, kwh, slots }
   }, [locationTotals])
+
+  // Handle invoice selection
+  const handleInvoiceSelect = (invoiceNumber) => {
+    const newSelected = new Set(selectedInvoices)
+    if (newSelected.has(invoiceNumber)) {
+      newSelected.delete(invoiceNumber)
+    } else {
+      newSelected.add(invoiceNumber)
+    }
+    setSelectedInvoices(newSelected)
+  }
+
+  // Handle select all
+  const handleSelectAll = () => {
+    if (selectedInvoices.size === uniqueInvoices.invoices.length) {
+      setSelectedInvoices(new Set())
+    } else {
+      setSelectedInvoices(new Set(uniqueInvoices.invoices.map(inv => inv.number)))
+    }
+  }
+
+  // Handle delete selected invoices
+  const handleDeleteSelected = async () => {
+    if (selectedInvoices.size === 0) return
+
+    const invoiceNumbers = Array.from(selectedInvoices)
+    const confirmMessage = `Ești sigur că vrei să ștergi ${invoiceNumbers.length} factură${invoiceNumbers.length === 1 ? '' : 'i'}?\n\nAceastă acțiune va șterge toate NLC-urile asociate acestor facturi din centralizator.\n\nFacturi: ${invoiceNumbers.join(', ')}`
+    
+    if (!window.confirm(confirmMessage)) {
+      return
+    }
+
+    setDeleting(true)
+    try {
+      const response = await axios.post('/api/expenditures/delete-electric-invoices', {
+        invoice_numbers: invoiceNumbers
+      })
+
+      if (response.data?.success) {
+        toast.success(response.data.message || `${invoiceNumbers.length} factură${invoiceNumbers.length === 1 ? '' : 'i'} șterse cu succes`)
+        setSelectedInvoices(new Set())
+        // Reîncarcă datele
+        await loadData()
+      } else {
+        toast.error(response.data?.error || 'Eroare la ștergerea facturilor')
+      }
+    } catch (error) {
+      console.error('Error deleting invoices:', error)
+      toast.error(error.response?.data?.error || 'Eroare la ștergerea facturilor')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   // Average price
   const avgPrice = grandTotal.kwh > 0 ? grandTotal.ron / grandTotal.kwh : 0
@@ -1007,20 +1066,54 @@ const ExpendituresElectric = () => {
                 <span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-800 text-indigo-700 dark:text-indigo-300 text-xs rounded-full">
                   {uniqueInvoices.invoices.length} {uniqueInvoices.invoices.length === 1 ? 'factură' : 'facturi'}
                 </span>
+                {selectedInvoices.size > 0 && (
+                  <span className="px-2 py-0.5 bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-300 text-xs rounded-full">
+                    {selectedInvoices.size} selectat{selectedInvoices.size === 1 ? 'ă' : 'e'}
+                  </span>
+                )}
               </h3>
-              <button
-                onClick={() => navigate('/expenditures/settings?tab=electric')}
-                className="px-3 py-1.5 text-sm bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition-colors flex items-center gap-1"
-              >
-                <Settings className="w-4 h-4" />
-                <span>Adaugă Factură</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowVerifyModal(true)}
+                  className="px-3 py-1.5 text-sm bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors flex items-center gap-1"
+                  title="Verifică facturi cu lista ta"
+                >
+                  <FileCheck className="w-4 h-4" />
+                  <span>Verifică Facturi</span>
+                </button>
+                {selectedInvoices.size > 0 && (
+                  <button
+                    onClick={handleDeleteSelected}
+                    disabled={deleting}
+                    className="px-3 py-1.5 text-sm bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white rounded-lg transition-colors flex items-center gap-1"
+                  >
+                    <Trash2 className={`w-4 h-4 ${deleting ? 'animate-spin' : ''}`} />
+                    <span>Șterge {selectedInvoices.size} factură{selectedInvoices.size === 1 ? '' : 'i'}</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => navigate('/expenditures/settings?tab=electric')}
+                  className="px-3 py-1.5 text-sm bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span>Adaugă Factură</span>
+                </button>
+              </div>
             </div>
             
             <div className="overflow-x-auto">
               <table className="w-full border-collapse bg-white dark:bg-slate-800 rounded-xl overflow-hidden">
                 <thead>
                   <tr className="bg-indigo-600 dark:bg-indigo-800">
+                    <th className="px-3 py-3 text-center font-semibold text-white text-sm w-16">
+                      <input
+                        type="checkbox"
+                        checked={selectedInvoices.size > 0 && selectedInvoices.size === uniqueInvoices.invoices.length}
+                        onChange={handleSelectAll}
+                        className="w-4 h-4 text-indigo-600 bg-white border-gray-300 rounded focus:ring-indigo-500 focus:ring-2 cursor-pointer"
+                        title="Selectează/Deselectează toate"
+                      />
+                    </th>
                     <th className="px-3 py-3 text-center font-semibold text-white text-sm w-16">
                       <span title="În Cheltuieli">💰</span>
                     </th>
@@ -1036,13 +1129,23 @@ const ExpendituresElectric = () => {
                 <tbody>
                   {uniqueInvoices.invoices.map((inv, idx) => {
                     const amountMatch = inv.inExpenditures && Math.abs(inv.totalRon - inv.expendituresAmount) < 1
+                    const isSelected = selectedInvoices.has(inv.number)
                     return (
                       <tr 
                         key={inv.number}
                         className={`border-b border-slate-200 dark:border-slate-700 ${
                           idx % 2 === 0 ? 'bg-slate-50 dark:bg-slate-800/50' : 'bg-white dark:bg-slate-800'
-                        } hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors`}
+                        } ${isSelected ? 'bg-indigo-100 dark:bg-indigo-900/40' : ''} hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors`}
                       >
+                        <td className="px-3 py-3 text-center">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleInvoiceSelect(inv.number)}
+                            className="w-4 h-4 text-indigo-600 bg-white border-gray-300 rounded focus:ring-indigo-500 focus:ring-2 cursor-pointer"
+                            title="Selectează factura"
+                          />
+                        </td>
                         <td className="px-3 py-3 text-center">
                           {inv.inExpenditures ? (
                             <CheckCircle className="w-5 h-5 text-emerald-500 mx-auto" />
@@ -1100,6 +1203,7 @@ const ExpendituresElectric = () => {
                 </tbody>
                 <tfoot>
                   <tr className="bg-indigo-100 dark:bg-indigo-900/40 font-semibold">
+                    <td className="px-3 py-3 text-center text-sm"></td>
                     <td className="px-3 py-3 text-center text-sm">
                       <span className="text-emerald-600 dark:text-emerald-400">
                         {uniqueInvoices.inExpendituresCount}/{uniqueInvoices.invoices.length}
@@ -1134,6 +1238,267 @@ const ExpendituresElectric = () => {
         <div className="mt-4 text-center text-xs text-slate-400 dark:text-slate-500">
           {filteredData.length} înregistrări în perioada selectată
         </div>
+
+        {/* Modal Verificare Facturi */}
+        {showVerifyModal && (
+          <div className="fixed inset-0 bg-black/50 dark:bg-black/70 z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+              <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <FileCheck className="w-6 h-6 text-emerald-600" />
+                  Verificare Facturi
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowVerifyModal(false)
+                    setVerifyText('')
+                    setVerifyResults(null)
+                  }}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto flex-1">
+                {!verifyResults ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Lipește lista de facturi (format: Cod, Data, Factura, Suma, Status)
+                      </label>
+                      <textarea
+                        value={verifyText}
+                        onChange={(e) => setVerifyText(e.target.value)}
+                        placeholder={`Exemplu:\n005005246202	22 IUN	EFI2524828318	6897.01	Plătită\n005005246202	5 IUN	EFI2522625538	59091.94	Plătită`}
+                        className="w-full h-64 p-4 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-mono text-sm"
+                      />
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (!verifyText.trim()) {
+                          toast.error('Introdu lista de facturi')
+                          return
+                        }
+
+                        setVerifying(true)
+                        try {
+                          // Parsează textul - suportă atât tab-separated cât și space-separated
+                          const lines = verifyText.trim().split('\n').filter(l => l.trim())
+                          const invoices = []
+                          
+                          for (const line of lines) {
+                            // Încearcă mai întâi să parseze ca tab-separated
+                            let parts = line.split('\t').filter(p => p.trim())
+                            
+                            // Dacă nu are tab-uri, încearcă space-separated (multiple spații)
+                            if (parts.length < 3) {
+                              parts = line.split(/\s{2,}/).filter(p => p.trim())
+                            }
+                            
+                            // Dacă încă nu are suficiente părți, încearcă split pe orice whitespace
+                            if (parts.length < 3) {
+                              parts = line.split(/\s+/).filter(p => p.trim())
+                            }
+                            
+                            // Format: Cod Data Factura Suma Status
+                            // Sau: Cod	Data	Factura	Suma	Status (tab-separated)
+                            if (parts.length >= 4) {
+                              const cod = parts[0]?.trim() || ''
+                              const data = parts[1]?.trim() || ''
+                              const factura = parts[2]?.trim() || ''
+                              // Suma poate fi în parts[3] sau parts[4] dacă există spații suplimentare
+                              const sumaStr = parts[3]?.trim() || parts[4]?.trim() || '0'
+                              const suma = parseFloat(sumaStr.replace(/[,\.]/g, m => m === ',' ? '.' : '.')) || 0
+                              const status = parts.slice(4).join(' ').trim() || parts[3]?.trim() || ''
+                              
+                              // Verifică dacă factura are format valid (conține EFI sau este un număr)
+                              if (factura && (factura.includes('EFI') || factura.match(/^\d+$/))) {
+                                invoices.push({
+                                  cod,
+                                  data,
+                                  factura,
+                                  suma,
+                                  status
+                                })
+                              }
+                            }
+                          }
+
+                          if (invoices.length === 0) {
+                            toast.error('Nu s-au găsit facturi valide în text. Verifică formatul (Cod, Data, Factura, Suma, Status)')
+                            setVerifying(false)
+                            return
+                          }
+
+                          console.log('📋 Facturi parseate:', invoices)
+
+                          const response = await axios.post('/api/expenditures/verify-electric-invoices', {
+                            invoices
+                          })
+
+                          if (response.data?.success) {
+                            setVerifyResults(response.data.results)
+                            toast.success(response.data.message)
+                          } else {
+                            toast.error(response.data?.error || 'Eroare la verificare')
+                          }
+                        } catch (error) {
+                          console.error('Error verifying invoices:', error)
+                          const errorMsg = error.response?.data?.error || error.message || 'Eroare la verificare'
+                          toast.error(errorMsg)
+                        } finally {
+                          setVerifying(false)
+                        }
+                      }}
+                      disabled={verifying || !verifyText.trim()}
+                      className="w-full px-6 py-3 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-semibold flex items-center justify-center gap-2"
+                    >
+                      {verifying ? (
+                        <>
+                          <RefreshCw className="w-5 h-5 animate-spin" />
+                          <span>Se verifică...</span>
+                        </>
+                      ) : (
+                        <>
+                          <FileCheck className="w-5 h-5" />
+                          <span>Verifică Facturi</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Summary */}
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-200 dark:border-emerald-800">
+                        <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                          {verifyResults.summary.found}
+                        </div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">Găsite</div>
+                      </div>
+                      <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800">
+                        <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                          {verifyResults.summary.foundWithDifferentAmount}
+                        </div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">Cu Diferențe</div>
+                      </div>
+                      <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
+                        <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                          {verifyResults.summary.notFound}
+                        </div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400">Lipsă</div>
+                      </div>
+                    </div>
+
+                    {/* Results */}
+                    {verifyResults.found.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-emerald-600 dark:text-emerald-400 mb-2">
+                          ✅ Facturi Găsite ({verifyResults.found.length})
+                        </h3>
+                        <div className="max-h-48 overflow-y-auto border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                          <table className="w-full text-sm">
+                            <thead className="bg-emerald-50 dark:bg-emerald-900/20">
+                              <tr>
+                                <th className="px-3 py-2 text-left">Factură</th>
+                                <th className="px-3 py-2 text-right">Suma Așteptată</th>
+                                <th className="px-3 py-2 text-right">Suma Sistem</th>
+                                <th className="px-3 py-2 text-center">NLC-uri</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {verifyResults.found.map((inv, idx) => (
+                                <tr key={idx} className="border-b border-emerald-100 dark:border-emerald-900/10">
+                                  <td className="px-3 py-2 font-medium">{inv.invoiceNumber}</td>
+                                  <td className="px-3 py-2 text-right">{inv.expectedAmount.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON</td>
+                                  <td className="px-3 py-2 text-right">{inv.dbAmount.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON</td>
+                                  <td className="px-3 py-2 text-center">{inv.nlcCount}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {verifyResults.foundWithDifferentAmount.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-amber-600 dark:text-amber-400 mb-2">
+                          ⚠️ Facturi cu Diferențe ({verifyResults.foundWithDifferentAmount.length})
+                        </h3>
+                        <div className="max-h-48 overflow-y-auto border border-amber-200 dark:border-amber-800 rounded-lg">
+                          <table className="w-full text-sm">
+                            <thead className="bg-amber-50 dark:bg-amber-900/20">
+                              <tr>
+                                <th className="px-3 py-2 text-left">Factură</th>
+                                <th className="px-3 py-2 text-right">Suma Așteptată</th>
+                                <th className="px-3 py-2 text-right">Suma Sistem</th>
+                                <th className="px-3 py-2 text-right">Diferență</th>
+                                <th className="px-3 py-2 text-center">NLC-uri</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {verifyResults.foundWithDifferentAmount.map((inv, idx) => (
+                                <tr key={idx} className="border-b border-amber-100 dark:border-amber-900/10">
+                                  <td className="px-3 py-2 font-medium">{inv.invoiceNumber}</td>
+                                  <td className="px-3 py-2 text-right">{inv.expectedAmount.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON</td>
+                                  <td className="px-3 py-2 text-right">{inv.dbAmount.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON</td>
+                                  <td className="px-3 py-2 text-right text-amber-600 dark:text-amber-400 font-semibold">
+                                    {inv.difference > 0 ? '+' : ''}{inv.difference.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON ({inv.differencePercent}%)
+                                  </td>
+                                  <td className="px-3 py-2 text-center">{inv.nlcCount}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {verifyResults.notFound.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-2">
+                          ❌ Facturi Lipsă ({verifyResults.notFound.length})
+                        </h3>
+                        <div className="max-h-48 overflow-y-auto border border-red-200 dark:border-red-800 rounded-lg">
+                          <table className="w-full text-sm">
+                            <thead className="bg-red-50 dark:bg-red-900/20">
+                              <tr>
+                                <th className="px-3 py-2 text-left">Factură</th>
+                                <th className="px-3 py-2 text-right">Suma Așteptată</th>
+                                <th className="px-3 py-2 text-left">Motiv</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {verifyResults.notFound.map((inv, idx) => (
+                                <tr key={idx} className="border-b border-red-100 dark:border-red-900/10">
+                                  <td className="px-3 py-2 font-medium">{inv.invoiceNumber || inv.factura || 'N/A'}</td>
+                                  <td className="px-3 py-2 text-right">{inv.expectedAmount?.toLocaleString('ro-RO', { minimumFractionDigits: 2 }) || 'N/A'} RON</td>
+                                  <td className="px-3 py-2 text-red-600 dark:text-red-400">{inv.reason}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => {
+                        setVerifyText('')
+                        setVerifyResults(null)
+                      }}
+                      className="w-full px-6 py-3 bg-slate-500 hover:bg-slate-600 text-white rounded-lg transition-colors font-semibold"
+                    >
+                      Verifică Altă Listă
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   )

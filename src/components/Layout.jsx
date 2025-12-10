@@ -33,7 +33,9 @@ import {
   CheckSquare,
   MessageSquare,
   DollarSign,
-  Dices
+  Dices,
+  TrendingDown,
+  Wallet
 } from 'lucide-react'
 
 const Layout = ({ children }) => {
@@ -212,6 +214,30 @@ const Layout = ({ children }) => {
       module: MODULES.DASHBOARD
     },
     { 
+      id: 'incasari', 
+      label: 'Încasări', 
+      icon: DollarSign, 
+      path: '/incasari',
+      count: null,
+      module: MODULES.INCASARI
+    },
+    { 
+      id: 'expenditures', 
+      label: 'Cheltuieli', 
+      icon: TrendingDown, 
+      path: '/expenditures',
+      count: null,
+      module: MODULES.EXPENDITURES
+    },
+    { 
+      id: 'pl', 
+      label: 'P&L', 
+      icon: BarChart3, 
+      path: '/pl',
+      count: null,
+      module: MODULES.INCASARI
+    },
+    { 
       id: 'companies', 
       label: 'Companii', 
       icon: Building2, 
@@ -297,22 +323,6 @@ const Layout = ({ children }) => {
       path: '/invoices',
       count: invoices.length,
       module: MODULES.INVOICES
-    },
-    { 
-      id: 'expenditures', 
-      label: 'Cheltuieli', 
-      icon: BarChart3, 
-      path: '/expenditures',
-      count: null,
-      module: MODULES.EXPENDITURES
-    },
-    { 
-      id: 'incasari', 
-      label: 'Încasări', 
-      icon: BarChart3, 
-      path: '/incasari',
-      count: null,
-      module: MODULES.INCASARI
     },
     { 
       id: 'onjn-reports', 

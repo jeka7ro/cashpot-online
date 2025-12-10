@@ -156,25 +156,35 @@ const Expenditures = () => {
   
   const savedPrefs = loadSavedPreferences()
   
-  // Filters with saved preferences
-  // Default date range: 2020-2026 pentru a afișa TOATE datele disponibile (inclusiv cele vechi din BAT/Google Sheets)
-  const [dateRange, setDateRange] = useState(
-    savedPrefs?.dateRange || {
-      startDate: '2020-01-01', // Data foarte veche pentru a include TOATE datele vechi
-      endDate: (() => {
-        const today = new Date()
-        const end = new Date(today.getFullYear() + 1, 11, 31)
-        const year = end.getFullYear()
-        const month = String(end.getMonth() + 1).padStart(2, '0')
-        const day = String(end.getDate()).padStart(2, '0')
-        return `${year}-${month}-${day}` // Anul viitor pentru a include toate datele viitoare
-      })()
+  // Quick date filters
+  // Fix timezone issues - format date fără timezone conversion
+  const formatDateLocal = (date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // Helper function to get current month date range
+  const getCurrentMonthRange = () => {
+    const today = new Date()
+    const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+    const currentMonthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+    return {
+      startDate: formatDateLocal(currentMonthStart),
+      endDate: formatDateLocal(currentMonthEnd)
     }
+  }
+
+  // Filters with saved preferences
+  // Default: Luna curentă (dacă nu există preferințe salvate)
+  const [dateRange, setDateRange] = useState(
+    savedPrefs?.dateRange || getCurrentMonthRange()
   )
   const [departmentFilter, setDepartmentFilter] = useState(savedPrefs?.departmentFilter || 'all')
   const [expenditureTypeFilter, setExpenditureTypeFilter] = useState(savedPrefs?.expenditureTypeFilter || 'all')
   const [locationFilter, setLocationFilter] = useState(savedPrefs?.locationFilter || 'all') // NEW!
-  const [selectedDateFilter, setSelectedDateFilter] = useState(savedPrefs?.selectedDateFilter || 'anul-curent')
+  const [selectedDateFilter, setSelectedDateFilter] = useState(savedPrefs?.selectedDateFilter || 'luna-curenta')
   const [searchText, setSearchText] = useState('') // Bară de căutare
   const [showMenu, setShowMenu] = useState(false) // Meniu hamburger
   const [allDepartmentsExpanded, setAllDepartmentsExpanded] = useState(false)
@@ -192,14 +202,6 @@ const Expenditures = () => {
     localStorage.setItem('expenditures_preferences', JSON.stringify(preferences))
   }, [dateRange, departmentFilter, expenditureTypeFilter, locationFilter, selectedDateFilter])
   
-  // Quick date filters
-  // Fix timezone issues - format date fără timezone conversion
-  const formatDateLocal = (date) => {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  }
   
   const applyQuickDateFilter = (filterType) => {
     const today = new Date()
@@ -890,7 +892,7 @@ const Expenditures = () => {
       console.log(`  After locationFilter (${locationFilter}): ${beforeLocFilter} → ${filteredData.length}`)
     }
     
-    // SEARCH TEXT FILTER - caută în Departament, Tip, Locație, Sumă
+    // SEARCH TEXT FILTER - caută doar în Departament, Tip, Locație
     if (searchText && searchText.trim() !== '') {
       const beforeSearch = filteredData.length
       const searchLower = searchText.toLowerCase().trim()
@@ -898,14 +900,10 @@ const Expenditures = () => {
         const dept = (item.department_name || '').toLowerCase()
         const type = (item.expenditure_type || '').toLowerCase()
         const loc = (item.location_name || '').toLowerCase()
-        const amount = String(item.amount || '')
-        const description = (item.description || '').toLowerCase()
         
         return dept.includes(searchLower) || 
                type.includes(searchLower) || 
-               loc.includes(searchLower) || 
-               amount.includes(searchLower) ||
-               description.includes(searchLower)
+               loc.includes(searchLower)
       })
       console.log(`  After searchText (${searchText}): ${beforeSearch} → ${filteredData.length}`)
     }
@@ -1247,8 +1245,28 @@ const Expenditures = () => {
     .filter(dept => !excludedDepartments.includes(dept))
     .sort()
   
-  // Get unique expenditure types for filter
-  const uniqueExpenditureTypes = [...new Set(expendituresData.map(item => item.expenditure_type))].filter(Boolean).sort()
+  // Get unique expenditure types for filter - FILTRAT ÎN CASCADĂ după departament
+  const uniqueExpenditureTypes = React.useMemo(() => {
+    if (departmentFilter === 'all') {
+      // Dacă nu e selectat niciun departament, arată toate tipurile
+      return [...new Set(expendituresData.map(item => item.expenditure_type))].filter(Boolean).sort()
+    } else {
+      // Dacă e selectat un departament, arată doar tipurile din acel departament
+      return [...new Set(
+        expendituresData
+          .filter(item => item.department_name === departmentFilter)
+          .map(item => item.expenditure_type)
+      )].filter(Boolean).sort()
+    }
+  }, [expendituresData, departmentFilter])
+  
+  // Reset expenditureTypeFilter dacă tipul selectat nu mai este disponibil după schimbarea departamentului
+  useEffect(() => {
+    if (expenditureTypeFilter !== 'all' && !uniqueExpenditureTypes.includes(expenditureTypeFilter)) {
+      console.log(`⚠️ Tipul "${expenditureTypeFilter}" nu mai este disponibil în departamentul "${departmentFilter}". Resetare la "all".`)
+      setExpenditureTypeFilter('all')
+    }
+  }, [departmentFilter, uniqueExpenditureTypes, expenditureTypeFilter])
   
   // Get unique locations for filter
   const uniqueLocations = [...new Set(expendituresData.map(item => item.location_name))].filter(Boolean).sort()
@@ -1392,13 +1410,31 @@ const Expenditures = () => {
                   type="text"
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
-                  placeholder="Caută în Departament, Tip, Locație, Sumă..."
-                  className="w-full pl-10 pr-10 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                  placeholder="Caută în Departament, Tip, Locație..."
+                  className="w-full pl-10 pr-20 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
                 />
+                {/* Bula cu rezultatele căutării */}
                 {searchText && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500 text-white">
+                      {(() => {
+                        // Calculează numărul de rezultate după căutare
+                        const searchLower = searchText.toLowerCase().trim()
+                        const count = expendituresData.filter(item => {
+                          const dept = (item.department_name || '').toLowerCase()
+                          const type = (item.expenditure_type || '').toLowerCase()
+                          const loc = (item.location_name || '').toLowerCase()
+                          return dept.includes(searchLower) || type.includes(searchLower) || loc.includes(searchLower)
+                        }).length
+                        return `${count} / ${expendituresData.length}`
+                      })()}
+                    </span>
+                  </div>
+                )}
+                {!searchText && (
                   <button
                     onClick={() => setSearchText('')}
-                    className="absolute right-3 p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded transition-colors"
+                    className="absolute right-3 p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded transition-colors opacity-0 pointer-events-none"
                     title="Șterge căutarea"
                   >
                     <X className="w-4 h-4 text-slate-500 dark:text-slate-400" />
@@ -1424,6 +1460,8 @@ const Expenditures = () => {
                       return // Nu schimba filtrul
                     }
                     setDepartmentFilter(newValue)
+                    // Reset tipul dacă nu mai este disponibil în noul departament
+                    // (se va face automat prin useEffect de mai sus)
                   }}
                   className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
                   style={{ minWidth: '180px' }}
@@ -1476,13 +1514,24 @@ const Expenditures = () => {
                   </select>
                 </div>
               )}
+
+              {/* Export PDF - ultimul, în partea dreaptă */}
+              <div className="flex items-end gap-2">
+                <button
+                  onClick={handleExportPDF}
+                  className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-all shadow-sm hover:shadow-md"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>Export PDF</span>
+                </button>
+              </div>
             </div>
           </div>
           
           {/* Rând 2: Date Picker Clasic și Comod */}
           <div className="mb-4">
-            {/* Input-uri de date */}
-            <div className="flex items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm mb-2">
+            {/* Input-uri de date + Butoane Rapide - Pe același rând */}
+            <div className="flex items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex-wrap">
               {/* Date Inputs - Clasic și Simplu */}
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
@@ -1519,75 +1568,8 @@ const Expenditures = () => {
                 </div>
               </div>
 
-              {/* Săgeți Navigare Perioadă */}
-              <div className="flex items-center gap-1 border-l border-r border-slate-200 dark:border-slate-700 px-3">
-                <button
-                  onClick={() => {
-                    const start = new Date(dateRange.startDate)
-                    const end = new Date(dateRange.endDate)
-                    const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24))
-                    
-                    start.setDate(start.getDate() - diffDays - 1)
-                    end.setDate(end.getDate() - diffDays - 1)
-                    
-                    setDateRange({
-                      startDate: formatDateLocal(start),
-                      endDate: formatDateLocal(end)
-                    })
-                    setSelectedDateFilter('custom')
-                  }}
-                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                  title="Perioadă anterioară"
-                >
-                  <ChevronLeft className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-                </button>
-                <button
-                  onClick={() => {
-                    const start = new Date(dateRange.startDate)
-                    const end = new Date(dateRange.endDate)
-                    const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24))
-                    
-                    start.setDate(start.getDate() + diffDays + 1)
-                    end.setDate(end.getDate() + diffDays + 1)
-                    
-                    setDateRange({
-                      startDate: formatDateLocal(start),
-                      endDate: formatDateLocal(end)
-                    })
-                    setSelectedDateFilter('custom')
-                  }}
-                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                  title="Perioadă următoare"
-                >
-                  <ChevronRight className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-                </button>
-              </div>
-
-              {/* Text Perioadă Afișată */}
-              <div className="flex-1 text-sm text-slate-600 dark:text-slate-400">
-                <span className="font-semibold text-slate-900 dark:text-slate-100">
-                  {new Date(dateRange.startDate).toLocaleDateString('ro-RO', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                </span>
-                {' – '}
-                <span className="font-semibold text-slate-900 dark:text-slate-100">
-                  {new Date(dateRange.endDate).toLocaleDateString('ro-RO', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                </span>
-              </div>
-                
-              {/* Export PDF - la capătul din dreapta */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleExportPDF}
-                  className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-all shadow-sm hover:shadow-md"
-                >
-                  <FileText className="w-4 h-4" />
-                  <span>Export PDF</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Butoane Rapide cu Iconițe și Text - Sub Input-uri */}
-            <div className="flex items-center gap-2 px-1 flex-wrap">
+              {/* Butoane Rapide cu Iconițe și Text - Distribuite uniform */}
+              <div className="flex items-center gap-2 flex-1 justify-between min-w-0">
               {[
                 { id: 'azi', label: 'Azi', icon: Clock },
                 { id: 'saptamana-curenta', label: 'Săpt', icon: CalendarDays },
@@ -1605,20 +1587,21 @@ const Expenditures = () => {
                   <button
                     key={btn.id}
                     onClick={() => applyQuickDateFilter(btn.id)}
-                    className={`relative inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-all hover:scale-105 active:scale-95 text-sm font-medium ${
+                    className={`relative flex-1 min-w-0 inline-flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-lg transition-all hover:scale-105 active:scale-95 text-xs sm:text-sm font-medium ${
                       isActive
                         ? 'bg-blue-500 text-white shadow-md'
                         : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
                     }`}
                     title={btn.label}
                   >
-                    <IconComponent className="w-4 h-4" />
-                    <span>{btn.label}</span>
+                    <IconComponent className="w-4 h-4 flex-shrink-0" />
+                    <span className="hidden sm:inline truncate">{btn.label}</span>
                   </button>
                 )
               })}
             </div>
           </div>
+        </div>
         </div>
         
         {/* ZONA EXPORTABILĂ PDF - START */}

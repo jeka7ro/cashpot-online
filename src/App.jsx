@@ -60,6 +60,8 @@ import ExpendituresElectricMonth from './pages/ExpendituresElectricMonth'
 import CyberTable from './pages/CyberTable'
 import IncasariSettings from './pages/IncasariSettings'
 import Incasari from './pages/Incasari'
+import PL from './pages/PL'
+import PLMonthDetail from './pages/PLMonthDetail'
 import IncasariMonthly from './pages/IncasariMonthly'
 import IncasariOperational from './pages/IncasariOperational'
 import IncasariSmartAnalytics from './pages/IncasariSmartAnalytics'
@@ -140,6 +142,8 @@ function App() {
             <Route path="/expenditures/electric/:monthKey" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><ExpendituresElectricMonth /></RoleProtectedRoute>} />
             <Route path="/expenditures/detail" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><ExpendituresDetail /></RoleProtectedRoute>} />
             <Route path="/ai-insights" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><AIInsights /></RoleProtectedRoute>} />
+            <Route path="/pl" element={<RoleProtectedRoute module={MODULES.INCASARI}><PL /></RoleProtectedRoute>} />
+            <Route path="/pl/:year/:month" element={<RoleProtectedRoute module={MODULES.INCASARI}><PLMonthDetail /></RoleProtectedRoute>} />
             <Route path="/incasari/operational" element={<RoleProtectedRoute module={MODULES.INCASARI}><IncasariOperational /></RoleProtectedRoute>} />
             <Route path="/incasari/monthly" element={<RoleProtectedRoute module={MODULES.INCASARI}><IncasariMonthly /></RoleProtectedRoute>} />
             <Route path="/incasari/dashboard" element={<RoleProtectedRoute module={MODULES.INCASARI}><Incasari /></RoleProtectedRoute>} />

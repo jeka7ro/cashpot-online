@@ -461,6 +461,91 @@ router.get('/daily-stats', authenticateToken, async (req, res) => {
         ? includeLocations.split(',').map((s) => normalizeLocationName(s)).filter(Boolean)
         : undefined
 
+    // Verifică dacă este luna trecută completă și dacă nu sunt filtre location/provider/cabinet/gameMix
+    const currentDate = new Date()
+    const lastMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
+    const lastMonthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0)
+    const formatDateLocal = (date) => {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+    const lastMonthStartStr = formatDateLocal(lastMonthStart)
+    const lastMonthEndStr = formatDateLocal(lastMonthEnd)
+    const isLastMonth = startDate === lastMonthStartStr && endDate === lastMonthEndStr
+    const hasNoFilters = (!location || location === 'all') && (!provider || provider === 'all') && (!cabinet || cabinet === 'all') && (!gameMix || gameMix === 'all')
+
+    // Pentru luna trecută, fără filtre location/provider/cabinet/gameMix, calculăm direct din Cyber (ca overview.lastMonth)
+    if (isLastMonth && hasNoFilters) {
+      try {
+        console.log(`🔥 [daily-stats] Calcul direct din Cyber pentru luna trecută: ${lastMonthStartStr} - ${lastMonthEndStr}`)
+        const cyberPool = await getCyberPool()
+        
+        // Construiește lista de location_id-uri permise dacă includeLocations este setat
+        let locationIdsFilter = null
+        if (locationsArray && locationsArray.length > 0) {
+          const activeSlots = getActiveSlots()
+          const allowed = new Set(locationsArray)
+          const locationIds = new Set()
+          activeSlots.forEach((slot) => {
+            if (
+              slot &&
+              slot.location &&
+              allowed.has(normalizeLocationName(slot.location)) &&
+              slot.location_id
+            ) {
+              locationIds.add(Number(slot.location_id))
+            }
+          })
+          if (locationIds.size > 0) {
+            locationIdsFilter = Array.from(locationIds)
+          }
+        }
+
+        let cyberSql = `
+          SELECT
+            mas.date,
+            COALESCE(SUM(mas.in), 0) AS total_in,
+            COALESCE(SUM(mas.out), 0) AS total_out,
+            COALESCE(SUM(mas.in - mas.out), 0) AS total_profit,
+            COUNT(DISTINCT mas.machine_id) AS slots_count
+          FROM cyberslot_dbn.machine_audit_summaries mas
+          WHERE mas.date >= ? AND mas.date <= ?
+        `
+        const cyberParams = [lastMonthStartStr, lastMonthEndStr]
+        if (locationIdsFilter && locationIdsFilter.length > 0) {
+          const placeholders = locationIdsFilter.map(() => '?').join(',')
+          cyberSql += ` AND mas.location_id IN (${placeholders})`
+          cyberParams.push(...locationIdsFilter)
+        }
+        cyberSql += ` GROUP BY mas.date ORDER BY mas.date`
+        
+        const [cyberRows] = await cyberPool.query(cyberSql, cyberParams)
+        console.log(`🔥 [daily-stats] Luna trecută DIN CYBER - ${cyberRows.length} zile găsite`)
+
+        const rows = (cyberRows || []).map((row) => ({
+          date: row.date,
+          total_in: Number(row.total_in || 0),
+          total_out: Number(row.total_out || 0),
+          total_profit: Number(row.total_profit || 0),
+          slots_count: Number(row.slots_count || 0)
+        }))
+
+        return res.json({
+          success: true,
+          startDate,
+          endDate,
+          rows,
+          source: 'cyber' // Indică că datele vin direct din Cyber
+        })
+      } catch (error) {
+        console.error('❌ Error fetching from Cyber, fallback to PostgreSQL:', error.message)
+        // Continuă cu calculul din PostgreSQL (ca mai jos)
+      }
+    }
+
+    // Calcul normal din incasari_daily (pentru alte perioade sau când sunt filtre)
     const activeIds = getActiveMachineIds({
       location,
       provider,
@@ -555,6 +640,135 @@ router.get('/avg-in-by-location', authenticateToken, async (req, res) => {
         ? includeLocations.split(',').map((s) => normalizeLocationName(s)).filter(Boolean)
         : undefined
 
+    // Verifică dacă este luna trecută completă și dacă nu sunt filtre location/provider/cabinet/gameMix
+    const currentDate = new Date()
+    const lastMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
+    const lastMonthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0)
+    const formatDateLocal = (date) => {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+    const lastMonthStartStr = formatDateLocal(lastMonthStart)
+    const lastMonthEndStr = formatDateLocal(lastMonthEnd)
+    const isLastMonth = startDate === lastMonthStartStr && endDate === lastMonthEndStr
+    const hasNoFilters = (!location || location === 'all') && (!provider || provider === 'all') && (!cabinet || cabinet === 'all') && (!gameMix || gameMix === 'all')
+
+    // Pentru luna trecută, fără filtre location/provider/cabinet/gameMix, calculăm direct din Cyber (ca overview.lastMonth)
+    if (isLastMonth && hasNoFilters) {
+      try {
+        console.log(`🔥 [avg-in-by-location] Calcul direct din Cyber pentru luna trecută: ${lastMonthStartStr} - ${lastMonthEndStr}`)
+        const cyberPool = await getCyberPool()
+        
+        // Construiește lista de location_id-uri permise dacă includeLocations este setat
+        let locationIdsFilter = null
+        if (locationsArray && locationsArray.length > 0) {
+          const activeSlots = getActiveSlots()
+          const allowed = new Set(locationsArray)
+          const locationIds = new Set()
+          activeSlots.forEach((slot) => {
+            if (
+              slot &&
+              slot.location &&
+              allowed.has(normalizeLocationName(slot.location)) &&
+              slot.location_id
+            ) {
+              locationIds.add(Number(slot.location_id))
+            }
+          })
+          if (locationIds.size > 0) {
+            locationIdsFilter = Array.from(locationIds)
+          }
+        }
+
+        let cyberSql = `
+          SELECT
+            mas.location_id,
+            COALESCE(SUM(mas.in), 0) AS total_in,
+            COALESCE(SUM(mas.out), 0) AS total_out,
+            COALESCE(SUM(mas.in - mas.out), 0) AS total_profit,
+            COALESCE(SUM(mas.bet), 0) AS total_bet,
+            COALESCE(SUM(mas.win), 0) AS total_win,
+            COALESCE(SUM(mas.jackpot), 0) AS total_jackpot,
+            COALESCE(SUM(mas.hh), 0) AS total_hh,
+            COALESCE(SUM(mas.cb_real), 0) AS total_cb_real,
+            COALESCE(SUM(mas.cb_birthday), 0) AS total_cb_birthday,
+            COALESCE(SUM(mas.cb_raffle), 0) AS total_cb_raffle,
+            COUNT(DISTINCT mas.machine_id) AS slots_count
+          FROM cyberslot_dbn.machine_audit_summaries mas
+          WHERE mas.date >= ? AND mas.date <= ?
+        `
+        const cyberParams = [lastMonthStartStr, lastMonthEndStr]
+        if (locationIdsFilter && locationIdsFilter.length > 0) {
+          const placeholders = locationIdsFilter.map(() => '?').join(',')
+          cyberSql += ` AND mas.location_id IN (${placeholders})`
+          cyberParams.push(...locationIdsFilter)
+        }
+        cyberSql += ` GROUP BY mas.location_id ORDER BY mas.location_id`
+        
+        const [cyberRows] = await cyberPool.query(cyberSql, cyberParams)
+        console.log(`🔥 [avg-in-by-location] Luna trecută DIN CYBER - ${cyberRows.length} locații găsite`)
+
+        // Încarcă datele pentru locații (folosind fallback dacă fișierul nu există)
+        let locationsData = []
+        try {
+          locationsData = loadExportedData('locations.json')
+          if (!Array.isArray(locationsData)) {
+            console.warn('⚠️ locations.json nu este un array, folosim array gol')
+            locationsData = []
+          }
+        } catch (error) {
+          console.error('❌ Eroare la încărcarea locations.json:', error)
+          locationsData = []
+        }
+        
+        const locationMap = new Map()
+        locationsData.forEach((loc) => {
+          if (loc && typeof loc.id !== 'undefined') {
+            locationMap.set(String(loc.id), loc.name || loc.location || `Loc ${loc.id}`)
+          }
+        })
+
+        const rows = (cyberRows || []).map((row) => {
+          const locationId = row.location_id
+          const key =
+            locationId === null || typeof locationId === 'undefined' ? null : String(locationId)
+          const locationName = key ? locationMap.get(key) || `Loc ${key}` : 'Nesetat'
+          const totalIn = Number(row.total_in || 0)
+          const slotsCount = Number(row.slots_count || 0)
+          const averageIn = slotsCount > 0 ? totalIn / slotsCount : 0
+          return {
+            locationId,
+            locationName,
+            totalProfit: Number(row.total_profit || 0),
+            totalIn,
+            totalBet: Number(row.total_bet || 0),
+            totalWin: Number(row.total_win || 0),
+            totalJackpot: Number(row.total_jackpot || 0),
+            totalHh: Number(row.total_hh || 0),
+            totalCbReal: Number(row.total_cb_real || 0),
+            totalCbBirthday: Number(row.total_cb_birthday || 0),
+            totalCbRaffle: Number(row.total_cb_raffle || 0),
+            slotsCount,
+            averageIn
+          }
+        })
+
+        return res.json({
+          success: true,
+          startDate,
+          endDate,
+          rows,
+          source: 'cyber' // Indică că datele vin direct din Cyber
+        })
+      } catch (error) {
+        console.error('❌ Error fetching from Cyber, fallback to PostgreSQL:', error.message)
+        // Continuă cu calculul din PostgreSQL (ca mai jos)
+      }
+    }
+
+    // Calcul normal din incasari_daily (pentru alte perioade sau când sunt filtre)
     const activeIds = getActiveMachineIds({
       location,
       provider,
@@ -2260,8 +2474,50 @@ router.get('/floorplan-data', authenticateToken, async (req, res) => {
   }
 })
 
+// Helper function pentru a obține filtrele din setări (similar cu expenditures.js)
+const getIncludedFiltersForUser = async (pool, userId) => {
+  const result = {
+    departments: null,
+    types: null,
+    locations: null
+  }
+
+  if (!userId) {
+    return result
+  }
+
+  try {
+    const settingsResult = await pool.query(
+      `
+        SELECT preferences
+        FROM users
+        WHERE id = $1
+      `,
+      [userId]
+    )
+
+    const preferences = settingsResult.rows[0]?.preferences?.expendituresSettings
+    if (preferences) {
+      if (Array.isArray(preferences.includedDepartments) && preferences.includedDepartments.length > 0) {
+        result.departments = preferences.includedDepartments.filter(Boolean)
+      }
+      if (Array.isArray(preferences.includedExpenditureTypes) && preferences.includedExpenditureTypes.length > 0) {
+        result.types = preferences.includedExpenditureTypes.filter(Boolean)
+      }
+      if (Array.isArray(preferences.includedLocations) && preferences.includedLocations.length > 0) {
+        result.locations = preferences.includedLocations.filter(Boolean)
+      }
+    }
+  } catch (error) {
+    console.error('Error loading expenditures settings for location-expenditures:', error)
+  }
+
+  return result
+}
+
 // GET /api/incasari/location-expenditures
 // Returnează cheltuieli totale pe locație pentru un interval de date (pentru P&L per locație)
+// APLICĂ FILTRELE DIN SETĂRI (departamente și tipuri incluse)
 router.get('/location-expenditures', authenticateToken, async (req, res) => {
   try {
     const pool = req.app.get('pool')
@@ -2273,12 +2529,29 @@ router.get('/location-expenditures', authenticateToken, async (req, res) => {
     }
 
     const { startDate, endDate, includeLocations } = req.query
+    const userId = req.user?.id
 
     if (!startDate || !endDate) {
       return res.status(400).json({
         success: false,
         error: 'Lipsește startDate sau endDate'
       })
+    }
+
+    // Obține filtrele din setări
+    const includedFilters = await getIncludedFiltersForUser(pool, userId)
+    
+    console.log(`🔍 [location-expenditures] User ID: ${userId}`)
+    console.log(`🔍 [location-expenditures] Filtre obținute:`, {
+      departments: includedFilters.departments?.length || 0,
+      types: includedFilters.types?.length || 0,
+      locations: includedFilters.locations?.length || 0
+    })
+    if (includedFilters.departments && includedFilters.departments.length > 0) {
+      console.log(`🔍 [location-expenditures] Primele 5 departamente:`, includedFilters.departments.slice(0, 5))
+    }
+    if (includedFilters.types && includedFilters.types.length > 0) {
+      console.log(`🔍 [location-expenditures] Primele 5 tipuri:`, includedFilters.types.slice(0, 5))
     }
 
     let locationsArray
@@ -2289,7 +2562,7 @@ router.get('/location-expenditures', authenticateToken, async (req, res) => {
         .filter(Boolean)
     }
 
-    // EXCLUDE departamentele care nu trebuie să apară în P&L (la fel ca în Expenditures.jsx)
+    // EXCLUDE departamentele care nu trebuie să apară în P&L (hardcodate)
     const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli', 'Nespecificat']
     
     let sql = `
@@ -2304,6 +2577,29 @@ router.get('/location-expenditures', authenticateToken, async (req, res) => {
 
     const params = [startDate, endDate]
     let paramIndex = 3
+
+    // APLICĂ FILTRELE DIN SETĂRI: Doar departamentele incluse
+    if (includedFilters.departments && includedFilters.departments.length > 0) {
+      sql += ` AND department_name = ANY($${paramIndex}::text[])`
+      params.push(includedFilters.departments)
+      paramIndex++
+    }
+
+    // APLICĂ FILTRELE DIN SETĂRI: Doar tipurile incluse
+    if (includedFilters.types && includedFilters.types.length > 0) {
+      sql += ` AND expenditure_type = ANY($${paramIndex}::text[])`
+      params.push(includedFilters.types)
+      paramIndex++
+    }
+
+    // APLICĂ FILTRELE DIN SETĂRI: Doar locațiile incluse (dacă nu sunt specificate explicit în includeLocations)
+    if (!locationsArray && includedFilters.locations && includedFilters.locations.length > 0) {
+      sql += ` AND location_name = ANY($${paramIndex}::text[])`
+      params.push(includedFilters.locations)
+      paramIndex++
+    }
+
+    // Dacă sunt specificate locații explicit în includeLocations, folosim doar pe acelea
     if (locationsArray && locationsArray.length > 0) {
       sql += ` AND location_name = ANY($${paramIndex})`
       params.push(locationsArray)
@@ -2316,6 +2612,8 @@ router.get('/location-expenditures', authenticateToken, async (req, res) => {
     `
 
     const result = await pool.query(sql, params)
+
+    console.log(`📊 [location-expenditures] Filtre aplicate: departments=${includedFilters.departments?.length || 'all'}, types=${includedFilters.types?.length || 'all'}, rows=${result.rows.length}`)
 
     return res.json({
       success: true,
@@ -2437,10 +2735,27 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
       }
     })
 
+    // Obține filtrele din setări pentru a aplica filtrele corecte
+    const userId = req.user?.id
+    const includedFilters = await getIncludedFiltersForUser(pool, userId)
+    
+    console.log(`🔍 [monthly-by-location] User ID: ${userId}`)
+    console.log(`🔍 [monthly-by-location] Filtre obținute:`, {
+      departments: includedFilters.departments?.length || 0,
+      types: includedFilters.types?.length || 0,
+      locations: includedFilters.locations?.length || 0
+    })
+    if (includedFilters.departments && includedFilters.departments.length > 0) {
+      console.log(`🔍 [monthly-by-location] Primele 5 departamente:`, includedFilters.departments.slice(0, 5))
+    }
+    if (includedFilters.types && includedFilters.types.length > 0) {
+      console.log(`🔍 [monthly-by-location] Primele 5 tipuri:`, includedFilters.types.slice(0, 5))
+    }
+
     // Obține cheltuielile din expenditures_sync grupate pe an, lună și locație (OPTIMIZAT - ultimii 5 ani)
-    // EXCLUDE departamentele care nu trebuie să apară în P&L (la fel ca în location-expenditures)
+    // APLICĂ FILTRELE DIN SETĂRI (departamente și tipuri incluse)
     const expendituresStartTime = Date.now()
-    const expendituresSql = `
+    let expendituresSql = `
       SELECT
         EXTRACT(YEAR FROM operational_date)::INTEGER AS year,
         EXTRACT(MONTH FROM operational_date)::INTEGER AS month,
@@ -2454,11 +2769,32 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
         AND location_name != 'Depozit'
         AND (department_name IS NOT NULL AND department_name NOT IN ('POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli', 'Nespecificat'))
         AND (LOWER(TRIM(COALESCE(department_name, ''))) NOT IN ('unknown', 'null', ''))
+    `
+    
+    const expendituresParams = [`${startYear}-01-01`]
+    let expendituresParamIndex = 2
+
+    // APLICĂ FILTRELE DIN SETĂRI: Doar departamentele incluse
+    if (includedFilters.departments && includedFilters.departments.length > 0) {
+      expendituresSql += ` AND department_name = ANY($${expendituresParamIndex}::text[])`
+      expendituresParams.push(includedFilters.departments)
+      expendituresParamIndex++
+    }
+
+    // APLICĂ FILTRELE DIN SETĂRI: Doar tipurile incluse
+    if (includedFilters.types && includedFilters.types.length > 0) {
+      expendituresSql += ` AND expenditure_type = ANY($${expendituresParamIndex}::text[])`
+      expendituresParams.push(includedFilters.types)
+      expendituresParamIndex++
+    }
+
+    expendituresSql += `
       GROUP BY EXTRACT(YEAR FROM operational_date), EXTRACT(MONTH FROM operational_date), location_name
       ORDER BY year DESC, month DESC, location_name
     `
-    const expendituresResult = await pool.query(expendituresSql, [`${startYear}-01-01`])
+    const expendituresResult = await pool.query(expendituresSql, expendituresParams)
     console.log(`✅ [monthly-by-location] Query expenditures_sync completat în ${Date.now() - expendituresStartTime}ms, ${expendituresResult.rows.length} rânduri`)
+    console.log(`📊 [monthly-by-location] Filtre aplicate: departments=${includedFilters.departments?.length || 'all'}, types=${includedFilters.types?.length || 'all'}`)
 
     // Creează un map pentru cheltuieli: key = "year-month-normalizedLocationName"
     // Normalizează numele locațiilor pentru a potrivi "Craiova E.S" cu "Craiova"
@@ -3129,6 +3465,7 @@ router.post('/sync', authenticateToken, async (req, res) => {
       global._incasariSyncOutput = ''
       global._incasariSyncStartTime = null
       global._incasariSyncEndTime = null
+      global._incasariSyncChild = null
     }
 
     // Check if already syncing
@@ -3184,6 +3521,9 @@ router.post('/sync', authenticateToken, async (req, res) => {
       stdio: 'pipe'
     })
 
+    // Salvează referința la proces pentru a-l putea opri
+    global._incasariSyncChild = child
+
     child.stdout.on('data', (data) => {
       const text = data.toString()
       global._incasariSyncOutput += text
@@ -3199,6 +3539,7 @@ router.post('/sync', authenticateToken, async (req, res) => {
     child.on('close', (code) => {
       global._incasariSyncRunning = false
       global._incasariSyncEndTime = new Date().toISOString()
+      global._incasariSyncChild = null
       if (code === 0) {
         console.log('✅ [INCASARI SYNC] Sincronizare finalizată cu succes')
       } else {
@@ -3209,6 +3550,7 @@ router.post('/sync', authenticateToken, async (req, res) => {
     
     child.on('error', (error) => {
       global._incasariSyncRunning = false
+      global._incasariSyncChild = null
       console.error('❌ [INCASARI SYNC] Eroare la pornirea procesului:', error)
       global._incasariSyncOutput += `\n❌ Eroare: ${error.message}\n`
     })
@@ -3244,8 +3586,58 @@ router.get('/sync-status', authenticateToken, async (req, res) => {
   }
 })
 
+// DELETE /api/incasari/sync-stop
+// Oprește sincronizarea în curs
+router.delete('/sync-stop', authenticateToken, async (req, res) => {
+  try {
+    if (!global._incasariSyncRunning || !global._incasariSyncChild) {
+      return res.status(400).json({
+        success: false,
+        error: 'Nu există sincronizare în curs de oprit'
+      })
+    }
+
+    try {
+      // Oprește procesul
+      global._incasariSyncChild.kill('SIGTERM')
+      
+      // Așteaptă puțin, apoi forțează oprirea dacă nu s-a oprit
+      setTimeout(() => {
+        if (global._incasariSyncChild && !global._incasariSyncChild.killed) {
+          global._incasariSyncChild.kill('SIGKILL')
+        }
+      }, 2000)
+
+      global._incasariSyncRunning = false
+      global._incasariSyncEndTime = new Date().toISOString()
+      global._incasariSyncOutput += '\n\n🛑 Sincronizare oprită manual de utilizator\n'
+      global._incasariSyncChild = null
+
+      console.log('🛑 [INCASARI SYNC] Sincronizare oprită manual')
+
+      return res.json({
+        success: true,
+        message: 'Sincronizarea a fost oprită'
+      })
+    } catch (killError) {
+      console.error('❌ [INCASARI SYNC] Eroare la oprirea procesului:', killError)
+      return res.status(500).json({
+        success: false,
+        error: 'Eroare la oprirea procesului: ' + killError.message
+      })
+    }
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/sync-stop:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Eroare la oprirea sincronizării'
+    })
+  }
+})
+
 // GET /api/incasari/slots-by-month-location
 // Returnează numărul distinct de sloturi (serial_number) grupate pe lună și locație pentru anul curent
+// Acceptă filtre: provider, cabinet, gameMix
 router.get('/slots-by-month-location', authenticateToken, async (req, res) => {
   try {
     const pool = req.app.get('pool')
@@ -3260,8 +3652,30 @@ router.get('/slots-by-month-location', authenticateToken, async (req, res) => {
     const startDate = `${currentYear}-01-01`
     const endDate = `${currentYear}-12-31`
 
-    // Numără serial_number distincte (1 serial = 1 slot) care au avut activitate în fiecare lună și locație
-    const sql = `
+    // Obține filtrele din query params
+    const provider = req.query.provider && req.query.provider !== 'all' ? req.query.provider : null
+    const cabinet = req.query.cabinet && req.query.cabinet !== 'all' ? req.query.cabinet : null
+    const gameMix = req.query.gameMix && req.query.gameMix !== 'all' ? req.query.gameMix : null
+
+    // Obține lista de machine_id-uri filtrate
+    let filteredMachineIds = null
+    if (provider || cabinet || gameMix) {
+      const activeMachineIds = getActiveMachineIds({ provider, cabinet, gameMix })
+      if (activeMachineIds && activeMachineIds.length > 0) {
+        filteredMachineIds = activeMachineIds
+      } else {
+        // Dacă nu există machine_id-uri care se potrivesc cu filtrele, returnează date goale
+        return res.json({
+          success: true,
+          year: currentYear,
+          locations: [],
+          monthData: {}
+        })
+      }
+    }
+
+    // Construiește query-ul SQL cu filtre opționale
+    let sql = `
       SELECT 
         EXTRACT(MONTH FROM audit_date)::INTEGER AS month,
         location_id,
@@ -3271,11 +3685,23 @@ router.get('/slots-by-month-location', authenticateToken, async (req, res) => {
         AND location_id IS NOT NULL
         AND serial_number IS NOT NULL
         AND serial_number != ''
+    `
+    const params = [startDate, endDate]
+    let paramIndex = 3
+
+    // Adaugă filtrul pentru machine_id dacă există filtre
+    if (filteredMachineIds && filteredMachineIds.length > 0) {
+      sql += ` AND machine_id = ANY($${paramIndex})`
+      params.push(filteredMachineIds)
+      paramIndex++
+    }
+
+    sql += `
       GROUP BY EXTRACT(MONTH FROM audit_date), location_id
       ORDER BY month, location_id
     `
 
-    const result = await pool.query(sql, [startDate, endDate])
+    const result = await pool.query(sql, params)
     console.log(`📊 [slots-by-month-location] Găsite ${result.rows.length} rânduri pentru anul ${currentYear}`)
     if (result.rows.length > 0) {
       console.log('📊 [slots-by-month-location] Primele 5 rânduri:', result.rows.slice(0, 5))

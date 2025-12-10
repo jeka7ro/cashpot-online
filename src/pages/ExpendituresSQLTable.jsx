@@ -113,6 +113,7 @@ const ExpendituresSQLTable = () => {
     search: ''
   })
   const [searchInput, setSearchInput] = useState('')
+  const [selectedDateFilter, setSelectedDateFilter] = useState('luna-curenta')
 
   const [sort, setSort] = useState({ sortBy: 'operational_date', order: 'desc' })
   const [pagination, setPagination] = useState(() => {
@@ -684,6 +685,7 @@ const ExpendituresSQLTable = () => {
         return
     }
     
+    setSelectedDateFilter(filterType)
     handleDateChange({ startDate, endDate })
   }
 
@@ -1339,13 +1341,73 @@ const ExpendituresSQLTable = () => {
         </div>
 
         {/* Filters Card */}
-        <div className="card p-5 bg-white/80 dark:bg-slate-800/80 rounded-2xl shadow-xl border border-white/40 dark:border-slate-700/50 backdrop-blur-2xl">
-          {/* Header cu titlu */}
-          <div className="mb-4">
+        <div className="card p-5 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-2xl shadow-xl border border-transparent backdrop-blur-2xl">
+          {/* Header cu titlu și butoane pe același rând */}
+          <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center">
               <Filter className="w-4 h-4 mr-2 text-blue-500" />
               Filtre SQL
             </h2>
+            
+            {/* Butoane: Caută Duplicate, Export CSV, Export Excel - Aliniate la dreapta */}
+            <div className="flex items-center gap-2">
+              {/* Buton căutare duplicate */}
+              <button
+                onClick={handleSearchDuplicates}
+                disabled={searchingDuplicates}
+                className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-xs font-semibold border transition-all hover:scale-105 active:scale-95 flex-shrink-0"
+                style={{
+                  height: '40px',
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  borderColor: 'rgba(255, 255, 255, 0.3)',
+                  boxShadow: '0 6px 18px rgba(245, 158, 11, 0.45)'
+                }}
+              >
+                {searchingDuplicates ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4" />
+                )}
+                <span className="whitespace-nowrap">Caută Duplicate</span>
+              </button>
+              
+              <button
+                onClick={() => handleExport('csv')}
+                disabled={exportingFormat !== null}
+                className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-xs font-semibold border transition-all hover:scale-105 active:scale-95"
+                style={{
+                  height: '40px',
+                  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                  borderColor: 'rgba(255, 255, 255, 0.3)',
+                  boxShadow: '0 6px 18px rgba(37, 99, 235, 0.45)'
+                }}
+              >
+                {exportingFormat === 'csv' ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <FileDown className="w-4 h-4" />
+                )}
+                <span>Export CSV</span>
+              </button>
+              <button
+                onClick={() => handleExport('xlsx')}
+                disabled={exportingFormat !== null}
+                className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-xs font-semibold border transition-all hover:scale-105 active:scale-95"
+                style={{
+                  height: '40px',
+                  background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
+                  borderColor: 'rgba(255, 255, 255, 0.35)',
+                  boxShadow: '0 8px 28px rgba(22, 163, 74, 0.5)'
+                }}
+              >
+                {exportingFormat === 'xlsx' ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <FileSpreadsheet className="w-4 h-4" />
+                )}
+                <span>Export Excel</span>
+              </button>
+            </div>
           </div>
 
           {/* Rând 1: Bară de Căutare + Filtre - Pe același rând */}
@@ -1362,13 +1424,21 @@ const ExpendituresSQLTable = () => {
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   placeholder="Caută în Descriere, Locație, Departament, Tip, Sumă..."
-                  className="w-full pl-10 pr-10 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
+                  className="w-full pl-10 pr-20 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
                   disabled={showAll}
                 />
+                {/* Bula cu rezultatele căutării */}
                 {searchInput && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500 text-white">
+                      {pagination.total.toLocaleString('ro-RO')} rezultate
+                    </span>
+                  </div>
+                )}
+                {!searchInput && (
                   <button
                     onClick={() => setSearchInput('')}
-                    className="absolute right-3 p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded transition-colors"
+                    className="absolute right-3 p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded transition-colors opacity-0 pointer-events-none"
                     title="Șterge căutarea"
                   >
                     <X className="w-4 h-4 text-slate-500 dark:text-slate-400" />
@@ -1465,10 +1535,10 @@ const ExpendituresSQLTable = () => {
             </div>
           </div>
 
-          {/* Rând 2: Perioadă + Căutare + Info + Export - aliniate frumos pe un singur rând */}
+          {/* Rând 2: Date Picker Clasic și Comod */}
           <div className="mb-4">
-            {/* Input-uri de date */}
-            <div className="flex items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm mb-2">
+            {/* Input-uri de date + Butoane Rapide - Pe același rând */}
+            <div className="flex items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex-wrap">
               {/* Date Inputs - Clasic și Simplu */}
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
@@ -1479,7 +1549,10 @@ const ExpendituresSQLTable = () => {
                   <input
                     type="date"
                     value={filters.startDate}
-                    onChange={(e) => handleDateChange({ startDate: e.target.value, endDate: filters.endDate })}
+                    onChange={(e) => {
+                      handleDateChange({ startDate: e.target.value, endDate: filters.endDate })
+                      setSelectedDateFilter('custom')
+                    }}
                     className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
                     style={{ minWidth: '160px' }}
                   />
@@ -1492,69 +1565,18 @@ const ExpendituresSQLTable = () => {
                   <input
                     type="date"
                     value={filters.endDate}
-                    onChange={(e) => handleDateChange({ startDate: filters.startDate, endDate: e.target.value })}
+                    onChange={(e) => {
+                      handleDateChange({ startDate: filters.startDate, endDate: e.target.value })
+                      setSelectedDateFilter('custom')
+                    }}
                     className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
                     style={{ minWidth: '160px' }}
                   />
                 </div>
               </div>
 
-              {/* Săgeți Navigare Perioadă */}
-              <div className="flex items-center gap-1 border-l border-r border-slate-200 dark:border-slate-700 px-3">
-                <button
-                  onClick={() => {
-                    const start = new Date(filters.startDate)
-                    const end = new Date(filters.endDate)
-                    const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24))
-                    
-                    start.setDate(start.getDate() - diffDays - 1)
-                    end.setDate(end.getDate() - diffDays - 1)
-                    
-                    handleDateChange({
-                      startDate: formatDateLocal(start),
-                      endDate: formatDateLocal(end)
-                    })
-                  }}
-                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                  title="Perioadă anterioară"
-                >
-                  <ChevronLeft className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-                </button>
-                <button
-                  onClick={() => {
-                    const start = new Date(filters.startDate)
-                    const end = new Date(filters.endDate)
-                    const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24))
-                    
-                    start.setDate(start.getDate() + diffDays + 1)
-                    end.setDate(end.getDate() + diffDays + 1)
-                    
-                    handleDateChange({
-                      startDate: formatDateLocal(start),
-                      endDate: formatDateLocal(end)
-                    })
-                  }}
-                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                  title="Perioadă următoare"
-                >
-                  <ChevronRight className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-                </button>
-              </div>
-
-              {/* Text Perioadă Afișată */}
-              <div className="flex-1 text-sm text-slate-600 dark:text-slate-400">
-                <span className="font-semibold text-slate-900 dark:text-slate-100">
-                  {new Date(filters.startDate).toLocaleDateString('ro-RO', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                </span>
-                {' – '}
-                <span className="font-semibold text-slate-900 dark:text-slate-100">
-                  {new Date(filters.endDate).toLocaleDateString('ro-RO', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                </span>
-              </div>
-            </div>
-
-            {/* Butoane Rapide cu Iconițe și Text - Sub Input-uri */}
-            <div className="flex items-center gap-2 px-1 flex-wrap">
+              {/* Butoane Rapide cu Iconițe și Text - Distribuite uniform */}
+              <div className="flex items-center gap-2 flex-1 justify-between min-w-0">
               {[
                 { id: 'azi', label: 'Azi', icon: Clock },
                 { id: 'saptamana-curenta', label: 'Săpt', icon: CalendarDays },
@@ -1565,47 +1587,35 @@ const ExpendituresSQLTable = () => {
                 { id: 'toate', label: 'Toate', icon: Calendar }
               ].map((btn) => {
                 const IconComponent = btn.icon
+                const isActive = selectedDateFilter === btn.id || (
+                  btn.id === 'azi' && selectedDateFilter === 'azi'
+                )
                 return (
                   <button
                     key={btn.id}
                     onClick={() => applyQuickDateFilter(btn.id)}
-                    className="relative inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-all hover:scale-105 active:scale-95 text-sm font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600"
+                    className={`relative flex-1 min-w-0 inline-flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-lg transition-all hover:scale-105 active:scale-95 text-xs sm:text-sm font-medium ${
+                      isActive
+                        ? 'bg-blue-500 text-white shadow-md'
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                    }`}
                     title={btn.label}
                   >
-                    <IconComponent className="w-4 h-4" />
-                    <span>{btn.label}</span>
+                    <IconComponent className="w-4 h-4 flex-shrink-0" />
+                    <span className="hidden sm:inline truncate">{btn.label}</span>
                   </button>
                 )
               })}
             </div>
           </div>
+        </div>
 
-          {/* Rând 3: Info + Export */}
+          {/* Rând 3: Info + Butoane acțiuni multiple */}
           <div className="flex flex-wrap items-end gap-4 mb-4">
             <div className="flex items-end gap-3 flex-shrink-0">
               <div className="text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap hidden lg:block">
                 {pagination.total.toLocaleString('ro-RO')} înregistrări • {tableSummary.totalAmount.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON
               </div>
-              
-              {/* Buton căutare duplicate */}
-              <button
-                onClick={handleSearchDuplicates}
-                disabled={searchingDuplicates}
-                className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-xs font-semibold border transition-all hover:scale-105 active:scale-95 flex-shrink-0"
-                style={{
-                  height: '40px',
-                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                  borderColor: 'rgba(255, 255, 255, 0.3)',
-                  boxShadow: '0 6px 18px rgba(245, 158, 11, 0.45)'
-                }}
-              >
-                {searchingDuplicates ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <AlertTriangle className="w-4 h-4" />
-                )}
-                <span className="whitespace-nowrap">Caută Duplicate</span>
-              </button>
               
               {/* Butoane acțiuni multiple */}
               {showBulkActions && (
@@ -1644,44 +1654,6 @@ const ExpendituresSQLTable = () => {
                   </button>
                 </>
               )}
-              
-              <button
-                onClick={() => handleExport('csv')}
-                disabled={exportingFormat !== null}
-                className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-xs font-semibold border transition-all hover:scale-105 active:scale-95"
-                style={{
-                  height: '40px',
-                  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                  borderColor: 'rgba(255, 255, 255, 0.3)',
-                  boxShadow: '0 6px 18px rgba(37, 99, 235, 0.45)'
-                }}
-              >
-                {exportingFormat === 'csv' ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <FileDown className="w-4 h-4" />
-                )}
-                <span>Export CSV</span>
-              </button>
-              <button
-                onClick={() => handleExport('xlsx')}
-                disabled={exportingFormat !== null}
-                className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-xs font-semibold border transition-all hover:scale-105 active:scale-95"
-                style={{
-                  height: '40px',
-                  // Gradient verde tip „Excel”
-                  background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)',
-                  borderColor: 'rgba(255, 255, 255, 0.35)',
-                  boxShadow: '0 8px 28px rgba(22, 163, 74, 0.5)'
-                }}
-              >
-                {exportingFormat === 'xlsx' ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <FileSpreadsheet className="w-4 h-4" />
-                )}
-                <span>Export Excel</span>
-              </button>
             </div>
           </div>
         </div>

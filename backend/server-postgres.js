@@ -5189,7 +5189,7 @@ app.post('/api/commissions', authenticateUser, async (req, res) => {
 app.put('/api/commissions/:id', authenticateUser, async (req, res) => {
   try {
     const { id } = req.params
-    const { name, serial_numbers, commission_date, expiry_date, notes } = req.body
+    const { name, serial_numbers, commission_date, expiry_date, notes, attachments } = req.body
     const updatedBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
     
     // Parse serial numbers - handle both string and array
@@ -5203,9 +5203,23 @@ app.put('/api/commissions/:id', authenticateUser, async (req, res) => {
         .filter(s => s.length > 0)
     }
     
+    // Parse attachments - handle both string (JSON) and array
+    let attachmentsData = null
+    if (attachments) {
+      if (typeof attachments === 'string') {
+        try {
+          attachmentsData = JSON.parse(attachments)
+        } catch (e) {
+          attachmentsData = attachments
+        }
+      } else if (Array.isArray(attachments)) {
+        attachmentsData = attachments
+      }
+    }
+    
     const result = await pool.query(
-      'UPDATE commissions SET name = $1, serial_numbers = $2, commission_date = $3, expiry_date = $4, notes = $5, updated_by = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *',
-      [name, JSON.stringify(serialNumbersArray), commission_date, expiry_date, notes, updatedBy, id]
+      'UPDATE commissions SET name = $1, serial_numbers = $2, commission_date = $3, expiry_date = $4, notes = $5, attachments = $6, updated_by = $7, updated_at = CURRENT_TIMESTAMP WHERE id = $8 RETURNING *',
+      [name, JSON.stringify(serialNumbersArray), commission_date, expiry_date, notes, attachmentsData ? JSON.stringify(attachmentsData) : null, updatedBy, id]
     )
     
     if (result.rows.length === 0) {

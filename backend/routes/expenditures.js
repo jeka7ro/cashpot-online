@@ -4371,10 +4371,18 @@ router.get('/electric-nlc-centralizer', authenticateToken, async (req, res) => {
     const aggregatedData = Object.values(aggregatedByNlc).sort((a, b) => b.total_suma - a.total_suma)
 
     // Calculează statistici
+    // Facturi unice: numără numerele de factură distincte (exclude 'N/A' și null)
+    const uniqueInvoices = [...new Set(
+      result.rows
+        .map(r => r.numar_factura)
+        .filter(nr => nr && nr !== 'N/A' && nr.trim() !== '')
+    )]
+    
     const stats = {
       total_records: result.rows.length,
       unique_nlc_codes: aggregatedData.length,
       unique_locations: [...new Set(result.rows.map(r => r.location_name).filter(Boolean))].length,
+      unique_invoices: uniqueInvoices.length, // Adăugat: număr facturi unice
       total_amount: result.rows.reduce((sum, r) => sum + (parseFloat(r.suma_totala) || 0), 0),
       total_kwh: result.rows.reduce((sum, r) => sum + (parseFloat(r.consum_kwh) || 0), 0),
       saved_to_expenditures: result.rows.filter(r => r.saved_to_expenditures).length
@@ -4544,6 +4552,232 @@ router.post('/delete-electric-nlcs', authenticateToken, async (req, res) => {
     })
   } catch (error) {
     console.error('❌ Error deleting NLCs:', error.message)
+    console.error('❌ Stack:', error.stack)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// POST /api/expenditures/verify-electric-invoices
+// Verifică dacă facturile și sumele din listă corespund cu cele din sistem
+router.post('/verify-electric-invoices', authenticateToken, async (req, res) => {
+  console.log('🔍 VERIFY INVOICES - Request body:', JSON.stringify(req.body))
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      console.error('❌ Database pool not available')
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    const { invoices } = req.body // Array de facturi: [{ cod, data, factura, suma, status }]
+    
+    if (!invoices || !Array.isArray(invoices) || invoices.length === 0) {
+      return res.status(400).json({ success: false, error: 'Lista de facturi este necesară' })
+    }
+
+    console.log(`🔍 Verificare ${invoices.length} facturi...`)
+
+    const results = {
+      found: [],
+      foundWithDifferentAmount: [],
+      notFound: [],
+      summary: {
+        total: invoices.length,
+        found: 0,
+        foundWithDifferentAmount: 0,
+        notFound: 0
+      }
+    }
+
+    // Pentru fiecare factură din listă
+    for (const invoice of invoices) {
+      const invoiceNumber = invoice.factura || invoice.număr_factură || invoice.invoice
+      const expectedAmount = parseFloat(invoice.suma || invoice.amount || 0)
+      const nlcCode = invoice.cod || invoice.nlc_code
+
+      if (!invoiceNumber) {
+        results.notFound.push({
+          ...invoice,
+          reason: 'Număr factură lipsă'
+        })
+        continue
+      }
+
+      // Normalizează numărul facturii (elimină spații, convertește la uppercase)
+      const normalizedInvoiceNumber = invoiceNumber.trim().toUpperCase()
+      
+      console.log(`   🔍 Căutare factură: "${normalizedInvoiceNumber}" (suma: ${expectedAmount}, NLC: ${nlcCode || 'N/A'})`)
+      
+      // Caută factura în sistem - mai întâi exact, apoi cu LIKE pentru flexibilitate
+      let invoiceResult = await pool.query(`
+        SELECT 
+          numar_factura,
+          SUM(suma_totala) as total_suma,
+          COUNT(*) as nlc_count,
+          STRING_AGG(DISTINCT nlc_code::text, ', ') as nlc_codes,
+          STRING_AGG(DISTINCT location_name, ', ') as locations,
+          MIN(data_emiterii) as data_emiterii
+        FROM electric_invoices_nlc
+        WHERE UPPER(TRIM(numar_factura)) = $1
+        GROUP BY numar_factura
+      `, [normalizedInvoiceNumber])
+
+      console.log(`      → Căutare exactă: ${invoiceResult.rows.length} rezultate`)
+
+      // Dacă nu găsește exact, încearcă să caute după partea numerică (fără prefix EFI)
+      if (invoiceResult.rows.length === 0 && normalizedInvoiceNumber.includes('EFI')) {
+        const numericPart = normalizedInvoiceNumber.replace(/^EFI/i, '').trim()
+        if (numericPart) {
+          console.log(`      → Căutare după partea numerică: "${numericPart}"`)
+          invoiceResult = await pool.query(`
+            SELECT 
+              numar_factura,
+              SUM(suma_totala) as total_suma,
+              COUNT(*) as nlc_count,
+              STRING_AGG(DISTINCT nlc_code::text, ', ') as nlc_codes,
+              STRING_AGG(DISTINCT location_name, ', ') as locations,
+              MIN(data_emiterii) as data_emiterii
+            FROM electric_invoices_nlc
+            WHERE UPPER(TRIM(numar_factura)) LIKE $1
+            GROUP BY numar_factura
+          `, [`%${numericPart}%`])
+          console.log(`      → Căutare LIKE: ${invoiceResult.rows.length} rezultate`)
+        }
+      }
+
+      // Dacă încă nu găsește și avem cod NLC, caută după NLC + suma aproximativă
+      if (invoiceResult.rows.length === 0 && nlcCode) {
+        const nlcNormalized = String(nlcCode).trim()
+        const amountTolerance = expectedAmount * 0.05 // 5% toleranță pentru sumă
+        
+        console.log(`      → Căutare după NLC "${nlcNormalized}" + suma ${expectedAmount} (±${amountTolerance.toFixed(2)})`)
+        invoiceResult = await pool.query(`
+          SELECT 
+            numar_factura,
+            SUM(suma_totala) as total_suma,
+            COUNT(*) as nlc_count,
+            STRING_AGG(DISTINCT nlc_code::text, ', ') as nlc_codes,
+            STRING_AGG(DISTINCT location_name, ', ') as locations,
+            MIN(data_emiterii) as data_emiterii
+          FROM electric_invoices_nlc
+          WHERE nlc_code = $1
+          GROUP BY numar_factura
+          HAVING ABS(SUM(suma_totala) - $2) <= $3
+          ORDER BY ABS(SUM(suma_totala) - $2)
+          LIMIT 1
+        `, [nlcNormalized, expectedAmount, amountTolerance])
+        console.log(`      → Căutare după NLC: ${invoiceResult.rows.length} rezultate`)
+      }
+
+      if (invoiceResult.rows.length === 0) {
+        results.notFound.push({
+          invoiceNumber,
+          expectedAmount,
+          nlcCode,
+          ...invoice,
+          reason: 'Factură nu există în sistem'
+        })
+        results.summary.notFound++
+      } else {
+        const dbInvoice = invoiceResult.rows[0]
+        const dbAmount = parseFloat(dbInvoice.total_suma) || 0
+        const difference = Math.abs(dbAmount - expectedAmount)
+        const tolerance = 0.01 // Toleranță de 1 ban pentru diferențe de rotunjire
+
+        if (difference <= tolerance) {
+          results.found.push({
+            invoiceNumber,
+            expectedAmount,
+            dbAmount,
+            nlcCount: parseInt(dbInvoice.nlc_count),
+            nlcCodes: dbInvoice.nlc_codes,
+            locations: dbInvoice.locations,
+            dataEmiterii: dbInvoice.data_emiterii,
+            ...invoice,
+            status: '✅ CORESPUNDE'
+          })
+          results.summary.found++
+        } else {
+          results.foundWithDifferentAmount.push({
+            invoiceNumber,
+            expectedAmount,
+            dbAmount,
+            difference,
+            differencePercent: ((difference / expectedAmount) * 100).toFixed(2),
+            nlcCount: parseInt(dbInvoice.nlc_count),
+            nlcCodes: dbInvoice.nlc_codes,
+            locations: dbInvoice.locations,
+            dataEmiterii: dbInvoice.data_emiterii,
+            ...invoice,
+            status: '⚠️ DIFERENȚĂ SUMĂ'
+          })
+          results.summary.foundWithDifferentAmount++
+        }
+      }
+    }
+
+    console.log(`✅ Verificare completă: ${results.summary.found} găsite, ${results.summary.foundWithDifferentAmount} cu diferențe, ${results.summary.notFound} lipsă`)
+
+    res.json({
+      success: true,
+      results,
+      message: `Verificare completă: ${results.summary.found} găsite, ${results.summary.foundWithDifferentAmount} cu diferențe, ${results.summary.notFound} lipsă`
+    })
+  } catch (error) {
+    console.error('❌ Error verifying invoices:', error.message)
+    console.error('❌ Stack:', error.stack)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// POST /api/expenditures/delete-electric-invoices
+// Șterge facturi selectate din centralizator după număr factură
+router.post('/delete-electric-invoices', authenticateToken, async (req, res) => {
+  console.log('🗑️ DELETE INVOICES - Request body:', JSON.stringify(req.body))
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      console.error('❌ Database pool not available')
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    const { invoice_numbers } = req.body // Array de numere de facturi
+    console.log('🗑️ invoice_numbers received:', invoice_numbers, 'type:', typeof invoice_numbers, 'isArray:', Array.isArray(invoice_numbers))
+
+    if (!invoice_numbers || !Array.isArray(invoice_numbers) || invoice_numbers.length === 0) {
+      console.error('❌ No invoices to delete')
+      return res.status(400).json({ success: false, error: 'Selectează cel puțin o factură pentru ștergere' })
+    }
+
+    console.log(`🗑️ Ștergere ${invoice_numbers.length} facturi:`, invoice_numbers)
+
+    // Șterge toate NLC-urile pentru facturile selectate
+    const result = await pool.query(`
+      DELETE FROM electric_invoices_nlc 
+      WHERE numar_factura = ANY($1)
+      RETURNING id, numar_factura, nlc_code
+    `, [invoice_numbers])
+
+    const totalDeleted = result.rowCount
+    console.log(`✅ Total șterse: ${totalDeleted} înregistrări pentru ${invoice_numbers.length} facturi`)
+
+    // Grupează ștersele pe factură pentru mesaj
+    const deletedByInvoice = {}
+    result.rows.forEach(row => {
+      if (!deletedByInvoice[row.numar_factura]) {
+        deletedByInvoice[row.numar_factura] = 0
+      }
+      deletedByInvoice[row.numar_factura]++
+    })
+
+    res.json({
+      success: true,
+      deleted_count: totalDeleted,
+      invoices_deleted: invoice_numbers.length,
+      deleted_by_invoice: deletedByInvoice,
+      message: `${invoice_numbers.length} factură${invoice_numbers.length === 1 ? '' : 'i'} șterse (${totalDeleted} NLC-uri în total)`
+    })
+  } catch (error) {
+    console.error('❌ Error deleting invoices:', error.message)
     console.error('❌ Stack:', error.stack)
     res.status(500).json({ success: false, error: error.message })
   }

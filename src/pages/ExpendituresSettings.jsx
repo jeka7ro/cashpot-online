@@ -169,10 +169,15 @@ const ExpendituresSettings = () => {
   // Modul Electrică - REFACUT COMPLET DE LA ZERO
   const [electricSubTab, setElectricSubTab] = useState('analiza') // 'analiza' sau 'centralizator'
   const [electricInvoiceFile, setElectricInvoiceFile] = useState(null)
+  const [electricInvoiceFiles, setElectricInvoiceFiles] = useState([]) // Array pentru multiple fișiere
   const [electricInvoiceLink, setElectricInvoiceLink] = useState('')
   const [electricPdfBase64, setElectricPdfBase64] = useState(null) // PDF ca Base64 pentru salvare
   const [electricPdfFilename, setElectricPdfFilename] = useState(null) // Numele fișierului PDF
+  const [processingMultiple, setProcessingMultiple] = useState(false) // Flag pentru procesare multiple
+  const [processingProgress, setProcessingProgress] = useState({ current: 0, total: 0, currentFile: '' }) // Progres pentru multiple
+  const [processingSummary, setProcessingSummary] = useState(null) // Rezumat după procesare
   const [nlcCentralizer, setNlcCentralizer] = useState([])
+  const [nlcCentralizerStats, setNlcCentralizerStats] = useState(null)
   const [loadingNlcCentralizer, setLoadingNlcCentralizer] = useState(false)
   const [selectedNlcIds, setSelectedNlcIds] = useState([])
   const [deletingNlcs, setDeletingNlcs] = useState(false)
@@ -265,6 +270,7 @@ const ExpendituresSettings = () => {
       const response = await axios.get('/api/expenditures/electric-nlc-centralizer')
       if (response.data?.success) {
         setNlcCentralizer(response.data.data || [])
+        setNlcCentralizerStats(response.data.stats || null)
       }
     } catch (error) {
       console.error('Error loading NLC centralizer:', error)
@@ -376,6 +382,12 @@ const ExpendituresSettings = () => {
   
   // Handler pentru analiza facturii electrice - REFACUT COMPLET
   const handleAnalyzeElectricInvoice = async () => {
+    // Dacă avem multiple fișiere, procesează-le pe toate
+    if (electricInvoiceFiles && electricInvoiceFiles.length > 0) {
+      await handleAnalyzeMultipleInvoices(electricInvoiceFiles)
+      return
+    }
+
     if (!electricInvoiceFile && !electricInvoiceLink) {
       toast.error('Atașează un PDF sau introdu un link!')
       return
@@ -421,9 +433,144 @@ const ExpendituresSettings = () => {
     }
   }
 
+  // Handler pentru procesarea mai multor facturi o dată
+  const handleAnalyzeMultipleInvoices = async (files) => {
+    if (!files || files.length === 0) {
+      toast.error('Nu există fișiere de procesat!')
+      return
+    }
+
+    setProcessingMultiple(true)
+    setProcessingProgress({ current: 0, total: files.length, currentFile: '' })
+    setProcessingSummary(null)
+    
+    let successCount = 0
+    let errorCount = 0
+    const errors = []
+    const processedInvoices = [] // Pentru rezumat
+    let totalSum = 0
+    let totalNlcs = 0
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        setProcessingProgress({ 
+          current: i + 1, 
+          total: files.length, 
+          currentFile: file.name 
+        })
+
+        try {
+          // 1. Analizează factura
+          const formData = new FormData()
+          formData.append('file', file)
+          
+          const analyzeResponse = await axios.post('/api/expenditures/analyze-electric-invoice', formData, {
+            timeout: 60000
+          })
+
+          if (!analyzeResponse.data?.success) {
+            throw new Error(analyzeResponse.data?.error || 'Eroare la analiză')
+          }
+
+          const extractedData = analyzeResponse.data.extractedData
+          const nlcData = extractedData.nlc_data || []
+          
+          // Folosește suma totală extrasă direct din factură (corectă)
+          // Dacă nu există, calculează din NLC-uri ca fallback
+          let invoiceSum = 0
+          if (extractedData.suma_totala) {
+            invoiceSum = parseFloat(extractedData.suma_totala) || 0
+            console.log(`   💰 Suma factură ${extractedData.numar_factura || file.name}: ${invoiceSum} RON (din factură)`)
+          } else {
+            // Fallback: calculează din NLC-uri
+            invoiceSum = nlcData.reduce((sum, nlc) => {
+              const sumaActiva = parseFloat(nlc.suma) || 0
+              const sumaReactiva = parseFloat(nlc.sumaReactiva) || 0
+              return sum + sumaActiva + sumaReactiva
+            }, 0)
+            console.log(`   ⚠️ Suma factură ${extractedData.numar_factura || file.name}: ${invoiceSum} RON (calculată din NLC-uri - fallback)`)
+          }
+          
+          totalSum += invoiceSum
+          totalNlcs += nlcData.length
+          
+          // 2. Convertește PDF-ul la Base64
+          const pdfBase64 = await new Promise((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(reader.result)
+            reader.onerror = reject
+            reader.readAsDataURL(file)
+          })
+
+          // 3. NU SALVĂ AUTOMAT - doar analizează și pregătește datele
+          // Salvare se face doar când utilizatorul apasă "Salvează în centralizator"
+          successCount++
+          
+          processedInvoices.push({
+            filename: file.name,
+            numarFactura: extractedData.numar_factura || 'N/A',
+            suma: invoiceSum,
+            nlcs: nlcData.length,
+            extractedData: extractedData, // Păstrăm datele extrase pentru salvare ulterioară
+            pdfBase64: pdfBase64 // Păstrăm PDF-ul pentru salvare ulterioară
+          })
+        } catch (error) {
+          errorCount++
+          errors.push({
+            file: file.name,
+            error: error.response?.data?.error || error.message
+          })
+          console.error(`Eroare la procesarea ${file.name}:`, error)
+        }
+      }
+
+      // Reîncarcă centralizatorul
+      await loadNlcCentralizer()
+
+      // Creează rezumatul
+      const summary = {
+        totalInvoices: files.length,
+        successCount,
+        errorCount,
+        totalSum,
+        totalNlcs,
+        processedInvoices,
+        errors
+      }
+      setProcessingSummary(summary)
+
+      // Afișează rezultatul final
+      if (successCount > 0) {
+        toast.success(
+          `✅ ${successCount} facturi procesate | ${totalNlcs} NLC-uri | ${totalSum.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON${errorCount > 0 ? ` | ${errorCount} erori` : ''}`,
+          { duration: 8000 }
+        )
+      }
+      
+      if (errorCount > 0 && errors.length > 0) {
+        console.error('Erori la procesare:', errors)
+        toast.error(
+          `${errorCount} facturi au avut erori. Verifică rezumatul pentru detalii.`,
+          { duration: 5000 }
+        )
+      }
+
+      // Resetează după procesare
+      setElectricInvoiceFiles([])
+      setElectricAnalysisResult(null)
+    } catch (error) {
+      console.error('Error processing multiple invoices:', error)
+      toast.error(`Eroare la procesarea facturilor: ${error.message}`, { duration: 5000 })
+    } finally {
+      setProcessingMultiple(false)
+      setProcessingProgress({ current: 0, total: 0, currentFile: '' })
+    }
+  }
+
   // Handler pentru salvare în cheltuieli
   const [savingElectric, setSavingElectric] = useState(false)
-  const [alsoSaveToExpenditures, setAlsoSaveToExpenditures] = useState(true) // Default: bifat
+  const [alsoSaveToExpenditures, setAlsoSaveToExpenditures] = useState(false) // Default: DEZACTIVAT - utilizatorul trebuie să bifeze explicit
   const handleSaveElectricToExpenditures = async () => {
     if (!electricAnalysisResult) {
       toast.error('Analizează mai întâi factura!')
@@ -2715,25 +2862,46 @@ const ExpendituresSettings = () => {
                       Factură PDF sau Link
                     </label>
                     <div className="flex space-x-3">
-                      <input
-                        type="file"
-                        accept=".pdf"
-                        onChange={(e) => {
-                          const file = e.target.files[0]
-                          if (file) {
-                            setElectricInvoiceFile(file)
-                            setElectricInvoiceLink('')
-                            // Convertește fișierul la Base64 pentru salvare ulterioară
-                            const reader = new FileReader()
-                            reader.onload = () => {
-                              setElectricPdfBase64(reader.result)
-                              setElectricPdfFilename(file.name)
+                      <div className="flex-1">
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          multiple
+                          onChange={(e) => {
+                            const files = Array.from(e.target.files || [])
+                            if (files.length > 0) {
+                              if (files.length === 1) {
+                                // Un singur fișier - comportament vechi
+                                const file = files[0]
+                                setElectricInvoiceFile(file)
+                                setElectricInvoiceFiles([])
+                                setElectricInvoiceLink('')
+                                // Convertește fișierul la Base64 pentru salvare ulterioară
+                                const reader = new FileReader()
+                                reader.onload = () => {
+                                  setElectricPdfBase64(reader.result)
+                                  setElectricPdfFilename(file.name)
+                                }
+                                reader.readAsDataURL(file)
+                              } else {
+                                // Multiple fișiere - nou comportament
+                                setElectricInvoiceFiles(files)
+                                setElectricInvoiceFile(null)
+                                setElectricInvoiceLink('')
+                                setElectricPdfBase64(null)
+                                setElectricPdfFilename(null)
+                                toast.info(`${files.length} fișiere selectate. Se vor procesa automat după analiză.`)
+                              }
                             }
-                            reader.readAsDataURL(file)
-                          }
-                        }}
-                        className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
-                      />
+                          }}
+                          className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                        />
+                        {electricInvoiceFiles.length > 0 && (
+                          <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
+                            {electricInvoiceFiles.length} fișiere selectate pentru procesare în batch
+                          </p>
+                        )}
+                      </div>
                       <span className="px-4 py-3 text-slate-500 dark:text-slate-400 flex items-center">SAU</span>
                       <input
                         type="url"
@@ -2752,12 +2920,138 @@ const ExpendituresSettings = () => {
                   
                   <button
                     onClick={handleAnalyzeElectricInvoice}
-                    disabled={!electricInvoiceFile && !electricInvoiceLink}
+                    disabled={(!electricInvoiceFile && !electricInvoiceLink && electricInvoiceFiles.length === 0) || processingMultiple}
                     className="w-full px-6 py-3.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl transition-colors shadow-sm flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-base"
                   >
                     <Eye className="w-5 h-5" />
-                    <span>{analyzingElectric ? 'Se analizează...' : 'Analizează Factură'}</span>
+                    <span>
+                      {processingMultiple 
+                        ? `Se procesează ${processingProgress.current}/${processingProgress.total}... ${processingProgress.currentFile ? `(${processingProgress.currentFile})` : ''}`
+                        : analyzingElectric 
+                          ? 'Se analizează...' 
+                          : electricInvoiceFiles.length > 0
+                            ? `Analizează și Salvează ${electricInvoiceFiles.length} Facturi`
+                            : 'Analizează Factură'
+                      }
+                    </span>
                   </button>
+                  
+                  {/* Indicator de progres pentru multiple facturi */}
+                  {processingMultiple && processingProgress.total > 0 && (
+                    <div className="mt-4 p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          Progres: {processingProgress.current} / {processingProgress.total}
+                        </span>
+                        <span className="text-sm text-slate-600 dark:text-slate-400">
+                          {Math.round((processingProgress.current / processingProgress.total) * 100)}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                        <div 
+                          className="bg-yellow-500 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${(processingProgress.current / processingProgress.total) * 100}%` }}
+                        />
+                      </div>
+                      {processingProgress.currentFile && (
+                        <p className="mt-2 text-xs text-slate-600 dark:text-slate-400 truncate">
+                          Fișier curent: {processingProgress.currentFile}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Rezumat după procesare */}
+                  {processingSummary && !processingMultiple && (
+                    <div className="mt-4 p-5 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border-2 border-green-300 dark:border-green-700 shadow-lg">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-lg font-bold text-green-900 dark:text-green-100 flex items-center">
+                          <span className="text-2xl mr-2">✅</span>
+                          Rezumat Procesare
+                        </h4>
+                        <button
+                          onClick={() => setProcessingSummary(null)}
+                          className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      {/* Statistici generale */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
+                          <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">Facturi Procesate</div>
+                          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                            {processingSummary.successCount}
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            din {processingSummary.totalInvoices}
+                          </div>
+                        </div>
+                        <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
+                          <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">NLC-uri Salvate</div>
+                          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                            {processingSummary.totalNlcs}
+                          </div>
+                        </div>
+                        <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
+                          <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">Suma Totală</div>
+                          <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                            {processingSummary.totalSum.toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} RON
+                          </div>
+                        </div>
+                        <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
+                          <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">Erori</div>
+                          <div className={`text-2xl font-bold ${processingSummary.errorCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                            {processingSummary.errorCount}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Detalii facturi procesate */}
+                      {processingSummary.processedInvoices.length > 0 && (
+                        <div className="mb-4">
+                          <h5 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                            Facturi Procesate:
+                          </h5>
+                          <div className="space-y-2 max-h-60 overflow-y-auto">
+                            {processingSummary.processedInvoices.map((inv, idx) => (
+                              <div key={idx} className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-slate-200 dark:border-slate-700 text-xs">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="font-semibold text-slate-900 dark:text-slate-100 truncate">
+                                    {inv.filename}
+                                  </span>
+                                  <span className="text-green-600 dark:text-green-400 font-bold">
+                                    {inv.suma.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
+                                  <span>Nr. Factură: {inv.numarFactura}</span>
+                                  <span>{inv.nlcs} NLC-uri ({inv.savedNlcs} salvate{inv.duplicates > 0 ? `, ${inv.duplicates} duplicate` : ''})</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Erori dacă există */}
+                      {processingSummary.errors && processingSummary.errors.length > 0 && (
+                        <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                          <h5 className="text-sm font-semibold text-red-900 dark:text-red-100 mb-2">
+                            Erori ({processingSummary.errors.length}):
+                          </h5>
+                          <div className="space-y-1">
+                            {processingSummary.errors.map((err, idx) => (
+                              <div key={idx} className="text-xs text-red-800 dark:text-red-200">
+                                <span className="font-semibold">{err.file}:</span> {err.error}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 
                 {/* Rezultate Analiză - TABEL COMPACT CU TOATE NLC-URILE */}
@@ -3038,7 +3332,7 @@ const ExpendituresSettings = () => {
                           <span className="text-2xl">📄</span>
                           <div>
                             <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
-                              {[...new Set(nlcCentralizer.map(n => n.numar_factura).filter(Boolean))].length}
+                              {nlcCentralizerStats?.unique_invoices ?? [...new Set(nlcCentralizer.map(n => n.numar_factura).filter(Boolean))].length}
                             </div>
                             <div className="text-xs text-emerald-600 dark:text-emerald-400">facturi unice</div>
                           </div>

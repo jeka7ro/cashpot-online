@@ -29,6 +29,22 @@ export default defineConfig({
         target: process.env.VITE_API_URL || 'http://localhost:5001',
         changeOrigin: true,
         secure: false,
+      },
+      '/health': {
+        target: process.env.VITE_API_URL || 'http://localhost:5001',
+        changeOrigin: true,
+        secure: false,
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, _res) => {
+            console.log('Health proxy error', err);
+          });
+          proxy.on('proxyReq', (proxyReq, req, _res) => {
+            console.log('Proxying health check to backend:', req.method, req.url);
+          });
+          proxy.on('proxyRes', (proxyRes, req, _res) => {
+            console.log('Health check response:', proxyRes.statusCode, req.url);
+          });
+        },
       }
     }
   },

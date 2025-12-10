@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { BarChart3, Table2, Settings, TrendingUp, TrendingDown, MapPin, FileSpreadsheet, Download, ArrowUp, ArrowDown, RefreshCw, Menu, Search, X, Calendar, Clock, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, DollarSign, Coins, TrendingUp as TrendingUpIcon, Activity, Target, Zap } from 'lucide-react'
+import { BarChart3, Table2, Settings, TrendingUp, TrendingDown, MapPin, FileSpreadsheet, Download, ArrowUp, ArrowDown, RefreshCw, Menu, Search, X, Calendar, Clock, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, ChevronDown, DollarSign, Coins, TrendingUp as TrendingUpIcon, Activity, Target, Zap, Percent } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import axios from 'axios'
 import * as XLSX from 'xlsx'
@@ -73,7 +73,7 @@ const hasNonZeroRow = (row) => {
   return vals.some((v) => Number(v || 0) !== 0)
 }
 
-const Incasari = () => {
+const PL = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -106,13 +106,45 @@ const Incasari = () => {
     slotsCount: 0,
     averageDrop: 0
   })
-  const [dailyStats, setDailyStats] = useState([])
+  const [dailyStats, setDailyStats] = useState(() => {
+    try {
+      const saved = localStorage.getItem('pl_daily_stats_cache')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        // Verifică dacă cache-ul este recent (max 5 minute)
+        const now = Date.now()
+        if (parsed.timestamp && (now - parsed.timestamp) < 5 * 60 * 1000) {
+          return parsed.data || []
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return []
+  })
   const [locationDailyData, setLocationDailyData] = useState([])
   const [loading, setLoading] = useState(false)
   const [avgInByLocation, setAvgInByLocation] = useState([])
   const [prevMonthByLocation, setPrevMonthByLocation] = useState([]) // Pentru dinamica Bonus Cost
   const [avgInByCabinet, setAvgInByCabinet] = useState([])
   const [locationExpenditures, setLocationExpenditures] = useState([])
+  // Cache pentru plMonthlyByLocation (cache mai lung pentru performanță)
+  const [plMonthlyByLocation, setPlMonthlyByLocation] = useState(() => {
+    try {
+      const saved = localStorage.getItem('pl_monthly_by_location_cache')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        // Verifică dacă cache-ul este valid (max 24 ore pentru performanță - permanent disponibil)
+        if (parsed.timestamp && Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
+          return parsed.data || []
+        }
+      }
+    } catch (error) {
+      console.error('Eroare la citirea cache pentru plMonthlyByLocation:', error)
+    }
+    return []
+  })
+  const [loadingMonthlyPL, setLoadingMonthlyPL] = useState(false) // Nu mai afișăm loading dacă avem cache
   const [slotsByMonthLocation, setSlotsByMonthLocation] = useState(() => {
     try {
       const saved = localStorage.getItem('incasari_slots_by_month_location_cache')
@@ -266,14 +298,37 @@ const Incasari = () => {
     endTime: null,
     output: ''
   })
+  const [monthDetailModalOpen, setMonthDetailModalOpen] = useState(false)
+  const [selectedMonthDetail, setSelectedMonthDetail] = useState(null) // { year, month, startDate, endDate }
+  const [monthDetailExpenditures, setMonthDetailExpenditures] = useState([])
+  const [monthDetailIncasari, setMonthDetailIncasari] = useState([])
+  const [loadingMonthDetail, setLoadingMonthDetail] = useState(false)
+  const [plDetailModalOpen, setPlDetailModalOpen] = useState(false)
+  const [selectedPlDetail, setSelectedPlDetail] = useState(null) // { year, month, locationName, ggr, expenses, pl }
+  const [plDetailExpenditures, setPlDetailExpenditures] = useState([])
+  const [loadingPlDetail, setLoadingPlDetail] = useState(false)
+  const [expendituresSettings, setExpendituresSettings] = useState(null) // Setările de cheltuieli (filtre)
   const [isRefreshing, setIsRefreshing] = useState(false) // Indicator pentru refresh tabel
   const [sortConfig, setSortConfig] = useState({
     key: null,
     direction: 'asc' // 'asc' sau 'desc'
   })
   const [centralizerExpanded, setCentralizerExpanded] = useState(new Set())
+  // Expandare automată până la nivelul de lună - salvat în localStorage
+  const [plTableExpanded, setPlTableExpanded] = useState(() => {
+    try {
+      const saved = localStorage.getItem('pl_table_expanded')
+      if (saved) {
+        return new Set(JSON.parse(saved))
+      }
+    } catch (error) {
+      console.error('Eroare la citirea expandării din localStorage:', error)
+    }
+    return new Set() // Se va popula automat când se încarcă datele
+  })
   const [searchText, setSearchText] = useState('')
   const [selectedDateFilter, setSelectedDateFilter] = useState('luna-curenta')
+  const [plTableSortOrder, setPlTableSortOrder] = useState('desc') // Sortare descendentă (cel mai recent primul)
   const [showMenu, setShowMenu] = useState(false)
   const [refreshEnabled, setRefreshEnabled] = useState(() => {
     try {
@@ -581,33 +636,29 @@ const Incasari = () => {
       try {
         const { startDate, endDate } = dateRange
         if (!startDate || !endDate) return
+        
+        // Verifică cache-ul
+        try {
+          const cached = localStorage.getItem('pl_daily_stats_cache')
+          if (cached) {
+            const parsed = JSON.parse(cached)
+            const now = Date.now()
+            // Verifică dacă cache-ul este recent (max 5 minute) și pentru aceeași perioadă
+            if (parsed.timestamp && 
+                (now - parsed.timestamp) < 5 * 60 * 1000 &&
+                parsed.dateRange?.startDate === startDate &&
+                parsed.dateRange?.endDate === endDate) {
+              setDailyStats(parsed.data || [])
+              return // Folosește cache-ul
+            }
+          }
+        } catch (e) {
+          // Ignoră erorile de cache
+        }
+        
         setLoading(true)
 
-        // Verifică dacă este luna trecută completă
-        const currentDate = new Date()
-        const lastMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
-        const lastMonthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0)
-        const formatDate = (d) => {
-          const year = d.getFullYear()
-          const month = String(d.getMonth() + 1).padStart(2, '0')
-          const day = String(d.getDate()).padStart(2, '0')
-          return `${year}-${month}-${day}`
-        }
-        const lastMonthStartStr = formatDate(lastMonthStart)
-        const lastMonthEndStr = formatDate(lastMonthEnd)
-        const isLastMonth = startDate === lastMonthStartStr && endDate === lastMonthEndStr
-
-        // Pentru luna trecută, folosim DOAR includeLocations (ca overview), fără filtre location/provider/cabinet/gameMix
-        // Pentru alte perioade, folosim toate filtrele
-        const params = isLastMonth ? {
-          startDate,
-          endDate,
-          // NU aplicăm filtrele location/provider/cabinet/gameMix pentru luna trecută (ca overview)
-          includeLocations:
-            visibleLocations && visibleLocations.length > 0
-              ? visibleLocations.join(',')
-              : undefined
-        } : {
+        const params = {
           startDate,
           endDate,
           location: locationFilter !== 'all' ? locationFilter : undefined,
@@ -626,7 +677,18 @@ const Incasari = () => {
         })
 
         if (resp.data?.success) {
-          setDailyStats(resp.data.rows || [])
+          const rows = resp.data.rows || []
+          setDailyStats(rows)
+          // Salvează în cache pentru încărcare rapidă
+          try {
+            localStorage.setItem('pl_daily_stats_cache', JSON.stringify({
+              data: rows,
+              timestamp: Date.now(),
+              dateRange: { startDate, endDate }
+            }))
+          } catch (e) {
+            console.warn('Nu s-a putut salva cache pentru dailyStats:', e)
+          }
         } else {
           console.error('Eroare la /incasari/daily-stats:', resp.data)
         }
@@ -692,31 +754,13 @@ const Incasari = () => {
         const { startDate, endDate } = dateRange
         if (!startDate || !endDate) return
 
-        // Verifică dacă este luna trecută completă
-        const currentDate = new Date()
-        const lastMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
-        const lastMonthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0)
-        const formatDate = (d) => {
-          const year = d.getFullYear()
-          const month = String(d.getMonth() + 1).padStart(2, '0')
-          const day = String(d.getDate()).padStart(2, '0')
-          return `${year}-${month}-${day}`
-        }
-        const lastMonthStartStr = formatDate(lastMonthStart)
-        const lastMonthEndStr = formatDate(lastMonthEnd)
-        const isLastMonth = startDate === lastMonthStartStr && endDate === lastMonthEndStr
+        // Calculează luna anterioară pentru Dinamica Bonus Cost
+        const start = new Date(startDate)
+        const prevMonthStart = new Date(start.getFullYear(), start.getMonth() - 1, 1)
+        const prevMonthEnd = new Date(start.getFullYear(), start.getMonth(), 0)
+        const formatDate = (d) => d.toISOString().split('T')[0]
 
-        // Pentru luna trecută, folosim DOAR includeLocations (ca overview), fără filtre location/provider/cabinet/gameMix
-        // Pentru alte perioade, folosim toate filtrele
-        const commonParams = isLastMonth ? {
-          startDate,
-          endDate,
-          // NU aplicăm filtrele location/provider/cabinet/gameMix pentru luna trecută (ca overview)
-          includeLocations:
-            visibleLocations && visibleLocations.length > 0
-              ? visibleLocations.join(',')
-              : undefined
-        } : {
+        const commonParams = {
           startDate,
           endDate,
           location: locationFilter !== 'all' ? locationFilter : undefined,
@@ -728,11 +772,6 @@ const Incasari = () => {
               ? visibleLocations.join(',')
               : undefined
         }
-
-        // Calculează luna anterioară pentru Dinamica Bonus Cost
-        const start = new Date(startDate)
-        const prevMonthStart = new Date(start.getFullYear(), start.getMonth() - 1, 1)
-        const prevMonthEnd = new Date(start.getFullYear(), start.getMonth(), 0)
 
         const prevMonthParams = {
           ...commonParams,
@@ -777,6 +816,584 @@ const Incasari = () => {
       abortController.abort()
     }
   }, [dateRange, locationFilter, providerFilter, cabinetFilter, gameMixFilter, visibleLocations])
+
+  // Fetch P&L pe lună și locație (de la ianuarie 2024 până în prezent, fără a ține cont de filtrul de perioadă)
+  useEffect(() => {
+    const abortController = new AbortController()
+    
+    const fetchMonthlyPL = async () => {
+      setLoadingMonthlyPL(true)
+      try {
+        const now = new Date()
+        const currentYear = now.getFullYear()
+        const currentMonth = now.getMonth() + 1 // 1-12
+        const startYear = 2024
+        const startMonth = 1
+        
+        // Generează toate lunile de la ianuarie 2024 până în prezent
+        const months = []
+        for (let year = startYear; year <= currentYear; year++) {
+          const monthStart = year === startYear ? startMonth : 1
+          const monthEnd = year === currentYear ? currentMonth : 12
+          for (let month = monthStart; month <= monthEnd; month++) {
+            const monthStartDate = new Date(year, month - 1, 1)
+            const monthEndDate = new Date(year, month, 0)
+            const formatDate = (d) => {
+              const y = d.getFullYear()
+              const m = String(d.getMonth() + 1).padStart(2, '0')
+              const day = String(d.getDate()).padStart(2, '0')
+              return `${y}-${m}-${day}`
+            }
+            // Formatare lună completă (ex: "ianuarie" fără an)
+            const monthNames = [
+              'ianuarie', 'februarie', 'martie', 'aprilie', 'mai', 'iunie',
+              'iulie', 'august', 'septembrie', 'octombrie', 'noiembrie', 'decembrie'
+            ]
+            const monthName = monthNames[month - 1]
+            months.push({
+              year,
+              month,
+              startDate: formatDate(monthStartDate),
+              endDate: formatDate(monthEndDate),
+              label: monthName // Doar numele lunii, fără an
+            })
+          }
+        }
+
+        // Fetch date pentru fiecare lună
+        const monthlyData = await Promise.all(
+          months.map(async ({ year, month, startDate, endDate, label }) => {
+            try {
+              const params = {
+                startDate,
+                endDate,
+                includeLocations:
+                  visibleLocations && visibleLocations.length > 0
+                    ? visibleLocations.join(',')
+                    : undefined
+              }
+
+              const [locResp, expResp] = await Promise.all([
+                axios.get('/api/incasari/avg-in-by-location', { 
+                  params,
+                  signal: abortController.signal
+                }),
+                // Folosim același endpoint ca în pagina de detalii pentru consistență
+                axios.get('/api/expenditures/sql-table', {
+                  params: {
+                    startDate,
+                    endDate,
+                    department: 'all',
+                    type: 'all',
+                    location: 'all',
+                    dataSource: 'all',
+                    sortBy: 'operational_date',
+                    order: 'asc',
+                    page: 1,
+                    pageSize: 10000
+                  },
+                  signal: abortController.signal
+                })
+              ])
+
+              const locationData = locResp.data?.success ? (locResp.data.rows || []) : []
+              const expendituresData = expResp.data?.success ? (expResp.data.data || []) : []
+              
+              // Verifică dacă există mai multe pagini
+              const totalRecords = expResp.data?.pagination?.total || 0
+              const pageSize = 10000
+              const needsPagination = totalRecords > pageSize
+              
+              let allExpendituresData = expendituresData
+              if (needsPagination) {
+                const totalPages = Math.ceil(totalRecords / pageSize)
+                const additionalPages = []
+                
+                for (let page = 2; page <= totalPages; page++) {
+                  try {
+                    const pageResp = await axios.get('/api/expenditures/sql-table', {
+                      params: {
+                        startDate,
+                        endDate,
+                        department: 'all',
+                        type: 'all',
+                        location: 'all',
+                        dataSource: 'all',
+                        sortBy: 'operational_date',
+                        order: 'asc',
+                        page,
+                        pageSize
+                      },
+                      signal: abortController.signal
+                    })
+                    
+                    if (pageResp.data?.success && pageResp.data.data) {
+                      additionalPages.push(...pageResp.data.data)
+                    }
+                  } catch (error) {
+                    console.error(`❌ Eroare la încărcarea paginii ${page}:`, error)
+                  }
+                }
+                
+                allExpendituresData = [...expendituresData, ...additionalPages]
+              }
+              
+              // Agregă cheltuielile pe locație (la fel ca în pagina de detalii)
+              const expendituresByLocation = new Map()
+              allExpendituresData.forEach((row) => {
+                if (row && row.location_name) {
+                  const locName = row.location_name.trim()
+                  const amount = Number(row.amount || 0)
+                  const existing = expendituresByLocation.get(locName) || 0
+                  expendituresByLocation.set(locName, existing + amount)
+                }
+              })
+              
+              // Convertește la formatul așteptat (similar cu location-expenditures)
+              const expenditures = Array.from(expendituresByLocation.entries()).map(([location_name, total_expenditures]) => ({
+                location_name,
+                total_expenditures
+              }))
+              
+              // Log pentru debugging - verifică dacă cheltuielile sunt filtrate corect
+              const totalExpendituresFromAPI = expenditures.reduce((sum, row) => sum + Number(row.total_expenditures || 0), 0)
+              if (expenditures.length > 0) {
+                console.log(`📊 [PL Monthly] ${label}: ${expenditures.length} locații cu cheltuieli, Total din API: ${totalExpendituresFromAPI.toLocaleString('ro-RO')} RON`)
+              }
+              
+              // Log special pentru Martie 2024
+              if (year === 2024 && month === 3) {
+                console.log(`🔍 [PL Monthly] MARTIE 2024 - Cheltuieli din sql-table API:`, {
+                  totalExpenditures: totalExpendituresFromAPI,
+                  totalRecords,
+                  expendituresByLocation: expenditures.map(e => ({
+                    location: e.location_name,
+                    amount: e.total_expenditures
+                  })),
+                  startDate,
+                  endDate
+                })
+              }
+
+              // Normalizează și combină locațiile duplicate, exclude Depozit
+              const normalizeLocationName = (name) => {
+                if (!name) return ''
+                let n = name.toString().trim()
+                // Elimină sufixe de tip E.S / E.S. / ES
+                n = n.replace(/\s+E\.?S\.?$/i, '')
+                return n.trim()
+              }
+
+              // Creează map pentru cheltuieli (normalizează numele pentru a se potrivi cu locațiile)
+              // IMPORTANT: Normalizează numele din cheltuieli și combină cheltuielile pentru locațiile care se normalizează la același nume
+              // NU dubla cheltuielile - folosește doar numele normalizat pentru agregare
+              const expMap = new Map()
+              expenditures.forEach((row) => {
+                if (row && row.location_name) {
+                  const amount = Number(row.total_expenditures || 0)
+                  const originalName = row.location_name.trim()
+                  const normalizedName = normalizeLocationName(originalName)
+                  
+                  // Adaugă cheltuielile folosind DOAR numele normalizat (pentru a se potrivi cu locațiile normalizate)
+                  // Combină cheltuielile pentru locațiile care se normalizează la același nume
+                  // Ex: "Craiova E.S" cu 500 RON și "Craiova" cu 300 RON → "Craiova" = 800 RON
+                  const existing = expMap.get(normalizedName) || 0
+                  expMap.set(normalizedName, existing + amount)
+                }
+              })
+              
+              // După ce am agregat toate cheltuielile cu numele normalizat,
+              // adaugă și cu numele originale pentru compatibilitate (doar dacă sunt diferite)
+              // Folosim valoarea din normalizat pentru a evita dublarea
+              expenditures.forEach((row) => {
+                if (row && row.location_name) {
+                  const originalName = row.location_name.trim()
+                  const normalizedName = normalizeLocationName(originalName)
+                  if (originalName !== normalizedName && !expMap.has(originalName)) {
+                    // Adaugă numele original cu valoarea normalizată (care deja include toate cheltuielile combinate)
+                    expMap.set(originalName, expMap.get(normalizedName) || 0)
+                  }
+                }
+              })
+
+              // Calculează P&L pentru fiecare locație
+              let plByLoc = locationData
+                .filter((row) => {
+                  const locName = normalizeLocationName(row.locationName || '')
+                  return locName && locName.toLowerCase() !== 'depozit'
+                })
+                .map((row) => {
+                  const originalLocationName = row.locationName || 'Nespecificat'
+                  const locationName = normalizeLocationName(originalLocationName)
+                  const totalIn = Number(row.totalIn || 0)
+                  const ggr = Number(row.totalProfit || 0)
+                  // Folosește cheltuielile din expMap pentru numele normalizat (pentru a evita dublarea)
+                  // Încearcă mai întâi cu numele normalizat, apoi cu original
+                  const expenses = expMap.get(locationName) || expMap.get(originalLocationName) || 0
+                  const pl = ggr - expenses
+                  const bet = Number(row.totalBet || row.total_bet || 0)
+                  const win = Number(row.totalWin || row.total_win || 0)
+                  const marketing =
+                    Number(row.totalJackpot || row.total_jackpot || 0) +
+                    Number(row.totalHh || row.total_hh || 0) +
+                    Number(row.totalCbReal || row.total_cb_real || 0) +
+                    Number(row.totalCbBirthday || row.total_cb_birthday || 0) +
+                    Number(row.totalCbRaffle || row.total_cb_raffle || 0)
+
+                  return {
+                    locationName,
+                    totalIn,
+                    bet,
+                    win,
+                    ggr,
+                    marketing,
+                    expenses,
+                    pl
+                  }
+                })
+
+              // Combină datele pentru locațiile duplicate (ex: "Craiova" și "Craiova E.S")
+              // IMPORTANT: Cheltuielile sunt deja normalizate în expMap, deci când combinăm locațiile,
+              // trebuie să folosim cheltuielile din expMap pentru locația normalizată, nu să le adunăm
+              const combinedPlByLoc = new Map()
+              plByLoc.forEach((row) => {
+                const key = row.locationName
+                if (combinedPlByLoc.has(key)) {
+                  const existing = combinedPlByLoc.get(key)
+                  existing.totalIn += row.totalIn
+                  existing.bet += row.bet
+                  existing.win += row.win
+                  existing.ggr += row.ggr
+                  existing.marketing += row.marketing
+                  // NU adăugăm expenses aici - le vom seta corect din expMap mai jos
+                } else {
+                  combinedPlByLoc.set(key, { ...row })
+                }
+              })
+              
+              // Setează cheltuielile corecte pentru fiecare locație normalizată din expMap
+              // (pentru a evita dublarea când combinăm locațiile duplicate)
+              combinedPlByLoc.forEach((row, key) => {
+                // Folosim cheltuielile din expMap pentru locația normalizată
+                row.expenses = expMap.get(key) || 0
+                // Recalculează P&L după setarea corectă a cheltuielilor
+                row.pl = row.ggr - row.expenses
+              })
+              
+              plByLoc = Array.from(combinedPlByLoc.values())
+              
+              // Log pentru verificare calcul cheltuieli
+              const totalExpensesCalculated = plByLoc.reduce((sum, loc) => sum + (loc.expenses || 0), 0)
+              const totalGgrCalculated = plByLoc.reduce((sum, loc) => sum + (loc.ggr || 0), 0)
+              const totalPlCalculated = totalGgrCalculated - totalExpensesCalculated
+              console.log(`📊 [PL Monthly] ${label} - Calculat: GGR=${totalGgrCalculated.toLocaleString('ro-RO')}, Expenses=${totalExpensesCalculated.toLocaleString('ro-RO')}, P&L=${totalPlCalculated.toLocaleString('ro-RO')}`)
+              
+              // Log special pentru Martie 2024
+              if (year === 2024 && month === 3) {
+                console.log(`🔍 [PL Monthly] MARTIE 2024 - După calcul PL:`, {
+                  totalGgr: totalGgrCalculated,
+                  totalExpenses: totalExpensesCalculated,
+                  totalPl: totalPlCalculated,
+                  locationsCount: plByLoc.length,
+                  locationsDetail: plByLoc.map(loc => ({
+                    location: loc.locationName,
+                    ggr: loc.ggr,
+                    expenses: loc.expenses,
+                    pl: loc.pl
+                  }))
+                })
+              }
+
+              return {
+                year,
+                month,
+                label,
+                startDate,
+                endDate,
+                plByLoc
+              }
+            } catch (error) {
+              if (error.name !== 'CanceledError' && error.code !== 'ECONNABORTED') {
+                console.error(`❌ Eroare la fetch date pentru ${label}:`, error)
+              }
+              return {
+                year,
+                month,
+                label,
+                startDate,
+                endDate,
+                plByLoc: []
+              }
+            }
+          })
+        )
+
+        // Verifică și loghează datele pentru Martie 2024 înainte de a salva
+        const martie2024 = monthlyData.find(m => m.year === 2024 && m.month === 3)
+        if (martie2024) {
+          const totalGgr = martie2024.plByLoc?.reduce((sum, loc) => sum + (loc.ggr || 0), 0) || 0
+          const totalExpenses = martie2024.plByLoc?.reduce((sum, loc) => sum + (loc.expenses || 0), 0) || 0
+          const calculatedPl = totalGgr - totalExpenses
+          console.log(`🔍 [PL Monthly Fetch] MARTIE 2024 - Înainte de salvare în cache:`, {
+            totalGgr,
+            totalExpenses,
+            calculatedPl,
+            locationsCount: martie2024.plByLoc?.length || 0
+          })
+        }
+        
+        setPlMonthlyByLocation(monthlyData)
+        // Salvează în cache (cache mai lung pentru performanță - 1 oră)
+        try {
+          localStorage.setItem('pl_monthly_by_location_cache', JSON.stringify({
+            data: monthlyData,
+            timestamp: Date.now()
+          }))
+          // Șterge cache-ul vechi pentru ierarhie pentru a forța recalculare cu datele noi
+          localStorage.removeItem('pl_monthly_hierarchy_cache')
+        } catch (error) {
+          console.error('Eroare la salvarea cache pentru plMonthlyByLocation:', error)
+          // Dacă localStorage e plin, șterge cache-ul vechi
+          try {
+            localStorage.removeItem('pl_monthly_by_location_cache')
+            localStorage.setItem('pl_monthly_by_location_cache', JSON.stringify({
+              data: monthlyData,
+              timestamp: Date.now()
+            }))
+          } catch (e) {
+            console.error('Nu s-a putut salva cache:', e)
+          }
+        }
+      } catch (error) {
+        if (error.name !== 'CanceledError' && error.code !== 'ECONNABORTED') {
+          console.error('❌ Eroare la încărcarea datelor lunare P&L:', error)
+        }
+      } finally {
+        setLoadingMonthlyPL(false)
+      }
+    }
+
+    fetchMonthlyPL()
+    
+    return () => {
+      abortController.abort()
+    }
+  }, [visibleLocations])
+
+  // Fetch date pentru modalul de detalii lună
+  useEffect(() => {
+    if (!monthDetailModalOpen || !selectedMonthDetail) return
+
+    const fetchMonthDetails = async () => {
+      setLoadingMonthDetail(true)
+      try {
+        const { startDate, endDate } = selectedMonthDetail
+
+        // Fetch cheltuieli folosind sql-table care aplică AUTOMAT filtrele din setări
+        const [expendituresResp, incasariResp] = await Promise.all([
+          axios.get('/api/expenditures/sql-table', {
+            params: {
+              startDate,
+              endDate,
+              department: 'all', // Folosim 'all' pentru a aplica filtrele din setări
+              type: 'all', // Folosim 'all' pentru a aplica filtrele din setări
+              location: 'all',
+              dataSource: 'all',
+              sortBy: 'operational_date',
+              order: 'asc',
+              page: 1,
+              pageSize: 10000 // Număr mare pentru a obține toate datele
+            }
+          }),
+          axios.get('/api/incasari/avg-in-by-location', {
+            params: {
+              startDate,
+              endDate
+            }
+          })
+        ])
+
+        // Procesează cheltuielile - grupează pe departament și tip
+        // sql-table aplică deja filtrele din setări, deci nu mai trebuie să filtrăm manual
+        const expendituresData = expendituresResp.data?.success ? (expendituresResp.data.data || []) : []
+        
+        // Verifică dacă există mai multe pagini (dacă total > pageSize)
+        const totalRecords = expendituresResp.data?.pagination?.total || 0
+        const pageSize = 10000
+        const needsPagination = totalRecords > pageSize
+        
+        console.log('📊 [PL Modal] Cheltuieli încărcate:', {
+          recordsLoaded: expendituresData.length,
+          totalRecords,
+          needsPagination,
+          startDate,
+          endDate
+        })
+        
+        // Dacă există mai multe înregistrări, trebuie să le încărcăm pe toate
+        let allExpendituresData = expendituresData
+        if (needsPagination) {
+          const totalPages = Math.ceil(totalRecords / pageSize)
+          const additionalPages = []
+          
+          for (let page = 2; page <= totalPages; page++) {
+            try {
+              const pageResp = await axios.get('/api/expenditures/sql-table', {
+                params: {
+                  startDate,
+                  endDate,
+                  department: 'all',
+                  type: 'all',
+                  location: 'all',
+                  dataSource: 'all',
+                  sortBy: 'operational_date',
+                  order: 'asc',
+                  page,
+                  pageSize
+                }
+              })
+              
+              if (pageResp.data?.success && pageResp.data.data) {
+                additionalPages.push(...pageResp.data.data)
+              }
+            } catch (error) {
+              console.error(`❌ Eroare la încărcarea paginii ${page}:`, error)
+            }
+          }
+          
+          allExpendituresData = [...expendituresData, ...additionalPages]
+          console.log('📊 [PL Modal] Total cheltuieli după paginare:', allExpendituresData.length)
+        }
+        
+        const expendituresByDeptType = new Map()
+        let totalAmount = 0
+        
+        allExpendituresData.forEach((item) => {
+          const dept = item.department_name || 'Nespecificat'
+          const type = item.expenditure_type || 'Nespecificat'
+          const key = `${dept}|||${type}`
+          const amount = Number(item.amount || 0)
+          totalAmount += amount
+          
+          if (expendituresByDeptType.has(key)) {
+            const existing = expendituresByDeptType.get(key)
+            existing.amount += amount
+            existing.count += 1
+          } else {
+            expendituresByDeptType.set(key, {
+              department: dept,
+              type: type,
+              amount: amount,
+              count: 1
+            })
+          }
+        })
+
+        const sortedExpenditures = Array.from(expendituresByDeptType.values()).sort((a, b) => {
+          if (a.department !== b.department) {
+            return a.department.localeCompare(b.department)
+          }
+          return a.type.localeCompare(b.type)
+        })
+        
+        console.log('📊 [PL Modal] Total cheltuieli calculate:', {
+          totalAmount,
+          totalFromMap: sortedExpenditures.reduce((sum, item) => sum + item.amount, 0),
+          itemsCount: sortedExpenditures.length
+        })
+
+        setMonthDetailExpenditures(sortedExpenditures)
+
+        // Procesează încasările
+        if (incasariResp.data?.success) {
+          setMonthDetailIncasari(incasariResp.data.rows || [])
+        } else {
+          setMonthDetailIncasari([])
+        }
+      } catch (error) {
+        console.error('❌ Eroare la încărcarea detaliilor lunii:', error)
+        toast.error('Eroare la încărcarea detaliilor')
+      } finally {
+        setLoadingMonthDetail(false)
+      }
+    }
+
+    fetchMonthDetails()
+  }, [monthDetailModalOpen, selectedMonthDetail])
+
+  // Încarcă detalii PL când se deschide modală
+  useEffect(() => {
+    if (!plDetailModalOpen || !selectedPlDetail) return
+
+    const fetchPlDetails = async () => {
+      setLoadingPlDetail(true)
+      try {
+        const { year, month, locationName } = selectedPlDetail
+        
+        // Calculează startDate și endDate pentru luna selectată
+        const startDate = new Date(year, month - 1, 1)
+        const endDate = new Date(year, month, 0)
+        const formatDate = (d) => d.toISOString().split('T')[0]
+        const startDateStr = formatDate(startDate)
+        const endDateStr = formatDate(endDate)
+
+        // Obține cheltuielile filtrate pentru această lună și locație
+        const resp = await axios.get('/api/expenditures/sql-table', {
+          params: {
+            startDate: startDateStr,
+            endDate: endDateStr,
+            location: locationName,
+            pageSize: 'all'
+          }
+        })
+
+        if (resp.data?.success) {
+          const expenditures = resp.data.rows || []
+          
+          // Grupează cheltuielile pe departament și tip
+          const byDeptType = new Map()
+          expenditures.forEach((item) => {
+            const dept = item.department_name || 'Nespecificat'
+            const type = item.expenditure_type || 'Nespecificat'
+            const key = `${dept}|||${type}`
+            const amount = Number(item.amount || 0)
+            
+            if (byDeptType.has(key)) {
+              const existing = byDeptType.get(key)
+              existing.amount += amount
+              existing.count += 1
+            } else {
+              byDeptType.set(key, {
+                department: dept,
+                type: type,
+                amount: amount,
+                count: 1
+              })
+            }
+          })
+
+          const sorted = Array.from(byDeptType.values()).sort((a, b) => {
+            if (a.department !== b.department) {
+              return a.department.localeCompare(b.department)
+            }
+            return a.type.localeCompare(b.type)
+          })
+
+          setPlDetailExpenditures(sorted)
+        } else {
+          setPlDetailExpenditures([])
+        }
+      } catch (error) {
+        console.error('❌ Eroare la încărcarea detaliilor PL:', error)
+        toast.error('Eroare la încărcarea detaliilor')
+        setPlDetailExpenditures([])
+      } finally {
+        setLoadingPlDetail(false)
+      }
+    }
+
+    fetchPlDetails()
+  }, [plDetailModalOpen, selectedPlDetail])
 
   // Auto-sync cu Cyber la pornirea paginii
   useEffect(() => {
@@ -1263,20 +1880,7 @@ const Incasari = () => {
     
     const fetchSlotsByMonthLocation = async () => {
       try {
-        // Construiește parametrii pentru filtre
-        const params = {}
-        if (providerFilter && providerFilter !== 'all') {
-          params.provider = providerFilter
-        }
-        if (cabinetFilter && cabinetFilter !== 'all') {
-          params.cabinet = cabinetFilter
-        }
-        if (gameMixFilter && gameMixFilter !== 'all') {
-          params.gameMix = gameMixFilter
-        }
-
         const response = await axios.get('/api/incasari/slots-by-month-location', {
-          params,
           signal: abortController.signal
         })
         if (response.data?.success && response.data.locations && response.data.locations.length > 0) {
@@ -1310,13 +1914,16 @@ const Incasari = () => {
     const now = Date.now()
     const oneHour = 60 * 60 * 1000
     
-    // Nu mai folosim cache când se schimbă filtrele - reîncarcă mereu
-    fetchSlotsByMonthLocation()
+    if (!lastFetch || (now - parseInt(lastFetch)) > oneHour) {
+      fetchSlotsByMonthLocation()
+    } else {
+      console.log('📦 Folosim cache pentru slots by month location')
+    }
     
     return () => {
       abortController.abort()
     }
-  }, [providerFilter, cabinetFilter, gameMixFilter])
+  }, [])
 
   // Fetch GGR by month and location pentru anul selectat
   useEffect(() => {
@@ -1784,103 +2391,6 @@ const Incasari = () => {
     }
   }
 
-  const exportSlotsByMonthLocationToExcel = () => {
-    try {
-      if (!slotsByMonthLocation || !slotsByMonthLocation.locations || slotsByMonthLocation.locations.length === 0) {
-        toast.error('Nu există date de exportat')
-        return
-      }
-
-      const monthNames = [
-        'Ianuarie', 'Februarie', 'Martie', 'Aprilie', 'Mai', 'Iunie',
-        'Iulie', 'August', 'Septembrie', 'Octombrie', 'Noiembrie', 'Decembrie'
-      ]
-
-      // Construiește header-ul: Lună + locații + Total
-      const header = ['Lună', ...slotsByMonthLocation.locations, 'Total']
-      const rows = [header]
-
-      // Adaugă datele pentru fiecare lună
-      Array.from({ length: 12 }, (_, i) => i + 1).forEach((month) => {
-        const monthData = slotsByMonthLocation.monthData[month] || {}
-        const row = [monthNames[month - 1]]
-
-        // Funcție pentru a obține valoarea (similar cu getValue din render)
-        const getValue = (location) => {
-          const value = Number(monthData[location] || 0)
-          const key = `slots_${slotsByMonthLocation.year}_${month}_${location}`
-          
-          if (value !== null && value !== undefined && !isNaN(value)) {
-            try {
-              localStorage.setItem(key, value.toString())
-            } catch (e) {}
-            return value
-          }
-          
-          try {
-            const saved = localStorage.getItem(key)
-            if (saved !== null && saved !== undefined) {
-              const savedValue = Number(saved)
-              if (!isNaN(savedValue)) {
-                return savedValue
-              }
-            }
-          } catch (e) {}
-          
-          return 0
-        }
-
-        let monthTotal = 0
-        slotsByMonthLocation.locations.forEach((location) => {
-          const value = getValue(location)
-          row.push(value)
-          monthTotal += value
-        })
-        row.push(monthTotal)
-        rows.push(row)
-      })
-
-      // Adaugă rândul Total pentru anul în curs
-      const totalRow = ['Total']
-      let grandTotal = 0
-      slotsByMonthLocation.locations.forEach((location) => {
-        let locationTotal = 0
-        Array.from({ length: 12 }, (_, i) => i + 1).forEach((month) => {
-          const monthData = slotsByMonthLocation.monthData[month] || {}
-          const key = `slots_${slotsByMonthLocation.year}_${month}_${location}`
-          const value = Number(monthData[location] || 0)
-          
-          if (value !== null && value !== undefined && !isNaN(value)) {
-            locationTotal += value
-          } else {
-            try {
-              const saved = localStorage.getItem(key)
-              if (saved !== null && saved !== undefined) {
-                const savedValue = Number(saved)
-                if (!isNaN(savedValue)) {
-                  locationTotal += savedValue
-                }
-              }
-            } catch (e) {}
-          }
-        })
-        totalRow.push(locationTotal)
-        grandTotal += locationTotal
-      })
-      totalRow.push(grandTotal)
-      rows.push(totalRow)
-
-      const ws = XLSX.utils.aoa_to_sheet(rows)
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, `Sloturi ${slotsByMonthLocation.year}`)
-      XLSX.writeFile(wb, `Incasari_Sloturi_Luna_Locatie_${slotsByMonthLocation.year}.xlsx`)
-      toast.success('Export Excel realizat cu succes!')
-    } catch (error) {
-      console.error('Eroare la export Excel:', error)
-      toast.error('Eroare la export Excel')
-    }
-  }
-
   const exportPLTableToExcel = () => {
     try {
       if (!plByLocation || plByLocation.length === 0) {
@@ -1959,17 +2469,9 @@ const Incasari = () => {
     }
     const currentMonthStartStr = formatDateLocal(currentMonthStart)
     const currentMonthEndStr = formatDateLocal(currentMonthEnd)
-    const lastMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
-    const lastMonthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0)
-    const lastMonthStartStr = formatDateLocal(lastMonthStart)
-    const lastMonthEndStr = formatDateLocal(lastMonthEnd)
     const isCurrentMonth = dateRange.startDate === currentMonthStartStr && dateRange.endDate === currentMonthEndStr
-    const isLastMonth = dateRange.startDate === lastMonthStartStr && dateRange.endDate === lastMonthEndStr
-    const hasCurrentMonthData = overview?.currentMonth && (
+    const hasOverviewData = overview?.currentMonth && (
       overview.currentMonth.ggr || overview.currentMonth.profit || overview.currentMonth.in
-    )
-    const hasLastMonthData = overview?.lastMonth && (
-      overview.lastMonth.ggr || overview.lastMonth.profit || overview.lastMonth.in
     )
 
       let baseData
@@ -1987,10 +2489,9 @@ const Incasari = () => {
         }
       })
       
-      // Pentru luna curentă SAU luna trecută, ajustăm datele pentru a se potrivi cu totalul din overview
-      if ((isCurrentMonth && hasCurrentMonthData) || (isLastMonth && hasLastMonthData)) {
-        const overviewData = isCurrentMonth ? overview.currentMonth : overview.lastMonth
-        const overviewGgr = Number(overviewData.ggr || overviewData.profit || 0)
+      // Pentru luna curentă, ajustăm datele pentru a se potrivi cu totalul din overview.currentMonth
+      if (isCurrentMonth && hasOverviewData) {
+        const overviewGgr = Number(overview.currentMonth.ggr || overview.currentMonth.profit || 0)
         const statsGgr = baseData.reduce((sum, d) => sum + (d.totalGgr || 0), 0)
         
         // Dacă există diferență, ajustăm proporțional datele zilnice
@@ -2384,12 +2885,10 @@ const Incasari = () => {
       prevMonthMap.set(locName, bonusCost)
     })
 
-    // Verifică dacă este luna curentă sau luna trecută și dacă avem date din overview
+    // Verifică dacă este luna curentă și dacă avem date din overview
     const currentDate = new Date()
     const currentMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
     const currentMonthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
-    const lastMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
-    const lastMonthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0)
     const formatDateLocal = (date) => {
       const year = date.getFullYear()
       const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -2398,15 +2897,9 @@ const Incasari = () => {
     }
     const currentMonthStartStr = formatDateLocal(currentMonthStart)
     const currentMonthEndStr = formatDateLocal(currentMonthEnd)
-    const lastMonthStartStr = formatDateLocal(lastMonthStart)
-    const lastMonthEndStr = formatDateLocal(lastMonthEnd)
     const isCurrentMonth = dateRange.startDate === currentMonthStartStr && dateRange.endDate === currentMonthEndStr
-    const isLastMonth = dateRange.startDate === lastMonthStartStr && dateRange.endDate === lastMonthEndStr
-    const hasCurrentMonthData = overview?.currentMonth && (
+    const hasOverviewData = overview?.currentMonth && (
       overview.currentMonth.ggr || overview.currentMonth.profit || overview.currentMonth.in
-    )
-    const hasLastMonthData = overview?.lastMonth && (
-      overview.lastMonth.ggr || overview.lastMonth.profit || overview.lastMonth.in
     )
 
     const expMap = new Map()
@@ -2415,54 +2908,85 @@ const Incasari = () => {
       expMap.set(row.location_name, Number(row.total_expenditures || 0))
     })
 
-    let plData = dataToUse.map((row) => {
-      const locationName = row.locationName || 'Nespecificat'
-      const totalIn = Number(row.totalIn || 0)
-      const ggr = Number(row.totalProfit || 0)
-      const expenses = expMap.get(locationName) || 0
-      const pl = ggr - expenses
-      const bet = Number(row.totalBet || row.total_bet || 0)
-      const win = Number(row.totalWin || row.total_win || 0)
-      const marketing =
-        Number(row.totalJackpot || row.total_jackpot || 0) +
-        Number(row.totalHh || row.total_hh || 0) +
-        Number(row.totalCbReal || row.total_cb_real || 0) +
-        Number(row.totalCbBirthday || row.total_cb_birthday || 0) +
-        Number(row.totalCbRaffle || row.total_cb_raffle || 0)
-      const bonusCost = bet > 0 ? (marketing / bet) * 100 : 0
-      const winBetPercent = bet > 0 ? (win / bet) * 100 : 0
-      const profitPercent = totalIn > 0 ? (pl / totalIn) * 100 : 0
-      
-      // Dinamica Bonus Cost - comparație cu luna anterioară
-      const prevBonusCost = prevMonthMap.get(locationName) || 0
-      const bonusCostDynamics = prevBonusCost > 0 ? bonusCost - prevBonusCost : null
-      
-      const hh = Number(row.totalHh || row.total_hh || 0)
-      const cashback = Number(row.totalCbReal || row.total_cb_real || 0)
-      const tombola = Number(row.totalCbRaffle || row.total_cb_raffle || 0)
-      
-      return {
-        locationName,
-        totalIn,
-        bet,
-        win,
-        ggr,
-        marketing,
-        hh,
-        cashback,
-        tombola,
-        bonusCost,
-        prevBonusCost,
-        bonusCostDynamics,
-        winBetPercent,
-        expenses,
-        pl,
-        profitPercent
+    // Normalizează și combină locațiile duplicate, exclude Depozit
+    const normalizeLocationName = (name) => {
+      if (!name) return ''
+      let n = name.toString().trim()
+      // Elimină sufixe de tip E.S / E.S. / ES
+      n = n.replace(/\s+E\.?S\.?$/i, '')
+      return n.trim()
+    }
+
+    let plData = dataToUse
+      .filter((row) => {
+        const locName = normalizeLocationName(row.locationName || '')
+        return locName && locName.toLowerCase() !== 'depozit'
+      })
+      .map((row) => {
+        const originalLocationName = row.locationName || 'Nespecificat'
+        const locationName = normalizeLocationName(originalLocationName)
+        const totalIn = Number(row.totalIn || 0)
+        const ggr = Number(row.totalProfit || 0)
+        // Combină cheltuielile pentru locațiile normalizate
+        const expenses = expMap.get(originalLocationName) || expMap.get(locationName) || 0
+        const pl = ggr - expenses
+        const bet = Number(row.totalBet || row.total_bet || 0)
+        const win = Number(row.totalWin || row.total_win || 0)
+        const marketing =
+          Number(row.totalJackpot || row.total_jackpot || 0) +
+          Number(row.totalHh || row.total_hh || 0) +
+          Number(row.totalCbReal || row.total_cb_real || 0) +
+          Number(row.totalCbBirthday || row.total_cb_birthday || 0) +
+          Number(row.totalCbRaffle || row.total_cb_raffle || 0)
+        const bonusCost = bet > 0 ? (marketing / bet) * 100 : 0
+        const winBetPercent = bet > 0 ? (win / bet) * 100 : 0
+        const profitPercent = totalIn > 0 ? (pl / totalIn) * 100 : 0
+        
+        // Dinamica Bonus Cost - comparație cu luna anterioară
+        const prevBonusCost = prevMonthMap.get(originalLocationName) || prevMonthMap.get(locationName) || 0
+        const bonusCostDynamics = prevBonusCost > 0 ? bonusCost - prevBonusCost : null
+        
+        return {
+          locationName,
+          totalIn,
+          bet,
+          win,
+          ggr,
+          marketing,
+          bonusCost,
+          prevBonusCost,
+          bonusCostDynamics,
+          winBetPercent,
+          expenses,
+          pl,
+          profitPercent
+        }
+      })
+
+    // Combină datele pentru locațiile duplicate (ex: "Craiova" și "Craiova E.S")
+    const combinedPlData = new Map()
+    plData.forEach((row) => {
+      const key = row.locationName
+      if (combinedPlData.has(key)) {
+        const existing = combinedPlData.get(key)
+        existing.totalIn += row.totalIn
+        existing.bet += row.bet
+        existing.win += row.win
+        existing.ggr += row.ggr
+        existing.marketing += row.marketing
+        existing.expenses += row.expenses
+        existing.pl = existing.ggr - existing.expenses
+        existing.bonusCost = existing.bet > 0 ? (existing.marketing / existing.bet) * 100 : 0
+        existing.winBetPercent = existing.bet > 0 ? (existing.win / existing.bet) * 100 : 0
+        existing.profitPercent = existing.totalIn > 0 ? (existing.pl / existing.totalIn) * 100 : 0
+      } else {
+        combinedPlData.set(key, { ...row })
       }
     })
+    plData = Array.from(combinedPlData.values())
     
     // Pentru luna curentă, ajustăm datele pentru a se potrivi cu totalul din overview.currentMonth
-    if (isCurrentMonth && hasCurrentMonthData) {
+    if (isCurrentMonth && hasOverviewData) {
       const overviewGgr = Number(overview.currentMonth.ggr || overview.currentMonth.profit || 0)
       const overviewIn = Number(overview.currentMonth.in || 0)
       const overviewBet = Number(overview.currentMonth.bet || 0)
@@ -2488,9 +3012,6 @@ const Incasari = () => {
           const adjustedBet = d.bet * betRatio
           const adjustedWin = d.win * winRatio
           const adjustedMarketing = d.marketing * ggrRatio
-          const adjustedHh = (d.hh || 0) * ggrRatio
-          const adjustedCashback = (d.cashback || 0) * ggrRatio
-          const adjustedTombola = (d.tombola || 0) * ggrRatio
           const adjustedPl = adjustedGgr - d.expenses
           return {
             ...d,
@@ -2499,9 +3020,6 @@ const Incasari = () => {
             win: adjustedWin,
             ggr: adjustedGgr,
             marketing: adjustedMarketing,
-            hh: adjustedHh,
-            cashback: adjustedCashback,
-            tombola: adjustedTombola,
             pl: adjustedPl,
             profitPercent: adjustedIn > 0 ? (adjustedPl / adjustedIn) * 100 : 0,
             bonusCost: adjustedBet > 0 ? (adjustedMarketing / adjustedBet) * 100 : 0,
@@ -2510,29 +3028,8 @@ const Incasari = () => {
         })
       }
     }
-    
-    // Pentru luna trecută, verificăm dacă datele se potrivesc cu overview
-    if (isLastMonth && hasLastMonthData) {
-      const overviewGgr = Number(overview.lastMonth.ggr || overview.lastMonth.profit || 0)
-      const statsGgr = plData.reduce((sum, d) => sum + (d.ggr || 0), 0)
-      const diff = Math.abs(overviewGgr - statsGgr)
-      
-      // Dacă diferența este mai mare de 0.01, logăm pentru debugging
-      if (diff > 0.01) {
-        console.log('🔍 Verificare consistență Luna trecută:', {
-          'Overview GGR (sursa de adevăr)': overviewGgr,
-          'Prezentare pe locații GGR': statsGgr,
-          'Diferență': diff,
-          'Status': diff < 100 ? 'OK (diferență mică, probabil rotunjiri)' : 'VERIFICARE NECESARĂ'
-        })
-      }
-    }
 
-    // Filtrează "Depozit" din listă
-    return plData.filter((row) => {
-      const locationName = (row.locationName || '').toLowerCase().trim()
-      return locationName !== 'depozit'
-    })
+    return plData
   }, [avgInByLocation, prevMonthByLocation, locationExpenditures, overview, dateRange])
 
   // Calculează totalurile pentru tabelul P&L
@@ -2556,11 +3053,8 @@ const Incasari = () => {
       acc.win += row.win || 0
       acc.ggr += row.ggr
       acc.marketing += row.marketing
-      acc.hh += row.hh || 0
-      acc.cashback += row.cashback || 0
-      acc.tombola += row.tombola || 0
       acc.expenses += row.expenses
-      acc.pl += row.pl
+      // NU sumăm PL-urile individuale - le calculăm la final ca GGR - Expenses
       return acc
     }, {
       totalIn: 0,
@@ -2568,12 +3062,12 @@ const Incasari = () => {
       win: 0,
       ggr: 0,
       marketing: 0,
-      hh: 0,
-      cashback: 0,
-      tombola: 0,
       expenses: 0,
       pl: 0
     })
+
+    // Calculează P&L ca GGR - Expenses (la fel ca în pagina de detalii)
+    totals.pl = totals.ggr - totals.expenses
 
     // Calculează bonus cost-ul mediu ponderat (marketing / BET)
     totals.bonusCost = totals.bet > 0 ? (totals.marketing / totals.bet) * 100 : 0
@@ -2596,6 +3090,674 @@ const Incasari = () => {
 
     return totals
   }, [plByLocation, prevMonthByLocation])
+
+  // Funcție helper pentru deserializare recursivă (definită înainte de useMemo)
+  const deserializeNode = useCallback((nodeData) => {
+    const node = {
+      id: nodeData.id,
+      type: nodeData.type,
+      label: nodeData.label,
+      level: nodeData.type === 'year' ? 0 : nodeData.type === 'quarter' ? 1 : 2,
+      year: nodeData.year,
+      quarter: nodeData.quarter,
+      month: nodeData.month,
+      parentId: nodeData.parentId,
+      metrics: nodeData.metrics || {
+        totalIn: 0,
+        bet: 0,
+        win: 0,
+        ggr: 0,
+        marketing: 0,
+        expenses: 0,
+        pl: 0
+      },
+      startDate: nodeData.startDate,
+      endDate: nodeData.endDate,
+      plByLocation: nodeData.plByLocation ? new Map(Object.entries(nodeData.plByLocation)) : new Map(),
+      ggrByLocation: nodeData.ggrByLocation ? new Map(Object.entries(nodeData.ggrByLocation)) : new Map(),
+      expensesByLocation: nodeData.expensesByLocation ? new Map(Object.entries(nodeData.expensesByLocation)) : new Map(),
+      children: (nodeData.children || []).map(child => deserializeNode(child))
+    }
+    
+    // Recalculează P&L corect dacă avem GGR și Expenses (pentru trimestru/an)
+    if (node.ggrByLocation && node.expensesByLocation && (node.type === 'year' || node.type === 'quarter')) {
+      node.plByLocation = new Map()
+      node.ggrByLocation.forEach((ggr, locName) => {
+        const expenses = node.expensesByLocation.get(locName) || 0
+        node.plByLocation.set(locName, ggr - expenses)
+      })
+    }
+    
+    return node
+  }, [])
+
+  // Transformă datele lunare P&L pentru tabel IERARHIC (An -> Trimestru -> Lună)
+  // Structură cu metrici ca coloane, nu locații
+  const plMonthlyTableData = useMemo(() => {
+    // Încearcă să încarce din cache PRIMUL (chiar dacă există date noi, pentru performanță)
+    try {
+      const cached = localStorage.getItem('pl_monthly_hierarchy_cache')
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        // Verifică dacă cache-ul este recent (max 24 ore pentru performanță - permanent disponibil)
+        if (parsed.timestamp && Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
+          // Reconstruiește Map-ul din cache
+          const hierarchy = new Map()
+          parsed.data.forEach((nodeData) => {
+            hierarchy.set(nodeData.id, deserializeNode(nodeData))
+          })
+          
+          // Expandare automată (doar dacă nu există deja)
+          const expandedSet = new Set()
+          hierarchy.forEach((yearNode) => {
+            expandedSet.add(yearNode.id)
+            yearNode.children.forEach((quarterNode) => {
+              expandedSet.add(quarterNode.id)
+            })
+          })
+          setPlTableExpanded((prev) => prev.size === 0 ? expandedSet : prev)
+          
+          // Reconstruiește totalsByLocation din cache
+          const totalsByLocation = parsed.totalsByLocation 
+            ? new Map(Object.entries(parsed.totalsByLocation))
+            : new Map()
+          
+          // Dacă avem cache valid, îl returnăm IMEDIAT (nu așteptăm date noi)
+          return { 
+            hierarchy, 
+            locations: parsed.locations || [], 
+            totalsByLocation 
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Eroare la încărcarea cache pentru ierarhie:', error)
+    }
+    
+    // Dacă nu există cache sau cache-ul e expirat, verifică dacă avem date
+    if (!plMonthlyByLocation || plMonthlyByLocation.length === 0) {
+      return {
+        hierarchy: new Map(),
+        locations: [],
+        totalsByLocation: new Map()
+      }
+    }
+
+    // Funcție pentru agregarea metricilor dintr-un array de locații
+    const aggregateMetrics = (locations) => {
+      const aggregated = locations.reduce((acc, loc) => {
+        acc.totalIn += Number(loc.totalIn || 0)
+        acc.bet += Number(loc.bet || 0)
+        acc.win += Number(loc.win || 0)
+        acc.ggr += Number(loc.ggr || 0)
+        acc.marketing += Number(loc.marketing || 0)
+        acc.expenses += Number(loc.expenses || 0)
+        return acc
+      }, {
+        totalIn: 0,
+        bet: 0,
+        win: 0,
+        ggr: 0,
+        marketing: 0,
+        expenses: 0
+      })
+      
+      // Calculează P&L ca GGR - Expenses (nu suma P&L-urilor individuale)
+      aggregated.pl = aggregated.ggr - aggregated.expenses
+      
+      return aggregated
+    }
+
+    // Obține lista de locații (normalizate) din toate lunile
+    const allLocationsSet = new Set()
+    plMonthlyByLocation.forEach((monthData) => {
+      (monthData.plByLoc || []).forEach((loc) => {
+        const locName = loc.locationName || ''
+        if (locName && locName.toLowerCase() !== 'depozit') {
+          allLocationsSet.add(locName)
+        }
+      })
+    })
+    const allLocations = Array.from(allLocationsSet).sort()
+
+    // Creează map pentru fiecare lună cu P&L pe locație
+    const monthMap = new Map()
+    plMonthlyByLocation.forEach((monthData) => {
+      const monthKey = `${monthData.year}-${String(monthData.month).padStart(2, '0')}`
+      const metrics = aggregateMetrics(monthData.plByLoc || [])
+      
+      // Log pentru Martie 2024 pentru debugging
+      if (monthData.year === 2024 && monthData.month === 3) {
+        const totalGgrFromLocations = monthData.plByLoc?.reduce((sum, loc) => sum + (loc.ggr || 0), 0) || 0
+        const totalExpensesFromLocations = monthData.plByLoc?.reduce((sum, loc) => sum + (loc.expenses || 0), 0) || 0
+        const calculatedPl = totalGgrFromLocations - totalExpensesFromLocations
+        
+        console.log(`🔍 [PL Table] Martie 2024 - VERIFICARE CALCUL:`, {
+          metricsGgr: metrics.ggr,
+          metricsExpenses: metrics.expenses,
+          metricsPl: metrics.pl,
+          totalGgrFromLocations,
+          totalExpensesFromLocations,
+          calculatedPl,
+          difference: metrics.pl - calculatedPl,
+          locationsCount: monthData.plByLoc?.length || 0
+        })
+        
+        // Verifică dacă există o discrepanță
+        if (Math.abs(metrics.pl - calculatedPl) > 0.01) {
+          console.error(`❌ [PL Table] Martie 2024 - DISCREPANȚĂ ÎN CALCUL! metrics.pl=${metrics.pl}, calculated=${calculatedPl}`)
+        }
+        
+        console.log(`🔍 [PL Table] Martie 2024 - Detalii locații:`, monthData.plByLoc?.map(loc => ({
+          location: loc.locationName,
+          ggr: loc.ggr,
+          expenses: loc.expenses,
+          pl: loc.pl,
+          calculatedPl: (loc.ggr || 0) - (loc.expenses || 0)
+        })))
+      }
+      
+      // Creează map pentru P&L pe locație (salvăm GGR și Expenses pentru calcul corect la agregare)
+      const plByLocationMap = new Map()
+      const ggrByLocationMap = new Map()
+      const expensesByLocationMap = new Map()
+      
+      // Combină locațiile duplicate înainte de a calcula P&L
+      const locationMap = new Map()
+      ;(monthData.plByLoc || []).forEach((loc) => {
+        const locName = (loc.locationName || '').trim()
+        if (locName && locName.toLowerCase() !== 'depozit') {
+          if (locationMap.has(locName)) {
+            const existing = locationMap.get(locName)
+            existing.ggr += Number(loc.ggr || 0)
+            existing.expenses += Number(loc.expenses || 0)
+          } else {
+            locationMap.set(locName, {
+              ggr: Number(loc.ggr || 0),
+              expenses: Number(loc.expenses || 0)
+            })
+          }
+        }
+      })
+      
+      // Calculează P&L pentru fiecare locație (după combinare)
+      locationMap.forEach((data, locName) => {
+        const ggr = data.ggr
+        const expenses = data.expenses
+        const pl = ggr - expenses
+        
+        // Pentru lună, P&L este direct calculat
+        plByLocationMap.set(locName, pl)
+        
+        // Salvăm și GGR și Expenses pentru agregare corectă la trimestru/an
+        ggrByLocationMap.set(locName, ggr)
+        expensesByLocationMap.set(locName, expenses)
+      })
+      
+      monthMap.set(monthKey, {
+        label: monthData.label,
+        year: monthData.year,
+        month: monthData.month,
+        startDate: monthData.startDate,
+        endDate: monthData.endDate,
+        metrics,
+        plByLocation: plByLocationMap,
+        ggrByLocation: ggrByLocationMap,
+        expensesByLocation: expensesByLocationMap
+      })
+    })
+
+    // Creează structură ierarhică: An -> Trimestru -> Lună
+    const hierarchy = new Map()
+    const monthNames = ['ianuarie', 'februarie', 'martie', 'aprilie', 'mai', 'iunie', 'iulie', 'august', 'septembrie', 'octombrie', 'noiembrie', 'decembrie']
+    
+    Array.from(monthMap.keys()).sort().forEach((key) => {
+      const monthData = monthMap.get(key)
+      const year = monthData.year
+      const month = monthData.month
+      const quarter = Math.floor((month - 1) / 3) + 1
+      
+      const yearKey = `year_${year}`
+      const quarterKey = `${yearKey}_q${quarter}`
+      const monthKey = `${quarterKey}_m${month}`
+      
+      // Creează nodul pentru an
+      if (!hierarchy.has(yearKey)) {
+        hierarchy.set(yearKey, {
+          id: yearKey,
+          type: 'year',
+          label: `${year}`,
+          level: 0,
+          year,
+          metrics: {
+            totalIn: 0,
+            bet: 0,
+            win: 0,
+            ggr: 0,
+            marketing: 0,
+            expenses: 0,
+            pl: 0
+          },
+          plByLocation: new Map(), // P&L pe locație pentru an
+          ggrByLocation: new Map(), // GGR pe locație pentru an (pentru calcul corect)
+          expensesByLocation: new Map(), // Expenses pe locație pentru an (pentru calcul corect)
+          children: []
+        })
+      }
+      const yearNode = hierarchy.get(yearKey)
+      
+      // Creează nodul pentru trimestru
+      let quarterNode = yearNode.children.find((c) => c.id === quarterKey)
+      if (!quarterNode) {
+        quarterNode = {
+          id: quarterKey,
+          type: 'quarter',
+          label: `TRIMESTRUL ${quarter}`,
+          level: 1,
+          year,
+          quarter,
+          parentId: yearKey,
+          metrics: {
+            totalIn: 0,
+            bet: 0,
+            win: 0,
+            ggr: 0,
+            marketing: 0,
+            expenses: 0,
+            pl: 0
+          },
+          plByLocation: new Map(), // P&L pe locație pentru trimestru
+          ggrByLocation: new Map(), // GGR pe locație pentru trimestru (pentru calcul corect)
+          expensesByLocation: new Map(), // Expenses pe locație pentru trimestru (pentru calcul corect)
+          children: []
+        }
+        yearNode.children.push(quarterNode)
+      }
+      
+      // Creează nodul pentru lună
+      let monthNode = quarterNode.children.find((c) => c.id === monthKey)
+      if (!monthNode) {
+        monthNode = {
+          id: monthKey,
+          type: 'month',
+          label: monthNames[month - 1],
+          level: 2,
+          year,
+          quarter,
+          month,
+          parentId: quarterKey,
+          metrics: { ...monthData.metrics },
+          plByLocation: new Map(monthData.plByLocation), // P&L pe locație pentru lună
+          startDate: monthData.startDate,
+          endDate: monthData.endDate
+        }
+        quarterNode.children.push(monthNode)
+      }
+      
+      // Agregă GGR și Expenses pe locație la nivel de trimestru (nu P&L direct!)
+      monthData.ggrByLocation.forEach((ggr, locName) => {
+        const currentGgr = quarterNode.ggrByLocation.get(locName) || 0
+        quarterNode.ggrByLocation.set(locName, currentGgr + ggr)
+      })
+      monthData.expensesByLocation.forEach((expenses, locName) => {
+        const currentExpenses = quarterNode.expensesByLocation.get(locName) || 0
+        quarterNode.expensesByLocation.set(locName, currentExpenses + expenses)
+      })
+      
+      // Calculează P&L pentru trimestru pe locație: GGR_total - Expenses_total
+      quarterNode.ggrByLocation.forEach((ggr, locName) => {
+        const expenses = quarterNode.expensesByLocation.get(locName) || 0
+        quarterNode.plByLocation.set(locName, ggr - expenses)
+      })
+      
+      // Agregă GGR și Expenses pe locație la nivel de an (nu P&L direct!)
+      monthData.ggrByLocation.forEach((ggr, locName) => {
+        const currentGgr = yearNode.ggrByLocation.get(locName) || 0
+        yearNode.ggrByLocation.set(locName, currentGgr + ggr)
+      })
+      monthData.expensesByLocation.forEach((expenses, locName) => {
+        const currentExpenses = yearNode.expensesByLocation.get(locName) || 0
+        yearNode.expensesByLocation.set(locName, currentExpenses + expenses)
+      })
+      
+      // Calculează P&L pentru an pe locație: GGR_total - Expenses_total
+      yearNode.ggrByLocation.forEach((ggr, locName) => {
+        const expenses = yearNode.expensesByLocation.get(locName) || 0
+        yearNode.plByLocation.set(locName, ggr - expenses)
+      })
+      
+      // Agregă metricile la nivel de trimestru
+      quarterNode.metrics.totalIn += monthData.metrics.totalIn
+      quarterNode.metrics.bet += monthData.metrics.bet
+      quarterNode.metrics.win += monthData.metrics.win
+      quarterNode.metrics.ggr += monthData.metrics.ggr
+      quarterNode.metrics.marketing += monthData.metrics.marketing
+      quarterNode.metrics.expenses += monthData.metrics.expenses
+      // Recalculează P&L pentru trimestru (GGR - Expenses)
+      quarterNode.metrics.pl = quarterNode.metrics.ggr - quarterNode.metrics.expenses
+      
+      // Agregă metricile la nivel de an
+      yearNode.metrics.totalIn += monthData.metrics.totalIn
+      yearNode.metrics.bet += monthData.metrics.bet
+      yearNode.metrics.win += monthData.metrics.win
+      yearNode.metrics.ggr += monthData.metrics.ggr
+      yearNode.metrics.marketing += monthData.metrics.marketing
+      yearNode.metrics.expenses += monthData.metrics.expenses
+      // Recalculează P&L pentru an (GGR - Expenses)
+      yearNode.metrics.pl = yearNode.metrics.ggr - yearNode.metrics.expenses
+    })
+    
+    // Sortează copiii
+    hierarchy.forEach((yearNode) => {
+      yearNode.children.sort((a, b) => a.quarter - b.quarter)
+      yearNode.children.forEach((quarterNode) => {
+        quarterNode.children.sort((a, b) => a.month - b.month)
+      })
+    })
+
+    // Filtrează nodurile cu toate valorile 0
+    const filterZeroNodes = (node) => {
+      // Verifică dacă toate metricile sunt 0
+      const allZero = 
+        (node.metrics.totalIn || 0) === 0 &&
+        (node.metrics.bet || 0) === 0 &&
+        (node.metrics.win || 0) === 0 &&
+        (node.metrics.ggr || 0) === 0 &&
+        (node.metrics.marketing || 0) === 0 &&
+        (node.metrics.expenses || 0) === 0 &&
+        (node.metrics.pl || 0) === 0
+      
+      // Pentru luni, dacă toate sunt 0, excludem
+      if (node.type === 'month' && allZero) {
+        return null
+      }
+      
+      // Pentru trimestre și ani, verificăm dacă au copii valizi
+      if (node.children && node.children.length > 0) {
+        const filteredChildren = node.children
+          .map(child => filterZeroNodes(child))
+          .filter(child => child !== null)
+        
+        // Dacă nu mai are copii valizi după filtrare, excludem nodul
+        if (filteredChildren.length === 0 && allZero) {
+          return null
+        }
+        
+        node.children = filteredChildren
+      }
+      
+      return node
+    }
+
+    // Filtrează ierarhia
+    const filteredHierarchy = new Map()
+    hierarchy.forEach((yearNode) => {
+      const filtered = filterZeroNodes(yearNode)
+      if (filtered !== null) {
+        filteredHierarchy.set(yearNode.id, filtered)
+      }
+    })
+
+    // Expandare automată până la nivelul de lună
+    const expandedSet = new Set()
+    filteredHierarchy.forEach((yearNode) => {
+      expandedSet.add(yearNode.id) // Expandă anul
+      yearNode.children.forEach((quarterNode) => {
+        expandedSet.add(quarterNode.id) // Expandă trimestrul
+        // Nu expandăm luna (nu e nevoie, sunt deja vizibile când trimestrul e expandat)
+      })
+    })
+
+    // Salvează expandarea în localStorage
+    try {
+      localStorage.setItem('pl_table_expanded', JSON.stringify(Array.from(expandedSet)))
+    } catch (error) {
+      console.error('Eroare la salvarea expandării în localStorage:', error)
+    }
+
+    // Actualizează expandarea dacă s-a schimbat (doar dacă nu există deja)
+    if (expandedSet.size > 0) {
+      setPlTableExpanded((prev) => {
+        // Nu suprascrie dacă există deja expandare
+        if (prev.size === 0) {
+          return expandedSet
+        }
+        return prev
+      })
+    }
+
+    // Calculează totalurile pentru fiecare locație (din toate anii) - TREBUIE SĂ FIE ÎNAINTE DE SERIALIZARE
+    const totalsByLocation = new Map()
+    filteredHierarchy.forEach((yearNode) => {
+      yearNode.plByLocation.forEach((pl, locName) => {
+        const currentTotal = totalsByLocation.get(locName) || 0
+        totalsByLocation.set(locName, currentTotal + pl)
+      })
+    })
+
+    // Salvează ierarhia în localStorage pentru încărcare instantanee
+    try {
+      const hierarchyData = {
+        data: Array.from(filteredHierarchy.entries()).map(([key, node]) => ({
+          id: node.id,
+          type: node.type,
+          label: node.label,
+          year: node.year,
+          quarter: node.quarter,
+          month: node.month,
+          metrics: node.metrics,
+          startDate: node.startDate,
+          endDate: node.endDate,
+          plByLocation: node.plByLocation ? Object.fromEntries(node.plByLocation) : {},
+          ggrByLocation: node.ggrByLocation ? Object.fromEntries(node.ggrByLocation) : {},
+          expensesByLocation: node.expensesByLocation ? Object.fromEntries(node.expensesByLocation) : {},
+          children: serializeNode(node)
+        })),
+        locations: allLocations,
+        totalsByLocation: Object.fromEntries(totalsByLocation),
+        timestamp: Date.now()
+      }
+      try {
+        localStorage.setItem('pl_monthly_hierarchy_cache', JSON.stringify(hierarchyData))
+      } catch (error) {
+        console.error('Eroare la salvarea cache pentru ierarhie:', error)
+        // Dacă localStorage e plin, șterge cache-ul vechi
+        try {
+          localStorage.removeItem('pl_monthly_hierarchy_cache')
+          localStorage.setItem('pl_monthly_hierarchy_cache', JSON.stringify(hierarchyData))
+        } catch (e) {
+          console.error('Nu s-a putut salva cache:', e)
+        }
+      }
+    } catch (error) {
+      console.error('Eroare la salvarea ierarhiei în localStorage:', error)
+    }
+
+    // Funcție helper pentru serializare recursivă
+    function serializeNode(node) {
+      if (!node.children || node.children.length === 0) return []
+      return node.children.map(child => ({
+        id: child.id,
+        type: child.type,
+        label: child.label,
+        year: child.year,
+        quarter: child.quarter,
+        month: child.month,
+        metrics: child.metrics,
+        startDate: child.startDate,
+        endDate: child.endDate,
+        plByLocation: child.plByLocation ? Object.fromEntries(child.plByLocation) : {},
+        ggrByLocation: child.ggrByLocation ? Object.fromEntries(child.ggrByLocation) : {},
+        expensesByLocation: child.expensesByLocation ? Object.fromEntries(child.expensesByLocation) : {},
+        children: serializeNode(child)
+      }))
+    }
+
+    return {
+      hierarchy: filteredHierarchy,
+      locations: allLocations,
+      totalsByLocation
+    }
+  }, [plMonthlyByLocation])
+  
+  // Funcție pentru toggle expand/collapse
+  const togglePlTableExpand = (nodeId) => {
+    setPlTableExpanded((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(nodeId)) {
+        newSet.delete(nodeId)
+      } else {
+        newSet.add(nodeId)
+      }
+      return newSet
+    })
+  }
+  
+  // Funcție recursivă pentru renderare ierarhică cu P&L pe locație
+  const renderPlTableRow = (node, level = 0, locations = []) => {
+    const isExpanded = plTableExpanded.has(node.id)
+    const hasChildren = node.children && node.children.length > 0
+    const indent = level * 24
+    const plByLocation = node.plByLocation || new Map()
+    
+    const rows = []
+    
+    // Rândul curent
+    rows.push(
+      <tr
+        key={node.id}
+        className={`border-b border-slate-200 dark:border-slate-900/60 ${
+          node.type === 'year' 
+            ? 'bg-slate-100 dark:bg-slate-800/60 font-semibold'
+            : node.type === 'quarter'
+            ? 'bg-slate-50 dark:bg-slate-800/40 font-medium'
+            : ''
+        } ${
+          node.type === 'month' ? '' : 'hover:bg-slate-100 dark:hover:bg-slate-800/40 cursor-pointer'
+        }`}
+        onClick={(e) => {
+          if (node.type === 'month') {
+            // Nu facem nimic la click pe rând - doar pe P&L
+            return
+          } else if (hasChildren) {
+            // Click pe an/trimestru - expand/collapse
+            togglePlTableExpand(node.id)
+          }
+        }}
+      >
+        <td className={`py-2 px-3 sticky left-0 z-10 ${
+          node.type === 'year' 
+            ? 'bg-slate-100 dark:bg-slate-800/60'
+            : node.type === 'quarter'
+            ? 'bg-slate-50 dark:bg-slate-800/40'
+            : 'bg-white dark:bg-slate-800'
+        }`} style={{ width: '200px', minWidth: '200px' }}>
+          <div className="flex items-center" style={{ paddingLeft: `${indent}px` }}>
+            {hasChildren && (
+              <span className="mr-2">
+                {isExpanded ? (
+                  <ChevronDown className="w-4 h-4 text-slate-500" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-slate-500" />
+                )}
+              </span>
+            )}
+            {!hasChildren && <span className="mr-2 w-4" />}
+            <span className="font-medium">{node.label}</span>
+          </div>
+        </td>
+        {/* P&L pentru fiecare locație */}
+        {locations.map((locName) => {
+          const pl = plByLocation.get(locName) || 0
+          const isClickable = node.type === 'month'
+          return (
+            <td
+              key={locName}
+              className={`py-2 px-3 text-right font-semibold ${
+                node.type === 'year'
+                  ? 'bg-slate-100 dark:bg-slate-800/60'
+                  : node.type === 'quarter'
+                  ? 'bg-slate-50 dark:bg-slate-800/40'
+                  : ''
+              } ${
+                pl >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+              } ${
+                isClickable ? 'cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors' : ''
+              }`}
+              onClick={(e) => {
+                if (isClickable) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  console.log('🔍 Click pe P&L pentru lună:', node.year, node.month)
+                  navigate(`/pl/${node.year}/${node.month}`)
+                }
+              }}
+              onMouseDown={(e) => {
+                if (isClickable) {
+                  e.stopPropagation()
+                }
+              }}
+              title={isClickable ? 'Click pentru detalii complete' : ''}
+            >
+              {formatNumber(pl)}
+            </td>
+          )
+        })}
+        {/* Coloana TOTAL */}
+        <td
+          className={`py-2 px-3 text-right font-bold ${
+            node.type === 'year'
+              ? 'bg-slate-100 dark:bg-slate-800/60'
+              : node.type === 'quarter'
+              ? 'bg-slate-50 dark:bg-slate-800/40'
+              : ''
+          } ${
+            (() => {
+              // Pentru lună, folosim metrics.pl (calculat corect ca GGR - Expenses din toate locațiile)
+              // Pentru trimestru/an, folosim suma din plByLocation (care este deja calculat corect)
+              const total = node.type === 'month' 
+                ? (node.metrics?.pl || 0)
+                : Array.from(plByLocation.values()).reduce((sum, pl) => sum + (pl || 0), 0)
+              return total >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+            })()
+          } ${
+            node.type === 'month' ? 'cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors' : ''
+          }`}
+          onClick={(e) => {
+            if (node.type === 'month') {
+              e.preventDefault()
+              e.stopPropagation()
+              navigate(`/pl/${node.year}/${node.month}`)
+            }
+          }}
+          onMouseDown={(e) => {
+            if (node.type === 'month') {
+              e.stopPropagation()
+            }
+          }}
+          title={node.type === 'month' ? 'Click pentru detalii complete' : ''}
+        >
+          {(() => {
+            // Pentru lună, folosim metrics.pl (calculat corect ca GGR - Expenses din toate locațiile)
+            // Pentru trimestru/an, folosim suma din plByLocation (care este deja calculat corect)
+            const total = node.type === 'month' 
+              ? (node.metrics?.pl || 0)
+              : Array.from(plByLocation.values()).reduce((sum, pl) => sum + (pl || 0), 0)
+            return formatNumber(total)
+          })()}
+        </td>
+      </tr>
+    )
+    
+    // Rândurile copiilor (dacă este expandat)
+    if (hasChildren && isExpanded) {
+      node.children.forEach((child) => {
+        rows.push(...renderPlTableRow(child, level + 1, locations))
+      })
+    }
+    
+    return rows
+  }
 
   // Filtrare locationDailyData după searchText
   const filteredLocationDailyData = useMemo(() => {
@@ -2782,24 +3944,12 @@ const Incasari = () => {
   // Calculează dinamica pentru fiecare perioadă
   const calculateOverviewDynamics = useMemo(() => {
     const dynamics = {}
-    const bonusCostDynamics = {}
-    
-    const calcBonusCost = (data) => {
-      if (!data) return 0
-      const bet = Number(data.bet || 0)
-      const marketing = Number(data.marketing || 0)
-      return bet > 0 ? (marketing / bet) * 100 : 0
-    }
     
     // Azi: compara cu Ieri
     if (overview.today && overview.yesterday) {
       const todayGgr = Number(overview.today.ggr || overview.today.profit || 0)
       const yesterdayGgr = Number(overview.yesterday.ggr || overview.yesterday.profit || 0)
       dynamics.today = yesterdayGgr > 0 ? ((todayGgr - yesterdayGgr) / yesterdayGgr) * 100 : 0
-      
-      const todayBonusCost = calcBonusCost(overview.today)
-      const yesterdayBonusCost = calcBonusCost(overview.yesterday)
-      bonusCostDynamics.today = yesterdayBonusCost > 0 ? todayBonusCost - yesterdayBonusCost : null
     }
     
     // Ieri: compara cu alaltăieri
@@ -2807,10 +3957,6 @@ const Incasari = () => {
       const yesterdayGgr = Number(overview.yesterday.ggr || overview.yesterday.profit || 0)
       const dayBeforeYesterdayGgr = Number(overview.dayBeforeYesterday.ggr || overview.dayBeforeYesterday.profit || 0)
       dynamics.yesterday = dayBeforeYesterdayGgr > 0 ? ((yesterdayGgr - dayBeforeYesterdayGgr) / dayBeforeYesterdayGgr) * 100 : 0
-      
-      const yesterdayBonusCost = calcBonusCost(overview.yesterday)
-      const dayBeforeYesterdayBonusCost = calcBonusCost(overview.dayBeforeYesterday)
-      bonusCostDynamics.yesterday = dayBeforeYesterdayBonusCost > 0 ? yesterdayBonusCost - dayBeforeYesterdayBonusCost : null
     }
     
     // Luna curentă: compara cu aceleași zile din luna trecută
@@ -2818,10 +3964,6 @@ const Incasari = () => {
       const currentMonthGgr = Number(overview.currentMonth.ggr || overview.currentMonth.profit || 0)
       const sameDaysLastMonthGgr = Number(overview.sameDaysLastMonth.ggr || overview.sameDaysLastMonth.profit || 0)
       dynamics.currentMonth = sameDaysLastMonthGgr > 0 ? ((currentMonthGgr - sameDaysLastMonthGgr) / sameDaysLastMonthGgr) * 100 : 0
-      
-      const currentMonthBonusCost = calcBonusCost(overview.currentMonth)
-      const sameDaysLastMonthBonusCost = calcBonusCost(overview.sameDaysLastMonth)
-      bonusCostDynamics.currentMonth = sameDaysLastMonthBonusCost > 0 ? currentMonthBonusCost - sameDaysLastMonthBonusCost : null
     }
     
     // Luna trecută: compara cu luna precedentă
@@ -2829,10 +3971,6 @@ const Incasari = () => {
       const lastMonthGgr = Number(overview.lastMonth.ggr || overview.lastMonth.profit || 0)
       const previousMonthGgr = Number(overview.previousMonth.ggr || overview.previousMonth.profit || 0)
       dynamics.lastMonth = previousMonthGgr > 0 ? ((lastMonthGgr - previousMonthGgr) / previousMonthGgr) * 100 : 0
-      
-      const lastMonthBonusCost = calcBonusCost(overview.lastMonth)
-      const previousMonthBonusCost = calcBonusCost(overview.previousMonth)
-      bonusCostDynamics.lastMonth = previousMonthBonusCost > 0 ? lastMonthBonusCost - previousMonthBonusCost : null
     }
     
     // Anul curent: compara cu aceeași perioadă din anul trecut
@@ -2840,186 +3978,17 @@ const Incasari = () => {
       const currentYearGgr = Number(overview.currentYear.ggr || overview.currentYear.profit || 0)
       const lastYearGgr = Number(overview.lastYear.ggr || overview.lastYear.profit || 0)
       dynamics.currentYear = lastYearGgr > 0 ? ((currentYearGgr - lastYearGgr) / lastYearGgr) * 100 : 0
-      
-      const currentYearBonusCost = calcBonusCost(overview.currentYear)
-      const lastYearBonusCost = calcBonusCost(overview.lastYear)
-      bonusCostDynamics.currentYear = lastYearBonusCost > 0 ? currentYearBonusCost - lastYearBonusCost : null
     }
     
-    return { ggr: dynamics, bonusCost: bonusCostDynamics }
+    return dynamics
   }, [overview])
 
-  // Calculează slotsCount pentru luna curentă din slotsByMonthLocation
-  const getCurrentMonthSlotsCount = () => {
-    if (!slotsByMonthLocation || !slotsByMonthLocation.monthData) return null
-    
-    const now = new Date()
-    const currentYear = now.getFullYear()
-    const currentMonth = now.getMonth() + 1
-    
-    if (slotsByMonthLocation.year === currentYear && slotsByMonthLocation.monthData[currentMonth]) {
-      const monthData = slotsByMonthLocation.monthData[currentMonth]
-      const getValue = (location) => {
-        const value = Number(monthData[location] || 0)
-        const key = `slots_${slotsByMonthLocation.year}_${currentMonth}_${location}`
-        
-        if (value !== null && value !== undefined && !isNaN(value)) {
-          try {
-            localStorage.setItem(key, value.toString())
-          } catch (e) {}
-          return value
-        }
-        
-        try {
-          const saved = localStorage.getItem(key)
-          if (saved !== null && saved !== undefined) {
-            const savedValue = Number(saved)
-            if (!isNaN(savedValue)) {
-              return savedValue
-            }
-          }
-        } catch (e) {}
-        
-        return 0
-      }
-      
-      return slotsByMonthLocation.locations.reduce((sum, location) => {
-        return sum + getValue(location)
-      }, 0)
-    }
-    return null
-  }
-
-  // Calculează slotsCount pentru luna trecută din slotsByMonthLocation
-  const getLastMonthSlotsCount = () => {
-    if (!slotsByMonthLocation || !slotsByMonthLocation.monthData) return null
-    
-    const now = new Date()
-    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    const lastYear = lastMonthDate.getFullYear()
-    const lastMonth = lastMonthDate.getMonth() + 1
-    
-    if (slotsByMonthLocation.year === lastYear && slotsByMonthLocation.monthData[lastMonth]) {
-      const monthData = slotsByMonthLocation.monthData[lastMonth]
-      const getValue = (location) => {
-        const value = Number(monthData[location] || 0)
-        const key = `slots_${slotsByMonthLocation.year}_${lastMonth}_${location}`
-        
-        if (value !== null && value !== undefined && !isNaN(value)) {
-          try {
-            localStorage.setItem(key, value.toString())
-          } catch (e) {}
-          return value
-        }
-        
-        try {
-          const saved = localStorage.getItem(key)
-          if (saved !== null && saved !== undefined) {
-            const savedValue = Number(saved)
-            if (!isNaN(savedValue)) {
-              return savedValue
-            }
-          }
-        } catch (e) {}
-        
-        return 0
-      }
-      
-      return slotsByMonthLocation.locations.reduce((sum, location) => {
-        return sum + getValue(location)
-      }, 0)
-    }
-    return null
-  }
-
-  // Calculează slotsCount pentru "Azi" folosind datele din slotsByMonthLocation dacă este luna curentă
-  const getTodaySlotsCount = () => {
-    const today = new Date()
-    const currentYear = today.getFullYear()
-    const currentMonth = today.getMonth() + 1
-    
-    // Dacă avem date în slotsByMonthLocation pentru luna curentă, folosim-le
-    // (pentru că sloturile sunt aceleași pe toată luna)
-    if (slotsByMonthLocation && slotsByMonthLocation.year === currentYear && slotsByMonthLocation.monthData && slotsByMonthLocation.monthData[currentMonth]) {
-      const monthData = slotsByMonthLocation.monthData[currentMonth]
-      return slotsByMonthLocation.locations.reduce((sum, location) => {
-        const value = Number(monthData[location] || 0)
-        return sum + (isNaN(value) ? 0 : value)
-      }, 0)
-    }
-    
-    // Fallback la datele din overview
-    return null
-  }
-
-  // Calculează slotsCount pentru "Ieri" folosind datele din slotsByMonthLocation dacă este luna curentă
-  const getYesterdaySlotsCount = () => {
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    const yesterdayYear = yesterday.getFullYear()
-    const yesterdayMonth = yesterday.getMonth() + 1
-    
-    // Dacă avem date în slotsByMonthLocation pentru luna ieri, folosim-le
-    if (slotsByMonthLocation && slotsByMonthLocation.year === yesterdayYear && slotsByMonthLocation.monthData && slotsByMonthLocation.monthData[yesterdayMonth]) {
-      const monthData = slotsByMonthLocation.monthData[yesterdayMonth]
-      return slotsByMonthLocation.locations.reduce((sum, location) => {
-        const value = Number(monthData[location] || 0)
-        return sum + (isNaN(value) ? 0 : value)
-      }, 0)
-    }
-    
-    // Fallback la datele din overview
-    return null
-  }
-
-  const currentMonthSlotsCount = getCurrentMonthSlotsCount()
-  const lastMonthSlotsCount = getLastMonthSlotsCount()
-  const todaySlotsCount = getTodaySlotsCount()
-  const yesterdaySlotsCount = getYesterdaySlotsCount()
-
   const overviewRowConfigs = [
-    { 
-      label: 'Azi', 
-      data: {
-        ...overview.today,
-        slotsCount: todaySlotsCount !== null ? todaySlotsCount : (overview.today?.slotsCount || overview.today?.slots || 0)
-      }, 
-      dynamics: calculateOverviewDynamics.ggr.today, 
-      bonusCostDynamics: calculateOverviewDynamics.bonusCost.today 
-    },
-    { 
-      label: 'Ieri', 
-      data: {
-        ...overview.yesterday,
-        slotsCount: yesterdaySlotsCount !== null ? yesterdaySlotsCount : (overview.yesterday?.slotsCount || overview.yesterday?.slots || 0)
-      }, 
-      dynamics: calculateOverviewDynamics.ggr.yesterday, 
-      bonusCostDynamics: calculateOverviewDynamics.bonusCost.yesterday 
-    },
-    { 
-      label: 'Luna curentă', 
-      data: {
-        ...overview.currentMonth,
-        slotsCount: currentMonthSlotsCount !== null ? currentMonthSlotsCount : (overview.currentMonth?.slotsCount || overview.currentMonth?.slots || 0)
-      }, 
-      dynamics: calculateOverviewDynamics.ggr.currentMonth, 
-      bonusCostDynamics: calculateOverviewDynamics.bonusCost.currentMonth 
-    },
-    { 
-      label: 'Luna trecută', 
-      data: {
-        ...overview.lastMonth,
-        slotsCount: lastMonthSlotsCount !== null ? lastMonthSlotsCount : (overview.lastMonth?.slotsCount || overview.lastMonth?.slots || 0)
-      }, 
-      dynamics: calculateOverviewDynamics.ggr.lastMonth, 
-      bonusCostDynamics: calculateOverviewDynamics.bonusCost.lastMonth 
-    },
-    { 
-      label: 'Anul curent', 
-      data: overview.currentYear, 
-      dynamics: calculateOverviewDynamics.ggr.currentYear, 
-      bonusCostDynamics: calculateOverviewDynamics.bonusCost.currentYear 
-    }
+    { label: 'Azi', data: overview.today, dynamics: calculateOverviewDynamics.today },
+    { label: 'Ieri', data: overview.yesterday, dynamics: calculateOverviewDynamics.yesterday },
+    { label: 'Luna curentă', data: overview.currentMonth, dynamics: calculateOverviewDynamics.currentMonth },
+    { label: 'Luna trecută', data: overview.lastMonth, dynamics: calculateOverviewDynamics.lastMonth },
+    { label: 'Anul curent', data: overview.currentYear, dynamics: calculateOverviewDynamics.currentYear }
   ]
 
   return (
@@ -3029,7 +3998,7 @@ const Incasari = () => {
           <div>
             <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center">
               <BarChart3 className="w-8 h-8 mr-3 text-emerald-500" />
-              Încasări
+              P&L
             </h1>
           </div>
           
@@ -3054,93 +4023,10 @@ const Incasari = () => {
                 
                 {/* Menu List */}
                 <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-800 rounded-xl border-2 border-slate-200 dark:border-slate-700 shadow-xl z-50 py-2">
-                  <button
-                    onClick={async () => {
-                      try {
-                        const statusResp = await axios.get('/api/incasari/sync-status')
-                        if (statusResp.data?.running) {
-                          toast.error('Sincronizare deja în curs. Vă rugăm să așteptați finalizarea.')
-                          setSyncModalOpen(true)
-                          return
-                        }
-                        const resp = await axios.post('/api/incasari/sync')
-                        if (resp.data?.success) {
-                          toast.success(resp.data.message || 'Sincronizare Încasări pornită')
-                          setSyncModalOpen(true)
-                        } else {
-                          toast.error(resp.data?.error || 'Nu am putut porni sincronizarea')
-                        }
-                      } catch (error) {
-                        console.error('❌ Eroare la pornirea sincronizării încasărilor:', error)
-                        if (error.response?.status === 400) {
-                          toast.error('Sincronizare deja în curs. Vă rugăm să așteptați finalizarea.')
-                          setSyncModalOpen(true)
-                        } else {
-                          toast.error(error.response?.data?.error || error.message || 'Eroare la pornirea sincronizării încasărilor')
-                        }
-                      }
-                      setShowMenu(false)
-                    }}
-                    className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${syncStatus.running ? 'animate-spin' : ''}`} />
-                    <span className="text-sm font-medium">{syncStatus.running ? 'Sincronizare în curs...' : 'Refresh Încasări (Cyber)'}</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      navigate('/incasari/settings')
-                      setShowMenu(false)
-                    }}
-                    className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
-                  >
-                    <Settings className="w-4 h-4" />
-                    <span className="text-sm font-medium">Setări Încasări</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      navigate('/incasari/cyber-table')
-                      setShowMenu(false)
-                    }}
-                    className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
-                  >
-                    <Table2 className="w-4 h-4" />
-                    <span className="text-sm font-medium">Tabel Cyber</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      navigate('/incasari/floorplan')
-                      setShowMenu(false)
-                    }}
-                    className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
-                  >
-                    <MapPin className="w-4 h-4" />
-                    <span className="text-sm font-medium">Floorplan Locație</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      navigate('/incasari/monthly')
-                      setShowMenu(false)
-                    }}
-                    className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
-                  >
-                    <BarChart3 className="w-4 h-4" />
-                    <span className="text-sm font-medium">Lunare</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      navigate('/incasari/operational')
-                      setShowMenu(false)
-                    }}
-                    className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
-                  >
-                    <BarChart3 className="w-4 h-4" />
-                    <span className="text-sm font-medium">Operational</span>
-                  </button>
+                  {/* Setări vor fi adăugate aici mai târziu */}
+                  <div className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
+                    Setări vor fi disponibile aici
+                  </div>
                 </div>
               </>
             )}
@@ -3375,124 +4261,38 @@ const Incasari = () => {
           const diffTime = Math.abs(end - start)
           const daysCountInRange = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
           
-          // Calculează numărul de sloturi distincte
-          // Dacă perioada selectată este o lună completă, folosește datele din slotsByMonthLocation
-          const startYear = start.getFullYear()
-          const startMonth = start.getMonth() + 1
-          const endYear = end.getFullYear()
-          const endMonth = end.getMonth() + 1
-          const isStartOfMonth = start.getDate() === 1
-          const isEndOfMonth = end.getDate() === new Date(endYear, endMonth, 0).getDate()
-          const isFullMonth = isStartOfMonth && isEndOfMonth && startYear === endYear && startMonth === endMonth
-          
-          let calculatedSlotsCount = 0
-          
-          // Dacă este o lună completă și avem date în slotsByMonthLocation pentru acel an și lună, folosește-le
-          if (isFullMonth && slotsByMonthLocation && slotsByMonthLocation.year === startYear && slotsByMonthLocation.monthData && slotsByMonthLocation.monthData[startMonth]) {
-            const monthData = slotsByMonthLocation.monthData[startMonth]
-            // Folosește aceeași logică ca în tabel pentru a obține valorile
-            const getValue = (location) => {
-              const value = Number(monthData[location] || 0)
-              const key = `slots_${slotsByMonthLocation.year}_${startMonth}_${location}`
-              
-              if (value !== null && value !== undefined && !isNaN(value)) {
-                try {
-                  localStorage.setItem(key, value.toString())
-                } catch (e) {}
-                return value
-              }
-              
-              try {
-                const saved = localStorage.getItem(key)
-                if (saved !== null && saved !== undefined) {
-                  const savedValue = Number(saved)
-                  if (!isNaN(savedValue)) {
-                    return savedValue
-                  }
-                }
-              } catch (e) {}
-              
-              return 0
-            }
-            
-            // Suma tuturor sloturilor pentru toate locațiile din această lună (la fel ca în tabel)
-            calculatedSlotsCount = slotsByMonthLocation.locations.reduce((sum, location) => {
-              return sum + getValue(location)
-            }, 0)
-          } else {
-            // Altfel, calculează din locationDailyData (pentru perioade parțiale sau alte scenarii)
-            const slotsSet = new Set()
-            locationDailyData.forEach(item => {
-              if (item.serial_number) {
-                slotsSet.add(item.serial_number)
-              }
-            })
-            calculatedSlotsCount = slotsSet.size || summary.slotsCount || 0
-          }
-          
-          // Calculează averageDrop corect: sum of IN / count of slots / count of days
-          const totalInForPeriod = isCurrentMonth && hasCurrentMonthData 
-            ? (overview.currentMonth.in || 0)
-            : (summary.totalIn || 0)
-          const calculatedAverageDrop = calculatedSlotsCount > 0 && daysCountInRange > 0
-            ? totalInForPeriod / calculatedSlotsCount / daysCountInRange
-            : 0
+          // Calculează numărul de sloturi distincte din perioada selectată
+          // Folosim slots_count din avgInByLocation (care este COUNT(DISTINCT serial_number) din backend)
+          const calculatedSlotsCount = avgInByLocation && avgInByLocation.length > 0
+            ? avgInByLocation.reduce((sum, loc) => sum + (Number(loc.slotsCount || loc.slots_count || 0)), 0)
+            : (isCurrentMonth && hasCurrentMonthData ? (overview.currentMonth.slots || 0) : summary.slotsCount) || 0
           
           const displayData = isCurrentMonth && hasCurrentMonthData ? {
             totalIn: overview.currentMonth.in || 0,
             totalBet: overview.currentMonth.bet || 0,
             totalProfit: overview.currentMonth.ggr || overview.currentMonth.profit || 0,
             slotsCount: calculatedSlotsCount,
-            daysCount: daysCountInRange,
-            averageDrop: calculatedAverageDrop,
+            daysCount: daysCountInRange, // Zilele din perioada selectată
+            averageDrop: overview.currentMonth.in && calculatedSlotsCount > 0 && daysCountInRange > 0 
+              ? overview.currentMonth.in / daysCountInRange / calculatedSlotsCount 
+              : 0,
             winBetPercent: overview.currentMonth.bet && overview.currentMonth.win
               ? (overview.currentMonth.win / overview.currentMonth.bet) * 100
               : 0
           } : {
             ...summary,
             slotsCount: calculatedSlotsCount,
-            daysCount: daysCountInRange,
-            averageDrop: calculatedAverageDrop
+            daysCount: daysCountInRange // Asigură-te că daysCount este corect și pentru summary
           }
           
+          // Calculează cheltuielile și procentele
+          const totalExpenses = plTotals.expenses || 0
+          const expensesFromProfit = plTotals.pl > 0 ? (totalExpenses / plTotals.pl) * 100 : 0
+          const expensesFromIn = plTotals.totalIn > 0 ? (totalExpenses / plTotals.totalIn) * 100 : 0
+          const expensesFromBet = plTotals.bet > 0 ? (totalExpenses / plTotals.bet) * 100 : 0
+          
           return (
-            <div className="grid grid-cols-1 md:grid-cols-9 gap-4 mb-6">
-              <div className="bg-white/30 dark:bg-slate-800/30 backdrop-blur-3xl border border-white/70 dark:border-slate-600/60 rounded-xl p-4 shadow-2xl shadow-black/20 dark:shadow-black/40 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-white/10 to-transparent dark:from-white/10 dark:via-white/5 dark:to-transparent rounded-xl"></div>
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/5 via-transparent to-transparent dark:from-slate-900/10 dark:via-transparent dark:to-transparent rounded-xl"></div>
-                <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/40 via-white/20 to-transparent dark:from-white/15 dark:via-white/5 dark:to-transparent rounded-t-xl"></div>
-                <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-white/20 to-transparent dark:from-white/10 dark:to-transparent rounded-r-xl"></div>
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.3),transparent_50%)] dark:bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.1),transparent_50%)] rounded-xl"></div>
-                <div className="relative z-10 flex flex-col h-full">
-                  <div className="bg-blue-500 rounded-lg p-2 mb-3 flex items-center gap-2 shadow-lg">
-                    <DollarSign className="w-5 h-5 text-white" />
-                    <p className="text-xs font-semibold text-white">Total IN</p>
-                  </div>
-                  <div className="text-center flex-1 flex flex-col justify-center">
-                    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white drop-shadow-sm">
-                      {formatNumber(displayData.totalIn)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white/30 dark:bg-slate-800/30 backdrop-blur-3xl border border-white/70 dark:border-slate-600/60 rounded-xl p-4 shadow-2xl shadow-black/20 dark:shadow-black/40 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-white/10 to-transparent dark:from-white/10 dark:via-white/5 dark:to-transparent rounded-xl"></div>
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/5 via-transparent to-transparent dark:from-slate-900/10 dark:via-transparent dark:to-transparent rounded-xl"></div>
-                <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/40 via-white/20 to-transparent dark:from-white/15 dark:via-white/5 dark:to-transparent rounded-t-xl"></div>
-                <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-white/20 to-transparent dark:from-white/10 dark:to-transparent rounded-r-xl"></div>
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.3),transparent_50%)] dark:bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.1),transparent_50%)] rounded-xl"></div>
-                <div className="relative z-10 flex flex-col h-full">
-                  <div className="bg-purple-500 rounded-lg p-2 mb-3 flex items-center gap-2 shadow-lg">
-                    <Coins className="w-5 h-5 text-white" />
-                    <p className="text-xs font-semibold text-white">Total BET</p>
-                  </div>
-                  <div className="text-center flex-1 flex flex-col justify-center">
-                    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white drop-shadow-sm">
-                      {formatNumber(displayData.totalBet)}
-                    </p>
-                  </div>
-                </div>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 mb-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
               <div className="bg-white/30 dark:bg-slate-800/30 backdrop-blur-3xl border border-white/70 dark:border-slate-600/60 rounded-xl p-4 shadow-2xl shadow-black/20 dark:shadow-black/40 relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-white/10 to-transparent dark:from-white/10 dark:via-white/5 dark:to-transparent rounded-xl"></div>
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/5 via-transparent to-transparent dark:from-slate-900/10 dark:via-transparent dark:to-transparent rounded-xl"></div>
@@ -3526,63 +4326,6 @@ const Incasari = () => {
                     <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white drop-shadow-sm">
                       {formatNumber(displayData.slotsCount)}
                     </p>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white/30 dark:bg-slate-800/30 backdrop-blur-3xl border border-white/70 dark:border-slate-600/60 rounded-xl p-4 shadow-2xl shadow-black/20 dark:shadow-black/40 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-white/10 to-transparent dark:from-white/10 dark:via-white/5 dark:to-transparent rounded-xl"></div>
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/5 via-transparent to-transparent dark:from-slate-900/10 dark:via-transparent dark:to-transparent rounded-xl"></div>
-                <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/40 via-white/20 to-transparent dark:from-white/15 dark:via-white/5 dark:to-transparent rounded-t-xl"></div>
-                <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-white/20 to-transparent dark:from-white/10 dark:to-transparent rounded-r-xl"></div>
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.3),transparent_50%)] dark:bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.1),transparent_50%)] rounded-xl"></div>
-                <div className="relative z-10 flex flex-col h-full">
-                  <div className="bg-cyan-500 rounded-lg p-2 mb-3 flex items-center gap-2 shadow-lg">
-                    <Target className="w-5 h-5 text-white" />
-                    <p className="text-xs font-semibold text-white">Average Drop ({displayData.daysCount || 0} zile)</p>
-                  </div>
-                  <div className="text-center flex-1 flex flex-col justify-center">
-                    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white drop-shadow-sm">
-                      {formatNumber(displayData.averageDrop)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-          <div className="bg-white/40 dark:bg-slate-800/40 backdrop-blur-2xl border border-white/60 dark:border-slate-600/50 rounded-xl p-4 shadow-xl shadow-black/10 dark:shadow-black/30 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-white/10 dark:from-white/5 dark:via-transparent dark:to-white/5 rounded-xl"></div>
-                <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/30 to-transparent dark:from-white/10 dark:to-transparent rounded-t-xl"></div>
-                <div className="relative z-10 flex flex-col h-full">
-                  <div className="bg-indigo-500 rounded-lg p-2 mb-3 flex items-center gap-2 shadow-lg">
-                    <TrendingUpIcon className="w-5 h-5 text-white" />
-                    <p className="text-xs font-semibold text-white">Dinamica IN</p>
-                  </div>
-                  <div className="flex-1 flex flex-col justify-center">
-                    <div className="mt-2 flex items-center justify-center gap-2">
-                      <p
-                        className={`text-2xl font-bold drop-shadow-sm ${
-                          dynamics.inChange >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
-                        }`}
-                      >
-                        {dynamics.inChange >= 0 ? '+' : ''}
-                        {Math.round(dynamics.inChange).toLocaleString('ro-RO', {
-                          maximumFractionDigits: 0,
-                          minimumFractionDigits: 0
-                        })}
-                        %
-                      </p>
-                      <div
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                          dynamics.inChange >= 0
-                            ? 'bg-emerald-500/20 dark:bg-emerald-500/30 text-emerald-500 dark:text-emerald-400'
-                            : 'bg-red-500/20 dark:bg-red-500/30 text-red-500 dark:text-red-400'
-                        }`}
-                      >
-                        {dynamics.inChange >= 0 ? (
-                          <TrendingUp className="w-5 h-5" />
-                        ) : (
-                          <TrendingDown className="w-5 h-5" />
-                        )}
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -3658,13 +4401,82 @@ const Incasari = () => {
                 <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-white/20 to-transparent dark:from-white/10 dark:to-transparent rounded-r-xl"></div>
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.3),transparent_50%)] dark:bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.1),transparent_50%)] rounded-xl"></div>
                 <div className="relative z-10 flex flex-col h-full">
-                  <div className="bg-amber-500 rounded-lg p-2 mb-3 flex items-center gap-2 shadow-lg">
-                    <Target className="w-5 h-5 text-white" />
-                    <p className="text-xs font-semibold text-white">Profit estimat ({estimatedProfit.daysUsed || 0} zile)</p>
+                  <div className="bg-red-500 rounded-lg p-2 mb-3 flex items-center gap-2 shadow-lg">
+                    <TrendingDown className="w-5 h-5 text-white" />
+                    <p className="text-xs font-semibold text-white">Cheltuieli</p>
                   </div>
                   <div className="text-center flex-1 flex flex-col justify-center">
                     <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white drop-shadow-sm">
-                      {formatNumber(estimatedProfit.estimatedProfit || 0)}
+                      {formatNumber(totalExpenses)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white/30 dark:bg-slate-800/30 backdrop-blur-3xl border border-white/70 dark:border-slate-600/60 rounded-xl p-4 shadow-2xl shadow-black/20 dark:shadow-black/40 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-white/10 to-transparent dark:from-white/10 dark:via-white/5 dark:to-transparent rounded-xl"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/5 via-transparent to-transparent dark:from-slate-900/10 dark:via-transparent dark:to-transparent rounded-xl"></div>
+                <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/40 via-white/20 to-transparent dark:from-white/15 dark:via-white/5 dark:to-transparent rounded-t-xl"></div>
+                <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-white/20 to-transparent dark:from-white/10 dark:to-transparent rounded-r-xl"></div>
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.3),transparent_50%)] dark:bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.1),transparent_50%)] rounded-xl"></div>
+                <div className="relative z-10 flex flex-col h-full">
+                  <div className="bg-rose-500 rounded-lg p-2 mb-3 flex items-center gap-2 shadow-lg">
+                    <Percent className="w-5 h-5 text-white" />
+                    <p className="text-xs font-semibold text-white">% Cheltuieli / Profit</p>
+                  </div>
+                  <div className="text-center flex-1 flex flex-col justify-center">
+                    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white drop-shadow-sm">
+                      {expensesFromProfit > 0 
+                        ? `${Number(expensesFromProfit).toLocaleString('ro-RO', {
+                            maximumFractionDigits: 2,
+                            minimumFractionDigits: 2
+                          })}%`
+                        : '0,00%'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white/30 dark:bg-slate-800/30 backdrop-blur-3xl border border-white/70 dark:border-slate-600/60 rounded-xl p-4 shadow-2xl shadow-black/20 dark:shadow-black/40 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-white/10 to-transparent dark:from-white/10 dark:via-white/5 dark:to-transparent rounded-xl"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/5 via-transparent to-transparent dark:from-slate-900/10 dark:via-transparent dark:to-transparent rounded-xl"></div>
+                <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/40 via-white/20 to-transparent dark:from-white/15 dark:via-white/5 dark:to-transparent rounded-t-xl"></div>
+                <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-white/20 to-transparent dark:from-white/10 dark:to-transparent rounded-r-xl"></div>
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.3),transparent_50%)] dark:bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.1),transparent_50%)] rounded-xl"></div>
+                <div className="relative z-10 flex flex-col h-full">
+                  <div className="bg-violet-500 rounded-lg p-2 mb-3 flex items-center gap-2 shadow-lg">
+                    <Percent className="w-5 h-5 text-white" />
+                    <p className="text-xs font-semibold text-white">% Cheltuieli / IN</p>
+                  </div>
+                  <div className="text-center flex-1 flex flex-col justify-center">
+                    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white drop-shadow-sm">
+                      {expensesFromIn > 0 
+                        ? `${Number(expensesFromIn).toLocaleString('ro-RO', {
+                            maximumFractionDigits: 2,
+                            minimumFractionDigits: 2
+                          })}%`
+                        : '0,00%'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white/30 dark:bg-slate-800/30 backdrop-blur-3xl border border-white/70 dark:border-slate-600/60 rounded-xl p-4 shadow-2xl shadow-black/20 dark:shadow-black/40 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-white/10 to-transparent dark:from-white/10 dark:via-white/5 dark:to-transparent rounded-xl"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/5 via-transparent to-transparent dark:from-slate-900/10 dark:via-transparent dark:to-transparent rounded-xl"></div>
+                <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/40 via-white/20 to-transparent dark:from-white/15 dark:via-white/5 dark:to-transparent rounded-t-xl"></div>
+                <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-white/20 to-transparent dark:from-white/10 dark:to-transparent rounded-r-xl"></div>
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.3),transparent_50%)] dark:bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.1),transparent_50%)] rounded-xl"></div>
+                <div className="relative z-10 flex flex-col h-full">
+                  <div className="bg-fuchsia-500 rounded-lg p-2 mb-3 flex items-center gap-2 shadow-lg">
+                    <Percent className="w-5 h-5 text-white" />
+                    <p className="text-xs font-semibold text-white">% Cheltuieli / BET</p>
+                  </div>
+                  <div className="text-center flex-1 flex flex-col justify-center">
+                    <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white drop-shadow-sm">
+                      {expensesFromBet > 0 
+                        ? `${Number(expensesFromBet).toLocaleString('ro-RO', {
+                            maximumFractionDigits: 2,
+                            minimumFractionDigits: 2
+                          })}%`
+                        : '0,00%'}
                     </p>
                   </div>
                 </div>
@@ -3673,321 +4485,609 @@ const Incasari = () => {
           )
         })()}
 
-        {/* Card Prezentare generală */}
-        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-              Prezentare generală
-            </h2>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  fetchOverview(true, true) // Manual refresh cu indicator și forțează refresh
-                }}
-                className="flex items-center gap-1 px-2 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                title="Actualizare date"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-                {isRefreshing && <span className="text-xs">Actualizare...</span>}
-              </button>
-              <button
-                onClick={exportOverviewToExcel}
-                className="flex items-center space-x-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-lg transition-colors"
-                title="Exportă în Excel"
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                <span>Export Excel</span>
-              </button>
+        {/* Tabel P&L Lunar Ierarhic - An/Trimestru/Lună */}
+        {plMonthlyTableData.hierarchy && plMonthlyTableData.hierarchy.size > 0 && (
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  P&L Lunar Ierarhic
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Structură ierarhică: An → Trimestru → Lună (click pentru expand/collapse)
+                </p>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm" style={{ tableLayout: 'fixed' }}>
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/60">
+                    <th className="py-3 px-3 text-left sticky left-0 bg-slate-100 dark:bg-slate-800/60 z-10 font-semibold" style={{ width: '200px', minWidth: '200px' }}>
+                      Perioadă
+                    </th>
+                    {plMonthlyTableData.locations && plMonthlyTableData.locations.map((locName) => (
+                      <th key={locName} className="py-3 px-3 text-center bg-slate-100 dark:bg-slate-800/60 font-semibold" style={{ width: '120px', minWidth: '120px' }}>
+                        {locName}
+                      </th>
+                    ))}
+                    <th className="py-3 px-3 text-center bg-slate-100 dark:bg-slate-800/60 font-semibold" style={{ width: '120px', minWidth: '120px' }}>
+                      TOTAL
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {plMonthlyTableData.locations && plMonthlyTableData.locations.length > 0 && (
+                    <>
+                      {Array.from(plMonthlyTableData.hierarchy.values())
+                        .sort((a, b) => b.year - a.year)
+                        .map((yearNode) => renderPlTableRow(yearNode, 0, plMonthlyTableData.locations))
+                        .flat()}
+                      {/* Rând de total */}
+                      <tr className="bg-slate-100 dark:bg-slate-800/60 font-bold border-t-2 border-slate-300 dark:border-slate-600">
+                        <td className="py-3 px-3 sticky left-0 bg-slate-100 dark:bg-slate-800/60 z-10">
+                          TOTAL
+                        </td>
+                        {plMonthlyTableData.locations.map((locName) => {
+                          const total = plMonthlyTableData.totalsByLocation?.get(locName) || 0
+                          return (
+                            <td
+                              key={locName}
+                              className={`py-3 px-3 text-right ${
+                                total >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'
+                              }`}
+                            >
+                              {formatNumber(total)} RON
+                            </td>
+                          )
+                        })}
+                        <td className={`py-3 px-3 text-right font-bold ${
+                          (() => {
+                            const grandTotal = Array.from(plMonthlyTableData.totalsByLocation?.values() || []).reduce((sum, pl) => sum + (pl || 0), 0)
+                            return grandTotal >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'
+                          })()
+                        }`}>
+                          {(() => {
+                            const grandTotal = Array.from(plMonthlyTableData.totalsByLocation?.values() || []).reduce((sum, pl) => sum + (pl || 0), 0)
+                            return formatNumber(grandTotal)
+                          })()}
+                        </td>
+                      </tr>
+                    </>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-700">
-                  <th className="text-left py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                    Perioadă
-                  </th>
-                  <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                    Sloturi
-                  </th>
-                  <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                    GGR
-                  </th>
-                  <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                    Dinamica GGR
-                  </th>
-                  <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                    IN
-                  </th>
-                  <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                    OUT
-                  </th>
-                  <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                    BET
-                  </th>
-                  <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                    Marketing
-                  </th>
-                  <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                    Bonus cost (%)
-                  </th>
-                  <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                    JACKPOT
-                  </th>
-                  <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                    HH
-                  </th>
-                  <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                    CASHBACK
-                  </th>
-                  <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                    Zi naștere
-                  </th>
-                  <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                    Tombolă
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {overviewRowConfigs.map(({ label, data, dynamics, bonusCostDynamics }, idx) => {
-                  const marketingValue = calcMarketingValue(data)
-                  const bonusValue = calcBonusCostPercent(data)
-                  const rowClass =
-                    idx === overviewRowConfigs.length - 1
-                      ? ''
-                      : 'border-b border-slate-100 dark:border-slate-800'
+        )}
+
+        {/* Grafice P&L */}
+        <div className="space-y-6">
+          {/* Grafic 1: P&L pe locații */}
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg p-6">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">
+              P&L pe locații
+            </h2>
+            <div className="h-80">
+              {plByLocation.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400">
+                  Nu există date pentru perioada selectată
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={[...plByLocation].sort((a, b) => b.pl - a.pl)} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
+                    <XAxis 
+                      type="number" 
+                      stroke="#64748b"
+                      style={{ fontSize: '12px' }}
+                      tickFormatter={(v) => formatNumber(v)} 
+                    />
+                    <YAxis 
+                      dataKey="locationName" 
+                      type="category" 
+                      stroke="#64748b"
+                      style={{ fontSize: '12px' }}
+                      width={120} 
+                    />
+                    <Tooltip
+                      formatter={(value) => formatNumber(value)}
+                      contentStyle={{
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        border: '1px solid rgba(148, 163, 184, 0.3)',
+                        borderRadius: '8px',
+                        color: '#f1f5f9'
+                      }}
+                    />
+                    <Bar dataKey="pl" name="P&L">
+                      {plByLocation.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.pl >= 0 ? '#22c55e' : '#ef4444'} />
+                      ))}
+                      <LabelList 
+                        dataKey="pl" 
+                        position="right" 
+                        formatter={(value) => formatNumber(value)}
+                        style={{ fill: '#1e293b', fontSize: '11px', fontWeight: 'bold' }}
+                        className="dark:fill-slate-200"
+                      />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          {/* Grafic 2: Evoluția GGR și P&L în timp */}
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg p-6">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">
+              Evoluția GGR și P&L în timp
+            </h2>
+            <div className="h-80">
+              {(() => {
+                const totalExpenses = plTotals.expenses || 0
+                
+                // Dacă perioada este mai mare de o lună, agregăm pe luni
+                let plData
+                if (isSingleMonthRange) {
+                  // Perioada de o lună - afișăm pe zile
+                  const totalDays = dailyStats.length || 1
+                  const avgDailyExpenses = totalExpenses / totalDays
                   
-                  // Calculează dinamica pentru GGR
-                  const ggrDynamics = dynamics !== undefined && dynamics !== null ? dynamics : null
-                  const isPositive = ggrDynamics !== null && ggrDynamics >= 0
+                  plData = dailyStats.map(d => {
+                    const date = d.date
+                    const ggr = Number(d.total_profit || d.totalProfit || 0)
+                    const dailyExpenses = avgDailyExpenses
+                    return {
+                      date: formatDateLabel(date),
+                      ggr,
+                      expenses: dailyExpenses,
+                      pl: ggr - dailyExpenses
+                    }
+                  }).filter(d => d.ggr > 0 || d.expenses > 0)
+                } else {
+                  // Perioada mai mare de o lună - agregăm pe luni
+                  const monthMap = {}
                   
-                  // Calculează dinamica pentru Bonus Cost
-                  const bonusDynamics = bonusCostDynamics !== undefined && bonusCostDynamics !== null ? bonusCostDynamics : null
-                  const isBonusPositive = bonusDynamics !== null && bonusDynamics >= 0
+                  dailyStats.forEach(d => {
+                    const dateObj = new Date(d.date)
+                    if (Number.isNaN(dateObj.getTime())) return
+                    const year = dateObj.getFullYear()
+                    const month = dateObj.getMonth()
+                    const key = `${year}-${String(month + 1).padStart(2, '0')}`
+                    
+                    if (!monthMap[key]) {
+                      monthMap[key] = {
+                        date: new Date(year, month, 1),
+                        ggr: 0,
+                        expenses: 0,
+                        days: 0
+                      }
+                    }
+                    
+                    monthMap[key].ggr += Number(d.total_profit || d.totalProfit || 0)
+                    monthMap[key].days += 1
+                  })
                   
+                  // Calculează cheltuieli medii pe lună
+                  const totalDays = dailyStats.length || 1
+                  const avgDailyExpenses = totalExpenses / totalDays
+                  
+                  plData = Object.values(monthMap)
+                    .sort((a, b) => a.date - b.date)
+                    .map(month => {
+                      const monthExpenses = avgDailyExpenses * month.days
+                      return {
+                        date: month.date.toLocaleDateString('ro-RO', { month: 'short', year: 'numeric' }),
+                        ggr: month.ggr,
+                        expenses: monthExpenses,
+                        pl: month.ggr - monthExpenses
+                      }
+                    })
+                }
+
+                if (plData.length === 0) {
                   return (
-                    <tr key={label} className={rowClass}>
-                      <td className="py-2 px-3 font-medium">{label}</td>
-                      <td className="py-2 px-3 text-right">{formatNumber(data?.slotsCount || 0)}</td>
-                      <td className="py-2 px-3 text-right text-emerald-500 font-semibold">
-                        {formatNumber(data?.ggr || 0)}
-                      </td>
-                      <td className="py-2 px-3 text-right">
-                        {ggrDynamics !== null ? (
-                          <div className={`flex items-center justify-end gap-1 ${isPositive ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
-                            {isPositive ? (
-                              <TrendingUp className="w-4 h-4" />
-                            ) : (
-                              <TrendingDown className="w-4 h-4" />
-                            )}
-                            <span className={`font-semibold ${isPositive ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
-                              {isPositive ? '+' : ''}{Math.round(ggrDynamics)}%
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-slate-400">-</span>
-                        )}
-                      </td>
-                      <td className="py-2 px-3 text-right">{formatNumber(data?.in || 0)}</td>
-                      <td className="py-2 px-3 text-right">{formatNumber(data?.out || 0)}</td>
-                      <td className="py-2 px-3 text-right">{formatNumber(data?.bet || 0)}</td>
-                      <td className="py-2 px-3 text-right">{formatNumber(marketingValue)}</td>
-                      <td className="py-2 px-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <span>{formatPercent(bonusValue)}</span>
-                          {bonusDynamics !== null && (
-                            <div className={`flex items-center gap-0.5 ${isBonusPositive ? 'text-red-500 dark:text-red-400' : 'text-emerald-500 dark:text-emerald-400'}`}>
-                              {isBonusPositive ? (
-                                <TrendingUp className="w-3 h-3" />
-                              ) : (
-                                <TrendingDown className="w-3 h-3" />
-                              )}
-                              <span className={`text-xs font-semibold ${isBonusPositive ? 'text-red-500 dark:text-red-400' : 'text-emerald-500 dark:text-emerald-400'}`}>
-                                {isBonusPositive ? '+' : ''}{bonusDynamics.toFixed(2)}%
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-2 px-3 text-right">{formatNumber(data?.jackpot || 0)}</td>
-                      <td className="py-2 px-3 text-right">{formatNumber(data?.hh || 0)}</td>
-                      <td className="py-2 px-3 text-right">{formatNumber(data?.cb_real || 0)}</td>
-                      <td className="py-2 px-3 text-right">{formatNumber(data?.cb_birthday || 0)}</td>
-                      <td className="py-2 px-3 text-right">{formatNumber(data?.cb_raffle || 0)}</td>
-                    </tr>
+                    <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400">
+                      Nu există date pentru perioada selectată
+                    </div>
                   )
-                })}
-              </tbody>
-            </table>
+                }
+
+                return (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={plData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
+                      <XAxis 
+                        dataKey="date" 
+                        stroke="#64748b"
+                        style={{ fontSize: '12px' }}
+                      />
+                      <YAxis 
+                        stroke="#64748b"
+                        style={{ fontSize: '12px' }}
+                        tickFormatter={(v) => formatNumber(v)} 
+                      />
+                      <Tooltip
+                        formatter={(value) => formatNumber(value)}
+                        contentStyle={{
+                          backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                          border: '1px solid rgba(148, 163, 184, 0.3)',
+                          borderRadius: '8px',
+                          color: '#f1f5f9'
+                        }}
+                      />
+                      <Legend />
+                      <Bar dataKey="ggr" name="GGR" fill="#3b82f6">
+                        <LabelList 
+                          dataKey="ggr" 
+                          position="top" 
+                          formatter={(value) => formatNumber(value)}
+                          style={{ fill: '#1e293b', fontSize: '10px', fontWeight: 'bold' }}
+                          className="dark:fill-slate-200"
+                        />
+                      </Bar>
+                      <Bar dataKey="expenses" name="Cheltuieli (medie zilnică)" fill="#06b6d4">
+                        <LabelList 
+                          dataKey="expenses" 
+                          position="top" 
+                          formatter={(value) => formatNumber(value)}
+                          style={{ fill: '#1e293b', fontSize: '10px', fontWeight: 'bold' }}
+                          className="dark:fill-slate-200"
+                        />
+                      </Bar>
+                      <Line 
+                        type="monotone" 
+                        dataKey="pl" 
+                        name="P&L" 
+                        stroke="#22c55e" 
+                        strokeWidth={3}
+                        dot={{ fill: '#22c55e', r: 4 }}
+                      >
+                        <LabelList 
+                          dataKey="pl" 
+                          position="top" 
+                          formatter={(value) => formatNumber(value)}
+                          style={{ fill: '#22c55e', fontSize: '10px', fontWeight: 'bold' }}
+                        />
+                      </Line>
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                )
+              })()}
+            </div>
+          </div>
+
+          {/* Grafic 3: GGR vs Cheltuieli pe locații */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg p-6">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">
+                GGR vs Cheltuieli pe locații
+              </h2>
+              <div className="h-80">
+                {plByLocation.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400">
+                    Nu există date pentru perioada selectată
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={[...plByLocation].sort((a, b) => b.ggr - a.ggr).slice(0, 10)}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
+                      <XAxis 
+                        dataKey="locationName" 
+                        stroke="#64748b"
+                        style={{ fontSize: '11px' }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={100}
+                      />
+                      <YAxis 
+                        stroke="#64748b"
+                        style={{ fontSize: '12px' }}
+                        tickFormatter={(v) => formatNumber(v)} 
+                      />
+                      <Tooltip
+                        formatter={(value) => formatNumber(value)}
+                        contentStyle={{
+                          backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                          border: '1px solid rgba(148, 163, 184, 0.3)',
+                          borderRadius: '8px',
+                          color: '#f1f5f9'
+                        }}
+                      />
+                      <Legend />
+                      <Bar dataKey="ggr" name="GGR" fill="#3b82f6">
+                        <LabelList 
+                          dataKey="ggr" 
+                          position="top" 
+                          formatter={(value) => formatNumber(value)}
+                          style={{ fill: '#1e293b', fontSize: '10px', fontWeight: 'bold' }}
+                          className="dark:fill-slate-200"
+                        />
+                      </Bar>
+                      <Bar dataKey="expenses" name="Cheltuieli" fill="#06b6d4">
+                        <LabelList 
+                          dataKey="expenses" 
+                          position="top" 
+                          formatter={(value) => formatNumber(value)}
+                          style={{ fill: '#1e293b', fontSize: '10px', fontWeight: 'bold' }}
+                          className="dark:fill-slate-200"
+                        />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+
+            {/* Grafic 4: Profit Margin pe locații */}
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg p-6">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">
+                Profit Margin pe locații (%)
+              </h2>
+              <div className="h-80">
+                {plByLocation.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400">
+                    Nu există date pentru perioada selectată
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={[...plByLocation].sort((a, b) => b.profitPercent - a.profitPercent).slice(0, 10)} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
+                      <XAxis 
+                        type="number" 
+                        stroke="#64748b"
+                        style={{ fontSize: '12px' }}
+                        tickFormatter={(v) => `${v.toFixed(1)}%`} 
+                      />
+                      <YAxis 
+                        dataKey="locationName" 
+                        type="category" 
+                        stroke="#64748b"
+                        style={{ fontSize: '12px' }}
+                        width={120} 
+                      />
+                      <Tooltip
+                        formatter={(value) => `${Number(value).toFixed(2)}%`}
+                        contentStyle={{
+                          backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                          border: '1px solid rgba(148, 163, 184, 0.3)',
+                          borderRadius: '8px',
+                          color: '#f1f5f9'
+                        }}
+                      />
+                      <Bar dataKey="profitPercent" name="Profit Margin (%)">
+                        {plByLocation.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.profitPercent >= 0 ? '#22c55e' : '#ef4444'} />
+                        ))}
+                        <LabelList 
+                          dataKey="profitPercent" 
+                          position="right" 
+                          formatter={(value) => `${Number(value).toFixed(1)}%`}
+                          style={{ fill: '#1e293b', fontSize: '11px', fontWeight: 'bold' }}
+                          className="dark:fill-slate-200"
+                        />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
-      {/* Prezentare pe locații pentru perioada selectată */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Prezentare pe locații – perioada {dateRange.startDate} – {dateRange.endDate}
-              </h2>
-            </div>
-            <button
-              onClick={exportPLTableToExcel}
-              className="flex items-center space-x-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-lg transition-colors"
-              title="Exportă în Excel"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>Export Excel</span>
-            </button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-400">
-                  <th className="py-2 px-3 text-left">Locație</th>
-                  <th className="py-2 px-3 text-right">IN</th>
-                  <th className="py-2 px-3 text-right">Bet</th>
-                  <th className="py-2 px-3 text-right">Win</th>
-                  <th className="py-2 px-3 text-right">GGR</th>
-                  <th className="py-2 px-3 text-right">Marketing</th>
-                  <th className="py-2 px-3 text-right">Bonus cost (%)</th>
-                  <th className="py-2 px-3 text-right">Win/Bet %</th>
-                  <th className="py-2 px-3 text-right">HH</th>
-                  <th className="py-2 px-3 text-right">CASHBACK</th>
-                  <th className="py-2 px-3 text-right">Tombolă</th>
-                </tr>
-              </thead>
-              <tbody>
-                {plByLocation.length === 0 ? (
-                  <tr>
-                    <td colSpan="11" className="py-8 px-3 text-center text-slate-500 dark:text-slate-400">
-                      Nu există date pentru perioada selectată
-                    </td>
-                  </tr>
+        {/* Modal detalii lună - Cheltuieli pe departament și tip + Încasări */}
+        {monthDetailModalOpen && selectedMonthDetail && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col border border-slate-200 dark:border-slate-700">
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                    Detalii P&L - {selectedMonthDetail.label}
+                  </h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    {selectedMonthDetail.startDate} – {selectedMonthDetail.endDate}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setMonthDetailModalOpen(false)
+                    setSelectedMonthDetail(null)
+                    setMonthDetailExpenditures([])
+                    setMonthDetailIncasari([])
+                  }}
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {loadingMonthDetail ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-slate-500 dark:text-slate-400">Se încarcă datele...</div>
+                  </div>
                 ) : (
                   <>
-                    {plByLocation.map((row) => {
-                      // Găsește ID-ul locației pentru navigare
-                      const location = locations.find(loc => loc.name === row.locationName)
-                      const locationId = location?.id
-                      
-                      return (
-                      <tr
-                        key={row.locationName}
-                        className="border-b border-slate-200 dark:border-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-800/40 transition-colors"
-                      >
-                      <td className="py-2 px-3 font-medium text-slate-900 dark:text-slate-100">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            // Navighează la pagina P&L separată pentru locație
-                            navigate(`/incasari/location-pl/${encodeURIComponent(row.locationName)}?dateRange=${dateRange.startDate}_${dateRange.endDate}`)
-                          }}
-                          className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-semibold hover:underline transition-colors text-left"
-                        >
-                          {row.locationName}
-                        </button>
-                      </td>
-                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                        {formatNumber(row.totalIn)} RON
-                      </td>
-                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                        {formatNumber(row.bet)} RON
-                      </td>
-                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                        {formatNumber(row.win)} RON
-                      </td>
-                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                        {formatNumber(row.ggr)} RON
-                      </td>
-                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                        {formatNumber(row.marketing)} RON
-                      </td>
-                      <td className="py-2 px-3 text-right">
-                        <div className="flex items-center justify-end gap-2 text-sm">
-                          <span className="text-slate-700 dark:text-slate-300">{formatPercent(row.bonusCost)}</span>
-                          {row.bonusCostDynamics !== null && (
-                            <span className="inline-flex items-center gap-1">
-                              {row.bonusCostDynamics < 0 ? (
-                                <TrendingDown className="w-3.5 h-3.5 text-emerald-500" />
-                              ) : row.bonusCostDynamics > 0 ? (
-                                <TrendingUp className="w-3.5 h-3.5 text-red-500" />
-                              ) : null}
-                              <span className={row.bonusCostDynamics < 0 ? 'text-emerald-500' : row.bonusCostDynamics > 0 ? 'text-red-500' : 'text-slate-400'}>
-                                {row.bonusCostDynamics > 0 ? '+' : ''}{row.bonusCostDynamics.toFixed(2)}%
-                              </span>
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                        {formatPercent(row.winBetPercent)}
-                      </td>
-                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                        {formatNumber(row.hh || 0)} RON
-                      </td>
-                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                        {formatNumber(row.cashback || 0)} RON
-                      </td>
-                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                        {formatNumber(row.tombola || 0)} RON
-                      </td>
-                    </tr>
-                    )
-                    })}
-                  {/* Rând cu totaluri */}
-                  <tr className="border-t-2 border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/60 font-semibold">
-                    <td className="py-3 px-3 text-slate-900 dark:text-slate-100">TOTAL</td>
-                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                      {formatNumber(plTotals.totalIn)} RON
-                    </td>
-                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                      {formatNumber(plTotals.bet)} RON
-                    </td>
-                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                      {formatNumber(plTotals.win)} RON
-                    </td>
-                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                      {formatNumber(plTotals.ggr)} RON
-                    </td>
-                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                      {formatNumber(plTotals.marketing)} RON
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <div className="flex items-center justify-end gap-2 text-sm">
-                        <span className="text-slate-900 dark:text-slate-100">{formatPercent(plTotals.bonusCost)}</span>
-                        {plTotals.bonusCostDynamics !== null && (
-                          <span className="inline-flex items-center gap-1">
-                            {plTotals.bonusCostDynamics < 0 ? (
-                              <TrendingDown className="w-3.5 h-3.5 text-emerald-500" />
-                            ) : plTotals.bonusCostDynamics > 0 ? (
-                              <TrendingUp className="w-3.5 h-3.5 text-red-500" />
-                            ) : null}
-                            <span className={plTotals.bonusCostDynamics < 0 ? 'text-emerald-500' : plTotals.bonusCostDynamics > 0 ? 'text-red-500' : 'text-slate-400'}>
-                              {plTotals.bonusCostDynamics > 0 ? '+' : ''}{plTotals.bonusCostDynamics.toFixed(2)}%
-                            </span>
-                          </span>
-                        )}
+                    {/* Secțiunea Cheltuieli */}
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg p-6">
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+                        Cheltuieli pe Departament și Tip
+                      </h3>
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-slate-200 dark:border-slate-700">
+                              <th className="py-2 px-3 text-left text-slate-700 dark:text-slate-300">Departament</th>
+                              <th className="py-2 px-3 text-left text-slate-700 dark:text-slate-300">Tip</th>
+                              <th className="py-2 px-3 text-right text-slate-700 dark:text-slate-300">Sumă</th>
+                              <th className="py-2 px-3 text-right text-slate-700 dark:text-slate-300">Număr înregistrări</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {monthDetailExpenditures.length === 0 ? (
+                              <tr>
+                                <td colSpan="4" className="py-8 px-3 text-center text-slate-500 dark:text-slate-400">
+                                  Nu există cheltuieli pentru această lună
+                                </td>
+                              </tr>
+                            ) : (
+                              monthDetailExpenditures.map((item, idx) => (
+                                <tr
+                                  key={idx}
+                                  className="border-b border-slate-200 dark:border-slate-900/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                                >
+                                  <td className="py-2 px-3 text-slate-900 dark:text-slate-100">{item.department}</td>
+                                  <td className="py-2 px-3 text-slate-800 dark:text-slate-200">{item.type}</td>
+                                  <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-100 font-medium">
+                                    {formatNumber(item.amount)} RON
+                                  </td>
+                                  <td className="py-2 px-3 text-right text-slate-600 dark:text-slate-400">
+                                    {item.count}
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                            {monthDetailExpenditures.length > 0 && (
+                              <tr className="border-t-2 border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/60 font-semibold">
+                                <td colSpan="2" className="py-3 px-3 text-slate-900 dark:text-slate-100">TOTAL Cheltuieli</td>
+                                <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
+                                  {formatNumber(monthDetailExpenditures.reduce((sum, item) => sum + item.amount, 0))} RON
+                                </td>
+                                <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
+                                  {monthDetailExpenditures.reduce((sum, item) => sum + item.count, 0)}
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
                       </div>
-                    </td>
-                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                      {formatPercent(plTotals.winBetPercent)}
-                    </td>
-                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                      {formatNumber(plTotals.hh || 0)} RON
-                    </td>
-                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                      {formatNumber(plTotals.cashback || 0)} RON
-                    </td>
-                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                      {formatNumber(plTotals.tombola || 0)} RON
-                    </td>
-                    </tr>
+                    </div>
+
+                    {/* Secțiunea Încasări */}
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg p-6">
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+                        Încasări pe Locație
+                      </h3>
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-slate-200 dark:border-slate-700">
+                              <th className="py-2 px-3 text-left text-slate-700 dark:text-slate-300">Locație</th>
+                              <th className="py-2 px-3 text-right text-slate-700 dark:text-slate-300">IN</th>
+                              <th className="py-2 px-3 text-right text-slate-700 dark:text-slate-300">BET</th>
+                              <th className="py-2 px-3 text-right text-slate-700 dark:text-slate-300">GGR</th>
+                              <th className="py-2 px-3 text-right text-slate-700 dark:text-slate-300">Marketing</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {monthDetailIncasari.length === 0 ? (
+                              <tr>
+                                <td colSpan="5" className="py-8 px-3 text-center text-slate-500 dark:text-slate-400">
+                                  Nu există încasări pentru această lună
+                                </td>
+                              </tr>
+                            ) : (
+                              monthDetailIncasari.map((item, idx) => (
+                                <tr
+                                  key={idx}
+                                  className="border-b border-slate-200 dark:border-slate-900/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                                >
+                                  <td className="py-2 px-3 text-slate-900 dark:text-slate-100">{item.locationName || 'Nespecificat'}</td>
+                                  <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                                    {formatNumber(item.totalIn || 0)} RON
+                                  </td>
+                                  <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                                    {formatNumber(item.totalBet || item.total_bet || 0)} RON
+                                  </td>
+                                  <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                                    {formatNumber(item.totalProfit || 0)} RON
+                                  </td>
+                                  <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                                    {formatNumber(
+                                      (item.totalJackpot || item.total_jackpot || 0) +
+                                      (item.totalHh || item.total_hh || 0) +
+                                      (item.totalCbReal || item.total_cb_real || 0) +
+                                      (item.totalCbBirthday || item.total_cb_birthday || 0) +
+                                      (item.totalCbRaffle || item.total_cb_raffle || 0)
+                                    )} RON
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                            {monthDetailIncasari.length > 0 && (
+                              <tr className="border-t-2 border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/60 font-semibold">
+                                <td className="py-3 px-3 text-slate-900 dark:text-slate-100">TOTAL Încasări</td>
+                                <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
+                                  {formatNumber(monthDetailIncasari.reduce((sum, item) => sum + (item.totalIn || 0), 0))} RON
+                                </td>
+                                <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
+                                  {formatNumber(monthDetailIncasari.reduce((sum, item) => sum + (item.totalBet || item.total_bet || 0), 0))} RON
+                                </td>
+                                <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
+                                  {formatNumber(monthDetailIncasari.reduce((sum, item) => sum + (item.totalProfit || 0), 0))} RON
+                                </td>
+                                <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
+                                  {formatNumber(
+                                    monthDetailIncasari.reduce((sum, item) => 
+                                      sum + 
+                                      (item.totalJackpot || item.total_jackpot || 0) +
+                                      (item.totalHh || item.total_hh || 0) +
+                                      (item.totalCbReal || item.total_cb_real || 0) +
+                                      (item.totalCbBirthday || item.total_cb_birthday || 0) +
+                                      (item.totalCbRaffle || item.total_cb_raffle || 0)
+                                    , 0)
+                                  )} RON
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Calcul P&L */}
+                    {monthDetailExpenditures.length > 0 && monthDetailIncasari.length > 0 && (
+                      <div className="bg-gradient-to-br from-emerald-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg p-6">
+                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+                          Calcul P&L
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+                            <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">Total GGR</p>
+                            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                              {formatNumber(monthDetailIncasari.reduce((sum, item) => sum + (item.totalProfit || 0), 0))} RON
+                            </p>
+                          </div>
+                          <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+                            <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">Total Cheltuieli</p>
+                            <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                              {formatNumber(monthDetailExpenditures.reduce((sum, item) => sum + item.amount, 0))} RON
+                            </p>
+                          </div>
+                          <div className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+                            <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">P&L</p>
+                            <p className={`text-2xl font-bold ${
+                              (monthDetailIncasari.reduce((sum, item) => sum + (item.totalProfit || 0), 0) - 
+                               monthDetailExpenditures.reduce((sum, item) => sum + item.amount, 0)) >= 0
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : 'text-red-600 dark:text-red-400'
+                            }`}>
+                              {formatNumber(
+                                monthDetailIncasari.reduce((sum, item) => sum + (item.totalProfit || 0), 0) - 
+                                monthDetailExpenditures.reduce((sum, item) => sum + item.amount, 0)
+                              )} RON
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
-              </tbody>
-            </table>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Modal de progres sincronizare Încasări (Cyber) */}
         {syncModalOpen && (
@@ -4085,831 +5185,9 @@ const Incasari = () => {
           </div>
         )}
 
-
-        {/* Grafice principale - unul pe rând, mari */}
-        <div className="space-y-6">
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                  Evoluție GGR {isSingleMonthRange ? '(zilnic)' : ''}
-                </h2>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                  {dateRange.startDate} - {dateRange.endDate}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-3xl font-bold text-green-600 dark:text-green-400">
-                  {formatNumber(chartData.reduce((sum, d) => sum + (d.totalGgr || 0), 0))} RON
-                </p>
-                <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center justify-end mt-1">
-                  <TrendingUp className="w-4 h-4 mr-1 text-green-500" />
-                  Total perioadă
-                </p>
-              </div>
-            </div>
-            {chartData.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400">
-                Nu există date pentru perioada selectată
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={200}>
-                <ComposedChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
-                <XAxis 
-                  dataKey="label" 
-                  stroke="#64748b" 
-                  style={{ fontSize: '12px' }}
-                />
-                <YAxis 
-                  yAxisId="left"
-                  stroke="#64748b" 
-                  style={{ fontSize: '12px' }}
-                  tickFormatter={(value) => formatNumber(value)}
-                />
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  stroke="#64748b"
-                  style={{ fontSize: '12px' }}
-                  tickFormatter={(v) => v.toLocaleString('ro-RO')}
-                />
-                <Tooltip 
-                  content={({ active, payload, label }) => {
-                    if (!active || !payload || payload.length === 0) return null;
-                    
-                    return (
-                      <div
-                        style={{
-                          backgroundColor: '#1e293b',
-                          padding: '12px 16px',
-                          borderRadius: '12px',
-                          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
-                          border: 'none'
-                        }}
-                      >
-                        <p style={{ color: '#fff', fontWeight: 'bold', marginBottom: '8px' }}>
-                          Data: {label}
-                        </p>
-                        {payload.map((entry, index) => (
-                          <p key={index} style={{ color: entry.color, margin: '4px 0' }}>
-                            {entry.name}: {
-                              entry.name === 'Sloturi active' 
-                                ? entry.value.toLocaleString('ro-RO')
-                                : formatNumber(entry.value)
-                            }
-                          </p>
-                        ))}
-                      </div>
-                    );
-                  }}
-                  cursor={false}
-                  wrapperStyle={{ 
-                    backgroundColor: 'transparent',
-                    background: 'transparent',
-                    border: 'none',
-                    boxShadow: 'none',
-                    padding: 0,
-                    margin: 0
-                  }}
-                  contentStyle={{ 
-                    backgroundColor: 'transparent',
-                    background: 'transparent',
-                    border: 'none',
-                    boxShadow: 'none',
-                    padding: 0,
-                    margin: 0
-                  }}
-                />
-                {!isSingleMonthRange && (
-                  <Bar
-                    yAxisId="right"
-                    dataKey="slotsCount"
-                    name="Sloturi active"
-                    fill="#38bdf8"
-                    radius={[4, 4, 0, 0]}
-                  >
-                    <LabelList
-                      dataKey="slotsCount"
-                      position="inside"
-                      formatter={(value) => value.toLocaleString('ro-RO')}
-                      style={{ fontSize: '11px', fontWeight: 'bold', fill: '#fff' }}
-                    />
-                  </Bar>
-                )}
-                <Line
-                  yAxisId="left"
-                  type="monotone"
-                  dataKey="totalGgr"
-                  name="GGR"
-                  stroke="#22c55e"
-                  strokeWidth={4}
-                  dot={{ fill: '#22c55e', r: 4 }}
-                  activeDot={{ r: 6 }}
-                >
-                  <LabelList
-                    dataKey="totalGgr"
-                    position="top"
-                    formatter={(value) => formatNumber(value)}
-                    style={{ fontSize: '10px', fontWeight: 'bold', fill: '#22c55e' }}
-                  />
-                </Line>
-                <Line
-                  yAxisId="left"
-                  type="monotone"
-                  dataKey="trendGgr"
-                  name="Trend GGR (AI)"
-                  stroke="#a855f7"
-                  strokeWidth={1.5}
-                  strokeDasharray="4 4"
-                  dot={false}
-                />
-                </ComposedChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                  IN (Luna curentă vs Luna trecută)
-                </h2>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                  {dateRange.startDate} - {dateRange.endDate}
-                </p>
-              </div>
-            </div>
-            {comparisonChartData.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400" style={{ height: '200px' }}>
-                Nu există date pentru perioada selectată
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={200}>
-                <ComposedChart data={comparisonChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
-                  <XAxis 
-                    dataKey="label" 
-                    stroke="#64748b" 
-                    style={{ fontSize: '12px' }}
-                  />
-                  <YAxis 
-                    yAxisId="left"
-                    stroke="#64748b" 
-                    style={{ fontSize: '12px' }}
-                    tickFormatter={(v) => formatNumber(v)}
-                  />
-                  <Tooltip
-                    content={({ active, payload, label }) => {
-                      if (!active || !payload || payload.length === 0) return null;
-                      
-                      const currentEntry = payload.find(p => p.dataKey === 'currentIn')
-                      const lastEntry = payload.find(p => p.dataKey === 'lastIn')
-                      const currentValue = currentEntry?.value || 0
-                      const lastValue = lastEntry?.value || 0
-                      const difference = currentValue - lastValue
-                      const percentChange = lastValue > 0 ? ((difference / lastValue) * 100).toFixed(1) : 0
-                      const isEstimated = currentEntry?.payload?.isEstimated
-                      
-                      return (
-                        <div
-                          style={{
-                            backgroundColor: '#1e293b',
-                            padding: '16px 20px',
-                            borderRadius: '12px',
-                            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                            minWidth: '280px'
-                          }}
-                        >
-                          <p style={{ color: '#fff', fontWeight: 'bold', marginBottom: '12px', fontSize: '16px' }}>
-                            Zi {label}
-                            {isEstimated && (
-                              <span style={{ color: '#86efac', marginLeft: '8px', fontSize: '12px' }}>
-                                (Estimare)
-                              </span>
-                            )}
-                          </p>
-                          <div style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', marginBottom: '8px', paddingBottom: '8px' }}>
-                            <p style={{ color: '#22c55e', margin: '4px 0', fontSize: '14px', fontWeight: '600' }}>
-                              {currentEntry?.name}: {formatNumber(currentValue)} RON
-                            </p>
-                            <p style={{ color: '#60a5fa', margin: '4px 0', fontSize: '14px', fontWeight: '600' }}>
-                              {lastEntry?.name}: {formatNumber(lastValue)} RON
-                            </p>
-                          </div>
-                          <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                            <p style={{ color: difference >= 0 ? '#22c55e' : '#ef4444', margin: '4px 0', fontSize: '13px' }}>
-                              Diferență: {difference >= 0 ? '+' : ''}{formatNumber(difference)} RON
-                            </p>
-                            <p style={{ color: difference >= 0 ? '#22c55e' : '#ef4444', margin: '4px 0', fontSize: '13px' }}>
-                              Variație: {percentChange >= 0 ? '+' : ''}{percentChange}%
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    }}
-                    cursor={false}
-                    wrapperStyle={{ 
-                      backgroundColor: 'transparent',
-                      background: 'transparent',
-                      border: 'none',
-                      boxShadow: 'none',
-                      padding: 0,
-                      margin: 0
-                    }}
-                    contentStyle={{ 
-                      backgroundColor: 'transparent',
-                      background: 'transparent',
-                      border: 'none',
-                      boxShadow: 'none',
-                      padding: 0,
-                      margin: 0
-                    }}
-                  />
-                  <Legend />
-                  <Bar yAxisId="left" dataKey="currentIn" name="IN Luna curentă" fill="#22c55e" radius={[4, 4, 0, 0]}>
-                    <LabelList
-                      dataKey="currentIn"
-                      position="top"
-                      formatter={(value, entry) => {
-                        if (entry?.payload?.isEstimated) {
-                          return `~${formatNumber(value)} (est.)`
-                        }
-                        return formatNumber(value)
-                      }}
-                      style={{ fontSize: '10px', fontWeight: 'bold', fill: '#22c55e' }}
-                    />
-                    {comparisonChartData.map((entry, index) => (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={entry.isEstimated ? "#86efac" : "#22c55e"}
-                        fillOpacity={entry.isEstimated ? 0.6 : 1}
-                      />
-                    ))}
-                  </Bar>
-                  <Bar yAxisId="left" dataKey="lastIn" name="IN Luna trecută" fill="#60a5fa" radius={[4, 4, 0, 0]}>
-                    <LabelList
-                      dataKey="lastIn"
-                      position="top"
-                      formatter={(value) => formatNumber(value)}
-                      style={{ fontSize: '10px', fontWeight: 'bold', fill: '#60a5fa' }}
-                    />
-                  </Bar>
-                </ComposedChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        {/* Bar charts Top N pe locații și cabinete (IN mediu/slot) */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                GGR pe locații
-              </h2>
-            </div>
-            <div className="h-80">
-              {locationPieData.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400">
-                  Nu există date pentru perioada selectată
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={locationPieData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
-                    <XAxis 
-                      type="number" 
-                      stroke="#64748b"
-                      style={{ fontSize: '12px' }}
-                      tickFormatter={(v) => formatNumber(v)} 
-                    />
-                    <YAxis 
-                      dataKey="locationName" 
-                      type="category" 
-                      stroke="#64748b"
-                      style={{ fontSize: '12px' }}
-                      width={120} 
-                    />
-                    <Tooltip
-                      content={({ active, payload, label }) => {
-                        if (!active || !payload || payload.length === 0) return null;
-                        
-                        return (
-                          <div
-                            style={{
-                              backgroundColor: '#1e293b',
-                              padding: '12px 16px',
-                              borderRadius: '12px',
-                              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
-                              border: 'none'
-                            }}
-                          >
-                            <p style={{ color: '#fff', fontWeight: 'bold', marginBottom: '8px' }}>
-                              Locație: {label}
-                            </p>
-                            <p style={{ color: '#22c55e', margin: '4px 0' }}>
-                              GGR: {formatNumber(payload[0]?.value || 0)} RON
-                            </p>
-                          </div>
-                        );
-                      }}
-                      cursor={false}
-                      wrapperStyle={{ 
-                        backgroundColor: 'transparent',
-                        background: 'transparent',
-                        border: 'none',
-                        boxShadow: 'none',
-                        padding: 0,
-                        margin: 0
-                      }}
-                      contentStyle={{ 
-                        backgroundColor: 'transparent',
-                        background: 'transparent',
-                        border: 'none',
-                        boxShadow: 'none',
-                        padding: 0,
-                        margin: 0
-                      }}
-                    />
-                    <Bar dataKey="totalProfit" fill="#22c55e" radius={[0, 4, 4, 0]}>
-                      <LabelList
-                        dataKey="totalProfit"
-                        position="right"
-                        formatter={(value) => formatNumber(value)}
-                        style={{ fontSize: '10px', fontWeight: 'bold', fill: '#22c55e' }}
-                      />
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                Average Drop pe cabinete
-              </h2>
-            </div>
-            <div className="h-80">
-              {cabinetPieData.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400">
-                  Nu există date pentru perioada selectată
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={cabinetPieData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
-                    <XAxis 
-                      type="number" 
-                      stroke="#64748b"
-                      style={{ fontSize: '12px' }}
-                      tickFormatter={(v) => formatNumber(v)} 
-                    />
-                    <YAxis 
-                      dataKey="cabinetName" 
-                      type="category" 
-                      stroke="#64748b"
-                      style={{ fontSize: '12px' }}
-                      width={120} 
-                    />
-                    <Tooltip
-                      content={({ active, payload, label }) => {
-                        if (!active || !payload || payload.length === 0) return null;
-                        
-                        return (
-                          <div
-                            style={{
-                              backgroundColor: '#1e293b',
-                              padding: '12px 16px',
-                              borderRadius: '12px',
-                              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
-                              border: 'none'
-                            }}
-                          >
-                            <p style={{ color: '#fff', fontWeight: 'bold', marginBottom: '8px' }}>
-                              Cabinet: {label}
-                            </p>
-                            <p style={{ color: '#0ea5e9', margin: '4px 0' }}>
-                              Average Drop: {formatNumber(payload[0]?.value || 0)} RON
-                            </p>
-                          </div>
-                        );
-                      }}
-                      cursor={false}
-                      wrapperStyle={{ 
-                        backgroundColor: 'transparent',
-                        background: 'transparent',
-                        border: 'none',
-                        boxShadow: 'none',
-                        padding: 0,
-                        margin: 0
-                      }}
-                      contentStyle={{ 
-                        backgroundColor: 'transparent',
-                        background: 'transparent',
-                        border: 'none',
-                        boxShadow: 'none',
-                        padding: 0,
-                        margin: 0
-                      }}
-                    />
-                    <Bar dataKey="averageDrop" fill="#0ea5e9" radius={[0, 4, 4, 0]}>
-                      <LabelList
-                        dataKey="averageDrop"
-                        position="right"
-                        formatter={(value) => formatNumber(value)}
-                        style={{ fontSize: '10px', fontWeight: 'bold', fill: '#0ea5e9' }}
-                      />
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Tabel Sloturi pe lună și locație pentru anul curent */}
-        <div className="card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-              Număr sloturi pe lună și locație - Anul {slotsByMonthLocation.year}
-            </h2>
-            <button
-              onClick={exportSlotsByMonthLocationToExcel}
-              className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition-all shadow-sm hover:shadow-md"
-              title="Export Excel"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>Export Excel</span>
-            </button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm" style={{ tableLayout: 'fixed', width: '100%' }}>
-              <colgroup>
-                <col style={{ width: '120px' }} />
-                {slotsByMonthLocation.locations.map(() => (
-                  <col key={Math.random()} style={{ width: '180px' }} />
-                ))}
-                <col style={{ width: '150px' }} />
-              </colgroup>
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-700">
-                  <th className="px-3 py-2 text-left font-semibold text-slate-700 dark:text-slate-300 sticky left-0 bg-slate-50 dark:bg-slate-800/60 z-10">
-                    Lună
-                  </th>
-                  {slotsByMonthLocation.locations.map((location) => (
-                    <th
-                      key={location}
-                      className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-300"
-                      style={{ width: '180px' }}
-                    >
-                      {location}
-                    </th>
-                  ))}
-                  <th className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/60" style={{ width: '150px' }}>
-                    Total
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => {
-                  const monthNames = [
-                    'Ianuarie',
-                    'Februarie',
-                    'Martie',
-                    'Aprilie',
-                    'Mai',
-                    'Iunie',
-                    'Iulie',
-                    'August',
-                    'Septembrie',
-                    'Octombrie',
-                    'Noiembrie',
-                    'Decembrie'
-                  ]
-                  const monthData = slotsByMonthLocation.monthData[month] || {}
-                  
-                  // Calculează totalul pentru această lună (suma tuturor locațiilor)
-                  const monthTotal = slotsByMonthLocation.locations.reduce((sum, location) => {
-                    return sum + (Number(monthData[location] || 0))
-                  }, 0)
-                  
-                  // Folosește datele salvate local sau datele curente - AFIȘEAZĂ MEREU ULTIMELE DATE
-                  const getValue = (location) => {
-                    const value = Number(monthData[location] || 0)
-                    const key = `slots_${slotsByMonthLocation.year}_${month}_${location}`
-                    
-                    // Dacă există valoare nouă (chiar dacă e zero), salvează-o și o folosește
-                    if (value !== null && value !== undefined && !isNaN(value)) {
-                      try {
-                        localStorage.setItem(key, value.toString())
-                      } catch (e) {}
-                      return value
-                    }
-                    
-                    // Dacă nu există valoare nouă, încarcă ultima valoare salvată
-                    try {
-                      const saved = localStorage.getItem(key)
-                      if (saved !== null && saved !== undefined) {
-                        const savedValue = Number(saved)
-                        if (!isNaN(savedValue)) {
-                          return savedValue
-                        }
-                      }
-                    } catch (e) {}
-                    
-                    // Dacă nu există nimic salvat, returnează 0 (dar va fi afișat)
-                    return 0
-                  }
-                  
-                  const savedTotal = slotsByMonthLocation.locations.reduce((sum, location) => {
-                    return sum + getValue(location)
-                  }, 0)
-                  
-                  return (
-                    <tr
-                      key={month}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
-                    >
-                      <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-100 sticky left-0 bg-slate-50 dark:bg-slate-800/60 z-10">
-                        {monthNames[month - 1]}
-                      </td>
-                      {slotsByMonthLocation.locations.map((location) => {
-                        const value = getValue(location)
-                        return (
-                          <td
-                            key={location}
-                            className="px-3 py-2 text-right text-slate-800 dark:text-slate-100"
-                            style={{ width: '180px' }}
-                          >
-                            {formatNumber(value)}
-                          </td>
-                        )
-                      })}
-                      <td className="px-3 py-2 text-right font-semibold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800/60" style={{ width: '150px' }}>
-                        {formatNumber(savedTotal)}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Tabel GGR pe lună și locație pentru anul selectat */}
-        <div className="card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-              Tabel zilnic (centralizator) - GGR pe lună și locație - Anul {ggrByMonthLocation.year}
-            </h2>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => {
-                  try {
-                    const rows = [
-                      ['Lună', ...ggrByMonthLocation.locations, 'Total']
-                    ]
-                    
-                    const monthNames = [
-                      'Ianuarie', 'Februarie', 'Martie', 'Aprilie', 'Mai', 'Iunie',
-                      'Iulie', 'August', 'Septembrie', 'Octombrie', 'Noiembrie', 'Decembrie'
-                    ]
-                    
-                    Array.from({ length: 12 }, (_, i) => i + 1).forEach((month) => {
-                      const monthData = ggrByMonthLocation.monthData[month] || {}
-                      const row = [monthNames[month - 1]]
-                      
-                      let monthTotal = 0
-                      ggrByMonthLocation.locations.forEach((location) => {
-                        const value = Number(monthData[location] || 0)
-                        row.push(value)
-                        monthTotal += value
-                      })
-                      row.push(monthTotal)
-                      rows.push(row)
-                    })
-                    
-                    // Adaugă rândul Total pentru anul în curs
-                    const totalRow = ['Total']
-                    let grandTotal = 0
-                    ggrByMonthLocation.locations.forEach((location) => {
-                      let locationTotal = 0
-                      for (let month = 1; month <= 12; month++) {
-                        const monthData = ggrByMonthLocation.monthData[month] || {}
-                        locationTotal += Number(monthData[location] || 0)
-                      }
-                      totalRow.push(locationTotal)
-                      grandTotal += locationTotal
-                    })
-                    totalRow.push(grandTotal)
-                    rows.push(totalRow)
-                    
-                    const ws = XLSX.utils.aoa_to_sheet(rows)
-                    const wb = XLSX.utils.book_new()
-                    XLSX.utils.book_append_sheet(wb, ws, 'GGR pe lună și locație')
-                    XLSX.writeFile(wb, `GGR_Luna_Locatie_${ggrByMonthLocation.year}.xlsx`)
-                    toast.success('Export Excel realizat cu succes!')
-                  } catch (error) {
-                    console.error('Eroare la export Excel:', error)
-                    toast.error('Eroare la export Excel')
-                  }
-                }}
-                className="flex items-center space-x-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-lg transition-colors"
-                title="Exportă în Excel"
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                <span>Export Excel</span>
-              </button>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm" style={{ tableLayout: 'fixed', width: '100%' }}>
-              <colgroup>
-                <col style={{ width: '120px' }} />
-                {ggrByMonthLocation.locations.map(() => (
-                  <col key={Math.random()} style={{ width: '180px' }} />
-                ))}
-                <col style={{ width: '150px' }} />
-              </colgroup>
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-700">
-                  <th className="px-3 py-2 text-left font-semibold text-slate-700 dark:text-slate-300 sticky left-0 bg-slate-50 dark:bg-slate-800/60 z-10">
-                    Lună
-                  </th>
-                  {ggrByMonthLocation.locations.map((location) => (
-                    <th
-                      key={location}
-                      className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-300"
-                      style={{ width: '180px' }}
-                    >
-                      {location}
-                    </th>
-                  ))}
-                  <th className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/60" style={{ width: '150px' }}>
-                    Total
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => {
-                  const monthNames = [
-                    'Ianuarie',
-                    'Februarie',
-                    'Martie',
-                    'Aprilie',
-                    'Mai',
-                    'Iunie',
-                    'Iulie',
-                    'August',
-                    'Septembrie',
-                    'Octombrie',
-                    'Noiembrie',
-                    'Decembrie'
-                  ]
-                  const monthData = ggrByMonthLocation.monthData[month] || {}
-                  const currentMonth = new Date().getMonth() + 1
-                  const currentYear = new Date().getFullYear()
-                  const isCurrentMonth = month === currentMonth && ggrByMonthLocation.year === currentYear
-                  
-                  // Pentru luna curentă, folosim totalul din overview.currentMonth pentru consistență
-                  // Pentru celelalte luni, calculăm din datele tabelului
-                  let monthTotal
-                  if (isCurrentMonth && overview?.currentMonth) {
-                    // Folosim totalul din "Prezentare generală" pentru luna curentă (este corect)
-                    monthTotal = Number(overview.currentMonth.ggr || overview.currentMonth.profit || 0)
-                  } else {
-                    // Pentru luni închise, calculăm din datele tabelului
-                    monthTotal = ggrByMonthLocation.locations.reduce((sum, location) => {
-                      return sum + (Number(monthData[location] || 0))
-                    }, 0)
-                  }
-                  
-                  // Folosește datele salvate local sau datele curente - AFIȘEAZĂ MEREU ULTIMELE DATE
-                  const getValue = (location) => {
-                    const value = Number(monthData[location] || 0)
-                    const key = `ggr_${ggrByMonthLocation.year}_${month}_${location}`
-                    
-                    // Dacă există valoare nouă (chiar dacă e zero), salvează-o și o folosește
-                    if (value !== null && value !== undefined && !isNaN(value)) {
-                      try {
-                        localStorage.setItem(key, value.toString())
-                      } catch (e) {}
-                      return value
-                    }
-                    
-                    // Dacă nu există valoare nouă, încarcă ultima valoare salvată
-                    try {
-                      const saved = localStorage.getItem(key)
-                      if (saved !== null && saved !== undefined) {
-                        const savedValue = Number(saved)
-                        if (!isNaN(savedValue)) {
-                          return savedValue
-                        }
-                      }
-                    } catch (e) {}
-                    
-                    // Dacă nu există nimic salvat, returnează 0 (dar va fi afișat)
-                    return 0
-                  }
-                  
-                  // Pentru luna curentă, folosim totalul din overview (este corect)
-                  // Pentru celelalte luni, calculăm din valorile per locație
-                  const savedTotal = isCurrentMonth && overview?.currentMonth 
-                    ? monthTotal 
-                    : ggrByMonthLocation.locations.reduce((sum, location) => {
-                        return sum + getValue(location)
-                      }, 0)
-                  
-                  return (
-                    <tr
-                      key={month}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
-                    >
-                      <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-100 sticky left-0 bg-slate-50 dark:bg-slate-800/60 z-10">
-                        {monthNames[month - 1]}
-                      </td>
-                      {ggrByMonthLocation.locations.map((location) => {
-                        const value = getValue(location)
-                        return (
-                          <td
-                            key={location}
-                            className="px-3 py-2 text-right text-slate-800 dark:text-slate-100"
-                            style={{ width: '180px' }}
-                          >
-                            {formatNumber(value)}
-                          </td>
-                        )
-                      })}
-                      <td className="px-3 py-2 text-right font-semibold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800/60" style={{ width: '150px' }}>
-                        {formatNumber(savedTotal)}
-                      </td>
-                    </tr>
-                  )
-                })}
-                {/* Rând Total pentru anul în curs */}
-                {(() => {
-                  // Calculează totalurile pentru fiecare locație pe toate lunile
-                  const yearTotals = ggrByMonthLocation.locations.reduce((acc, location) => {
-                    let total = 0
-                    for (let month = 1; month <= 12; month++) {
-                      const monthData = ggrByMonthLocation.monthData[month] || {}
-                      const value = Number(monthData[location] || 0)
-                      const key = `ggr_${ggrByMonthLocation.year}_${month}_${location}`
-                      
-                      // Dacă există valoare nouă, o folosește
-                      if (value !== null && value !== undefined && !isNaN(value)) {
-                        total += value
-                      } else {
-                        // Dacă nu există valoare nouă, încarcă ultima valoare salvată
-                        try {
-                          const saved = localStorage.getItem(key)
-                          if (saved !== null && saved !== undefined) {
-                            const savedValue = Number(saved)
-                            if (!isNaN(savedValue)) {
-                              total += savedValue
-                            }
-                          }
-                        } catch (e) {}
-                      }
-                    }
-                    acc[location] = total
-                    return acc
-                  }, {})
-                  
-                  // Calculează totalul general (suma tuturor locațiilor pentru toate lunile)
-                  const grandTotal = Object.values(yearTotals).reduce((sum, val) => sum + val, 0)
-                  
-                  return (
-                    <tr className="border-t-2 border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800/80 font-bold">
-                      <td className="px-3 py-2 font-bold text-slate-900 dark:text-slate-100 sticky left-0 bg-slate-100 dark:bg-slate-800/80 z-10">
-                        Total
-                      </td>
-                      {ggrByMonthLocation.locations.map((location) => (
-                        <td
-                          key={location}
-                          className="px-3 py-2 text-right font-bold text-slate-900 dark:text-slate-100"
-                          style={{ width: '180px' }}
-                        >
-                          {formatNumber(yearTotals[location] || 0)}
-                        </td>
-                      ))}
-                      <td className="px-3 py-2 text-right font-bold text-slate-900 dark:text-slate-100 bg-slate-200 dark:bg-slate-700/80" style={{ width: '150px' }}>
-                        {formatNumber(grandTotal)}
-                      </td>
-                    </tr>
-                  )
-                })()}
-              </tbody>
-            </table>
-          </div>
-        </div>
       </div>
     </Layout>
   )
 }
 
-export default Incasari
+export default PL

@@ -3,8 +3,7 @@ import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useNavigate } from 'react-router-dom'
-import { BarChart3, FileSpreadsheet, ArrowLeft, Clock, ArrowUp, ArrowDown, ChevronRight, ChevronDown } from 'lucide-react'
-import DateRangeSelector, { QuickDateButtons } from '../components/DateRangeSelector'
+import { BarChart3, FileSpreadsheet, ArrowLeft, Clock, ArrowUp, ArrowDown, ChevronRight, ChevronDown, Search, X, Calendar, CalendarDays, CalendarRange } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import axios from 'axios'
 import * as XLSX from 'xlsx'
@@ -14,7 +13,22 @@ const IncasariOperational = () => {
   const navigate = useNavigate()
   const { locations } = useData()
 
-  const [operationalData, setOperationalData] = useState([])
+  const [operationalData, setOperationalData] = useState(() => {
+    try {
+      const saved = localStorage.getItem('incasari_operational_data_cache')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        // Verifică dacă cache-ul este recent (max 1 oră)
+        const now = Date.now()
+        if (parsed.timestamp && (now - parsed.timestamp) < 60 * 60 * 1000) {
+          return parsed.data || []
+        }
+      }
+    } catch (error) {
+      console.error('Eroare la citirea cache pentru operationalData:', error)
+    }
+    return []
+  })
   const [loading, setLoading] = useState(false)
   const [locationFilter, setLocationFilter] = useState('all')
   const [providerFilter, setProviderFilter] = useState('all')
@@ -41,6 +55,8 @@ const IncasariOperational = () => {
       endDate: formatDateLocal(end)
     }
   })
+  const [searchText, setSearchText] = useState('')
+  const [selectedDateFilter, setSelectedDateFilter] = useState('luna-curenta')
   const [sortColumn, setSortColumn] = useState(null)
   const [sortDirection, setSortDirection] = useState('asc') // 'asc' sau 'desc'
   const [expandedMonths, setExpandedMonths] = useState(new Set()) // Set de chei "year-month"
@@ -49,6 +65,58 @@ const IncasariOperational = () => {
   const [providerCabinetData, setProviderCabinetData] = useState({}) // { "year-month-locationId": [...providers/cabinets] }
   const [loadingLocations, setLoadingLocations] = useState({}) // { "year-month": true/false }
   const [loadingProviders, setLoadingProviders] = useState({}) // { "year-month-locationId": true/false }
+
+  // Funcție pentru formatare dată
+  const formatDateLocal = (date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // Funcție pentru aplicarea filtrelor rapide de dată
+  const applyQuickDateFilter = (filterId) => {
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    let startDate, endDate
+    
+    switch (filterId) {
+      case 'azi':
+        startDate = endDate = formatDateLocal(today)
+        break
+      case 'saptamana-curenta':
+        const dayOfWeek = now.getDay()
+        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+        startDate = formatDateLocal(new Date(today.getTime() + diff * 24 * 60 * 60 * 1000))
+        endDate = formatDateLocal(today)
+        break
+      case 'luna-curenta':
+        startDate = formatDateLocal(new Date(now.getFullYear(), now.getMonth(), 1))
+        endDate = formatDateLocal(new Date(now.getFullYear(), now.getMonth() + 1, 0))
+        break
+      case 'luna-anterioara':
+        startDate = formatDateLocal(new Date(now.getFullYear(), now.getMonth() - 1, 1))
+        endDate = formatDateLocal(new Date(now.getFullYear(), now.getMonth(), 0))
+        break
+      case 'anul-curent':
+        startDate = formatDateLocal(new Date(now.getFullYear(), 0, 1))
+        endDate = formatDateLocal(new Date(now.getFullYear(), 11, 31))
+        break
+      case 'anul-trecut':
+        startDate = formatDateLocal(new Date(now.getFullYear() - 1, 0, 1))
+        endDate = formatDateLocal(new Date(now.getFullYear() - 1, 11, 31))
+        break
+      case 'toate':
+        startDate = formatDateLocal(new Date(2020, 0, 1))
+        endDate = formatDateLocal(new Date(2030, 11, 31))
+        break
+      default:
+        return
+    }
+    
+    setDateRange({ startDate, endDate })
+    setSelectedDateFilter(filterId)
+  }
 
   // Funcție pentru schimbarea perioadei (pentru QuickDateButtons)
   const handleDateChange = (newRange) => {
@@ -163,7 +231,31 @@ const IncasariOperational = () => {
   // Funcție pentru încărcarea datelor operational
   const loadOperationalData = async () => {
     try {
-      setLoading(true)
+      // Verifică cache-ul înainte de fetch
+      let hasValidCache = false
+      try {
+        const cached = localStorage.getItem('incasari_operational_data_cache')
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          const now = Date.now()
+          // Verifică dacă cache-ul este recent (max 1 oră)
+          if (parsed.timestamp && (now - parsed.timestamp) < 60 * 60 * 1000) {
+            // Folosește cache-ul imediat
+            if (parsed.data && parsed.data.length > 0) {
+              setOperationalData(parsed.data)
+              hasValidCache = true
+            }
+          }
+        }
+      } catch (e) {
+        // Ignoră erorile de cache și continuă cu fetch
+      }
+
+      // Dacă nu avem cache valid, afișăm loading
+      if (!hasValidCache) {
+        setLoading(true)
+      }
+      
       const params = {}
       
       if (locationFilter !== 'all') {
@@ -185,14 +277,30 @@ const IncasariOperational = () => {
       const response = await axios.get('/api/incasari/operational', { params })
       
       if (response.data && response.data.success) {
-        setOperationalData(response.data.rows || [])
+        const newData = response.data.rows || []
+        setOperationalData(newData)
+        
+        // Salvează în cache
+        try {
+          localStorage.setItem('incasari_operational_data_cache', JSON.stringify({
+            data: newData,
+            timestamp: Date.now(),
+            filters: { locationFilter, providerFilter, cabinetFilter, gameMixFilter }
+          }))
+        } catch (e) {
+          console.warn('Nu s-a putut salva în cache:', e)
+        }
       } else {
         console.error('❌ Răspuns invalid de la server:', response.data)
-        toast.error('Răspuns invalid de la server')
+        if (!hasValidCache) {
+          toast.error('Răspuns invalid de la server')
+        }
       }
     } catch (error) {
       console.error('❌ Eroare la încărcarea datelor operational:', error)
-      toast.error('Eroare la încărcarea datelor')
+      if (operationalData.length === 0) {
+        toast.error('Eroare la încărcarea datelor')
+      }
     } finally {
       setLoading(false)
     }
@@ -220,7 +328,9 @@ const IncasariOperational = () => {
 
   // Încarcă datele când se schimbă filtrele sau perioada
   useEffect(() => {
+    // Încarcă datele (folosește cache dacă există)
     loadOperationalData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationFilter, providerFilter, cabinetFilter, gameMixFilter, dateRange])
 
   // Procesează datele pentru tabel cu filtrare după perioadă
@@ -430,81 +540,201 @@ const IncasariOperational = () => {
           </button>
         </div>
 
-        {/* Filtre timp + Locație / Provider / Cabinet / Game Mix */}
-        {/* Rând 1: butoane perioadă rapidă (stânga) + filtre locații (dreapta) */}
-        <div className="flex flex-wrap items-center gap-3 mb-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <QuickDateButtons onChange={handleDateChange} />
+        {/* Filters - Nou Design */}
+        <div className="card p-5 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-xl border border-transparent backdrop-blur-2xl">
+          {/* Rând 1: Bară de Căutare + Filtre - Pe același rând */}
+          <div className="flex flex-wrap items-end gap-3 mb-4">
+            {/* Bară de Căutare - Ocupă spațiul rămas */}
+            <div className="relative flex-1 min-w-[250px]">
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                Căutare
+              </label>
+              <div className="relative flex items-center">
+                <Search className="absolute left-3 w-4 h-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  placeholder="Caută în Locație, Provider, Cabinet, Game Mix..."
+                  className="w-full pl-10 pr-20 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-emerald-400 dark:hover:border-emerald-500"
+                />
+                {searchText && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500 text-white">
+                      {(() => {
+                        const searchLower = searchText.toLowerCase().trim()
+                        const count = operationalData.filter(item => {
+                          // Nu avem date directe pentru căutare în operationalData, deci returnăm totalul
+                          return true
+                        }).length
+                        return `${count} / ${operationalData.length}`
+                      })()}
+                    </span>
+                  </div>
+                )}
+                {!searchText && (
+                  <button
+                    onClick={() => setSearchText('')}
+                    className="absolute right-3 p-1 hover:bg-slate-100 dark:hover:bg-slate-600 rounded transition-colors opacity-0 pointer-events-none"
+                    title="Șterge căutarea"
+                  >
+                    <X className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Filtre Locație, Provider, Cabinet, Game Mix */}
+            <div className="flex items-end gap-3">
+              <div className="relative">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Locație
+                </label>
+                <select
+                  value={locationFilter}
+                  onChange={(e) => setLocationFilter(e.target.value)}
+                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-emerald-400 dark:hover:border-emerald-500"
+                  style={{ minWidth: '180px' }}
+                >
+                  <option value="all">Toate</option>
+                  {filtersMeta.locations.map((loc) => (
+                    <option key={loc} value={loc}>
+                      {loc}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="relative">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Provider
+                </label>
+                <select
+                  value={providerFilter}
+                  onChange={(e) => setProviderFilter(e.target.value)}
+                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-emerald-400 dark:hover:border-emerald-500"
+                  style={{ minWidth: '180px' }}
+                >
+                  <option value="all">Toți</option>
+                  {filtersMeta.providers.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="relative">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Cabinet
+                </label>
+                <select
+                  value={cabinetFilter}
+                  onChange={(e) => setCabinetFilter(e.target.value)}
+                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-emerald-400 dark:hover:border-emerald-500"
+                  style={{ minWidth: '180px' }}
+                >
+                  <option value="all">Toate</option>
+                  {filtersMeta.cabinets.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="relative">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Game Mix
+                </label>
+                <select
+                  value={gameMixFilter}
+                  onChange={(e) => setGameMixFilter(e.target.value)}
+                  className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-emerald-400 dark:hover:border-emerald-500"
+                  style={{ minWidth: '180px' }}
+                >
+                  <option value="all">Toate</option>
+                  {filtersMeta.gameMixes.map((gm) => (
+                    <option key={gm} value={gm}>
+                      {gm}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3 ml-auto">
-            <select
-              value={locationFilter}
-              onChange={(e) => setLocationFilter(e.target.value)}
-              className="rounded-2xl bg-slate-900/60 text-slate-100 text-xs px-3 py-2 border border-slate-700"
-            >
-              <option value="all">Locație: Toate</option>
-              {filtersMeta.locations.map((loc) => (
-                <option key={loc} value={loc}>
-                  {loc}
-                </option>
-              ))}
-            </select>
+          
+          {/* Rând 2: Date Picker Clasic și Comod */}
+          <div className="mb-4">
+            {/* Input-uri de date + Butoane Rapide - Pe același rând */}
+            <div className="flex items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex-wrap">
+              {/* Date Inputs - Clasic și Simplu */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                    De la:
+                  </label>
+                  <input
+                    type="date"
+                    value={dateRange.startDate}
+                    onChange={(e) => {
+                      setDateRange({ ...dateRange, startDate: e.target.value })
+                      setSelectedDateFilter('custom')
+                    }}
+                    className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-emerald-400 dark:hover:border-emerald-500"
+                    style={{ minWidth: '160px' }}
+                  />
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                    Până la:
+                  </label>
+                  <input
+                    type="date"
+                    value={dateRange.endDate}
+                    onChange={(e) => {
+                      setDateRange({ ...dateRange, endDate: e.target.value })
+                      setSelectedDateFilter('custom')
+                    }}
+                    className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-emerald-400 dark:hover:border-emerald-500"
+                    style={{ minWidth: '160px' }}
+                  />
+                </div>
+              </div>
 
-            <select
-              value={providerFilter}
-              onChange={(e) => setProviderFilter(e.target.value)}
-              className="rounded-2xl bg-slate-900/60 text-slate-100 text-xs px-3 py-2 border border-slate-700"
-            >
-              <option value="all">Provider: Toți</option>
-              {filtersMeta.providers.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={cabinetFilter}
-              onChange={(e) => setCabinetFilter(e.target.value)}
-              className="rounded-2xl bg-slate-900/60 text-slate-100 text-xs px-3 py-2 border border-slate-700"
-            >
-              <option value="all">Cabinet: Toate</option>
-              {filtersMeta.cabinets.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={gameMixFilter}
-              onChange={(e) => setGameMixFilter(e.target.value)}
-              className="rounded-2xl bg-slate-900/60 text-slate-100 text-xs px-3 py-2 border border-slate-700"
-            >
-              <option value="all">Game mix: Toate</option>
-              {filtersMeta.gameMixes.map((gm) => (
-                <option key={gm} value={gm}>
-                  {gm}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Rând 2: DateRangeSelector + text Perioadă pe același rând */}
-        <div className="flex flex-wrap items-center gap-3 mb-4">
-          <div className="min-w-[260px] max-w-md">
-            <DateRangeSelector
-              startDate={dateRange.startDate}
-              endDate={dateRange.endDate}
-              onChange={(newRange) => {
-                setDateRange(newRange)
-              }}
-            />
-          </div>
-          <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center">
-            Perioadă: <span className="font-semibold ml-1">{dateRange.startDate}</span> –{' '}
-            <span className="font-semibold">{dateRange.endDate}</span>
+              {/* Butoane Rapide cu Iconițe și Text - Distribuite uniform */}
+              <div className="flex items-center gap-2 flex-1 justify-between min-w-0">
+                {[
+                  { id: 'azi', label: 'Azi', icon: Clock },
+                  { id: 'saptamana-curenta', label: 'Săpt', icon: CalendarDays },
+                  { id: 'luna-curenta', label: 'Luna curentă', icon: Calendar },
+                  { id: 'luna-anterioara', label: 'Luna trecută', icon: CalendarRange },
+                  { id: 'anul-curent', label: 'Anul curent', icon: Calendar },
+                  { id: 'anul-trecut', label: 'Anul trecut', icon: Calendar },
+                  { id: 'toate', label: 'Toate', icon: Calendar }
+                ].map((btn) => {
+                  const IconComponent = btn.icon
+                  const isActive = selectedDateFilter === btn.id
+                  return (
+                    <button
+                      key={btn.id}
+                      onClick={() => applyQuickDateFilter(btn.id)}
+                      className={`relative flex-1 min-w-0 inline-flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-lg transition-all hover:scale-105 active:scale-95 text-xs sm:text-sm font-medium ${
+                        isActive
+                          ? 'bg-emerald-500 text-white shadow-md'
+                          : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                      }`}
+                      title={btn.label}
+                    >
+                      <IconComponent className="w-4 h-4 flex-shrink-0" />
+                      <span className="hidden sm:inline truncate">{btn.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         </div>
 

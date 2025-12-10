@@ -60,6 +60,30 @@ const IncasariSettings = () => {
       return {}
     }
   })
+  const [refreshEnabled, setRefreshEnabled] = useState(() => {
+    try {
+      const saved = localStorage.getItem('incasari_refresh_enabled')
+      return saved ? saved === 'true' : false // Default: dezactivat
+    } catch {
+      return false
+    }
+  })
+  const [refreshDays, setRefreshDays] = useState(() => {
+    try {
+      const saved = localStorage.getItem('incasari_refresh_days')
+      return saved ? JSON.parse(saved) : [1, 2, 3, 4, 5, 6, 7] // Default: toate zilele (1=Luni, 7=Duminică)
+    } catch {
+      return [1, 2, 3, 4, 5, 6, 7]
+    }
+  })
+  const [refreshPeriod, setRefreshPeriod] = useState(() => {
+    try {
+      const saved = localStorage.getItem('incasari_refresh_period')
+      return saved ? JSON.parse(saved) : { startDate: '', endDate: '' } // Perioadă setabilă
+    } catch {
+      return { startDate: '', endDate: '' }
+    }
+  })
 
   useEffect(() => {
     if (!user) return
@@ -438,6 +462,149 @@ const IncasariSettings = () => {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Setări Refresh Automat */}
+        <div className="card p-5 bg-white/80 dark:bg-slate-800/80 rounded-2xl shadow-xl border border-white/40 dark:border-slate-700/50 backdrop-blur-2xl">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center">
+              <RefreshCw className="w-4 h-4 mr-2 text-emerald-500" />
+              Setări Refresh Automat
+            </h2>
+          </div>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+            Configurează refresh-ul automat pentru tabelul "Prezentare generală" de pe pagina Încasări.
+          </p>
+
+          {/* Toggle On/Off */}
+          <div className="flex items-center justify-between mb-4 p-3 bg-slate-100 dark:bg-slate-700/50 rounded-lg">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              Activează refresh automat:
+            </label>
+            <button
+              onClick={() => {
+                const newValue = !refreshEnabled
+                setRefreshEnabled(newValue)
+                try {
+                  localStorage.setItem('incasari_refresh_enabled', newValue.toString())
+                  window.dispatchEvent(new Event('incasari-refresh-settings-changed'))
+                  toast.success(newValue ? 'Refresh automat activat' : 'Refresh automat dezactivat')
+                } catch {
+                  // ignore
+                }
+              }}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                refreshEnabled ? 'bg-emerald-500' : 'bg-slate-400'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  refreshEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Zile săptămânii */}
+          {refreshEnabled && (
+            <div className="mb-4">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
+                Zile săptămânii:
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { value: 1, label: 'Luni' },
+                  { value: 2, label: 'Marți' },
+                  { value: 3, label: 'Miercuri' },
+                  { value: 4, label: 'Joi' },
+                  { value: 5, label: 'Vineri' },
+                  { value: 6, label: 'Sâmbătă' },
+                  { value: 7, label: 'Duminică' }
+                ].map((day) => {
+                  const isSelected = refreshDays.includes(day.value)
+                  return (
+                    <button
+                      key={day.value}
+                      type="button"
+                      onClick={() => {
+                        const newDays = isSelected
+                          ? refreshDays.filter(d => d !== day.value)
+                          : [...refreshDays, day.value].sort()
+                        setRefreshDays(newDays)
+                        try {
+                          localStorage.setItem('incasari_refresh_days', JSON.stringify(newDays))
+                          window.dispatchEvent(new Event('incasari-refresh-settings-changed'))
+                        } catch {
+                          // ignore
+                        }
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                        isSelected
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
+                      }`}
+                    >
+                      {day.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Perioadă setabilă */}
+          {refreshEnabled && (
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">
+                Perioadă:
+              </label>
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <label className="text-xs text-slate-500 dark:text-slate-400 mb-1 block">
+                    Data început:
+                  </label>
+                  <input
+                    type="date"
+                    value={refreshPeriod.startDate}
+                    onChange={(e) => {
+                      const newPeriod = { ...refreshPeriod, startDate: e.target.value }
+                      setRefreshPeriod(newPeriod)
+                      try {
+                        localStorage.setItem('incasari_refresh_period', JSON.stringify(newPeriod))
+                        window.dispatchEvent(new Event('incasari-refresh-settings-changed'))
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                    className="w-full px-3 py-2 rounded-lg bg-slate-900/40 border border-slate-700 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-slate-500 dark:text-slate-400 mb-1 block">
+                    Data sfârșit:
+                  </label>
+                  <input
+                    type="date"
+                    value={refreshPeriod.endDate}
+                    onChange={(e) => {
+                      const newPeriod = { ...refreshPeriod, endDate: e.target.value }
+                      setRefreshPeriod(newPeriod)
+                      try {
+                        localStorage.setItem('incasari_refresh_period', JSON.stringify(newPeriod))
+                        window.dispatchEvent(new Event('incasari-refresh-settings-changed'))
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                    className="w-full px-3 py-2 rounded-lg bg-slate-900/40 border border-slate-700 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Refresh-ul va rula doar în perioada setată și doar în zilele selectate.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="card p-5 bg-white/80 dark:bg-slate-800/80 rounded-2xl shadow-xl border border-white/40 dark:border-slate-700/50 backdrop-blur-2xl">

@@ -90,32 +90,47 @@ export const DataProvider = ({ children }) => {
     isFetching.current = true
     setLoading(true)
     
-    // Check cache first
+    // Check cache first - dar verificăm că conține TOATE entitățile esențiale
     const cacheKey = 'dataCache_v1'
     const cacheTime = sessionStorage.getItem('dataCacheTime')
     const now = Date.now()
     
-    // Use cache if less than 5 minutes old
+    // Use cache if less than 5 minutes old AND contains ALL essential data
     if (cacheTime && (now - parseInt(cacheTime)) < 300000) {
-      console.log('⚡ Using cached data (fresh)')
+      console.log('⚡ Checking cached data...')
       const cached = sessionStorage.getItem(cacheKey)
       if (cached) {
         try {
           const parsedCache = JSON.parse(cached)
-          Object.keys(parsedCache).forEach(key => {
-            if (entityConfig[key]) {
-              entityConfig[key].setState(parsedCache[key])
-            }
+          // Verifică dacă cache-ul conține TOATE entitățile esențiale cu date
+          const essentialEntities = ['companies', 'locations', 'providers', 'cabinets', 'gameMixes', 'slots', 'warehouse']
+          const hasAllEssentialData = essentialEntities.every(entity => {
+            const cachedData = parsedCache[entity]
+            return Array.isArray(cachedData) && cachedData.length >= 0 // Acceptăm și array-uri goale dacă există
           })
-          setLoading(false)
-          isFetching.current = false
-          console.log('✅ All data loaded from cache!')
-          return
+          
+          if (hasAllEssentialData) {
+            console.log('⚡ Using cached data (fresh)')
+            Object.keys(parsedCache).forEach(key => {
+              if (entityConfig[key]) {
+                entityConfig[key].setState(parsedCache[key] || [])
+              }
+            })
+            setLoading(false)
+            isFetching.current = false
+            console.log('✅ All data loaded from cache!')
+            return
+          } else {
+            console.warn('⚠️ Cache missing essential entities - fetching fresh data')
+            // NU ștergem cache-ul - poate fi util dacă backend-ul e down
+          }
         } catch (e) {
           console.warn('Cache parse error, fetching fresh data')
         }
       }
     }
+    
+    console.log('📡 Fetching fresh data from AWS server...')
     
     try {
       // Check if we have a token before trying to fetch data
@@ -226,19 +241,11 @@ export const DataProvider = ({ children }) => {
         
         console.log('⚡ Background data loaded!')
         
-        // Save to cache with CORRECT data
+        // Save to cache - INCLUDE TOATE entitățile, inclusiv cele mari
         try {
-          // Reduce cache size by excluding large arrays
-          const compactCache = {}
-          Object.keys(cacheData).forEach(key => {
-            // Only cache small entities (< 100 items)
-            if (Array.isArray(cacheData[key]) && cacheData[key].length < 100) {
-              compactCache[key] = cacheData[key]
-            }
-          })
-          sessionStorage.setItem(cacheKey, JSON.stringify(compactCache))
+          sessionStorage.setItem(cacheKey, JSON.stringify(cacheData))
           sessionStorage.setItem('dataCacheTime', now.toString())
-          console.log('💾 Data cached (compact version)')
+          console.log('💾 All data cached (including large entities)')
         } catch (cacheError) {
           console.warn('⚠️ Cache save failed, continuing without cache')
         }

@@ -504,11 +504,115 @@ export const extractGeneralInvoiceData = (text) => {
     console.log(`   💵 Preț final/kWh: ${data.pret_per_kwh}`)
   }
   
-  // Suma totală factură curentă - caută "TOTAL FACTURĂ CURENTĂ CU TVA"
-  const sumaTotalaMatch = text.match(/TOTAL\s+FACTUR[AĂ]\s+CURENT[AĂ]\s+(?:CU\s+)?TVA[:\s]*([\d]{1,3}(?:[.,]\d{3})*(?:[.,]\d{2}))/i)
-  if (sumaTotalaMatch) {
-    data.suma_totala = normalizeSum(sumaTotalaMatch[1])
-    console.log(`   💰 Suma totală factură: ${data.suma_totala}`)
+  // Suma totală factură curentă - caută multiple variante
+  // Gestionează format LaTeX $...$ și sume pe linia următoare
+  const lines = text.split('\n')
+  let sumaTotalaFound = false
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim()
+    const nextLine = i + 1 < lines.length ? lines[i + 1].trim() : ''
+    
+    // Verifică dacă linia conține "TOTAL FACTURĂ CURENTĂ"
+    if (line.match(/TOTAL\s+FACTUR[AĂ]\s+CURENT[AĂ]/i)) {
+      // Încearcă să extragă suma din aceeași linie
+      const sameLineMatch = line.match(/\$?\s*([\d]{1,3}(?:[.,]\d{3})*(?:[.,]\d{2}))\s*\$?/i)
+      if (sameLineMatch) {
+        const suma = normalizeSum(sameLineMatch[1])
+        if (suma && suma > 0) {
+          data.suma_totala = suma
+          console.log(`   💰 Suma totală factură: ${data.suma_totala} RON (pe aceeași linie)`)
+          sumaTotalaFound = true
+          break
+        }
+      }
+      
+      // Dacă nu s-a găsit pe aceeași linie, verifică linia următoare (format LaTeX)
+      if (!sumaTotalaFound && nextLine) {
+        // Format LaTeX: $17.424,85$ sau $17,424.85$ - îmbunătățit pentru a găsi corect
+        // Caută $...$ cu număr în interior
+        const latexMatch = nextLine.match(/\$\s*([\d]{1,3}(?:[.,]\d{3})*(?:[.,]\d{2}))\s*\$/i)
+        if (latexMatch) {
+          const suma = normalizeSum(latexMatch[1])
+          if (suma && suma > 0) {
+            data.suma_totala = suma
+            console.log(`   💰 Suma totală factură: ${data.suma_totala} RON (format LaTeX pe linia următoare: "${nextLine}")`)
+            sumaTotalaFound = true
+            break
+          }
+        }
+        
+        // Dacă nu s-a găsit cu format LaTeX, caută orice număr mare pe linia următoare
+        // Format standard pe linia următoare (fără $)
+        const nextLineMatch = nextLine.match(/([\d]{1,3}(?:[.,]\d{3})*(?:[.,]\d{2}))/)
+        if (nextLineMatch) {
+          const suma = normalizeSum(nextLineMatch[1])
+          // Validare: suma rezonabilă (între 1 și 1.000.000 RON)
+          if (suma && suma > 0 && suma < 1000000) {
+            data.suma_totala = suma
+            console.log(`   💰 Suma totală factură: ${data.suma_totala} RON (pe linia următoare: "${nextLine}")`)
+            sumaTotalaFound = true
+            break
+          }
+        }
+      }
+      
+      // Dacă încă nu s-a găsit, verifică și linia următoare după nextLine (pentru cazuri cu linii goale)
+      if (!sumaTotalaFound && i + 2 < lines.length) {
+        const nextNextLine = lines[i + 2].trim()
+        if (nextNextLine) {
+          const latexMatch2 = nextNextLine.match(/\$\s*([\d]{1,3}(?:[.,]\d{3})*(?:[.,]\d{2}))\s*\$/i)
+          if (latexMatch2) {
+            const suma = normalizeSum(latexMatch2[1])
+            if (suma && suma > 0) {
+              data.suma_totala = suma
+              console.log(`   💰 Suma totală factură: ${data.suma_totala} RON (format LaTeX pe linia a 3-a: "${nextNextLine}")`)
+              sumaTotalaFound = true
+              break
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // Dacă încă nu s-a găsit, încercă pattern-uri regex tradiționale
+  if (!sumaTotalaFound) {
+    const sumaTotalaPatterns = [
+      // Format LaTeX: $17.424,85$ sau $17,424.85$
+      /TOTAL\s+FACTUR[AĂ]\s+CURENT[AĂ]\s*\(?LEI\)?\s*\$?\s*([\d]{1,3}(?:[.,]\d{3})*(?:[.,]\d{2}))\s*\$?/i,
+      // Format standard cu "CU TVA"
+      /TOTAL\s+FACTUR[AĂ]\s+CURENT[AĂ]\s+(?:CU\s+)?TVA[:\s]*\$?\s*([\d]{1,3}(?:[.,]\d{3})*(?:[.,]\d{2}))\s*\$?/i,
+      // Format simplu "TOTAL FACTURĂ CURENTĂ"
+      /TOTAL\s+FACTUR[AĂ]\s+CURENT[AĂ][:\s]*\$?\s*([\d]{1,3}(?:[.,]\d{3})*(?:[.,]\d{2}))\s*\$?/i
+    ]
+    
+    for (const pattern of sumaTotalaPatterns) {
+      const match = text.match(pattern)
+      if (match) {
+        const suma = normalizeSum(match[1])
+        if (suma && suma > 0) {
+          data.suma_totala = suma
+          console.log(`   💰 Suma totală factură: ${data.suma_totala} RON (regex pattern)`)
+          sumaTotalaFound = true
+          break
+        }
+      }
+    }
+  }
+  
+  // Dacă încă nu s-a găsit, încercă să extragă din tabelul "DETALII FACTURĂ"
+  if (!sumaTotalaFound) {
+    // Caută în secțiunea "DETALII FACTURĂ" după "TOTAL FACTURĂ CURENTĂ CU TVA"
+    const detaliiMatch = text.match(/TOTAL\s+FACTUR[AĂ]\s+CURENT[AĂ]\s+CU\s+TVA[:\s]*\$?\s*([\d]{1,3}(?:[.,]\d{3})*(?:[.,]\d{2}))\s*\$?/i)
+    if (detaliiMatch) {
+      const suma = normalizeSum(detaliiMatch[1])
+      if (suma && suma > 0) {
+        data.suma_totala = suma
+        console.log(`   💰 Suma totală factură (din detalii): ${data.suma_totala} RON`)
+        sumaTotalaFound = true
+      }
+    }
   }
   
   // TVA
@@ -570,11 +674,35 @@ export const extractElectricInvoiceDataSmart = async (pdfBufferOrText) => {
   }
   
   // Calculează suma totală dacă nu a fost găsită în date generale
-  // Folosește sumaTotala care include și energia reactivă
+  // IMPORTANT: Folosește sumaTotala care include și energia reactivă
+  // DAR doar dacă suma_totala nu a fost deja extrasă din factură
   if (!result.suma_totala && nlcResults.length > 0) {
-    const totalSum = nlcResults.reduce((sum, r) => sum + (r.sumaTotala || r.suma || 0), 0)
+    const totalSum = nlcResults.reduce((sum, r) => {
+      // Folosește sumaTotala (care include reactiva) sau suma (doar activa)
+      const nlcSum = r.sumaTotala || r.suma || 0
+      return sum + parseFloat(nlcSum)
+    }, 0)
     if (totalSum > 0) {
       result.suma_totala = totalSum.toFixed(2)
+      console.log(`   ⚠️ Suma totală calculată din NLC-uri: ${result.suma_totala} RON (${nlcResults.length} NLC-uri)`)
+    }
+  } else if (result.suma_totala) {
+    // Verifică dacă suma extrasă este rezonabilă (între 1 și 1.000.000 RON)
+    const sumaExtrasa = parseFloat(result.suma_totala)
+    if (sumaExtrasa < 1 || sumaExtrasa > 1000000) {
+      console.log(`   ⚠️ Suma extrasă pare incorectă (${result.suma_totala} RON), recalculăm din NLC-uri`)
+      if (nlcResults.length > 0) {
+        const totalSum = nlcResults.reduce((sum, r) => {
+          const nlcSum = r.sumaTotala || r.suma || 0
+          return sum + parseFloat(nlcSum)
+        }, 0)
+        if (totalSum > 0) {
+          result.suma_totala = totalSum.toFixed(2)
+          console.log(`   ✅ Suma totală recalculată din NLC-uri: ${result.suma_totala} RON`)
+        }
+      }
+    } else {
+      console.log(`   ✅ Suma totală extrasă din factură: ${result.suma_totala} RON`)
     }
   }
   

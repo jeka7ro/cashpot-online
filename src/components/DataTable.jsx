@@ -239,6 +239,19 @@ const DataTable = ({
               </tr>
             ))}
           </tbody>
+          {columns.some(col => col.footer) && (
+            <tfoot className={`bg-gradient-to-r ${currentColor.header} border-t-2 border-slate-300 dark:border-slate-600`}>
+              <tr>
+                <td className="p-6" colSpan="2"></td>
+                {columns.map((column) => (
+                  <td key={column.key} className={`p-6 font-bold ${currentColor.text} text-base`}>
+                    {column.footer ? column.footer(data) : ''}
+                  </td>
+                ))}
+                <td className="p-6"></td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
       

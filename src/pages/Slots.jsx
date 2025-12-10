@@ -4,20 +4,24 @@ import Layout from '../components/Layout'
 import { useData } from '../contexts/DataContext'
 import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
-import { BarChart3, Plus, Search, Upload, Download, Edit, Trash2, Filter, Activity, AlertCircle, CheckCircle, Wrench, History, Database, Package } from 'lucide-react'
+import { BarChart3, Plus, Search, Upload, Download, Edit, Trash2, Filter, Activity, AlertCircle, CheckCircle, Wrench, History, Database, Package, Menu, Settings } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import SlotModal from '../components/modals/SlotModal'
 import StatCard from '../components/StatCard'
 import { formatGameMixName } from '../utils/gameMixFormatter'
-import ExportButtons from '../components/ExportButtons'
 import CyberImport from './CyberImport'
 import { toast } from 'react-hot-toast'
 
 const Slots = () => {
-  const { slots, invoices, warehouse, loading, createItem, updateItem, deleteItem, exportToExcel, exportToPDF } = useData()
+  const { slots, invoices, warehouse, loading, createItem, updateItem, deleteItem, loadAllData } = useData()
   const { user } = useAuth()
   const navigate = useNavigate()
   
+  // Load data when component mounts
+  useEffect(() => {
+    loadAllData()
+  }, [loadAllData])
+
   // Debug logging
   useEffect(() => {
     console.log('📊 Slots data loaded:', slots.length)
@@ -26,7 +30,6 @@ const Slots = () => {
     }
   }, [slots])
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
   const [providerFilter, setProviderFilter] = useState('all')
   const [locationFilter, setLocationFilter] = useState('all')
   const [propertyTypeFilter, setPropertyTypeFilter] = useState('all')
@@ -39,6 +42,7 @@ const Slots = () => {
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
   const [deleteItemId, setDeleteItemId] = useState(null)
   const [showCyberImportModal, setShowCyberImportModal] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
   
   // Card visibility settings - default OFF
   const [cardVisibility, setCardVisibility] = useState({
@@ -150,14 +154,17 @@ const Slots = () => {
     saveCardVisibility(newVisibility)
   }
 
-  // Filter and search logic
+  // Filter and search logic - caută în TOATE câmpurile slotului
   const filteredSlots = slots.filter(slot => {
-    const matchesSearch = slot.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         slot.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         slot.provider?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         slot.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         slot.serial_number?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || slot.status === statusFilter
+    const searchLower = searchTerm.toLowerCase()
+    // Caută în TOATE câmpurile disponibile din slot
+    const matchesSearch = !searchTerm || 
+      Object.values(slot).some(value => {
+        if (value === null || value === undefined) return false
+        // Convertește la string și caută
+        const stringValue = String(value).toLowerCase()
+        return stringValue.includes(searchLower)
+      })
     const matchesProvider = providerFilter === 'all' || slot.provider === providerFilter
     const matchesLocation = locationFilter === 'all' || slot.location === locationFilter
     const matchesPropertyType = propertyTypeFilter === 'all' || slot.property_type === propertyTypeFilter
@@ -166,7 +173,7 @@ const Slots = () => {
         const slotCommDate = slot.commission_date ? new Date(slot.commission_date).toISOString().split('T')[0] : null
         return slotCommDate === commDate
       })
-    return matchesSearch && matchesStatus && matchesProvider && matchesLocation && matchesPropertyType && matchesCommission
+    return matchesSearch && matchesProvider && matchesLocation && matchesPropertyType && matchesCommission
   })
 
   // Get unique providers for filter
@@ -592,7 +599,9 @@ const Slots = () => {
       })
       
       // Refresh data
-      await refreshData()
+      if (loadAllData) {
+        loadAllData()
+      }
     } catch (error) {
       console.error('Error moving slots to warehouse:', error)
       toast.dismiss('bulk-move')
@@ -634,35 +643,100 @@ const Slots = () => {
     }
   }
 
-  const handleExportExcel = () => {
-    try {
-      exportToExcel('slots')
-    } catch (error) {
-      toast.error('Eroare la exportarea în Excel')
-      console.error('Error exporting to Excel:', error)
+
+  // Calculează datele pentru Centralizator pe Locații
+  const calculateLocationCentralizer = () => {
+    const locations = ['Craiova', 'Pitesti', 'Ploiesti (Centru)', 'Ploiesti (Nord)', 'Valcea']
+    const providers = [...new Set(slots.map(slot => slot.provider).filter(Boolean))].sort()
+    
+    // Funcție helper pentru matching locații
+    const matchesLocation = (slotLocation, targetLocation) => {
+      if (!slotLocation) return false
+      const slotLoc = slotLocation.toLowerCase().trim()
+      
+      if (targetLocation === 'Craiova') {
+        return slotLoc.includes('craiova')
+      } else if (targetLocation === 'Pitesti') {
+        return slotLoc.includes('pitesti') || slotLoc.includes('pitești')
+      } else if (targetLocation === 'Ploiesti (Centru)') {
+        return (slotLoc.includes('ploiesti') || slotLoc.includes('ploiești')) && 
+               !slotLoc.includes('nord') && 
+               !slotLoc.includes('centru') === false
+      } else if (targetLocation === 'Ploiesti (Nord)') {
+        return (slotLoc.includes('ploiesti') || slotLoc.includes('ploiești')) && 
+               slotLoc.includes('nord')
+      } else if (targetLocation === 'Valcea') {
+        return slotLoc.includes('valcea') || slotLoc.includes('vâlcea')
+      }
+      return false
     }
+    
+    const centralizerData = providers.map(provider => {
+      const providerSlots = slots.filter(slot => slot.provider === provider)
+      const row = { provider }
+      
+      locations.forEach(location => {
+        const locationSlots = providerSlots.filter(slot => matchesLocation(slot.location, location))
+        
+        // Folosește datele REALE din baza de date - property_type din slot
+        const total = locationSlots.length
+        // CHIRIE = sloturi cu property_type = 'Rented' (din baza de date)
+        const chirie = locationSlots.filter(slot => 
+          slot.property_type === 'Rented' || 
+          slot.property_type === 'rented' || 
+          slot.property_type?.toLowerCase() === 'rented'
+        ).length
+        
+        row[location] = { total, chirie }
+      })
+      
+      // Total general pentru furnizor - folosește datele REALE din baza de date
+      const totalGeneral = providerSlots.length
+      // CHIRIE = sloturi cu property_type = 'Rented' (din baza de date)
+      const chirieGeneral = providerSlots.filter(slot => 
+        slot.property_type === 'Rented' || 
+        slot.property_type === 'rented' || 
+        slot.property_type?.toLowerCase() === 'rented'
+      ).length
+      row.total = { total: totalGeneral, chirie: chirieGeneral }
+      
+      return row
+    })
+    
+    // Adaugă rândul de total general - folosește datele REALE din baza de date
+    const totalRow = { provider: 'TOTAL' }
+    locations.forEach(location => {
+      const locationSlots = slots.filter(slot => matchesLocation(slot.location, location))
+      
+      const total = locationSlots.length
+      // CHIRIE = sloturi cu property_type = 'Rented' (din baza de date)
+      const chirie = locationSlots.filter(slot => 
+        slot.property_type === 'Rented' || 
+        slot.property_type === 'rented' || 
+        slot.property_type?.toLowerCase() === 'rented'
+      ).length
+      totalRow[location] = { total, chirie }
+    })
+    
+    const totalGeneral = slots.length
+    // CHIRIE = sloturi cu property_type = 'Rented' (din baza de date)
+    const chirieGeneral = slots.filter(slot => 
+      slot.property_type === 'Rented' || 
+      slot.property_type === 'rented' || 
+      slot.property_type?.toLowerCase() === 'rented'
+    ).length
+    totalRow.total = { total: totalGeneral, chirie: chirieGeneral }
+    
+    return [...centralizerData, totalRow]
   }
 
-  const handleExportPDF = () => {
-    try {
-      exportToPDF('slots')
-    } catch (error) {
-      toast.error('Eroare la exportarea în PDF')
-      console.error('Error exporting to PDF:', error)
-    }
-  }
-
-  const handleImport = () => {
-    // Implementare pentru import sloturi
-    toast.info('Funcționalitatea de import va fi implementată în curând')
-  }
-
+  const centralizerData = calculateLocationCentralizer()
 
   return (
     <Layout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="card p-6">
+        <div className="card p-6 relative z-50">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="p-3 bg-gradient-to-r from-emerald-500 to-green-500 rounded-2xl shadow-lg shadow-emerald-500/25">
@@ -670,63 +744,76 @@ const Slots = () => {
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-slate-800">Management Sloturi</h2>
-                <p className="text-slate-600">Gestionează sloturile de gaming din sistem</p>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
+            
+            {/* Meniu Hamburger - În header */}
+            <div className="relative z-[60]">
               <button
-                onClick={() => setShowCardSettings(!showCardSettings)}
-                className="px-4 py-3 bg-slate-500 hover:bg-slate-600 text-white rounded-lg flex items-center space-x-2 transition-all font-medium"
+                onClick={() => setShowMenu(!showMenu)}
+                className="inline-flex items-center justify-center p-2.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-2 border-slate-300 dark:border-slate-600 transition-all hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 shadow-sm"
+                title="Meniu"
               >
-                <Filter className="w-4 h-4" />
-                <span>Setări Carduri</span>
+                <Menu className="w-5 h-5" />
               </button>
-              <ExportButtons 
-                onExportExcel={handleExportExcel}
-                onExportPDF={handleExportPDF}
-                entity="slots"
-              />
-              <div className="flex space-x-3">
-                {showBulkActions && (
-                  <>
+
+              {/* Dropdown Menu */}
+              {showMenu && (
+                <>
+                  {/* Backdrop */}
+                  <div 
+                    className="fixed inset-0 z-40" 
+                    onClick={() => setShowMenu(false)}
+                  />
+                  
+                  {/* Menu List */}
+                  <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-800 rounded-xl border-2 border-slate-200 dark:border-slate-700 shadow-xl z-50 py-2">
                     <button
-                      onClick={handleBulkEdit}
-                      className="btn-secondary flex items-center space-x-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white"
+                      onClick={() => {
+                        setShowCardSettings(true)
+                        setShowMenu(false)
+                      }}
+                      className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                     >
-                      <Package className="w-4 h-4" />
-                      <span>Mută în Depozit ({selectedItems.length})</span>
+                      <Settings className="w-4 h-4" />
+                      <span className="text-sm font-medium">Setări Carduri</span>
                     </button>
+
                     <button
-                      onClick={handleBulkDelete}
-                      className="btn-danger flex items-center space-x-2"
+                      onClick={() => {
+                        navigate('/slots/history')
+                        setShowMenu(false)
+                      }}
+                      className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                     >
-                      <Trash2 className="w-4 h-4" />
-                      <span>Bulk Delete</span>
+                      <History className="w-4 h-4" />
+                      <span className="text-sm font-medium">Istoric Sloturi</span>
                     </button>
-                  </>
-                )}
-            <button
-              onClick={() => navigate('/slots/history')}
-              className="px-4 py-3 bg-slate-500 hover:bg-slate-600 text-white rounded-lg flex items-center space-x-2 transition-all font-medium"
-            >
-              <History className="w-4 h-4" />
-              <span>Istoric Sloturi</span>
-            </button>
-            <button
-              onClick={() => navigate('/slots/cyber-import')}
-              className="px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center space-x-2 transition-all font-medium"
-            >
-              <Database className="w-4 h-4" />
-              <span>Import Cyber</span>
-            </button>
-                <button
-                  onClick={handleCreate}
-                  className="px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg flex items-center space-x-2 transition-all font-medium"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Adaugă Slot</span>
-                </button>
-              </div>
+
+                    <button
+                      onClick={() => {
+                        navigate('/slots/cyber-import')
+                        setShowMenu(false)
+                      }}
+                      className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                    >
+                      <Database className="w-4 h-4" />
+                      <span className="text-sm font-medium">Import Cyber</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        handleCreate()
+                        setShowMenu(false)
+                      }}
+                      className="w-full flex items-center space-x-3 px-4 py-3 text-left text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span className="text-sm font-medium">Adaugă Slot</span>
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -853,38 +940,233 @@ const Slots = () => {
           </div>
         )}
 
-        {/* Advanced Search and Filters */}
+        {/* Grand Total Section */}
+        <div className="card p-6">
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Grand Total</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Active Slots */}
+            <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+              <div className="text-sm text-slate-600 dark:text-slate-400 mb-1">Active</div>
+              <div className="text-2xl font-bold text-slate-800 dark:text-slate-200">
+                {(() => {
+                  const activeInSlots = slots.filter(slot => {
+                    const status = slot.status?.toLowerCase() || ''
+                    return status === 'active' || status === 'activ'
+                  }).length
+                  // Numără toate sloturile din warehouse (nu doar cele cu status "active")
+                  const activeInWarehouse = warehouse?.length || 0
+                  return activeInSlots + activeInWarehouse
+                })()}
+              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-500 mt-1">
+                {(() => {
+                  const activeInSlots = slots.filter(slot => {
+                    const status = slot.status?.toLowerCase() || ''
+                    return status === 'active' || status === 'activ'
+                  }).length
+                  // Numără toate sloturile din warehouse (nu doar cele cu status "active")
+                  const activeInWarehouse = warehouse?.length || 0
+                  return `${activeInSlots} în slots, ${activeInWarehouse} în depozit`
+                })()}
+              </div>
+            </div>
+            
+            {/* Proprii (Owned) */}
+            <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+              <div className="text-sm text-slate-600 dark:text-slate-400 mb-1">Proprii</div>
+              <div className="text-2xl font-bold text-slate-800 dark:text-slate-200">
+                {(() => {
+                  const ownedInSlots = slots.filter(slot => {
+                    const propType = slot.property_type?.toLowerCase() || ''
+                    return propType === 'owned'
+                  }).length
+                  const ownedInWarehouse = warehouse?.filter(item => {
+                    if (item.property_type !== undefined && item.property_type !== null) {
+                      const propType = item.property_type?.toLowerCase() || ''
+                      return propType === 'owned'
+                    }
+                    return false
+                  }).length || 0
+                  return ownedInSlots + ownedInWarehouse
+                })()}
+              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-500 mt-1">
+                {(() => {
+                  const ownedInSlots = slots.filter(slot => {
+                    const propType = slot.property_type?.toLowerCase() || ''
+                    return propType === 'owned'
+                  }).length
+                  const ownedInWarehouse = warehouse?.filter(item => {
+                    if (item.property_type !== undefined && item.property_type !== null) {
+                      const propType = item.property_type?.toLowerCase() || ''
+                      return propType === 'owned'
+                    }
+                    return false
+                  }).length || 0
+                  return `${ownedInSlots} în slots, ${ownedInWarehouse} în depozit`
+                })()}
+              </div>
+            </div>
+            
+            {/* Închiriate (Rented) */}
+            <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+              <div className="text-sm text-slate-600 dark:text-slate-400 mb-1">Închiriate</div>
+              <div className="text-2xl font-bold text-slate-800 dark:text-slate-200">
+                {(() => {
+                  const rentedInSlots = slots.filter(slot => {
+                    const propType = slot.property_type?.toLowerCase() || ''
+                    return propType === 'rented'
+                  }).length
+                  const rentedInWarehouse = warehouse?.filter(item => {
+                    if (item.property_type !== undefined && item.property_type !== null) {
+                      const propType = item.property_type?.toLowerCase() || ''
+                      return propType === 'rented'
+                    }
+                    return false
+                  }).length || 0
+                  return rentedInSlots + rentedInWarehouse
+                })()}
+              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-500 mt-1">
+                {(() => {
+                  const rentedInSlots = slots.filter(slot => {
+                    const propType = slot.property_type?.toLowerCase() || ''
+                    return propType === 'rented'
+                  }).length
+                  const rentedInWarehouse = warehouse?.filter(item => {
+                    if (item.property_type !== undefined && item.property_type !== null) {
+                      const propType = item.property_type?.toLowerCase() || ''
+                      return propType === 'rented'
+                    }
+                    return false
+                  }).length || 0
+                  return `${rentedInSlots} în slots, ${rentedInWarehouse} în depozit`
+                })()}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Centralizator pe Locații */}
+        <div className="card p-6">
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">
+            Centralizator pe Locații
+          </h3>
+          <div className="overflow-x-auto border border-slate-300 dark:border-slate-700 rounded-lg">
+            <table className="min-w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-slate-100 dark:bg-slate-800 border-b-2 border-slate-300 dark:border-slate-700">
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300 sticky left-0 bg-slate-100 dark:bg-slate-800 z-10">
+                    FURNIZOR
+                  </th>
+                  <th colSpan="2" className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-300 border-l border-slate-300 dark:border-slate-700">
+                    CRAIOVA
+                  </th>
+                  <th colSpan="2" className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-300 border-l border-slate-300 dark:border-slate-700">
+                    PITESTI
+                  </th>
+                  <th colSpan="2" className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-300 border-l border-slate-300 dark:border-slate-700">
+                    PLOIESTI (CENTRU)
+                  </th>
+                  <th colSpan="2" className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-300 border-l border-slate-300 dark:border-slate-700">
+                    PLOIESTI (NORD)
+                  </th>
+                  <th colSpan="2" className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-300 border-l border-slate-300 dark:border-slate-700">
+                    VALCEA
+                  </th>
+                  <th colSpan="2" className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-300 border-l border-slate-300 dark:border-slate-700">
+                    TOTAL
+                  </th>
+                </tr>
+                <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
+                  <th className="px-4 py-2 text-left font-medium text-slate-600 dark:text-slate-400 sticky left-0 bg-slate-50 dark:bg-slate-900/50 z-10"></th>
+                  <th className="px-4 py-2 text-center font-medium text-slate-600 dark:text-slate-400 border-l border-slate-200 dark:border-slate-700">TOTAL</th>
+                  <th className="px-4 py-2 text-center font-medium text-slate-600 dark:text-slate-400">CHIRIE</th>
+                  <th className="px-4 py-2 text-center font-medium text-slate-600 dark:text-slate-400 border-l border-slate-200 dark:border-slate-700">TOTAL</th>
+                  <th className="px-4 py-2 text-center font-medium text-slate-600 dark:text-slate-400">CHIRIE</th>
+                  <th className="px-4 py-2 text-center font-medium text-slate-600 dark:text-slate-400 border-l border-slate-200 dark:border-slate-700">TOTAL</th>
+                  <th className="px-4 py-2 text-center font-medium text-slate-600 dark:text-slate-400">CHIRIE</th>
+                  <th className="px-4 py-2 text-center font-medium text-slate-600 dark:text-slate-400 border-l border-slate-200 dark:border-slate-700">TOTAL</th>
+                  <th className="px-4 py-2 text-center font-medium text-slate-600 dark:text-slate-400">CHIRIE</th>
+                  <th className="px-4 py-2 text-center font-medium text-slate-600 dark:text-slate-400 border-l border-slate-200 dark:border-slate-700">TOTAL</th>
+                  <th className="px-4 py-2 text-center font-medium text-slate-600 dark:text-slate-400">CHIRIE</th>
+                  <th className="px-4 py-2 text-center font-medium text-slate-600 dark:text-slate-400 border-l border-slate-200 dark:border-slate-700">TOTAL</th>
+                  <th className="px-4 py-2 text-center font-medium text-slate-600 dark:text-slate-400">CHIRIE</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                {centralizerData.map((row, index) => {
+                  const isTotalRow = row.provider === 'TOTAL'
+                  const rowBgClass = isTotalRow 
+                    ? 'bg-slate-100 dark:bg-slate-800' 
+                    : 'bg-white dark:bg-slate-800'
+                  const rowHoverClass = isTotalRow 
+                    ? '' 
+                    : 'hover:bg-slate-50 dark:hover:bg-slate-900/40'
+                  
+                  return (
+                    <tr 
+                      key={row.provider} 
+                      className={`${rowBgClass} ${rowHoverClass} ${
+                        isTotalRow ? 'font-semibold border-t-2 border-slate-300 dark:border-slate-700' : ''
+                      }`}
+                    >
+                      <td className={`px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 sticky left-0 z-10 border-r border-slate-200 dark:border-slate-700 ${rowBgClass}`} style={{ backgroundColor: isTotalRow ? 'rgb(241 245 249)' : undefined }}>
+                        {row.provider}
+                      </td>
+                      {['Craiova', 'Pitesti', 'Ploiesti (Centru)', 'Ploiesti (Nord)', 'Valcea'].map((location, locIndex) => (
+                        <React.Fragment key={location}>
+                          <td className={`px-4 py-3 text-sm text-center text-slate-700 dark:text-slate-300 border-l border-slate-200 dark:border-slate-700 ${rowBgClass}`}>
+                            {row[location]?.total !== undefined ? row[location].total : '-'}
+                          </td>
+                          <td className={`px-4 py-3 text-sm text-center text-slate-700 dark:text-slate-300 ${rowBgClass}`}>
+                            {row[location]?.chirie !== undefined ? row[location].chirie : '-'}
+                          </td>
+                        </React.Fragment>
+                      ))}
+                      <td className={`px-4 py-3 text-sm text-center text-slate-700 dark:text-slate-300 border-l-2 border-slate-300 dark:border-slate-600 ${rowBgClass}`}>
+                        {row.total?.total !== undefined ? row.total.total : '-'}
+                      </td>
+                      <td className={`px-4 py-3 text-sm text-center text-slate-700 dark:text-slate-300 ${rowBgClass}`}>
+                        {row.total?.chirie !== undefined ? row.total.chirie : '-'}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Advanced Search and Filters - Mutat sub tabelul centralizator */}
         <div className="card p-6">
           <div className="flex flex-col lg:flex-row items-start lg:items-center space-y-4 lg:space-y-0 lg:space-x-4">
-            {/* Search Bar - narrower */}
+            {/* Search Bar - aceeași înălțime ca filtrele */}
             <div className="relative flex-1 lg:max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Caută după nume, model, furnizor, locație sau numărul de serie..."
+                placeholder="Caută în toate câmpurile sloturilor..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="w-full pl-10 pr-20 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               />
+              {/* Bula cu rezultatele căutării */}
+              {searchTerm && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500 text-white">
+                    {filteredSlots.length} / {slots.length}
+                  </span>
+                </div>
+              )}
             </div>
             
-            {/* Advanced Filters - moved to the right */}
+            {/* Advanced Filters */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
               <div className="flex items-center space-x-2">
                 <Filter className="w-4 h-4 text-slate-500" />
                 <span className="text-sm font-semibold text-slate-700">Filtre:</span>
               </div>
-              
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
-              >
-                <option value="all">Toate Statusurile</option>
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-                <option value="Maintenance">Mentenanță</option>
-              </select>
               
               <select
                 value={providerFilter}
@@ -940,14 +1222,6 @@ const Slots = () => {
                   )
                 })}
               </select>
-              
-              <button
-                onClick={handleImport}
-                className="btn-secondary flex items-center space-x-2 text-sm"
-              >
-                <Upload className="w-4 h-4" />
-                <span>Importă</span>
-              </button>
             </div>
           </div>
         </div>
