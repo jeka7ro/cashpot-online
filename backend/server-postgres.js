@@ -1420,6 +1420,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }))
 
 // Serve uploaded files as static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
+app.use('/legal', express.static(path.join(__dirname, '../legal')))
 console.log('📁 Static files served from /uploads')
 
 console.log('🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!')
@@ -4257,6 +4258,7 @@ app.use('/api/slots', slotsRoutes)
 app.use('/api/invoices', invoicesRoutes)
 app.use('/api/jackpots', jackpotsRoutes)
 app.use('/api/legal-documents', legalDocumentsRoutes)
+app.use('/api/legal', legalDocumentsRoutes)
 app.use('/api/onjn-reports', onjnReportsRoutes)
 // ONJN Class 2 routes
 import onjnClass2Routes from './routes/onjnClass2.js'

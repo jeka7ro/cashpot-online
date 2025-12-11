@@ -45,6 +45,11 @@ export default defineConfig({
             console.log('Health check response:', proxyRes.statusCode, req.url);
           });
         },
+      },
+      '/legal': {
+        target: process.env.VITE_API_URL || 'http://localhost:5001',
+        changeOrigin: true,
+        secure: false,
       }
     }
   },

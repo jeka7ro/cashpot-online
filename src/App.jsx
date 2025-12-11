@@ -48,6 +48,9 @@ import ONJNClass2Operator from './pages/ONJNClass2Operator'
 import ONJNClass1 from './pages/ONJNClass1'
 import ONJNCompanyDetail from './pages/ONJNCompanyDetail'
 import LegalDocuments from './pages/LegalDocuments'
+import SlotRegulations from './pages/SlotRegulations'
+import SlotTaxesCentralizer from './pages/SlotTaxesCentralizer'
+import LegalArticleDetail from './pages/LegalArticleDetail'
 import UsersPage from './pages/Users'
 import Expenditures from './pages/Expenditures'
 import ExpendituresSettings from './pages/ExpendituresSettings'
@@ -131,6 +134,9 @@ function App() {
             <Route path="/onjn-operators" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNOperators /></RoleProtectedRoute>} />
             <Route path="/onjn-operators/brand/:brandName" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNBrandDetails /></RoleProtectedRoute>} />
             <Route path="/legal-documents" element={<RoleProtectedRoute module={MODULES.LEGAL}><LegalDocuments /></RoleProtectedRoute>} />
+            <Route path="/slot-regulations" element={<RoleProtectedRoute module={MODULES.LEGAL}><SlotRegulations /></RoleProtectedRoute>} />
+            <Route path="/slot-taxes" element={<RoleProtectedRoute module={MODULES.LEGAL}><SlotTaxesCentralizer /></RoleProtectedRoute>} />
+            <Route path="/legal/article/:law/:articleNumber" element={<RoleProtectedRoute module={MODULES.LEGAL}><LegalArticleDetail /></RoleProtectedRoute>} />
             <Route path="/expenditures" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><Expenditures /></RoleProtectedRoute>} />
             <Route path="/expenditures/settings" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><ExpendituresSettings /></RoleProtectedRoute>} />
             <Route path="/expenditures/pos-banca" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><ExpendituresPOS /></RoleProtectedRoute>} />
