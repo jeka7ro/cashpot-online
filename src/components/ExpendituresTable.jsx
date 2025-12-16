@@ -7,6 +7,23 @@ import {
   ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react'
 
+// Normalize diacritics for location name comparison (same as Expenditures.jsx)
+const normalizeDiacritics = (str) => {
+  if (!str) return ''
+  return str
+    .replace(/ţ/g, 'ț')
+    .replace(/ş/g, 'ș')
+    .replace(/Ţ/g, 'Ț')
+    .replace(/Ş/g, 'Ș')
+    .trim()
+}
+
+// Normalize location name for consistent comparison
+const normalizeLocationName = (str) => {
+  if (!str) return ''
+  return normalizeDiacritics(str.toLowerCase().trim())
+}
+
 const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, expendituresData, onAmountClick, allExpanded, onToggleAll }) => {
   const [expandedDepartments, setExpandedDepartments] = useState(new Set())
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' }) // SORTARE!
@@ -52,6 +69,38 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
       return []
     }
     
+    // Create a map from normalized location names to actual location names from the locations prop
+    // This ensures we match locations correctly even if they have different diacritics
+    const locationMap = new Map()
+    if (locations && locations.length > 0) {
+      locations.forEach(loc => {
+        const normalized = normalizeLocationName(loc)
+        // Store the original location name from the locations prop
+        if (!locationMap.has(normalized)) {
+          locationMap.set(normalized, loc)
+        }
+      })
+    }
+    
+    // Helper function to find matching location name from locations prop
+    const findMatchingLocation = (itemLocation) => {
+      if (!itemLocation) return 'Unknown'
+      
+      // First, try exact match
+      if (locations && locations.includes(itemLocation)) {
+        return itemLocation
+      }
+      
+      // Then try normalized match
+      const normalizedItem = normalizeLocationName(itemLocation)
+      if (locationMap.has(normalizedItem)) {
+        return locationMap.get(normalizedItem)
+      }
+      
+      // If no match found, return original (will be grouped separately)
+      return itemLocation
+    }
+    
     expendituresData.forEach(item => {
       const dept = item.department_name || 'Unknown'
       
@@ -67,7 +116,9 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
       }
       
       const category = item.expenditure_type || 'Unknown'
-      const location = item.location_name || 'Unknown'
+      const itemLocation = item.location_name || 'Unknown'
+      // Normalize location name to match with locations prop
+      const location = findMatchingLocation(itemLocation)
       const amount = parseFloat(item.amount || 0)
       
       if (!deptMap[dept]) {
@@ -102,7 +153,7 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
     })
     
     return Object.values(deptMap).sort((a, b) => b.total - a.total)
-  }, [expendituresData])
+  }, [expendituresData, locations])
   
   // === SORTARE LOGIC ===
   const handleSort = (key) => {
