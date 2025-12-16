@@ -808,6 +808,22 @@ const Expenditures = () => {
         return matches
       })
       console.log(`  After includedDepartments filter (${includedDepartments.length} depts): ${beforeDept} → ${filteredData.length}`)
+      
+      // DEBUG: Verifică specific pentru Salarii
+      if (includedDepartments.includes('Salarii')) {
+        const salariiBefore = filteredData.filter(d => d.department_name === 'Salarii').length
+        const salariiAfter = beforeDept > 0 ? filteredData.filter(d => d.department_name === 'Salarii').length : 0
+        console.log(`  🔍 DEBUG Salarii: ${salariiBefore} → ${salariiAfter} (included: ${includedDepartments.includes('Salarii')})`)
+        if (salariiBefore > 0 && salariiAfter === 0) {
+          const sampleSalarii = filteredData.filter(d => d.department_name === 'Salarii').slice(0, 3)
+          console.error('  ❌ Salarii filtered out! Sample:', sampleSalarii.map(d => ({
+            dept: d.department_name,
+            normalized: normalizeDiacritics((d.department_name || '').toLowerCase().trim()),
+            inIncluded: normalizedIncluded.includes(normalizeDiacritics((d.department_name || '').toLowerCase().trim()))
+          })))
+        }
+      }
+      
       if (filteredData.length === 0 && beforeDept > 0) {
         const sampleDepts = [...new Set(beforeFilterDepts)].slice(0, 10)
         console.error('  ❌ All data filtered out by includedDepartments!')
