@@ -879,13 +879,13 @@ router.post('/sync', async (req, res) => {
     // }
     
     if (startDate) {
-      whereConditions.push(`p.operational_date >= $${paramCounter}`)
+      whereConditions.push(`p.date >= $${paramCounter}`)
       queryParams.push(startDate)
       paramCounter++
     }
     
     if (endDate) {
-      whereConditions.push(`p.operational_date <= $${paramCounter}`)
+      whereConditions.push(`p.date <= $${paramCounter}`)
       queryParams.push(endDate)
       paramCounter++
     }
@@ -893,6 +893,7 @@ router.post('/sync', async (req, res) => {
     const whereClause = whereConditions.length > 0 ? whereConditions.join(' AND ') : '1=1'
     
     // Fetch data from external DB
+    // IMPORTANT: Câmpul corect din casino_payments este 'date', nu 'operational_date'
     const query = `
       SELECT 
         l.id as location_id,
@@ -900,14 +901,14 @@ router.post('/sync', async (req, res) => {
         d.name as department_name,
         et.name as expenditure_type,
         p.amount,
-        p.operational_date,
+        p.date as operational_date,
         p.id as payment_id
       FROM public.casino_payments p
       LEFT JOIN public.casino_locations l ON p.location_id = l.id
       LEFT JOIN public.casino_departments d ON p.department_id = d.id
       LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
       WHERE ${whereClause}
-      ORDER BY p.operational_date DESC, l.name, et.name
+      ORDER BY p.date DESC, l.name, et.name
     `
     
     _syncProgress.currentStep = 'Preluare date din baza externă...'
@@ -1070,6 +1071,7 @@ router.post('/sync', async (req, res) => {
           }
           
           // Inserăm doar dacă nu există deja - folosim ON CONFLICT pentru siguranță maximă
+          // IMPORTANT: Folosim 'bat_sync' ca data_source pentru consistență cu /import-all
           await localPool.query(`
             INSERT INTO expenditures_sync (
               location_name, department_name, expenditure_type, amount, 
@@ -1084,7 +1086,7 @@ router.post('/sync', async (req, res) => {
             normalizedAmount,
             row.operational_date,
             mappedLocationId,
-            'api_sync'
+            'bat_sync'
           ])
           inserted++
         } catch (insertError) {
