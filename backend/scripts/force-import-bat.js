@@ -26,20 +26,21 @@ async function importAll() {
     
     // Fetch TOATE datele din BAT
     console.log('📥 Se preiau datele din BAT...');
+    // IMPORTANT: Câmpul corect din casino_payments este 'date', nu 'operational_date'
     const extResult = await externalPool.query(`
       SELECT 
         l.name as location_name,
         d.name as department_name,
         et.name as expenditure_type,
         p.amount,
-        p.operational_date,
+        p.date as operational_date,
         p.id as payment_id
       FROM public.casino_payments p
       LEFT JOIN public.casino_locations l ON p.location_id = l.id
       LEFT JOIN public.casino_departments d ON p.department_id = d.id
       LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
       WHERE p.is_deleted = false
-      ORDER BY p.operational_date DESC
+      ORDER BY p.date DESC
     `);
     
     console.log('✅ Fetchat', extResult.rows.length, 'înregistrări din BAT');
@@ -56,7 +57,7 @@ async function importAll() {
         const result = await localPool.query(`
           INSERT INTO expenditures_sync (
             location_name, department_name, expenditure_type, amount, operational_date, data_source
-          ) VALUES ($1, $2, $3, $4, $5, 'bat')
+          ) VALUES ($1, $2, $3, $4, $5, 'bat_sync')
           ON CONFLICT (location_name, department_name, expenditure_type, amount, operational_date) 
           DO NOTHING
           RETURNING id

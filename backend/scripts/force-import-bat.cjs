@@ -27,20 +27,21 @@ async function importAll() {
     
     // Fetch TOATE datele din BAT
     console.log('📥 Se preiau datele din BAT...');
+    // IMPORTANT: Câmpul corect din casino_payments este 'date', nu 'operational_date'
     const extResult = await externalPool.query(`
       SELECT 
         l.name as location_name,
         d.name as department_name,
         et.name as expenditure_type,
         p.amount,
-        p.operational_date,
+        p.date as operational_date,
         p.id as payment_id
       FROM public.casino_payments p
       LEFT JOIN public.casino_locations l ON p.location_id = l.id
       LEFT JOIN public.casino_departments d ON p.department_id = d.id
       LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
       WHERE p.is_deleted = false
-      ORDER BY p.operational_date DESC
+      ORDER BY p.date DESC
     `);
     
     const totalRows = extResult.rows.length;
@@ -62,7 +63,7 @@ async function importAll() {
       let paramIndex = 1;
       
       for (const row of batch) {
-        placeholders.push(`($${paramIndex}, $${paramIndex+1}, $${paramIndex+2}, $${paramIndex+3}, $${paramIndex+4}, 'bat')`);
+        placeholders.push(`($${paramIndex}, $${paramIndex+1}, $${paramIndex+2}, $${paramIndex+3}, $${paramIndex+4}, 'bat_sync')`);
         values.push(
           row.location_name || 'Nespecificat',
           row.department_name || 'Nespecificat',
