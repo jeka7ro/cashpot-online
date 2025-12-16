@@ -161,7 +161,25 @@ async function importGoogleSheets() {
           continue
         }
         
-        // Verifică dacă există deja în baza de date
+        // IMPORTANT: Nu înlocui datele din modul electricitate (electric_invoice)!
+        // Verifică dacă există deja o înregistrare cu electric_invoice pentru aceeași combinație
+        if (normalizedDept === 'Electricitate' && normalizedType && normalizedType.toLowerCase().includes('electric')) {
+          const electricCheck = await pool.query(`
+            SELECT id FROM expenditures_sync
+            WHERE operational_date = $1
+              AND amount = $2
+              AND location_name = $3
+              AND department_name = 'Electricitate'
+              AND data_source = 'electric_invoice'
+          `, [operationalDate, amount, normalizedLocation])
+          
+          if (electricCheck.rows.length > 0) {
+            skipped++ // Skip dacă există deja în modul electricitate
+            continue
+          }
+        }
+        
+        // Verifică dacă există deja în baza de date (doar pentru google_sheets)
         const checkResult = await pool.query(`
           SELECT id FROM expenditures_sync
           WHERE operational_date = $1
