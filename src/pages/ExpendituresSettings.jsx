@@ -178,6 +178,7 @@ const ExpendituresSettings = () => {
   const [processingSummary, setProcessingSummary] = useState(null) // Rezumat după procesare
   const [nlcCentralizer, setNlcCentralizer] = useState([])
   const [nlcCentralizerStats, setNlcCentralizerStats] = useState(null)
+  const [nlcCentralizerRawData, setNlcCentralizerRawData] = useState([]) // Raw data pentru calcul corect al facturilor
   const [loadingNlcCentralizer, setLoadingNlcCentralizer] = useState(false)
   const [selectedNlcIds, setSelectedNlcIds] = useState([])
   const [deletingNlcs, setDeletingNlcs] = useState(false)
@@ -271,6 +272,10 @@ const ExpendituresSettings = () => {
       if (response.data?.success) {
         setNlcCentralizer(response.data.data || [])
         setNlcCentralizerStats(response.data.stats || null)
+        // Salvează și rawData pentru calculul corect al facturilor netransferate
+        if (response.data.rawData) {
+          setNlcCentralizerRawData(response.data.rawData || [])
+        }
       }
     } catch (error) {
       console.error('Error loading NLC centralizer:', error)
@@ -290,7 +295,22 @@ const ExpendituresSettings = () => {
   // Funcție pentru transferul facturilor electrice din centralizator în cheltuieli
   const [transferringElectric, setTransferringElectric] = useState(false)
   const handleTransferElectricToExpenditures = async () => {
-    const unsavedCount = nlcCentralizer.filter(nlc => !nlc.saved_to_expenditures).length
+    // Folosește rawData pentru calcul corect (conține toate înregistrările individuale, nu agregate)
+    const rawData = nlcCentralizerRawData.length > 0 ? nlcCentralizerRawData : []
+    
+    // Dacă nu avem rawData, folosește datele agregate (fallback)
+    let unsavedNlcs = []
+    if (rawData.length > 0) {
+      unsavedNlcs = rawData.filter(nlc => !nlc.saved_to_expenditures)
+    } else {
+      // Fallback: folosește datele agregate (dar acestea pot fi incomplete)
+      unsavedNlcs = nlcCentralizer.filter(nlc => !nlc.saved_to_expenditures)
+    }
+    
+    // Numără facturile UNICE care nu au fost salvate
+    const unsavedInvoiceNumbers = [...new Set(unsavedNlcs.map(nlc => nlc.numar_factura).filter(Boolean))]
+    const unsavedCount = unsavedInvoiceNumbers.length
+    const totalNlcs = unsavedNlcs.length
     
     if (unsavedCount === 0) {
       toast.info('Toate facturile electrice sunt deja salvate în cheltuieli!')
@@ -298,7 +318,7 @@ const ExpendituresSettings = () => {
     }
 
     const confirmed = window.confirm(
-      `Transferi ${unsavedCount} facturi electrice din centralizator în Cheltuieli?\n\nFacturile vor fi salvate în expenditures_sync și vor apărea în modulul Cheltuieli.`
+      `Transferi ${unsavedCount} facturi electrice (${totalNlcs} NLC-uri) din centralizator în Cheltuieli?\n\nFacturile vor fi salvate în expenditures_sync și vor apărea în modulul Cheltuieli.`
     )
     if (!confirmed) return
 
@@ -379,6 +399,12 @@ const ExpendituresSettings = () => {
 
   const [analyzingElectric, setAnalyzingElectric] = useState(false)
   const [electricAnalysisResult, setElectricAnalysisResult] = useState(null)
+  const [editingSumaIndex, setEditingSumaIndex] = useState(null)
+  const [editingSumaValue, setEditingSumaValue] = useState('')
+  const [editingReactivaIndex, setEditingReactivaIndex] = useState(null)
+  const [editingReactivaValue, setEditingReactivaValue] = useState('')
+  const [editingTotalIndex, setEditingTotalIndex] = useState(null)
+  const [editingTotalValue, setEditingTotalValue] = useState('')
   
   // Handler pentru analiza facturii electrice - REFACUT COMPLET
   const handleAnalyzeElectricInvoice = async () => {
@@ -3059,11 +3085,161 @@ const ExpendituresSettings = () => {
                   const data = electricAnalysisResult.extractedData || {}
                   const nlcData = data.nlc_data || []
                   
+                  const handleSumaEdit = (idx, currentSuma) => {
+                    setEditingSumaIndex(idx)
+                    setEditingSumaValue(currentSuma ? String(currentSuma) : '')
+                  }
+                  
+                  const handleSumaSave = (idx) => {
+                    const newSuma = parseFloat(editingSumaValue.replace(/[^\d.,]/g, '').replace(',', '.'))
+                    if (!isNaN(newSuma) && newSuma > 0) {
+                      // Actualizează suma în nlcData
+                      const updatedNlcData = [...nlcData]
+                      updatedNlcData[idx] = {
+                        ...updatedNlcData[idx],
+                        suma: newSuma,
+                        sumaTotala: newSuma // Actualizează și sumaTotala
+                      }
+                      
+                      // PRIORITATE: Recalculează prețul/kWh dacă există consum (cea mai precisă metodă)
+                      if (updatedNlcData[idx].consum && updatedNlcData[idx].consum > 0) {
+                        const pretCalculat = newSuma / updatedNlcData[idx].consum
+                        updatedNlcData[idx].pretCalculat = pretCalculat
+                        console.log(`   🔄 Recalculat preț/kWh pentru NLC ${updatedNlcData[idx].nlc}: ${pretCalculat.toFixed(4)} (${newSuma.toFixed(2)} / ${updatedNlcData[idx].consum})`)
+                      }
+                      // Sau recalculează consumul dacă există preț/kWh general (fallback)
+                      else if (data.pret_per_kwh && parseFloat(data.pret_per_kwh) > 0) {
+                        const pretGeneral = parseFloat(data.pret_per_kwh)
+                        const consumCalculat = newSuma / pretGeneral
+                        updatedNlcData[idx].consum = Math.round(consumCalculat)
+                        // Recalculează și prețul/kWh pentru consistență
+                        updatedNlcData[idx].pretCalculat = pretGeneral
+                        console.log(`   🔄 Recalculat consum pentru NLC ${updatedNlcData[idx].nlc}: ${consumCalculat.toFixed(2)} kWh (${newSuma.toFixed(2)} / ${pretGeneral.toFixed(4)})`)
+                      }
+                      
+                      // Actualizează suma totală (activă + reactivă)
+                      const currentReactiva = parseFloat(updatedNlcData[idx].sumaReactiva) || 0
+                      updatedNlcData[idx].sumaTotala = newSuma + currentReactiva
+                      
+                      // Actualizează state-ul
+                      setElectricAnalysisResult({
+                        ...electricAnalysisResult,
+                        extractedData: {
+                          ...data,
+                          nlc_data: updatedNlcData
+                        }
+                      })
+                      
+                      setEditingSumaIndex(null)
+                      toast.success(`Suma actualizată pentru NLC ${updatedNlcData[idx].nlc}`)
+                    } else {
+                      toast.error('Sumă invalidă')
+                    }
+                  }
+                  
+                  const handleSumaCancel = () => {
+                    setEditingSumaIndex(null)
+                    setEditingSumaValue('')
+                  }
+                  
+                  // Funcții pentru editarea energiei reactive
+                  const handleReactivaEdit = (idx, currentReactiva) => {
+                    setEditingReactivaIndex(idx)
+                    setEditingReactivaValue(currentReactiva ? String(currentReactiva) : '')
+                  }
+                  
+                  const handleReactivaSave = (idx) => {
+                    const newReactiva = parseFloat(editingReactivaValue.replace(/[^\d.,]/g, '').replace(',', '.'))
+                    if (!isNaN(newReactiva) && newReactiva >= 0) {
+                      const updatedNlcData = [...nlcData]
+                      const currentSuma = parseFloat(updatedNlcData[idx].suma) || 0
+                      updatedNlcData[idx] = {
+                        ...updatedNlcData[idx],
+                        sumaReactiva: newReactiva > 0 ? newReactiva : null
+                      }
+                      
+                      // Actualizează suma totală (activă + reactivă)
+                      updatedNlcData[idx].sumaTotala = currentSuma + (newReactiva > 0 ? newReactiva : 0)
+                      
+                      setElectricAnalysisResult({
+                        ...electricAnalysisResult,
+                        extractedData: {
+                          ...data,
+                          nlc_data: updatedNlcData
+                        }
+                      })
+                      
+                      setEditingReactivaIndex(null)
+                      toast.success(`Energie reactivă actualizată pentru NLC ${updatedNlcData[idx].nlc}`)
+                    } else {
+                      toast.error('Valoare invalidă')
+                    }
+                  }
+                  
+                  const handleReactivaCancel = () => {
+                    setEditingReactivaIndex(null)
+                    setEditingReactivaValue('')
+                  }
+                  
+                  // Funcții pentru editarea totalului
+                  const handleTotalEdit = (idx, currentTotal) => {
+                    setEditingTotalIndex(idx)
+                    setEditingTotalValue(currentTotal ? String(currentTotal) : '')
+                  }
+                  
+                  const handleTotalSave = (idx) => {
+                    const newTotal = parseFloat(editingTotalValue.replace(/[^\d.,]/g, '').replace(',', '.'))
+                    if (!isNaN(newTotal) && newTotal > 0) {
+                      const updatedNlcData = [...nlcData]
+                      const currentSuma = parseFloat(updatedNlcData[idx].suma) || 0
+                      const currentReactiva = parseFloat(updatedNlcData[idx].sumaReactiva) || 0
+                      
+                      // Dacă totalul este diferit de suma activă + reactivă, ajustează suma activă
+                      const sumaActivaCalculata = newTotal - currentReactiva
+                      if (sumaActivaCalculata > 0) {
+                        updatedNlcData[idx].suma = sumaActivaCalculata
+                        updatedNlcData[idx].sumaTotala = newTotal
+                        
+                        // Recalculează prețul/kWh dacă există consum
+                        if (updatedNlcData[idx].consum && updatedNlcData[idx].consum > 0) {
+                          const pretCalculat = sumaActivaCalculata / updatedNlcData[idx].consum
+                          updatedNlcData[idx].pretCalculat = pretCalculat
+                          console.log(`   🔄 Recalculat preț/kWh pentru NLC ${updatedNlcData[idx].nlc}: ${pretCalculat.toFixed(4)} (${sumaActivaCalculata.toFixed(2)} / ${updatedNlcData[idx].consum})`)
+                        }
+                      } else {
+                        updatedNlcData[idx].sumaTotala = newTotal
+                      }
+                      
+                      setElectricAnalysisResult({
+                        ...electricAnalysisResult,
+                        extractedData: {
+                          ...data,
+                          nlc_data: updatedNlcData
+                        }
+                      })
+                      
+                      setEditingTotalIndex(null)
+                      toast.success(`Total actualizat pentru NLC ${updatedNlcData[idx].nlc}`)
+                    } else {
+                      toast.error('Valoare invalidă')
+                    }
+                  }
+                  
+                  const handleTotalCancel = () => {
+                    setEditingTotalIndex(null)
+                    setEditingTotalValue('')
+                  }
+                  
                   return (
                     <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
-                      <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
-                        📊 Date Extrase
-                      </h4>
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                          📊 Date Extrase
+                        </h4>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
+                          💡 Toate sumele sunt <strong>CU TVA inclusă</strong>
+                        </div>
+                      </div>
                       
                       {/* Tabel compact cu toate NLC-urile - CU ENERGIE REACTIVĂ */}
                       {nlcData.length > 0 ? (
@@ -3084,32 +3260,146 @@ const ExpendituresSettings = () => {
                             </thead>
                             <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                               {nlcData.map((nlc, idx) => {
-                                const pretPerKwh = nlc.pretCalculat 
-                                  ? parseFloat(nlc.pretCalculat).toFixed(4)
-                                  : (nlc.consum && nlc.consum > 0 && nlc.suma
-                                    ? (nlc.suma / nlc.consum).toFixed(4)
+                                // PRIORITATE: Calculează din valorile actuale (suma / consum) dacă există ambele
+                                // Folosește pretCalculat doar dacă nu există consum sau suma
+                                const pretPerKwh = (nlc.consum && nlc.consum > 0 && nlc.suma && nlc.suma > 0)
+                                  ? (nlc.suma / nlc.consum).toFixed(4)
+                                  : (nlc.pretCalculat 
+                                    ? parseFloat(nlc.pretCalculat).toFixed(4)
                                     : (data.pret_per_kwh ? parseFloat(data.pret_per_kwh).toFixed(4) : 'N/A'))
                                 const luniCount = nlc.luniAcoperite?.length || 1
                                 const pretVerificare = nlc.pretVerificare
                                 const sumaTotala = (parseFloat(nlc.suma) || 0) + (parseFloat(nlc.sumaReactiva) || 0)
+                                const isEditingSuma = editingSumaIndex === idx
+                                const isEditingReactiva = editingReactivaIndex === idx
+                                const isEditingTotal = editingTotalIndex === idx
+                                
                                 return (
                                   <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
                                     <td className="px-2 py-1.5 font-mono text-blue-600 dark:text-blue-400 text-xs">{nlc.nlc}</td>
                                     <td className="px-2 py-1.5 text-slate-700 dark:text-slate-300 text-xs">{nlc.location || 'N/A'}</td>
                                     <td className="px-2 py-1.5 text-right font-semibold text-green-600 dark:text-green-400 text-xs">
-                                      {nlc.suma ? parseFloat(nlc.suma).toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}
+                                      {isEditingSuma ? (
+                                        <div className="flex items-center gap-1 justify-end">
+                                          <input
+                                            type="text"
+                                            value={editingSumaValue}
+                                            onChange={(e) => setEditingSumaValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') handleSumaSave(idx)
+                                              if (e.key === 'Escape') handleSumaCancel()
+                                            }}
+                                            className="w-28 px-1 py-0.5 text-xs border-2 border-green-500 rounded dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-400"
+                                            autoFocus
+                                          />
+                                          <button
+                                            onClick={() => handleSumaSave(idx)}
+                                            className="text-green-600 hover:text-green-700 dark:text-green-400 px-1"
+                                            title="Salvează (Enter)"
+                                          >
+                                            ✓
+                                          </button>
+                                          <button
+                                            onClick={handleSumaCancel}
+                                            className="text-red-600 hover:text-red-700 dark:text-red-400 px-1"
+                                            title="Anulează (Esc)"
+                                          >
+                                            ✕
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <span 
+                                          className="cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/30 px-1 py-0.5 rounded transition-colors"
+                                          onClick={() => handleSumaEdit(idx, nlc.suma)}
+                                          title="Click pentru editare"
+                                        >
+                                          {nlc.suma ? parseFloat(nlc.suma).toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}
+                                        </span>
+                                      )}
                                     </td>
                                     <td className="px-2 py-1.5 text-right text-slate-700 dark:text-slate-300 text-xs">
                                       {nlc.consum ? parseFloat(nlc.consum).toLocaleString('ro-RO', { maximumFractionDigits: 0 }) : '-'}
                                     </td>
                                     <td className="px-2 py-1.5 text-right text-orange-600 dark:text-orange-400 text-xs">
-                                      {nlc.sumaReactiva && nlc.sumaReactiva > 0 ? parseFloat(nlc.sumaReactiva).toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
+                                      {isEditingReactiva ? (
+                                        <div className="flex items-center gap-1 justify-end">
+                                          <input
+                                            type="text"
+                                            value={editingReactivaValue}
+                                            onChange={(e) => setEditingReactivaValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') handleReactivaSave(idx)
+                                              if (e.key === 'Escape') handleReactivaCancel()
+                                            }}
+                                            className="w-28 px-1 py-0.5 text-xs border-2 border-orange-500 rounded dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                                            autoFocus
+                                          />
+                                          <button
+                                            onClick={() => handleReactivaSave(idx)}
+                                            className="text-orange-600 hover:text-orange-700 dark:text-orange-400 px-1"
+                                            title="Salvează (Enter)"
+                                          >
+                                            ✓
+                                          </button>
+                                          <button
+                                            onClick={handleReactivaCancel}
+                                            className="text-red-600 hover:text-red-700 dark:text-red-400 px-1"
+                                            title="Anulează (Esc)"
+                                          >
+                                            ✕
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <span 
+                                          className="cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/30 px-1 py-0.5 rounded transition-colors"
+                                          onClick={() => handleReactivaEdit(idx, nlc.sumaReactiva)}
+                                          title="Click pentru editare"
+                                        >
+                                          {nlc.sumaReactiva && nlc.sumaReactiva > 0 ? parseFloat(nlc.sumaReactiva).toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
+                                        </span>
+                                      )}
                                     </td>
                                     <td className="px-2 py-1.5 text-right text-slate-500 dark:text-slate-400 text-xs">
                                       {nlc.consumReactiv && nlc.consumReactiv > 0 ? parseFloat(nlc.consumReactiv).toLocaleString('ro-RO', { maximumFractionDigits: 0 }) : '-'}
                                     </td>
                                     <td className="px-2 py-1.5 text-right font-bold text-blue-600 dark:text-blue-400 text-xs">
-                                      {sumaTotala > 0 ? sumaTotala.toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}
+                                      {isEditingTotal ? (
+                                        <div className="flex items-center gap-1 justify-end">
+                                          <input
+                                            type="text"
+                                            value={editingTotalValue}
+                                            onChange={(e) => setEditingTotalValue(e.target.value)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') handleTotalSave(idx)
+                                              if (e.key === 'Escape') handleTotalCancel()
+                                            }}
+                                            className="w-28 px-1 py-0.5 text-xs border-2 border-blue-500 rounded dark:bg-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                            autoFocus
+                                          />
+                                          <button
+                                            onClick={() => handleTotalSave(idx)}
+                                            className="text-blue-600 hover:text-blue-700 dark:text-blue-400 px-1"
+                                            title="Salvează (Enter)"
+                                          >
+                                            ✓
+                                          </button>
+                                          <button
+                                            onClick={handleTotalCancel}
+                                            className="text-red-600 hover:text-red-700 dark:text-red-400 px-1"
+                                            title="Anulează (Esc)"
+                                          >
+                                            ✕
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <span 
+                                          className="cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 px-1 py-0.5 rounded transition-colors"
+                                          onClick={() => handleTotalEdit(idx, sumaTotala)}
+                                          title="Click pentru editare"
+                                        >
+                                          {sumaTotala > 0 ? sumaTotala.toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'}
+                                        </span>
+                                      )}
                                     </td>
                                     <td className="px-2 py-1.5 text-right font-semibold text-yellow-600 dark:text-yellow-400 text-xs">
                                       {pretPerKwh !== 'N/A' ? pretPerKwh : '-'}
@@ -3131,7 +3421,29 @@ const ExpendituresSettings = () => {
                               <tr>
                                 <td colSpan="2" className="px-2 py-1.5 text-slate-700 dark:text-slate-300 text-xs font-bold">TOTAL</td>
                                 <td className="px-2 py-1.5 text-right font-bold text-green-600 dark:text-green-400 text-xs">
-                                  {nlcData.reduce((sum, n) => sum + (parseFloat(n.suma) || 0), 0).toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  {(() => {
+                                    // Calculează suma energiei active din NLC-uri (ignoră sumele suspecte)
+                                    const sumaCalculataDinNlc = nlcData.reduce((sum, n) => {
+                                      // Ignoră sumele suspecte (marcate ca greșite în backend)
+                                      if (n.sumaSuspecta) return sum
+                                      return sum + (parseFloat(n.suma) || 0)
+                                    }, 0)
+                                    // Dacă există suma extrasă din factură și este diferită de suma calculată, folosește suma extrasă
+                                    const sumaExtrasaDinFactura = data.suma_totala ? parseFloat(data.suma_totala) : null
+                                    
+                                    // Dacă există o discrepanță mare (>20%), folosește suma extrasă din factură
+                                    if (sumaExtrasaDinFactura && sumaExtrasaDinFactura > 0) {
+                                      const diferenta = Math.abs(sumaCalculataDinNlc - sumaExtrasaDinFactura)
+                                      const procentDiferenta = sumaCalculataDinNlc > 0 ? (diferenta / sumaCalculataDinNlc) * 100 : 100
+                                      
+                                      // Dacă diferența este mai mare de 20%, folosește suma extrasă (probabil sumele NLC-uri sunt greșite)
+                                      if (procentDiferenta > 20 || sumaCalculataDinNlc === 0) {
+                                        return sumaExtrasaDinFactura.toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                      }
+                                    }
+                                    
+                                    return sumaCalculataDinNlc.toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                  })()}
                                 </td>
                                 <td className="px-2 py-1.5 text-right text-slate-700 dark:text-slate-300 text-xs">
                                   {nlcData.reduce((sum, n) => sum + (parseFloat(n.consum) || 0), 0).toLocaleString('ro-RO', { maximumFractionDigits: 0 })}
@@ -3143,7 +3455,30 @@ const ExpendituresSettings = () => {
                                   {nlcData.reduce((sum, n) => sum + (parseFloat(n.consumReactiv) || 0), 0).toLocaleString('ro-RO', { maximumFractionDigits: 0 })}
                                 </td>
                                 <td className="px-2 py-1.5 text-right font-bold text-blue-600 dark:text-blue-400 text-xs">
-                                  {nlcData.reduce((sum, n) => sum + (parseFloat(n.suma) || 0) + (parseFloat(n.sumaReactiva) || 0), 0).toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  {/* Folosește suma extrasă din factură dacă există, altfel calculează din NLC-uri (ignoră sumele suspecte) */}
+                                  {(() => {
+                                    const sumaExtrasaDinFactura = data.suma_totala ? parseFloat(data.suma_totala) : null
+                                    // Calculează suma din NLC-uri ignorând sumele suspecte
+                                    const sumaCalculataDinNlc = nlcData.reduce((sum, n) => {
+                                      // Ignoră sumele suspecte (marcate ca greșite în backend)
+                                      if (n.sumaSuspecta) return sum
+                                      return sum + (parseFloat(n.suma) || 0) + (parseFloat(n.sumaReactiva) || 0)
+                                    }, 0)
+                                    
+                                    // Dacă există suma extrasă și există o discrepanță mare, folosește suma extrasă
+                                    if (sumaExtrasaDinFactura && sumaExtrasaDinFactura > 0) {
+                                      const diferenta = Math.abs(sumaCalculataDinNlc - sumaExtrasaDinFactura)
+                                      const procentDiferenta = sumaCalculataDinNlc > 0 ? (diferenta / sumaCalculataDinNlc) * 100 : 100
+                                      
+                                      // Dacă diferența este mai mare de 20%, folosește suma extrasă
+                                      if (procentDiferenta > 20 || sumaCalculataDinNlc === 0) {
+                                        return sumaExtrasaDinFactura.toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                      }
+                                    }
+                                    
+                                    const sumaDeAfisat = sumaExtrasaDinFactura && sumaExtrasaDinFactura > 0 ? sumaExtrasaDinFactura : sumaCalculataDinNlc
+                                    return sumaDeAfisat > 0 ? sumaDeAfisat.toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 'N/A'
+                                  })()}
                                 </td>
                                 <td colSpan="2" className="px-2 py-1.5 text-xs"></td>
                               </tr>

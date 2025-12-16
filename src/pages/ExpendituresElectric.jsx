@@ -16,9 +16,11 @@ const ExpendituresElectric = () => {
   // State
   const [rawData, setRawData] = useState([])
   const [expendituresData, setExpendituresData] = useState([]) // Cheltuieli din SQL
+  const [slotsMonthlyData, setSlotsMonthlyData] = useState([]) // Date exacte despre sloturi pe lună și locație
   const [loading, setLoading] = useState(true)
   const [selectedDateFilter, setSelectedDateFilter] = useState('toate')
   const [locationFilter, setLocationFilter] = useState('all')
+  const [nlcFilter, setNlcFilter] = useState('all')
   const [searchText, setSearchText] = useState('')
   const [selectedInvoices, setSelectedInvoices] = useState(new Set())
   const [deleting, setDeleting] = useState(false)
@@ -26,6 +28,9 @@ const ExpendituresElectric = () => {
   const [verifyText, setVerifyText] = useState('')
   const [verifying, setVerifying] = useState(false)
   const [verifyResults, setVerifyResults] = useState(null)
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false)
+  const [duplicateResults, setDuplicateResults] = useState(null)
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false)
   
   // Date range - default TOATE
   const [dateRange, setDateRange] = useState({
@@ -99,15 +104,16 @@ const ExpendituresElectric = () => {
   const loadData = async () => {
     setLoading(true)
     try {
-      // Încarcă datele din centralizator și cheltuieli în paralel
-      const [centralizerResponse, expendituresResponse] = await Promise.all([
+      // Încarcă datele din centralizator, cheltuieli și sloturi în paralel
+      const [centralizerResponse, expendituresResponse, slotsResponse] = await Promise.all([
         axios.get('/api/expenditures/electric-nlc-centralizer'),
         axios.get('/api/expenditures/sql-table', {
           params: { 
             departments: 'Electricitate',
             limit: 1000 // Suficient pentru toate facturile
           }
-        })
+        }),
+        axios.get('/api/expenditures/slots-monthly').catch(() => ({ data: { data: [] } })) // Fallback dacă nu există endpoint
       ])
       
       if (centralizerResponse.data?.success) {
@@ -117,6 +123,11 @@ const ExpendituresElectric = () => {
       if (expendituresResponse.data?.data) {
         // Datele din tabelul expenditures_sync pentru Electricitate
         setExpendituresData(expendituresResponse.data.data || [])
+      }
+      
+      if (slotsResponse.data?.data) {
+        // Datele exacte despre sloturi pe lună și locație
+        setSlotsMonthlyData(slotsResponse.data.data || [])
       }
     } catch (error) {
       console.error('Eroare:', error)
@@ -164,6 +175,10 @@ const ExpendituresElectric = () => {
       if (locationFilter !== 'all' && item.location_name !== locationFilter) {
         return false
       }
+      // NLC filter
+      if (nlcFilter !== 'all' && item.nlc_code !== nlcFilter) {
+        return false
+      }
       // Period filter
       const parsed = parsePeriod(item.perioada_facturare)
       if (!parsed) return false
@@ -189,44 +204,289 @@ const ExpendituresElectric = () => {
       
       return true
     })
-  }, [rawData, dateRange, locationFilter, searchText])
+  }, [rawData, dateRange, locationFilter, nlcFilter, searchText])
 
   // Build matrix: month -> location -> data (LUNI pe rânduri, SĂLI pe coloane)
-  // Include slots count pentru calcul RON/slot și kWh/slot
+  // IMPORTANT: Folosește suma totală extrasă din factură, nu suma calculată din NLC-uri
+  // IMPORTANT: Folosește datele EXACTE despre sloturi din slots_monthly, nu din facturile electrice
   const matrixData = useMemo(() => {
     const matrix = {}
     const locations = new Set()
     const monthsFound = new Set()
-
+    
+    // Creează un Map cu datele exacte despre sloturi: key = "year-month-location", value = slots_count
+    const exactSlotsMap = new Map()
+    slotsMonthlyData.forEach(slotData => {
+      if (slotData.year && slotData.month && slotData.location_name && slotData.slots_count) {
+        const key = `${slotData.year}-${String(slotData.month).padStart(2, '0')}-${slotData.location_name}`
+        exactSlotsMap.set(key, parseInt(slotData.slots_count) || 0)
+      }
+    })
+    
+    // Grupează datele pe factură pentru a folosi suma totală extrasă din factură
+    const invoiceMap = new Map() // key: numar_factura, value: { invoiceTotalAmount, items: [] }
+    
     filteredData.forEach(item => {
-      const loc = item.location_name || 'N/A'
-      const parsed = parsePeriod(item.perioada_facturare)
-      if (!parsed) return
-      
-      locations.add(loc)
-      monthsFound.add(parsed.monthKey)
+      const invoiceNumber = item.numar_factura
+      if (!invoiceMap.has(invoiceNumber)) {
+        invoiceMap.set(invoiceNumber, {
+          invoiceTotalAmount: item.invoice_total_amount ? parseFloat(item.invoice_total_amount) : null,
+          items: []
+        })
+      }
+      invoiceMap.get(invoiceNumber).items.push(item)
+    })
 
-      if (!matrix[parsed.monthKey]) {
-        matrix[parsed.monthKey] = { month: parsed.month, year: parsed.year }
-      }
-      if (!matrix[parsed.monthKey][loc]) {
-        matrix[parsed.monthKey][loc] = { ron: 0, kwh: 0, slots: 0 }
+    // Procesează fiecare factură
+    invoiceMap.forEach((invoiceData, invoiceNumber) => {
+      const invoiceTotalAmount = invoiceData.invoiceTotalAmount
+      const items = invoiceData.items
+      
+      // Dacă există suma totală extrasă din factură, o folosim
+      // Altfel, calculăm din sumele NLC-urilor (doar pentru facturile vechi)
+      let totalSumaFactura = 0
+      let totalConsumFactura = 0
+      
+      if (invoiceTotalAmount && invoiceTotalAmount > 0) {
+        // Folosește suma extrasă din factură
+        totalSumaFactura = invoiceTotalAmount
+        // Calculează consumul total din NLC-uri (consumul este corect)
+        totalConsumFactura = items.reduce((sum, item) => {
+          return sum + (parseFloat(item.consum_kwh) || 0)
+        }, 0)
+      } else {
+        // Fallback: calculează din sumele NLC-urilor (pentru facturile vechi)
+        totalSumaFactura = items.reduce((sum, item) => {
+          return sum + (parseFloat(item.suma_totala) || 0)
+        }, 0)
+        totalConsumFactura = items.reduce((sum, item) => {
+          return sum + (parseFloat(item.consum_kwh) || 0)
+        }, 0)
       }
       
-      matrix[parsed.monthKey][loc].ron += parseFloat(item.total_suma) || parseFloat(item.suma_totala) || 0
-      matrix[parsed.monthKey][loc].kwh += parseFloat(item.total_consum) || parseFloat(item.consum_kwh) || 0
-      // Folosim slots_count din backend (maxim din toate NLC-urile pentru această locație/lună)
-      const itemSlots = parseInt(item.slots_count) || 0
-      if (itemSlots > matrix[parsed.monthKey][loc].slots) {
-        matrix[parsed.monthKey][loc].slots = itemSlots
+      // Calculează distribuția pe lună-locație pentru această factură
+      // Folosim un Map pentru a evita dublarea: key = monthKey-loc, value = { kwh, slots, days }
+      const monthLocationMap = new Map()
+      
+      // Calculează perioada comună a facturii (cea mai largă perioadă dintre toate NLC-urile)
+      let invoiceStartDate = null
+      let invoiceEndDate = null
+      items.forEach(item => {
+        const period = item.perioada_facturare
+        if (!period) return
+        
+        const periodMatch = period.match(/(\d{2})\.(\d{2})\.(\d{4})\s*[-–]\s*(\d{2})\.(\d{2})\.(\d{4})/)
+        if (periodMatch) {
+          const startDate = new Date(parseInt(periodMatch[3]), parseInt(periodMatch[2]) - 1, parseInt(periodMatch[1]))
+          const endDate = new Date(parseInt(periodMatch[6]), parseInt(periodMatch[5]) - 1, parseInt(periodMatch[4]))
+          
+          if (!invoiceStartDate || startDate < invoiceStartDate) {
+            invoiceStartDate = startDate
+          }
+          if (!invoiceEndDate || endDate > invoiceEndDate) {
+            invoiceEndDate = endDate
+          }
+        }
+      })
+      
+      // Dacă nu am putut calcula perioada comună, folosește perioada primului item
+      if (!invoiceStartDate || !invoiceEndDate) {
+        const firstItem = items.find(item => item.perioada_facturare)
+        if (firstItem) {
+          const periodMatch = firstItem.perioada_facturare.match(/(\d{2})\.(\d{2})\.(\d{4})\s*[-–]\s*(\d{2})\.(\d{2})\.(\d{4})/)
+          if (periodMatch) {
+            invoiceStartDate = new Date(parseInt(periodMatch[3]), parseInt(periodMatch[2]) - 1, parseInt(periodMatch[1]))
+            invoiceEndDate = new Date(parseInt(periodMatch[6]), parseInt(periodMatch[5]) - 1, parseInt(periodMatch[4]))
+          }
+        }
       }
+      
+      // Calculează zilele pentru fiecare lună din perioada facturii (o singură dată)
+      const invoiceTotalDays = invoiceStartDate && invoiceEndDate 
+        ? Math.ceil((invoiceEndDate - invoiceStartDate) / (1000 * 60 * 60 * 24)) + 1 
+        : 0
+      
+      const invoiceMonths = []
+      if (invoiceStartDate && invoiceEndDate) {
+        let current = new Date(invoiceStartDate.getFullYear(), invoiceStartDate.getMonth(), 1)
+        while (current <= invoiceEndDate) {
+          const monthKey = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`
+          const monthStart = current <= invoiceStartDate ? invoiceStartDate : new Date(current.getFullYear(), current.getMonth(), 1)
+          const monthEnd = current.getMonth() === invoiceEndDate.getMonth() && current.getFullYear() === invoiceEndDate.getFullYear() 
+            ? invoiceEndDate 
+            : new Date(current.getFullYear(), current.getMonth() + 1, 0)
+          
+          const monthStartDay = monthStart > invoiceStartDate ? monthStart : invoiceStartDate
+          const monthEndDay = monthEnd < invoiceEndDate ? monthEnd : invoiceEndDate
+          const daysInMonth = Math.ceil((monthEndDay - monthStartDay) / (1000 * 60 * 60 * 24)) + 1
+          
+          invoiceMonths.push({
+            monthKey,
+            month: current.getMonth() + 1,
+            year: current.getFullYear(),
+            days: daysInMonth
+          })
+          current.setMonth(current.getMonth() + 1)
+        }
+      }
+      
+      // Calculează sloturile EXACTE per lună-locație din slots_monthly
+      // Nu folosim slots_count din facturile electrice, ci datele exacte pe care le-ai introdus manual
+      const getExactSlots = (year, month, location) => {
+        const key = `${year}-${String(month).padStart(2, '0')}-${location}`
+        return exactSlotsMap.get(key) || 0
+      }
+      
+      // Adaugă consumul pentru fiecare NLC, grupând pe lună-locație
+      items.forEach(item => {
+        const loc = item.location_name || 'N/A'
+        const period = item.perioada_facturare
+        const consumKwh = parseFloat(item.consum_kwh) || 0
+        
+        if (!period) return
+        
+        // Parsează perioada pentru a găsi lunile acoperite
+        const periodMatch = period.match(/(\d{2})\.(\d{2})\.(\d{4})\s*[-–]\s*(\d{2})\.(\d{2})\.(\d{4})/)
+        if (!periodMatch) {
+          // Dacă nu poate parsa perioada, folosește prima lună găsită
+          const parsed = parsePeriod(period)
+          if (parsed) {
+            const monthKey = parsed.monthKey
+            const key = `${monthKey}-${loc}`
+            if (!monthLocationMap.has(key)) {
+              // Folosește datele EXACTE despre sloturi din slots_monthly
+              const exactSlots = getExactSlots(parsed.year, parsed.month + 1, loc)
+              monthLocationMap.set(key, {
+                monthKey,
+                loc,
+                month: parsed.month,
+                year: parsed.year,
+                kwh: 0,
+                slots: exactSlots, // Folosește datele EXACTE despre sloturi
+                days: 0
+              })
+            }
+            const entry = monthLocationMap.get(key)
+            entry.kwh += consumKwh
+          }
+          return
+        }
+        
+        const startDate = new Date(parseInt(periodMatch[3]), parseInt(periodMatch[2]) - 1, parseInt(periodMatch[1]))
+        const endDate = new Date(parseInt(periodMatch[6]), parseInt(periodMatch[5]) - 1, parseInt(periodMatch[4]))
+        const itemTotalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1
+        
+        // Generează lista de luni acoperite pentru acest NLC
+        const monthsInPeriod = []
+        let current = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
+        while (current <= endDate) {
+          const monthKey = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`
+          const monthStart = current <= startDate ? startDate : new Date(current.getFullYear(), current.getMonth(), 1)
+          const monthEnd = current.getMonth() === endDate.getMonth() && current.getFullYear() === endDate.getFullYear() 
+            ? endDate 
+            : new Date(current.getFullYear(), current.getMonth() + 1, 0)
+          
+          const monthStartDay = monthStart > startDate ? monthStart : startDate
+          const monthEndDay = monthEnd < endDate ? monthEnd : endDate
+          const daysInMonth = Math.ceil((monthEndDay - monthStartDay) / (1000 * 60 * 60 * 24)) + 1
+          
+          monthsInPeriod.push({
+            monthKey,
+            days: daysInMonth,
+            totalDays: itemTotalDays
+          })
+          current.setMonth(current.getMonth() + 1)
+        }
+        
+        // Adaugă consumul pentru fiecare lună-locație
+        monthsInPeriod.forEach(monthInfo => {
+          const key = `${monthInfo.monthKey}-${loc}`
+          if (!monthLocationMap.has(key)) {
+            // Găsește informațiile despre lună din invoiceMonths
+            const monthInfoFromInvoice = invoiceMonths.find(m => m.monthKey === monthInfo.monthKey)
+            if (monthInfoFromInvoice) {
+              // Folosește datele EXACTE despre sloturi din slots_monthly
+              const exactSlots = getExactSlots(monthInfoFromInvoice.year, monthInfoFromInvoice.month, loc)
+              monthLocationMap.set(key, {
+                monthKey: monthInfoFromInvoice.monthKey,
+                loc,
+                month: monthInfoFromInvoice.month,
+                year: monthInfoFromInvoice.year,
+                kwh: 0,
+                slots: exactSlots, // Folosește datele EXACTE despre sloturi
+                days: monthInfoFromInvoice.days // Folosește zilele calculate o singură dată
+              })
+            } else {
+              // Fallback: folosește parsePeriod
+              const parsed = parsePeriod(period)
+              if (parsed) {
+                // Folosește datele EXACTE despre sloturi din slots_monthly
+                const exactSlots = getExactSlots(parsed.year, parsed.month + 1, loc)
+                monthLocationMap.set(key, {
+                  monthKey: parsed.monthKey,
+                  loc,
+                  month: parsed.month,
+                  year: parsed.year,
+                  kwh: 0,
+                  slots: exactSlots, // Folosește datele EXACTE despre sloturi
+                  days: monthInfo.days
+                })
+              }
+            }
+          }
+          const entry = monthLocationMap.get(key)
+          // Distribuie consumul proporțional pe zile
+          const proportion = monthInfo.days / monthInfo.totalDays
+          entry.kwh += consumKwh * proportion
+        })
+      })
+      
+      // Calculează totalul de zile și consum pentru distribuția proporțională
+      let totalDaysForDistribution = 0
+      let totalKwhForDistribution = 0
+      monthLocationMap.forEach(entry => {
+        totalDaysForDistribution += entry.days
+        totalKwhForDistribution += entry.kwh
+      })
+      
+      // Distribuie suma facturii proporțional pe baza consumului sau zilelor
+      monthLocationMap.forEach(entry => {
+        const { monthKey, loc, month, year, kwh, slots } = entry
+        
+        locations.add(loc)
+        monthsFound.add(monthKey)
+        
+        if (!matrix[monthKey]) {
+          matrix[monthKey] = { month, year }
+        }
+        if (!matrix[monthKey][loc]) {
+          matrix[monthKey][loc] = { ron: 0, kwh: 0, slots: 0 }
+        }
+        
+        // Distribuie suma facturii proporțional pe baza consumului (sau zilelor dacă consumul este 0)
+        let proportion = 0
+        if (totalKwhForDistribution > 0) {
+          proportion = kwh / totalKwhForDistribution
+        } else if (totalDaysForDistribution > 0) {
+          proportion = entry.days / totalDaysForDistribution
+        } else {
+          proportion = 1 / monthLocationMap.size // Distribuie egal dacă nu avem date
+        }
+        
+        // IMPORTANT: Folosește suma totală extrasă din factură, nu suma calculată din NLC-uri
+        matrix[monthKey][loc].ron += totalSumaFactura * proportion
+        matrix[monthKey][loc].kwh += kwh
+        if (slots > matrix[monthKey][loc].slots) {
+          matrix[monthKey][loc].slots = slots
+        }
+      })
     })
 
     const sortedMonths = Array.from(monthsFound).sort()
     const sortedLocations = Array.from(locations).sort()
 
     return { matrix, sortedMonths, sortedLocations }
-  }, [filteredData])
+  }, [filteredData, slotsMonthlyData])
 
   // Format month key to display
   const formatMonthKey = (key) => {
@@ -250,35 +510,99 @@ const ExpendituresElectric = () => {
     return totals
   }, [matrixData])
 
-  // Calculate totals per location (column totals)
+  // Calculate averages per location (column averages) - MEDIA pe slot, nu sumă
   const locationTotals = useMemo(() => {
     const totals = {}
     matrixData.sortedLocations.forEach(loc => {
-      totals[loc] = { ron: 0, kwh: 0, slots: 0 }
+      let totalRon = 0, totalKwh = 0, totalSlots = 0, monthCount = 0
       matrixData.sortedMonths.forEach(monthKey => {
         if (matrixData.matrix[monthKey]?.[loc]) {
-          totals[loc].ron += matrixData.matrix[monthKey][loc].ron
-          totals[loc].kwh += matrixData.matrix[monthKey][loc].kwh
-          // Pentru total pe locație, folosim media sloturilor pe lună
-          if (matrixData.matrix[monthKey][loc].slots > totals[loc].slots) {
-            totals[loc].slots = matrixData.matrix[monthKey][loc].slots
-          }
+          totalRon += matrixData.matrix[monthKey][loc].ron
+          totalKwh += matrixData.matrix[monthKey][loc].kwh
+          totalSlots += matrixData.matrix[monthKey][loc].slots || 0
+          monthCount++
         }
       })
+      // Calculează media pe slot: suma totală / suma sloturilor
+      const avgRonPerSlot = totalSlots > 0 ? totalRon / totalSlots : 0
+      const avgKwhPerSlot = totalSlots > 0 ? totalKwh / totalSlots : 0
+      const avgSlots = monthCount > 0 ? totalSlots / monthCount : 0
+      totals[loc] = { 
+        ron: avgRonPerSlot, // Media pe slot
+        kwh: avgKwhPerSlot, // Media pe slot
+        slots: avgSlots // Media sloturilor pe lună
+      }
     })
     return totals
   }, [matrixData])
 
-  // Grand totals
-  const grandTotal = useMemo(() => {
-    let ron = 0, kwh = 0, slots = 0
-    Object.values(locationTotals).forEach(t => {
-      ron += t.ron
-      kwh += t.kwh
-      slots += t.slots || 0
+  // Grand totals SUMĂ - pentru stats cards și grafic
+  const grandTotalSum = useMemo(() => {
+    let totalRon = 0, totalKwh = 0
+    
+    // Calculează sloturile CORECT: suma sloturilor pentru fiecare lună (toate locațiile), apoi media pe luni
+    const slotsPerMonth = [] // Array cu suma sloturilor pentru fiecare lună (toate locațiile combinate)
+    
+    matrixData.sortedMonths.forEach(monthKey => {
+      let slotsForThisMonth = 0
+      let hasDataForThisMonth = false
+      
+      matrixData.sortedLocations.forEach(loc => {
+        if (matrixData.matrix[monthKey]?.[loc]) {
+          totalRon += matrixData.matrix[monthKey][loc].ron
+          totalKwh += matrixData.matrix[monthKey][loc].kwh
+          const slots = matrixData.matrix[monthKey][loc].slots || 0
+          slotsForThisMonth += slots // Adună sloturile pentru toate locațiile din această lună
+          hasDataForThisMonth = true
+        }
+      })
+      
+      if (hasDataForThisMonth && slotsForThisMonth > 0) {
+        slotsPerMonth.push(slotsForThisMonth) // Adaugă suma totală de sloturi pentru această lună
+      }
     })
-    return { ron, kwh, slots }
-  }, [locationTotals])
+    
+    // Media sloturilor = suma totală de sloturi pentru toate lunile / numărul de luni
+    const avgSlotsPerMonth = slotsPerMonth.length > 0 
+      ? slotsPerMonth.reduce((sum, slots) => sum + slots, 0) / slotsPerMonth.length 
+      : 0
+    
+    return { 
+      ron: totalRon, // Suma totală
+      kwh: totalKwh, // Suma totală
+      slots: slotsPerMonth.reduce((sum, slots) => sum + slots, 0), // Suma sloturilor pentru calcul
+      avgSlotsPerMonth // Media sloturilor pe lună (suma pentru toate locațiile)
+    }
+  }, [matrixData])
+
+  // Grand totals - MEDIA pe slot pentru toate locațiile (pentru rândul TOTAL SALĂ)
+  const grandTotal = useMemo(() => {
+    let totalRon = 0, totalKwh = 0, totalSlots = 0
+    matrixData.sortedLocations.forEach(loc => {
+      let locRon = 0, locKwh = 0, locSlots = 0
+      matrixData.sortedMonths.forEach(monthKey => {
+        if (matrixData.matrix[monthKey]?.[loc]) {
+          locRon += matrixData.matrix[monthKey][loc].ron
+          locKwh += matrixData.matrix[monthKey][loc].kwh
+          locSlots += matrixData.matrix[monthKey][loc].slots || 0
+        }
+      })
+      totalRon += locRon
+      totalKwh += locKwh
+      totalSlots += locSlots
+    })
+    // Calculează media generală pe slot
+    const avgRonPerSlot = totalSlots > 0 ? totalRon / totalSlots : 0
+    const avgKwhPerSlot = totalSlots > 0 ? totalKwh / totalSlots : 0
+    const avgSlots = matrixData.sortedLocations.length > 0 && matrixData.sortedMonths.length > 0 
+      ? totalSlots / (matrixData.sortedLocations.length * matrixData.sortedMonths.length) 
+      : 0
+    return { 
+      ron: avgRonPerSlot, // Media pe slot
+      kwh: avgKwhPerSlot, // Media pe slot
+      slots: avgSlots // Media sloturilor
+    }
+  }, [matrixData])
 
   // Handle invoice selection
   const handleInvoiceSelect = (invoiceNumber) => {
@@ -334,17 +658,17 @@ const ExpendituresElectric = () => {
   }
 
   // Average price
-  const avgPrice = grandTotal.kwh > 0 ? grandTotal.ron / grandTotal.kwh : 0
+  const avgPrice = grandTotalSum.kwh > 0 ? grandTotalSum.ron / grandTotalSum.kwh : 0
 
   // Analiză teoretică consum sloturi vs restul sălii
   // Presupunere: 1 slot consumă ~0.35 kWh (350W medie) x 24h x 30 zile = ~252 kWh/lună
   const SLOT_CONSUMPTION_KWH_PER_MONTH = 252 // kWh/slot/lună estimativ
   const theoreticalAnalysis = useMemo(() => {
     const months = matrixData.sortedMonths.length
-    if (months === 0 || grandTotal.slots === 0) return null
+    if (months === 0 || grandTotalSum.slots === 0) return null
     
-    const theoreticalSlotConsumption = grandTotal.slots * SLOT_CONSUMPTION_KWH_PER_MONTH * months
-    const actualConsumption = grandTotal.kwh
+    const theoreticalSlotConsumption = grandTotalSum.slots * SLOT_CONSUMPTION_KWH_PER_MONTH * months
+    const actualConsumption = grandTotalSum.kwh
     const otherConsumption = Math.max(0, actualConsumption - theoreticalSlotConsumption)
     const slotPercentage = actualConsumption > 0 ? (theoreticalSlotConsumption / actualConsumption) * 100 : 0
     const otherPercentage = 100 - slotPercentage
@@ -356,7 +680,7 @@ const ExpendituresElectric = () => {
       slotPercentage: Math.min(100, slotPercentage), // Cap at 100%
       otherPercentage: Math.max(0, otherPercentage)
     }
-  }, [grandTotal, matrixData.sortedMonths.length])
+  }, [grandTotalSum, matrixData.sortedMonths.length])
 
   // Date pentru graficul de evoluție lunară
   const chartData = useMemo(() => {
@@ -397,6 +721,9 @@ const ExpendituresElectric = () => {
       }
     })
     
+    // Grupează datele pe factură + NLC pentru a detecta duplicate
+    const invoiceNlcMap = new Map() // key: "factura_nlc_perioada"
+    
     filteredData.forEach(item => {
       const invoiceNumber = item.numar_factura
       if (!invoiceNumber) return
@@ -405,6 +732,26 @@ const ExpendituresElectric = () => {
       if (item.nlc_code) {
         allUniqueNlcs.add(item.nlc_code)
       }
+      
+      // Creează o cheie unică pentru a detecta duplicate
+      const uniqueKey = `${invoiceNumber}_${item.nlc_code || 'N/A'}_${item.perioada_facturare || 'N/A'}`
+      
+      if (!invoiceNlcMap.has(uniqueKey)) {
+        invoiceNlcMap.set(uniqueKey, {
+          item,
+          count: 1
+        })
+      } else {
+        // Duplicat detectat - păstrează doar prima înregistrare
+        const existing = invoiceNlcMap.get(uniqueKey)
+        existing.count++
+        console.warn(`⚠️ Duplicat detectat pentru ${uniqueKey}: ${existing.count} înregistrări`)
+      }
+    })
+    
+    // Procesează datele fără duplicate
+    invoiceNlcMap.forEach(({ item, count }) => {
+      const invoiceNumber = item.numar_factura
       
       if (!invoiceMap[invoiceNumber]) {
         // Verifică dacă factura e în cheltuieli
@@ -418,17 +765,42 @@ const ExpendituresElectric = () => {
           totalKwh: 0,
           nlcCount: 0,
           nlcCodes: new Set(),
+          contorCodes: new Set(), // Coduri contor
           locations: new Set(),
           inExpenditures,
-          expendituresAmount
+          expendituresAmount,
+          duplicateCount: 0, // Număr de duplicate detectate
+          invoiceTotalAmount: null // Suma totală extrasă direct din factură
         }
       }
       
-      invoiceMap[invoiceNumber].totalRon += parseFloat(item.suma_totala) || 0
-      invoiceMap[invoiceNumber].totalKwh += parseFloat(item.consum_kwh) || 0
-      invoiceMap[invoiceNumber].nlcCount += 1
+      // PRIORITATE ABSOLUTĂ: Folosește suma totală extrasă din factură dacă există
+      // Aceasta este SINGURA SURSĂ DE ADEVĂR pentru suma totală
+      if (item.invoice_total_amount && parseFloat(item.invoice_total_amount) > 0) {
+        const extractedAmount = parseFloat(item.invoice_total_amount)
+        if (!invoiceMap[invoiceNumber].invoiceTotalAmount || invoiceMap[invoiceNumber].invoiceTotalAmount !== extractedAmount) {
+          invoiceMap[invoiceNumber].invoiceTotalAmount = extractedAmount
+          console.log(`   ✅ Factura ${invoiceNumber}: Suma extrasă din factură: ${extractedAmount.toFixed(2)} RON`)
+        }
+      }
+      
+      // Adaugă suma NLC-ului doar pentru calcul (dacă nu există suma extrasă, o folosim ca fallback)
+      // IMPORTANT: Nu adăuga duplicatele
+      if (count === 1) {
+        invoiceMap[invoiceNumber].totalRon += parseFloat(item.suma_totala) || 0
+        invoiceMap[invoiceNumber].totalKwh += parseFloat(item.consum_kwh) || 0
+        invoiceMap[invoiceNumber].nlcCount += 1
+      } else {
+        // Duplicat detectat - nu adăuga suma de mai multe ori
+        invoiceMap[invoiceNumber].duplicateCount += (count - 1)
+        console.warn(`⚠️ Duplicat ignorat pentru factura ${invoiceNumber}, NLC ${item.nlc_code}: ${count} înregistrări`)
+      }
+      
       if (item.nlc_code) {
         invoiceMap[invoiceNumber].nlcCodes.add(item.nlc_code)
+      }
+      if (item.numar_contor) {
+        invoiceMap[invoiceNumber].contorCodes.add(item.numar_contor)
       }
       if (item.location_name) {
         invoiceMap[invoiceNumber].locations.add(item.location_name)
@@ -437,11 +809,41 @@ const ExpendituresElectric = () => {
     
     // Convertește la array și sortează pe perioadă
     const invoices = Object.values(invoiceMap)
-      .map(inv => ({
-        ...inv,
-        nlcCodes: Array.from(inv.nlcCodes),
-        locations: Array.from(inv.locations)
-      }))
+      .map(inv => {
+        // PRIORITATE ABSOLUTĂ: Folosește ÎNTOTDEAUNA suma totală extrasă din factură dacă există
+        // Aceasta este SINGURA SURSĂ DE ADEVĂR pentru suma totală
+        const finalTotalRon = inv.invoiceTotalAmount && inv.invoiceTotalAmount > 0
+          ? inv.invoiceTotalAmount
+          : inv.totalRon
+        
+        // Verifică dacă există o discrepanță mare între suma extrasă și suma calculată
+        if (inv.invoiceTotalAmount && inv.invoiceTotalAmount > 0 && inv.totalRon > 0) {
+          const diferenta = Math.abs(inv.totalRon - inv.invoiceTotalAmount)
+          const procentDiferenta = (diferenta / inv.invoiceTotalAmount) * 100
+          if (procentDiferenta > 5) {
+            console.warn(`⚠️ Factura ${inv.number}: Discrepanță ${procentDiferenta.toFixed(1)}%`)
+            console.warn(`   → Suma extrasă din factură: ${inv.invoiceTotalAmount.toFixed(2)} RON`)
+            console.warn(`   → Suma calculată din NLC-uri: ${inv.totalRon.toFixed(2)} RON`)
+            console.warn(`   → Se folosește suma extrasă (corectă)`)
+          }
+        }
+        
+        // Verifică dacă există duplicate și afișează avertisment
+        if (inv.duplicateCount > 0) {
+          console.warn(`⚠️ Factura ${inv.number}: ${inv.duplicateCount} duplicate detectate`)
+        }
+        
+        return {
+          ...inv,
+          totalRon: finalTotalRon, // Folosește suma extrasă din factură (prioritate absolută)
+          calculatedRon: inv.totalRon, // Păstrează suma calculată pentru comparație
+          nlcCodes: Array.from(inv.nlcCodes),
+          contorCodes: Array.from(inv.contorCodes),
+          locations: Array.from(inv.locations),
+          hasDuplicates: inv.duplicateCount > 0,
+          usingExtractedAmount: inv.invoiceTotalAmount && inv.invoiceTotalAmount > 0
+        }
+      })
       .sort((a, b) => {
         // Sortare pe perioadă
         const dateA = a.period.split(' - ')[0] || ''
@@ -554,7 +956,7 @@ const ExpendituresElectric = () => {
               </div>
             </div>
 
-            {/* Filtre Locație */}
+            {/* Filtre Locație și NLC */}
             <div className="flex items-end gap-3">
               <div className="relative">
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
@@ -572,6 +974,25 @@ const ExpendituresElectric = () => {
                   ))}
                 </select>
               </div>
+              {nlcFilter !== 'all' && (
+                <div className="relative">
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    Filtru NLC Activ
+                  </label>
+                  <div className="flex items-center gap-2 px-4 py-2 border-2 border-blue-500 dark:border-blue-400 rounded-lg bg-blue-50 dark:bg-blue-900/30">
+                    <span className="text-sm font-mono font-semibold text-blue-700 dark:text-blue-300">
+                      {nlcFilter}
+                    </span>
+                    <button
+                      onClick={() => setNlcFilter('all')}
+                      className="p-1 hover:bg-blue-200 dark:hover:bg-blue-800 rounded transition-colors"
+                      title="Elimină filtrul NLC"
+                    >
+                      <X className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           
@@ -709,14 +1130,14 @@ const ExpendituresElectric = () => {
           <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-6 rounded-2xl shadow-lg">
             <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Total Cost</p>
             <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400 mt-2">
-              {grandTotal.ron.toLocaleString('ro-RO', { minimumFractionDigits: 2 })}
+              {grandTotalSum.ron.toLocaleString('ro-RO', { minimumFractionDigits: 2 })}
             </p>
             <p className="text-sm text-slate-500">lei</p>
           </div>
           <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-6 rounded-2xl shadow-lg">
             <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Total Consum</p>
             <p className="text-3xl font-bold text-blue-600 dark:text-blue-400 mt-2">
-              {grandTotal.kwh.toLocaleString('ro-RO', { maximumFractionDigits: 0 })}
+              {grandTotalSum.kwh.toLocaleString('ro-RO', { maximumFractionDigits: 0 })}
             </p>
             <p className="text-sm text-slate-500">kWh</p>
           </div>
@@ -734,22 +1155,22 @@ const ExpendituresElectric = () => {
             </p>
             <p className="text-sm text-slate-500">active / facturate</p>
           </div>
-          <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-6 rounded-2xl shadow-lg">
+          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-6 rounded-2xl shadow-lg">
             <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Cost / Slot / Lună</p>
             <p className="text-3xl font-bold text-purple-600 dark:text-purple-400 mt-2">
-              {grandTotal.slots > 0 && matrixData.sortedMonths.length > 0 
-                ? (grandTotal.ron / grandTotal.slots / matrixData.sortedMonths.length).toFixed(2) 
+              {grandTotalSum.avgSlotsPerMonth > 0 && matrixData.sortedMonths.length > 0 
+                ? (grandTotalSum.ron / matrixData.sortedMonths.length / grandTotalSum.avgSlotsPerMonth).toFixed(2) 
                 : '—'}
             </p>
             <p className="text-sm text-slate-500">
-              lei/slot/lună ({grandTotal.slots} sloturi, {matrixData.sortedMonths.length} {matrixData.sortedMonths.length === 1 ? 'lună' : 'luni'})
+              lei/slot/lună ({Math.round(grandTotalSum.avgSlotsPerMonth)} sloturi medii, {matrixData.sortedMonths.length} {matrixData.sortedMonths.length === 1 ? 'lună' : 'luni'})
             </p>
           </div>
-          <div className="bg-gradient-to-br from-cyan-50 to-teal-50 dark:from-cyan-900/20 dark:to-teal-900/20 p-6 rounded-2xl shadow-lg">
+          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-6 rounded-2xl shadow-lg">
             <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">kWh / Slot / Lună</p>
             <p className="text-3xl font-bold text-cyan-600 dark:text-cyan-400 mt-2">
-              {grandTotal.slots > 0 && matrixData.sortedMonths.length > 0 
-                ? (grandTotal.kwh / grandTotal.slots / matrixData.sortedMonths.length).toFixed(1) 
+              {grandTotalSum.avgSlotsPerMonth > 0 && matrixData.sortedMonths.length > 0 
+                ? (grandTotalSum.kwh / matrixData.sortedMonths.length / grandTotalSum.avgSlotsPerMonth).toFixed(1) 
                 : '—'}
             </p>
             <p className="text-sm text-slate-500">kWh/slot/lună</p>
@@ -817,7 +1238,7 @@ const ExpendituresElectric = () => {
               </h3>
               <div className="text-right">
                 <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                  {grandTotal.ron.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON
+                  {grandTotalSum.ron.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON
                 </div>
                 <div className="text-xs text-slate-500">Total perioadă</div>
               </div>
@@ -843,10 +1264,29 @@ const ExpendituresElectric = () => {
                       borderRadius: '8px'
                     }}
                     labelStyle={{ color: isDark ? '#f1f5f9' : '#1e293b', fontWeight: 'bold' }}
-                    formatter={(value, name) => [
-                      `${Number(value).toLocaleString('ro-RO', { minimumFractionDigits: 2 })} ${name === 'total' ? 'RON' : 'kWh'}`,
-                      name === 'total' ? 'Cost' : 'Consum'
-                    ]}
+                    formatter={(value, name, props) => {
+                      // name poate fi "Cost (RON)" sau "Consum (kWh)" din prop-ul name al Line
+                      // Verificăm dacă conține "Cost" sau "Consum"
+                      const isCost = name?.includes('Cost') || name === 'total' || props?.dataKey === 'total'
+                      const isKwh = name?.includes('Consum') || name === 'kwh' || props?.dataKey === 'kwh'
+                      
+                      if (isCost) {
+                        return [
+                          `${Number(value).toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} RON`,
+                          'Cost'
+                        ]
+                      } else if (isKwh) {
+                        return [
+                          `${Number(value).toLocaleString('ro-RO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} kWh`,
+                          'Consum'
+                        ]
+                      }
+                      // Fallback
+                      return [
+                        `${Number(value).toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                        name || 'Valoare'
+                      ]
+                    }}
                   />
                   <Legend />
                   <Line 
@@ -858,8 +1298,120 @@ const ExpendituresElectric = () => {
                     dot={{ fill: '#3b82f6', strokeWidth: 2, r: 5 }}
                     activeDot={{ r: 8, fill: '#2563eb' }}
                   />
+                  <Line 
+                    type="monotone" 
+                    dataKey="kwh" 
+                    name="Consum (kWh)"
+                    stroke="#22c55e" 
+                    strokeWidth={3}
+                    dot={{ fill: '#22c55e', strokeWidth: 2, r: 5 }}
+                    activeDot={{ r: 8, fill: '#16a34a' }}
+                  />
                 </LineChart>
               </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* Tabel Centralizator Costuri pe Locație */}
+        {!loading && matrixData.sortedMonths.length > 0 && (
+          <div className="mb-6 p-5 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-700">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
+              <span>💰</span> Centralizator Costuri pe Locație
+              <span className="text-xs font-normal text-slate-500">
+                ({dateRange.startDate} - {dateRange.endDate})
+              </span>
+            </h3>
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-slate-800 dark:bg-slate-900">
+                      <th className="px-4 py-3 text-left font-bold text-white border-b border-r border-slate-600 min-w-[140px]">
+                        LUNĂ
+                      </th>
+                      {matrixData.sortedLocations.map(loc => (
+                        <th 
+                          key={loc} 
+                          className="px-4 py-3 text-center font-bold text-white border-b border-r border-slate-600"
+                        >
+                          {loc}
+                        </th>
+                      ))}
+                      <th className="px-4 py-3 text-center font-bold text-white border-b border-slate-600">
+                        TOTAL LUNĂ
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-slate-800">
+                    {matrixData.sortedMonths.map((monthKey) => {
+                      let monthTotal = 0
+                      return (
+                        <tr 
+                          key={monthKey} 
+                          className="border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                        >
+                          <td 
+                            className="px-4 py-3 font-semibold text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-slate-700 whitespace-nowrap cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
+                            onClick={() => navigate(`/expenditures/electric/${monthKey}`)}
+                            title="Click pentru detalii lună"
+                          >
+                            {formatMonthKey(monthKey)}
+                          </td>
+                          {matrixData.sortedLocations.map(loc => {
+                            const cellData = matrixData.matrix[monthKey]?.[loc]
+                            const ron = cellData?.ron || 0
+                            monthTotal += ron
+                            return (
+                              <td 
+                                key={loc}
+                                className="px-3 py-2 text-right text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-slate-700"
+                              >
+                                {ron > 0 ? (
+                                  <span className="font-medium">
+                                    {ron.toLocaleString('ro-RO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 dark:text-slate-600">—</span>
+                                )}
+                              </td>
+                            )
+                          })}
+                          <td className="px-3 py-2 text-right font-bold text-slate-900 dark:text-white">
+                            {monthTotal.toLocaleString('ro-RO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-slate-800 dark:bg-slate-900 font-bold">
+                      <td className="px-4 py-3 text-white border-t border-r border-slate-600">
+                        TOTAL LOCAȚIE
+                      </td>
+                      {matrixData.sortedLocations.map(loc => {
+                        let locTotal = 0
+                        matrixData.sortedMonths.forEach(monthKey => {
+                          if (matrixData.matrix[monthKey]?.[loc]) {
+                            locTotal += matrixData.matrix[monthKey][loc].ron
+                          }
+                        })
+                        return (
+                          <td 
+                            key={loc}
+                            className="px-3 py-2 text-right text-white border-t border-r border-slate-600"
+                          >
+                            {locTotal.toLocaleString('ro-RO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          </td>
+                        )
+                      })}
+                      <td className="px-3 py-2 text-right text-lg text-white border-t border-slate-600">
+                        {grandTotalSum.ron.toLocaleString('ro-RO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -948,7 +1500,7 @@ const ExpendituresElectric = () => {
                                     {cellData.ron.toLocaleString('ro-RO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                                   </span>
                                   {ronPerSlot && (
-                                    <div className="text-xs text-purple-600 dark:text-purple-400 mt-0.5">
+                                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                                       {ronPerSlot.toFixed(2)}/slot
                                     </div>
                                   )}
@@ -962,7 +1514,7 @@ const ExpendituresElectric = () => {
                                 <div>
                                   <span>{cellData.kwh.toLocaleString('ro-RO', { maximumFractionDigits: 0 })}</span>
                                   {kwhPerSlot && (
-                                    <div className="text-xs text-cyan-600 dark:text-cyan-400 mt-0.5">
+                                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                                       {kwhPerSlot.toFixed(1)}/slot
                                     </div>
                                   )}
@@ -978,7 +1530,7 @@ const ExpendituresElectric = () => {
                         <div>
                           {monthTotals[monthKey]?.ron.toLocaleString('ro-RO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                           {monthTotals[monthKey]?.slots > 0 && (
-                            <div className="text-xs font-medium text-purple-600 dark:text-purple-400 mt-0.5">
+                            <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
                               {(monthTotals[monthKey].ron / monthTotals[monthKey].slots).toFixed(2)}/slot
                             </div>
                           )}
@@ -988,7 +1540,7 @@ const ExpendituresElectric = () => {
                         <div>
                           {monthTotals[monthKey]?.kwh.toLocaleString('ro-RO', { maximumFractionDigits: 0 })}
                           {monthTotals[monthKey]?.slots > 0 && (
-                            <div className="text-xs font-medium text-cyan-600 dark:text-cyan-400 mt-0.5">
+                            <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
                               {(monthTotals[monthKey].kwh / monthTotals[monthKey].slots).toFixed(1)}/slot
                             </div>
                           )}
@@ -1003,27 +1555,28 @@ const ExpendituresElectric = () => {
                       TOTAL SALĂ
                     </td>
                     {matrixData.sortedLocations.map(loc => {
-                      const locRonPerSlot = locationTotals[loc]?.slots > 0 ? locationTotals[loc].ron / locationTotals[loc].slots : null
-                      const locKwhPerSlot = locationTotals[loc]?.slots > 0 ? locationTotals[loc].kwh / locationTotals[loc].slots : null
+                      // Afișează doar media pe slot, nu suma
                       return (
                         <React.Fragment key={loc}>
                           <td className="px-3 py-2 text-right text-white border-t border-slate-600">
                             <div>
-                              {locationTotals[loc]?.ron.toLocaleString('ro-RO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                              {locRonPerSlot && (
-                                <div className="text-xs font-medium text-purple-300 mt-0.5">
-                                  {locRonPerSlot.toFixed(2)}/slot
+                              {locationTotals[loc]?.ron > 0 ? (
+                                <div className="text-xs font-medium text-slate-300">
+                                  {locationTotals[loc].ron.toFixed(2)}/slot
                                 </div>
+                              ) : (
+                                <span className="text-slate-400">—</span>
                               )}
                             </div>
                           </td>
                           <td className="px-3 py-2 text-right text-slate-300 border-t border-r border-slate-600">
                             <div>
-                              {locationTotals[loc]?.kwh.toLocaleString('ro-RO', { maximumFractionDigits: 0 })}
-                              {locKwhPerSlot && (
-                                <div className="text-xs font-medium text-cyan-300 mt-0.5">
-                                  {locKwhPerSlot.toFixed(1)}/slot
+                              {locationTotals[loc]?.kwh > 0 ? (
+                                <div className="text-xs font-medium text-slate-300">
+                                  {locationTotals[loc].kwh.toFixed(1)}/slot
                                 </div>
+                              ) : (
+                                <span className="text-slate-400">—</span>
                               )}
                             </div>
                           </td>
@@ -1032,21 +1585,23 @@ const ExpendituresElectric = () => {
                     })}
                     <td className="px-3 py-2 text-right text-lg text-white border-t border-slate-600">
                       <div>
-                        {grandTotal.ron.toLocaleString('ro-RO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                        {grandTotal.slots > 0 && (
-                          <div className="text-xs font-medium text-purple-300 mt-0.5">
-                            {(grandTotal.ron / grandTotal.slots).toFixed(2)}/slot
+                        {grandTotal.ron > 0 ? (
+                          <div className="text-sm font-medium text-slate-300">
+                            {grandTotal.ron.toFixed(2)}/slot
                           </div>
+                        ) : (
+                          <span className="text-slate-400">—</span>
                         )}
                       </div>
                     </td>
                     <td className="px-3 py-2 text-right text-lg text-slate-300 border-t border-slate-600">
                       <div>
-                        {grandTotal.kwh.toLocaleString('ro-RO', { maximumFractionDigits: 0 })}
-                        {grandTotal.slots > 0 && (
-                          <div className="text-xs font-medium text-cyan-300 mt-0.5">
-                            {(grandTotal.kwh / grandTotal.slots).toFixed(1)}/slot
+                        {grandTotal.kwh > 0 ? (
+                          <div className="text-sm font-medium text-slate-300">
+                            {grandTotal.kwh.toFixed(1)}/slot
                           </div>
+                        ) : (
+                          <span className="text-slate-400">—</span>
                         )}
                       </div>
                     </td>
@@ -1073,6 +1628,32 @@ const ExpendituresElectric = () => {
                 )}
               </h3>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    setCheckingDuplicates(true)
+                    try {
+                      const response = await axios.get('/api/expenditures/find-duplicate-invoices')
+                      if (response.data?.success) {
+                        setDuplicateResults(response.data)
+                        setShowDuplicateModal(true)
+                        toast.success(`Găsite ${response.data.summary.total_duplicates} duplicate și ${response.data.summary.total_suspicious} suspecte`)
+                      } else {
+                        toast.error(response.data?.error || 'Eroare la verificare')
+                      }
+                    } catch (error) {
+                      console.error('Error checking duplicates:', error)
+                      toast.error(error.response?.data?.error || 'Eroare la verificare duplicate')
+                    } finally {
+                      setCheckingDuplicates(false)
+                    }
+                  }}
+                  disabled={checkingDuplicates}
+                  className="px-3 py-1.5 text-sm bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white rounded-lg transition-colors flex items-center gap-1"
+                  title="Verifică duplicate în centralizator"
+                >
+                  <RefreshCw className={`w-4 h-4 ${checkingDuplicates ? 'animate-spin' : ''}`} />
+                  <span>Verifică Duplicate</span>
+                </button>
                 <button
                   onClick={() => setShowVerifyModal(true)}
                   className="px-3 py-1.5 text-sm bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors flex items-center gap-1"
@@ -1123,6 +1704,8 @@ const ExpendituresElectric = () => {
                     <th className="px-4 py-3 text-right font-semibold text-white text-sm">Cost Cheltuieli</th>
                     <th className="px-4 py-3 text-right font-semibold text-white text-sm">Consum kWh</th>
                     <th className="px-4 py-3 text-center font-semibold text-white text-sm">NLC-uri</th>
+                    <th className="px-4 py-3 text-left font-semibold text-white text-sm">Coduri NLC</th>
+                    <th className="px-4 py-3 text-left font-semibold text-white text-sm">Coduri Contor</th>
                     <th className="px-4 py-3 text-left font-semibold text-white text-sm">Locații</th>
                   </tr>
                 </thead>
@@ -1154,13 +1737,35 @@ const ExpendituresElectric = () => {
                           )}
                         </td>
                         <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-200 text-sm">
-                          {inv.number}
+                          <div className="flex items-center gap-2">
+                            {inv.hasDuplicates && (
+                              <span 
+                                className="text-orange-500 dark:text-orange-400 text-xs" 
+                                title={`⚠️ ${inv.duplicateCount} duplicate detectate`}
+                              >
+                                ⚠️
+                              </span>
+                            )}
+                            <span>{inv.number}</span>
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-slate-600 dark:text-slate-400 text-sm">
                           {inv.period}
                         </td>
                         <td className="px-4 py-3 text-right font-semibold text-emerald-600 dark:text-emerald-400 text-sm">
-                          {inv.totalRon.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON
+                          <div className="flex items-center justify-end gap-2">
+                            {inv.hasDuplicates && (
+                              <span 
+                                className="text-orange-500 dark:text-orange-400" 
+                                title={`⚠️ ${inv.duplicateCount} duplicate detectate - suma poate fi incorectă`}
+                              >
+                                ⚠️
+                              </span>
+                            )}
+                            <span className={inv.hasDuplicates ? 'text-orange-600 dark:text-orange-400' : ''}>
+                              {inv.totalRon.toLocaleString('ro-RO', { minimumFractionDigits: 2 })} RON
+                            </span>
+                          </div>
                         </td>
                         <td className={`px-4 py-3 text-right font-semibold text-sm ${
                           inv.inExpenditures 
@@ -1184,6 +1789,51 @@ const ExpendituresElectric = () => {
                         </td>
                         <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-400 text-sm">
                           {inv.nlcCount}
+                        </td>
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-400 text-sm">
+                          <div className="flex flex-wrap gap-1">
+                            {inv.nlcCodes && inv.nlcCodes.length > 0 ? (
+                              inv.nlcCodes.map(nlc => (
+                                <span 
+                                  key={nlc}
+                                  onClick={() => {
+                                    if (nlcFilter === nlc) {
+                                      setNlcFilter('all')
+                                    } else {
+                                      setNlcFilter(nlc)
+                                    }
+                                  }}
+                                  className={`px-2 py-0.5 rounded text-xs font-mono cursor-pointer transition-colors ${
+                                    nlcFilter === nlc
+                                      ? 'bg-blue-500 text-white dark:bg-blue-600 dark:text-white'
+                                      : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/60'
+                                  }`}
+                                  title={nlcFilter === nlc ? `Click pentru a elimina filtrul NLC ${nlc}` : `Click pentru a filtra după NLC ${nlc}`}
+                                >
+                                  {nlc}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-slate-400 dark:text-slate-500 text-xs">—</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-400 text-sm">
+                          <div className="flex flex-wrap gap-1">
+                            {inv.contorCodes && inv.contorCodes.length > 0 ? (
+                              inv.contorCodes.map(contor => (
+                                <span 
+                                  key={contor}
+                                  className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 rounded text-xs font-mono"
+                                  title={`Cod contor: ${contor}`}
+                                >
+                                  {contor}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-slate-400 dark:text-slate-500 text-xs">—</span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-slate-600 dark:text-slate-400 text-sm">
                           <div className="flex flex-wrap gap-1">
@@ -1223,6 +1873,12 @@ const ExpendituresElectric = () => {
                     </td>
                     <td className="px-4 py-3 text-center text-slate-700 dark:text-slate-300 text-sm">
                       {uniqueInvoices.totalUniqueNlcs} unice
+                    </td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400 text-sm">
+                      —
+                    </td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400 text-sm">
+                      —
                     </td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-400 text-sm">
                       {matrixData.sortedLocations.length} locații
@@ -1495,6 +2151,151 @@ const ExpendituresElectric = () => {
                     </button>
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal pentru Duplicate */}
+        {showDuplicateModal && duplicateResults && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+              <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  🔍 Facturi Duplicate și Suspecte
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowDuplicateModal(false)
+                    setDuplicateResults(null)
+                  }}
+                  className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto flex-1">
+                {/* Summary */}
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
+                    <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                      {duplicateResults.summary.total_duplicates}
+                    </div>
+                    <div className="text-sm text-slate-600 dark:text-slate-400">Duplicate</div>
+                  </div>
+                  <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800">
+                    <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                      {duplicateResults.summary.total_suspicious}
+                    </div>
+                    <div className="text-sm text-slate-600 dark:text-slate-400">Suspecte</div>
+                  </div>
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      {duplicateResults.summary.total_checked}
+                    </div>
+                    <div className="text-sm text-slate-600 dark:text-slate-400">Verificate</div>
+                  </div>
+                </div>
+
+                {/* Duplicate List */}
+                {duplicateResults.duplicates.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-3">
+                      🔴 Facturi Duplicate ({duplicateResults.duplicates.length})
+                    </h3>
+                    <div className="space-y-4">
+                      {duplicateResults.duplicates.map((dup, idx) => (
+                        <div key={idx} className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                          <div className="font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                            {dup.numar_factura}
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                            <div>
+                              <span className="text-slate-600 dark:text-slate-400">Înregistrări:</span>
+                              <span className="ml-2 font-semibold">{dup.record_count}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-600 dark:text-slate-400">Total:</span>
+                              <span className="ml-2 font-semibold">{dup.total_suma.toFixed(2)} RON</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-600 dark:text-slate-400">Min:</span>
+                              <span className="ml-2">{dup.min_suma.toFixed(2)} RON</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-600 dark:text-slate-400">Max:</span>
+                              <span className="ml-2">{dup.max_suma.toFixed(2)} RON</span>
+                            </div>
+                          </div>
+                          <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">
+                            NLC-uri: {dup.nlc_codes} | Locații: {dup.locations}
+                          </div>
+                          <div className="mt-2 text-xs text-red-600 dark:text-red-400">
+                            IDs: {dup.ids.join(', ')}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Suspicious List */}
+                {duplicateResults.suspicious.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-amber-600 dark:text-amber-400 mb-3">
+                      ⚠️ Facturi Suspecte ({duplicateResults.suspicious.length})
+                    </h3>
+                    <div className="space-y-4">
+                      {duplicateResults.suspicious.map((susp, idx) => (
+                        <div key={idx} className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                          <div className="font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                            {susp.numar_factura}
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                            <div>
+                              <span className="text-slate-600 dark:text-slate-400">Înregistrări:</span>
+                              <span className="ml-2 font-semibold">{susp.record_count}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-600 dark:text-slate-400">Total:</span>
+                              <span className="ml-2 font-semibold">{susp.total_suma.toFixed(2)} RON</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-600 dark:text-slate-400">Diferență:</span>
+                              <span className="ml-2">{susp.suma_difference.toFixed(2)} RON</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-600 dark:text-slate-400">Consum:</span>
+                              <span className="ml-2">{susp.total_consum.toFixed(0)} kWh</span>
+                            </div>
+                          </div>
+                          <div className="mt-2 text-xs text-slate-600 dark:text-slate-400">
+                            NLC-uri: {susp.nlc_codes} | Locații: {susp.locations}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {duplicateResults.duplicates.length === 0 && duplicateResults.suspicious.length === 0 && (
+                  <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                    ✅ Nu s-au găsit duplicate sau facturi suspecte!
+                  </div>
+                )}
+              </div>
+
+              <div className="p-6 border-t border-slate-200 dark:border-slate-700">
+                <button
+                  onClick={() => {
+                    setShowDuplicateModal(false)
+                    setDuplicateResults(null)
+                  }}
+                  className="w-full px-6 py-3 bg-slate-500 hover:bg-slate-600 text-white rounded-lg transition-colors font-semibold"
+                >
+                  Închide
+                </button>
               </div>
             </div>
           </div>

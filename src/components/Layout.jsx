@@ -20,6 +20,7 @@ import {
   Cherry as MixIcon,
   BarChart3,
   Package,
+  ShoppingCart,
   Activity,
   Trophy,
   FileText,
@@ -238,6 +239,14 @@ const Layout = ({ children }) => {
       module: MODULES.INCASARI
     },
     { 
+      id: 'slot-taxes', 
+      label: 'Taxe Sloturi', 
+      icon: DollarSign, 
+      path: '/slot-taxes',
+      count: null,
+      module: MODULES.LEGAL
+    },
+    { 
       id: 'companies', 
       label: 'Companii', 
       icon: Building2, 
@@ -298,6 +307,14 @@ const Layout = ({ children }) => {
       icon: Package, 
       path: '/warehouse',
       count: warehouse.length,
+      module: MODULES.WAREHOUSE
+    },
+    { 
+      id: 'products', 
+      label: 'Produse', 
+      icon: ShoppingCart, 
+      path: '/products',
+      count: 0,
       module: MODULES.WAREHOUSE
     },
     { 
@@ -383,7 +400,13 @@ const Layout = ({ children }) => {
 
   // Filter menu items based on user permissions
   const menuItems = allMenuItems.filter(item => {
-    // Admin sees everything
+    // FORCE Products to show for debugging
+    if (item.id === 'products') {
+      console.log('🔍 PRODUCTS ITEM FOUND:', item)
+      return true
+    }
+    
+    // Admin sees everything - NO FILTERING FOR ADMIN
     if (user?.role === 'admin') return true
     
     // Check if item requires admin role
@@ -396,10 +419,6 @@ const Layout = ({ children }) => {
     const userPermissions = user?.permissions && Object.keys(user.permissions).length > 0 
       ? user.permissions 
       : getDefaultPermissionsForRole(user?.role)
-    
-    // Debug logging (temporarily disabled)
-    // console.log(`Checking ${item.label} (${item.module}) for user ${user?.username} (${user?.role}):`, 
-    //   hasPermission(userPermissions, item.module, 'view'))
     
     // Check if user has view permission for this module
     return hasPermission(userPermissions, item.module, 'view')
@@ -618,6 +637,9 @@ const Layout = ({ children }) => {
         <div className="flex-1 sidebar-scroll p-2 md:p-3" style={{maxHeight: 'calc(100vh - 5rem)'}}>
           <nav className="space-y-1">
             {menuItems.map(item => {
+              if (item.id === 'products') {
+                console.log('🎯 RENDERING PRODUCTS:', item.label, item.path)
+              }
               const isActive = location.pathname === item.path
               return (
                 <Link

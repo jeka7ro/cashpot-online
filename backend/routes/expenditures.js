@@ -3932,13 +3932,15 @@ router.post('/analyze-electric-invoice', authenticateToken, async (req, res, nex
         success: true,
         extractedData,
         message: `Factură analizată cu succes. Găsite ${extractedData.nlc_codes?.length || 0} NLC-uri.`,
-        rawText: pdfText.substring(0, 500) // Primele 500 caractere pentru preview
+        rawText: (pdfText || '').substring(0, 500) // Primele 500 caractere pentru preview
       })
     } catch (extractError) {
       console.error('❌ Error in smart extraction:', extractError)
+      console.error('❌ Error stack:', extractError.stack)
       return res.status(500).json({
         success: false,
-        error: `Eroare la extragerea datelor: ${extractError.message}`
+        error: `Eroare la extragerea datelor: ${extractError.message}`,
+        stack: process.env.NODE_ENV === 'development' ? extractError.stack : undefined
       })
     }
   } catch (error) {
@@ -4112,6 +4114,11 @@ router.post('/save-electric-nlc', authenticateToken, async (req, res) => {
         continue
       }
 
+      // Extrage suma totală a facturii (extrasă direct din factură, nu calculată din NLC-uri)
+      const invoiceTotalAmount = extractedData.suma_totala 
+        ? (typeof extractedData.suma_totala === 'string' ? parseFloat(extractedData.suma_totala) : extractedData.suma_totala)
+        : null
+
       const result = await pool.query(`
         INSERT INTO electric_invoices_nlc (
           nlc_code,
@@ -4136,15 +4143,16 @@ router.post('/save-electric-nlc', authenticateToken, async (req, res) => {
           kwh_per_slot,
           cost_per_slot,
           pdf_file,
-          pdf_filename
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
+          pdf_filename,
+          invoice_total_amount
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
         RETURNING id
       `, [
         nlcCode,
         locationForNlc,
         numarFactura,
         perioadaForNlc,
-        sumaTotala > 0 ? sumaTotala : null,  // TOTAL (activă + reactivă)
+        sumaTotala > 0 ? sumaTotala : null,  // TOTAL (activă + reactivă) pentru acest NLC
         sumaActiva ? parseFloat(sumaActiva) : null,  // Energie activă
         sumaReactiva ? parseFloat(sumaReactiva) : null,  // Energie reactivă
         consumActiv ? parseFloat(consumActiv) : null,  // Consum activ (kWh)
@@ -4162,7 +4170,8 @@ router.post('/save-electric-nlc', authenticateToken, async (req, res) => {
         kwhPerSlot,
         costPerSlot,
         pdfData || null,  // PDF Base64
-        pdfFilename || null  // Numele fișierului PDF
+        pdfFilename || null,  // Numele fișierului PDF
+        invoiceTotalAmount && invoiceTotalAmount > 0 ? invoiceTotalAmount : null  // Suma totală extrasă din factură
       ])
 
       if (result.rows.length > 0) {
@@ -4290,7 +4299,8 @@ router.get('/electric-nlc-centralizer', authenticateToken, async (req, res) => {
         created_by,
         slots_count,
         kwh_per_slot,
-        cost_per_slot
+        cost_per_slot,
+        invoice_total_amount
       FROM electric_invoices_nlc
       WHERE 1=1
     `
@@ -4729,6 +4739,236 @@ router.post('/verify-electric-invoices', authenticateToken, async (req, res) => 
   }
 })
 
+// GET /api/expenditures/find-duplicate-invoices
+// Găsește facturi duplicate în centralizator (același număr factură cu sume diferite sau duplicate)
+router.get('/find-duplicate-invoices', authenticateToken, async (req, res) => {
+  console.log('🔍 FIND DUPLICATE INVOICES')
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    // Găsește toate facturile grupate după număr factură
+    const result = await pool.query(`
+      SELECT 
+        numar_factura,
+        COUNT(*) as record_count,
+        COUNT(DISTINCT nlc_code) as unique_nlc_count,
+        SUM(suma_totala) as total_suma,
+        MIN(suma_totala) as min_suma,
+        MAX(suma_totala) as max_suma,
+        SUM(consum_kwh) as total_consum,
+        STRING_AGG(DISTINCT nlc_code::text, ', ' ORDER BY nlc_code::text) as nlc_codes,
+        STRING_AGG(DISTINCT location_name, ', ' ORDER BY location_name) as locations,
+        STRING_AGG(DISTINCT perioada_facturare, ' | ') as perioade,
+        MIN(data_emiterii) as data_emiterii_min,
+        MAX(data_emiterii) as data_emiterii_max,
+        ARRAY_AGG(id ORDER BY id) as ids,
+        ARRAY_AGG(suma_totala ORDER BY id) as sume_individuale
+      FROM electric_invoices_nlc
+      WHERE numar_factura IS NOT NULL AND numar_factura != ''
+      GROUP BY numar_factura
+      HAVING COUNT(*) > 1 OR (MAX(suma_totala) - MIN(suma_totala)) > 0.01
+      ORDER BY COUNT(*) DESC, numar_factura
+    `)
+
+    const duplicates = []
+    const suspicious = []
+
+    for (const row of result.rows) {
+      const recordCount = parseInt(row.record_count)
+      const minSuma = parseFloat(row.min_suma) || 0
+      const maxSuma = parseFloat(row.max_suma) || 0
+      const sumaDiff = maxSuma - minSuma
+      const totalSuma = parseFloat(row.total_suma) || 0
+
+      // Dacă are mai multe înregistrări cu sume diferite, e suspect
+      if (recordCount > 1 && sumaDiff > 0.01) {
+        // Verifică dacă sunt duplicate reale (aceeași perioadă, locație, sumă)
+        const detailResult = await pool.query(`
+          SELECT 
+            id,
+            nlc_code,
+            location_name,
+            suma_totala,
+            consum_kwh,
+            perioada_facturare,
+            data_emiterii,
+            extracted_at
+          FROM electric_invoices_nlc
+          WHERE numar_factura = $1
+          ORDER BY id
+        `, [row.numar_factura])
+
+        // Verifică dacă există înregistrări identice (duplicate reale)
+        const identicalGroups = {}
+        detailResult.rows.forEach(record => {
+          const key = `${record.perioada_facturare || 'N/A'}_${record.location_name || 'N/A'}_${parseFloat(record.suma_totala || 0).toFixed(2)}`
+          if (!identicalGroups[key]) {
+            identicalGroups[key] = []
+          }
+          identicalGroups[key].push(record)
+        })
+
+        const hasRealDuplicates = Object.values(identicalGroups).some(group => group.length > 1)
+
+        if (hasRealDuplicates) {
+          duplicates.push({
+            numar_factura: row.numar_factura,
+            record_count: recordCount,
+            unique_nlc_count: parseInt(row.unique_nlc_count),
+            total_suma: totalSuma,
+            min_suma: minSuma,
+            max_suma: maxSuma,
+            suma_difference: sumaDiff,
+            total_consum: parseFloat(row.total_consum) || 0,
+            nlc_codes: row.nlc_codes,
+            locations: row.locations,
+            perioade: row.perioade,
+            data_emiterii_min: row.data_emiterii_min,
+            data_emiterii_max: row.data_emiterii_max,
+            ids: row.ids,
+            sume_individuale: row.sume_individuale,
+            details: detailResult.rows,
+            identical_groups: identicalGroups,
+            type: 'duplicate'
+          })
+        } else {
+          suspicious.push({
+            numar_factura: row.numar_factura,
+            record_count: recordCount,
+            unique_nlc_count: parseInt(row.unique_nlc_count),
+            total_suma: totalSuma,
+            min_suma: minSuma,
+            max_suma: maxSuma,
+            suma_difference: sumaDiff,
+            total_consum: parseFloat(row.total_consum) || 0,
+            nlc_codes: row.nlc_codes,
+            locations: row.locations,
+            perioade: row.perioade,
+            data_emiterii_min: row.data_emiterii_min,
+            data_emiterii_max: row.data_emiterii_max,
+            ids: row.ids,
+            sume_individuale: row.sume_individuale,
+            details: detailResult.rows,
+            type: 'suspicious'
+          })
+        }
+      }
+    }
+
+    console.log(`✅ Găsite ${duplicates.length} duplicate și ${suspicious.length} suspecte`)
+
+    res.json({
+      success: true,
+      duplicates,
+      suspicious,
+      summary: {
+        total_duplicates: duplicates.length,
+        total_suspicious: suspicious.length,
+        total_checked: result.rows.length
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error finding duplicate invoices:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// GET /api/expenditures/check-invoice-details/:invoiceNumber
+// Verifică detalii despre o factură specifică (pentru debugging)
+router.get('/check-invoice-details/:invoiceNumber', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    const invoiceNumber = decodeURIComponent(req.params.invoiceNumber).trim().toUpperCase()
+    
+    // Găsește toate înregistrările pentru această factură
+    const result = await pool.query(`
+      SELECT 
+        id,
+        nlc_code,
+        location_name,
+        numar_factura,
+        perioada_facturare,
+        suma_totala,
+        suma_activa,
+        suma_reactiva,
+        consum_kwh,
+        pret_per_kwh,
+        invoice_total_amount,
+        data_emiterii,
+        extracted_at
+      FROM electric_invoices_nlc
+      WHERE UPPER(TRIM(numar_factura)) = $1
+      ORDER BY id
+    `, [invoiceNumber])
+
+    // Calculează sumele
+    const totalSumaCalculata = result.rows.reduce((sum, r) => sum + (parseFloat(r.suma_totala) || 0), 0)
+    const totalConsum = result.rows.reduce((sum, r) => sum + (parseFloat(r.consum_kwh) || 0), 0)
+    
+    // Găsește suma totală extrasă din factură (dacă există)
+    const invoiceTotalAmount = result.rows.find(r => r.invoice_total_amount)?.invoice_total_amount || null
+    
+    // Detectează duplicate (aceeași perioadă + locație + NLC + sumă)
+    const duplicateGroups = {}
+    result.rows.forEach(row => {
+      const key = `${row.perioada_facturare || 'N/A'}_${row.location_name || 'N/A'}_${row.nlc_code || 'N/A'}_${parseFloat(row.suma_totala || 0).toFixed(2)}`
+      if (!duplicateGroups[key]) {
+        duplicateGroups[key] = []
+      }
+      duplicateGroups[key].push(row)
+    })
+
+    const duplicates = Object.values(duplicateGroups).filter(group => group.length > 1)
+    
+    // Verifică dacă există un NLC cu suma prea mare (probabil are suma totală a facturii)
+    const suspiciousNlcs = result.rows.filter(r => {
+      const sumaNlc = parseFloat(r.suma_totala) || 0
+      return invoiceTotalAmount && sumaNlc > invoiceTotalAmount * 0.8 // Dacă suma NLC-ului este >80% din suma facturii, e suspect
+    })
+
+    res.json({
+      success: true,
+      invoiceNumber,
+      totalRecords: result.rows.length,
+      totalSumaCalculata,
+      invoiceTotalAmount,
+      totalConsum,
+      records: result.rows,
+      duplicates: duplicates.flat(),
+      duplicateGroups: Object.fromEntries(
+        Object.entries(duplicateGroups).filter(([_, group]) => group.length > 1)
+      ),
+      suspiciousNlcs: suspiciousNlcs.map(r => ({
+        id: r.id,
+        nlc_code: r.nlc_code,
+        location_name: r.location_name,
+        suma_totala: r.suma_totala,
+        suma_activa: r.suma_activa,
+        suma_reactiva: r.suma_reactiva,
+        reason: `Suma NLC (${parseFloat(r.suma_totala || 0).toFixed(2)} RON) este ${((parseFloat(r.suma_totala || 0) / (invoiceTotalAmount || 1)) * 100).toFixed(1)}% din suma facturii (${invoiceTotalAmount?.toFixed(2) || 'N/A'} RON)`
+      })),
+      summary: {
+        uniqueNlcs: [...new Set(result.rows.map(r => r.nlc_code))].length,
+        uniqueLocations: [...new Set(result.rows.map(r => r.location_name))].length,
+        duplicateCount: duplicates.reduce((sum, group) => sum + (group.length - 1), 0),
+        hasInvoiceTotal: !!invoiceTotalAmount,
+        difference: invoiceTotalAmount ? Math.abs(totalSumaCalculata - invoiceTotalAmount) : null,
+        differencePercent: invoiceTotalAmount ? ((Math.abs(totalSumaCalculata - invoiceTotalAmount) / invoiceTotalAmount) * 100).toFixed(1) : null
+      }
+    })
+  } catch (error) {
+    console.error('❌ Error checking invoice details:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 // POST /api/expenditures/delete-electric-invoices
 // Șterge facturi selectate din centralizator după număr factură
 router.post('/delete-electric-invoices', authenticateToken, async (req, res) => {
@@ -5020,18 +5260,22 @@ router.post('/save-electric-invoice', authenticateToken, async (req, res) => {
             console.log(`         → ${slotsCount} sloturi, cost/slot: ${costPerSlot?.toFixed(2) || 'N/A'} lei, kWh/slot: ${kwhPerSlot?.toFixed(2) || 'N/A'}`)
           }
 
-          // Verifică dacă există deja o înregistrare identică (prevenire duplicat)
+          // Verifică dacă există deja o înregistrare identică (prevenire duplicat - verificare robustă)
           const existingCheck = await pool.query(`
             SELECT id FROM expenditures_sync 
             WHERE operational_date = $1 
               AND location_name = $2 
               AND department_name = 'Electricitate'
-              AND description LIKE '%NLC: ' || $3 || '%'
+              AND (
+                description LIKE '%NLC: ' || $3 || '%'
+                OR description LIKE '%Factură ' || $4 || '%'
+              )
+              AND ABS(amount - $5) < 0.01
             LIMIT 1
-          `, [lunaInfo.dataExpenditure, normalizedLocation, nlc.nlc])
+          `, [lunaInfo.dataExpenditure, normalizedLocation, nlc.nlc, numarFactura, sumaPerLuna])
 
           if (existingCheck.rows.length > 0) {
-            console.log(`      ⏭️ Există deja pentru ${lunaInfo.luna}/${lunaInfo.an} - skip duplicat`)
+            console.log(`      ⏭️ Există deja pentru ${lunaInfo.luna}/${lunaInfo.an} - skip duplicat (${sumaPerLuna.toFixed(2)} RON)`)
             continue
           }
 
@@ -5162,12 +5406,18 @@ router.post('/transfer-electric-to-expenditures', authenticateToken, async (req,
           continue
         }
 
+        // Extrage invoice_total_amount (suma extrasă direct din factură)
+        const invoiceTotalAmount = firstInvoice.invoice_total_amount 
+          ? parseFloat(firstInvoice.invoice_total_amount) 
+          : null
+
         const extractedData = {
           numar_factura: numarFactura,
           furnizor: firstInvoice.furnizor || 'Electrica',
           perioada_facturare: firstInvoice.perioada_facturare,
           pret_per_kwh: firstInvoice.pret_per_kwh,
           tva: firstInvoice.tva || 19,
+          suma_totala: invoiceTotalAmount, // Folosește suma extrasă din factură
           nlc_data: invoices.map(inv => ({
             nlc: inv.nlc_code,
             location: inv.location_name,
@@ -5182,6 +5432,15 @@ router.post('/transfer-electric-to-expenditures', authenticateToken, async (req,
 
         // Folosim aceeași logică ca în save-electric-invoice
         const nlcData = extractedData.nlc_data || []
+        
+        // IMPORTANT: Folosim invoice_total_amount (suma extrasă direct din factură) dacă există
+        // Altfel, calculăm din sumele NLC-urilor (pentru facturile vechi)
+        const totalSumaFactura = invoiceTotalAmount && invoiceTotalAmount > 0
+          ? invoiceTotalAmount
+          : nlcData.reduce((sum, nlc) => sum + (parseFloat(nlc.sumaTotala || nlc.suma || 0)), 0)
+        
+        // Calculează consumul total pentru distribuția proporțională
+        const totalConsumFactura = nlcData.reduce((sum, nlc) => sum + (parseFloat(nlc.consum || 0)), 0)
         const normalizedLocation = (locationName) => {
           if (!locationName) return 'N/A'
           return String(locationName).trim()
@@ -5190,7 +5449,20 @@ router.post('/transfer-electric-to-expenditures', authenticateToken, async (req,
         let savedCount = 0
 
         for (const nlc of nlcData) {
-          const sumaDeUtilizat = nlc.sumaTotala || nlc.suma || 0
+          const consumKwh = parseFloat(nlc.consum || 0)
+          
+          // Distribuie suma facturii proporțional pe baza consumului
+          let sumaDeUtilizat = 0
+          if (totalConsumFactura > 0 && consumKwh > 0) {
+            // Distribuie proporțional pe baza consumului
+            sumaDeUtilizat = totalSumaFactura * (consumKwh / totalConsumFactura)
+          } else if (nlcData.length > 0) {
+            // Dacă nu avem consum, distribuie egal pe NLC-uri
+            sumaDeUtilizat = totalSumaFactura / nlcData.length
+          } else {
+            // Fallback: folosește suma individuală a NLC-ului
+            sumaDeUtilizat = parseFloat(nlc.sumaTotala || nlc.suma || 0)
+          }
           
           if (!sumaDeUtilizat || sumaDeUtilizat <= 0) {
             continue
@@ -5240,19 +5512,24 @@ router.post('/transfer-electric-to-expenditures', authenticateToken, async (req,
           for (const lunaInfo of luniAcoperite) {
             try {
               const sumaPerLuna = sumaDeUtilizat * lunaInfo.proportie
-              const consumPerLuna = (nlc.consum || 0) * lunaInfo.proportie
+              const consumPerLuna = consumKwh * lunaInfo.proportie
 
-              // Verifică dacă există deja
+              // Verifică dacă există deja (verificare robustă pentru a preveni duplicatele)
               const existingCheck = await pool.query(`
                 SELECT id FROM expenditures_sync 
                 WHERE operational_date = $1 
                   AND location_name = $2 
                   AND department_name = 'Electricitate'
-                  AND description LIKE '%NLC: ' || $3 || '%'
+                  AND (
+                    description LIKE '%NLC: ' || $3 || '%'
+                    OR description LIKE '%Factură ' || $4 || '%'
+                  )
+                  AND ABS(amount - $5) < 0.01
                 LIMIT 1
-              `, [lunaInfo.dataExpenditure, normalizedLoc, nlc.nlc])
+              `, [lunaInfo.dataExpenditure, normalizedLoc, nlc.nlc, numarFactura, sumaPerLuna])
 
               if (existingCheck.rows.length > 0) {
+                console.log(`   ⏭️ Skip duplicat: ${lunaInfo.luna}/${lunaInfo.an} - ${normalizedLoc} - NLC ${nlc.nlc} (${sumaPerLuna.toFixed(2)} RON)`)
                 continue
               }
 

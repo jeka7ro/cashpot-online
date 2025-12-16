@@ -25,6 +25,7 @@ import SlotDetail from './pages/SlotDetail'
 import SlotHistory from './pages/SlotHistory'
 import CyberImport from './pages/CyberImport'
 import Warehouse from './pages/Warehouse'
+import Products from './pages/Products'
 import InventoryCentralizer from './pages/InventoryCentralizer'
 import Metrology from './pages/Metrology'
 import ApprovalDetail from './pages/ApprovalDetail'
@@ -105,6 +106,7 @@ function App() {
             <Route path="/slots/cyber-import" element={<RoleProtectedRoute module={MODULES.CYBER_IMPORT}><CyberImport /></RoleProtectedRoute>} />
             <Route path="/slots/:id" element={<RoleProtectedRoute module={MODULES.SLOTS}><SlotDetail /></RoleProtectedRoute>} />
             <Route path="/warehouse" element={<RoleProtectedRoute module={MODULES.WAREHOUSE}><Warehouse /></RoleProtectedRoute>} />
+            <Route path="/products" element={<RoleProtectedRoute module={MODULES.WAREHOUSE}><Products /></RoleProtectedRoute>} />
             <Route path="/warehouse/inventory-centralizer" element={<RoleProtectedRoute module={MODULES.WAREHOUSE}><InventoryCentralizer /></RoleProtectedRoute>} />
             <Route path="/metrology" element={<RoleProtectedRoute module={MODULES.METROLOGY}><Metrology /></RoleProtectedRoute>} />
             <Route path="/metrology/cvt/:id" element={<RoleProtectedRoute module={MODULES.METROLOGY}><CVTDetail /></RoleProtectedRoute>} />

@@ -74,18 +74,47 @@ async function importAll() {
       }
       
       try {
-        const result = await localPool.query(`
-          INSERT INTO expenditures_sync (
-            location_name, department_name, expenditure_type, amount, operational_date, data_source
-          ) VALUES ${placeholders.join(', ')}
-          ON CONFLICT (operational_date, amount, location_name, department_name, expenditure_type, data_source) 
-          DO NOTHING
-        `, values);
+        // Verifică duplicatele pentru fiecare înregistrare din batch
+        let batchInserted = 0;
+        for (const row of batch) {
+          const checkResult = await localPool.query(`
+            SELECT id FROM expenditures_sync
+            WHERE operational_date = $1
+              AND ABS(amount - $2) < 0.01
+              AND location_name = $3
+              AND department_name = $4
+              AND expenditure_type = $5
+              AND data_source = 'bat_sync'
+            LIMIT 1
+          `, [
+            row.operational_date,
+            row.amount || 0,
+            row.location_name || 'Nespecificat',
+            row.department_name || 'Nespecificat',
+            row.expenditure_type || 'Nespecificat'
+          ]);
+          
+          if (checkResult.rows.length === 0) {
+            // Nu există duplicat, inserează
+            await localPool.query(`
+              INSERT INTO expenditures_sync (
+                location_name, department_name, expenditure_type, amount, operational_date, data_source
+              ) VALUES ($1, $2, $3, $4, $5, 'bat_sync')
+            `, [
+              row.location_name || 'Nespecificat',
+              row.department_name || 'Nespecificat',
+              row.expenditure_type || 'Nespecificat',
+              row.amount || 0,
+              row.operational_date
+            ]);
+            batchInserted++;
+          }
+        }
         
-        inserted += result.rowCount || 0;
+        inserted += batchInserted;
         processed += batch.length;
         
-        console.log(`  Batch ${Math.ceil((i + BATCH_SIZE) / BATCH_SIZE)}: ${processed}/${totalRows} (inserări noi: ${inserted})`);
+        console.log(`  Batch ${Math.ceil((i + BATCH_SIZE) / BATCH_SIZE)}: ${processed}/${totalRows} (inserări noi: ${batchInserted}, duplicate: ${batch.length - batchInserted})`);
         
       } catch (e) {
         console.error('Eroare batch:', e.message);

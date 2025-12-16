@@ -503,6 +503,16 @@ const initializeDatabase = async () => {
       await pool.query('CREATE INDEX IF NOT EXISTS idx_electric_nlc_code ON electric_invoices_nlc(nlc_code)')
       await pool.query('CREATE INDEX IF NOT EXISTS idx_electric_nlc_location ON electric_invoices_nlc(location_name)')
       await pool.query('CREATE INDEX IF NOT EXISTS idx_electric_nlc_period ON electric_invoices_nlc(perioada_facturare)')
+      
+      // Adaugă coloană pentru suma totală a facturii (extrasă direct din factură, nu calculată din NLC-uri)
+      try {
+        await pool.query('ALTER TABLE electric_invoices_nlc ADD COLUMN IF NOT EXISTS invoice_total_amount DECIMAL(15,2)')
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_electric_invoice_total ON electric_invoices_nlc(numar_factura, invoice_total_amount)')
+        console.log('✅ Added invoice_total_amount column to electric_invoices_nlc table')
+      } catch (error) {
+        console.log('⚠️ invoice_total_amount column already exists or error:', error.message)
+      }
+      
       console.log('✅ Created electric_invoices_nlc table for centralizing NLC data')
     } catch (error) {
       console.log('⚠️ electric_invoices_nlc table creation skipped:', error.message)
@@ -4153,6 +4163,75 @@ app.post('/api/warehouse/bulk', authenticateUser, async (req, res) => {
     }
   } catch (error) {
     console.error('Warehouse bulk insert error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// POST /api/warehouse/import-products - Import products from API
+app.post('/api/warehouse/import-products', async (req, res) => {
+  try {
+    const { products, city, supplier } = req.body
+    
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ success: false, error: 'Products array is required' })
+    }
+    
+    // City is optional - if not provided, use null or 'Depozit'
+    const location = city || null
+    const supplierName = supplier || 'General'
+    
+    // Ensure "General" supplier exists (or create it)
+    // For now, we'll just use the supplier name provided
+    
+    const importedProducts = []
+    const errors = []
+    
+    for (const product of products) {
+      try {
+        // Extract product data - adapt based on your API structure
+        const productData = {
+          serial_number: product.cod || product.code || product.sku || product.id || `PROD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          provider: supplierName,
+          location: location || 'Depozit',
+          cabinet: product.tip || product.type || product.cabinet || '',
+          game_mix: product.nume || product.name || product.product_name || '',
+          status: 'Active',
+          notes: JSON.stringify({
+            cod: product.cod || product.code || '',
+            unitate: product.unitate || product.unit || '',
+            pret: product.pret || product.price || '',
+            ...product // Store all original product data
+          }),
+          created_by: req.user?.username || 'API Import',
+          created_at: new Date()
+        }
+        
+        // Insert into warehouse table
+        const result = await pool.query(
+          'INSERT INTO warehouse (serial_number, provider, location, cabinet, game_mix, status, notes, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP) RETURNING *',
+          [productData.serial_number, productData.provider, productData.location, productData.cabinet, productData.game_mix, productData.status, productData.notes, productData.created_by]
+        )
+        
+        importedProducts.push(result.rows[0])
+      } catch (error) {
+        console.error('Error importing product:', error)
+        errors.push({
+          product: product.cod || product.code || 'Unknown',
+          error: error.message
+        })
+      }
+    }
+    
+    res.json({
+      success: true,
+      imported: importedProducts.length,
+      total: products.length,
+      errors: errors.length,
+      products: importedProducts,
+      errorDetails: errors
+    })
+  } catch (error) {
+    console.error('Import products error:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })

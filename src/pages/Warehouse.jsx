@@ -6,6 +6,7 @@ import { useData } from '../contexts/DataContext'
 import { Package, Plus, Search, Upload, Download, Edit, Trash2, Eye, BarChart3, CheckCircle, AlertCircle, Activity, FileSpreadsheet } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import WarehouseModal from '../components/modals/WarehouseModal'
+import ImportProductsModal from '../components/modals/ImportProductsModal'
 import StatCard from '../components/StatCard'
 import { toast } from 'react-hot-toast'
 import { formatGameMixName } from '../utils/gameMixFormatter'
@@ -426,9 +427,12 @@ const Warehouse = () => {
                 className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
               />
             </div>
-            <button className="btn-secondary flex items-center space-x-2">
+            <button 
+              onClick={() => setShowImportModal(true)}
+              className="btn-secondary flex items-center space-x-2"
+            >
               <Upload className="w-4 h-4" />
-              <span>Importă</span>
+              <span>Importă din API</span>
             </button>
           </div>
         </div>
@@ -466,6 +470,18 @@ const Warehouse = () => {
             item={editingItem}
             onClose={() => setShowModal(false)}
             onSave={handleSave}
+          />
+        )}
+        
+        {/* Import Products Modal */}
+        {showImportModal && (
+          <ImportProductsModal
+            isOpen={showImportModal}
+            onClose={() => setShowImportModal(false)}
+            onImportComplete={(data) => {
+              // Refresh warehouse data after import
+              window.location.reload() // Or use your data refresh method
+            }}
           />
         )}
 
