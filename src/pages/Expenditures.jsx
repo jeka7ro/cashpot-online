@@ -1754,6 +1754,24 @@ const Expenditures = () => {
             {matrix.length > 0 && (
               <div className="flex items-center gap-3">
                 <button
+                  onClick={() => {
+                    console.log('🔄 Forțare reîncărcare date...')
+                    loadExpendituresData()
+                    toast.success('Datele se reîncarcă...', { duration: 2000 })
+                  }}
+                  className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-xs font-semibold border transition-all hover:scale-105 active:scale-95"
+                  style={{
+                    height: '40px',
+                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                    borderColor: 'rgba(255, 255, 255, 0.35)',
+                    boxShadow: '0 6px 18px rgba(245, 158, 11, 0.35)'
+                  }}
+                  title="Reîncarcă datele din baza de date"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Reîncarcă</span>
+                </button>
+                <button
                   onClick={handleExportExcel}
                   className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-xs font-semibold border transition-all hover:scale-105 active:scale-95"
                   style={{
