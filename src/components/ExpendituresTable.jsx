@@ -80,6 +80,15 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
           locationMap.set(normalized, loc)
         }
       })
+      
+      // DEBUG: Log location mapping for Salarii department
+      if (expendituresData.some(item => item.department_name === 'Salarii')) {
+        console.log('🔍 [ExpendituresTable] Location mapping:', {
+          locationsFromProp: locations,
+          locationMap: Array.from(locationMap.entries()),
+          sampleSalariiLocations: [...new Set(expendituresData.filter(item => item.department_name === 'Salarii').map(item => item.location_name))]
+        })
+      }
     }
     
     // Helper function to find matching location name from locations prop
