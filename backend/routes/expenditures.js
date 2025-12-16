@@ -3005,7 +3005,7 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
 router.delete('/google-sheets-data', authenticateToken, async (req, res) => {
   try {
     // SECURITATE: Verifică confirmarea
-    const { confirmDelete } = req.body
+    const { confirmDelete, department, startDate, endDate } = req.body
     if (!confirmDelete || confirmDelete !== true) {
       return res.status(400).json({
         success: false,
@@ -3018,17 +3018,50 @@ router.delete('/google-sheets-data', authenticateToken, async (req, res) => {
       return res.status(500).json({ success: false, error: 'Database pool not initialized' })
     }
 
-    const result = await pool.query(
-      'DELETE FROM expenditures_sync WHERE data_source = $1',
-      ['google_sheets']
-    )
+    // Construiește query-ul cu filtre opționale
+    let query = 'DELETE FROM expenditures_sync WHERE data_source = $1'
+    const params = ['google_sheets']
+    let paramIndex = 2
 
-    console.log(`🗑️ Șterse ${result.rowCount} înregistrări Google Sheets`)
+    if (department) {
+      query += ` AND department_name = $${paramIndex}`
+      params.push(department)
+      paramIndex++
+    }
+
+    if (startDate) {
+      query += ` AND operational_date >= $${paramIndex}`
+      params.push(startDate)
+      paramIndex++
+    }
+
+    if (endDate) {
+      query += ` AND operational_date < $${paramIndex}`
+      params.push(endDate)
+      paramIndex++
+    }
+
+    // Verifică câte înregistrări vor fi șterse
+    const countQuery = query.replace('DELETE FROM', 'SELECT COUNT(*) as count FROM')
+    const countResult = await pool.query(countQuery, params)
+    const countToDelete = parseInt(countResult.rows[0].count) || 0
+
+    if (countToDelete === 0) {
+      return res.json({
+        success: true,
+        deleted: 0,
+        message: 'Nu există date Google Sheets care să corespundă criteriilor specificate'
+      })
+    }
+
+    const result = await pool.query(query, params)
+
+    console.log(`🗑️ Șterse ${result.rowCount} înregistrări Google Sheets${department ? ` pentru ${department}` : ''}${startDate && endDate ? ` (${startDate} - ${endDate})` : ''}`)
     
     res.json({
       success: true,
       deleted: result.rowCount,
-      message: `Șterse ${result.rowCount} înregistrări Google Sheets`
+      message: `Șterse ${result.rowCount} înregistrări Google Sheets${department ? ` pentru ${department}` : ''}${startDate && endDate ? ` (${startDate} - ${endDate})` : ''}`
     })
   } catch (error) {
     console.error('❌ Error deleting Google Sheets data:', error)
