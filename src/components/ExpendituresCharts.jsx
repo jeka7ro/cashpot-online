@@ -14,11 +14,28 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const [hoveredDepartment, setHoveredDepartment] = useState(null)
+  
+  // FILTREAZĂ DATELE DUPĂ PERIOADĂ SELECTATĂ (pentru toate graficele)
+  const filteredDataForCharts = React.useMemo(() => {
+    if (!dateRange.startDate || !dateRange.endDate) {
+      return expendituresData
+    }
+    
+    const filterStartDate = new Date(dateRange.startDate + 'T00:00:00')
+    const filterEndDate = new Date(dateRange.endDate + 'T23:59:59')
+    
+    return expendituresData.filter(item => {
+      if (!item.operational_date) return false
+      const itemDate = new Date(item.operational_date)
+      return itemDate >= filterStartDate && itemDate <= filterEndDate
+    })
+  }, [expendituresData, dateRange.startDate, dateRange.endDate])
+  
   // Process data for charts
   const processDepartmentData = () => {
     const deptMap = {}
     
-    expendituresData.forEach(item => {
+    filteredDataForCharts.forEach(item => {
       const dept = item.department_name || 'Unknown'
       
       // SKIP "Unknown" (user NU vrea să-l vadă!)
@@ -47,7 +64,7 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
   const processLocationData = () => {
     const locMap = {}
     
-    expendituresData.forEach(item => {
+    filteredDataForCharts.forEach(item => {
       const loc = item.location_name || 'Unknown'
       if (!locMap[loc]) {
         locMap[loc] = 0
@@ -61,6 +78,9 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
   }
   
   const processTrendData = () => {
+    // Folosește datele deja filtrate după perioadă
+    const filteredData = filteredDataForCharts
+    
     // Detectăm dacă e selectată doar o lună
     const startDate = new Date(dateRange.startDate)
     const endDate = new Date(dateRange.endDate)
@@ -73,7 +93,7 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
       // AGREGARE PE ZI (când e selectată o singură lună)
       const dayMap = {}
       
-      expendituresData.forEach(item => {
+      filteredData.forEach(item => {
         const dateObj = new Date(item.operational_date)
         const dayKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`
         
@@ -99,7 +119,7 @@ const ExpendituresCharts = ({ expendituresData, dateRange, onDepartmentClick, on
       // AGREGARE PE LUNĂ (când e selectat interval mai mare)
       const monthMap = {}
       
-      expendituresData.forEach(item => {
+      filteredData.forEach(item => {
         const dateObj = new Date(item.operational_date)
         const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`
         

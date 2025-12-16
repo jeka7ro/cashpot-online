@@ -4126,6 +4126,7 @@ const Incasari = () => {
                   stroke="#64748b" 
                   style={{ fontSize: '12px' }}
                   tickFormatter={(value) => formatNumber(value)}
+                  domain={['dataMin - 50000', 'dataMax + 50000']}
                 />
                 <YAxis
                   yAxisId="right"
@@ -4210,8 +4211,16 @@ const Incasari = () => {
                   <LabelList
                     dataKey="totalGgr"
                     position="top"
+                    offset={15}
                     formatter={(value) => formatNumber(value)}
-                    style={{ fontSize: '10px', fontWeight: 'bold', fill: '#22c55e' }}
+                    style={{ 
+                      fontSize: '14px', 
+                      fontWeight: 'bold', 
+                      fill: '#065f46',
+                      textShadow: '0 0 3px rgba(255, 255, 255, 0.9), 0 1px 2px rgba(0, 0, 0, 0.2)',
+                      paintOrder: 'stroke fill'
+                    }}
+                    className="dark:fill-green-300 dark:drop-shadow-[0_0_3px_rgba(0,0,0,0.8)]"
                   />
                 </Line>
                 <Line

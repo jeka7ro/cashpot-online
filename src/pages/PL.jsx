@@ -404,6 +404,14 @@ const PL = () => {
         return
     }
     
+    // Curăță cache-ul când se schimbă perioada
+    try {
+      localStorage.removeItem('pl_daily_stats_cache')
+      console.log('🗑️ Cache curățat - perioadă schimbată prin filtru rapid')
+    } catch (e) {
+      // ignore
+    }
+    
     setDateRange({ startDate, endDate })
     setSelectedDateFilter(filterId)
   }
@@ -635,28 +643,45 @@ const PL = () => {
     const fetchDailyStats = async () => {
       try {
         const { startDate, endDate } = dateRange
-        if (!startDate || !endDate) return
+        if (!startDate || !endDate) {
+          setDailyStats([])
+          return
+        }
         
-        // Verifică cache-ul
+        // IMPORTANT: Nu folosim cache când se schimbă perioada - forțăm reîncărcare
+        // Cache-ul este util doar pentru refresh-uri automate în aceeași perioadă (max 2 minute)
+        setLoading(true)
+        
+        // Verifică cache-ul DOAR dacă perioada este aceeași și cache-ul este recent (max 2 minute)
+        let useCache = false
         try {
           const cached = localStorage.getItem('pl_daily_stats_cache')
           if (cached) {
             const parsed = JSON.parse(cached)
             const now = Date.now()
-            // Verifică dacă cache-ul este recent (max 5 minute) și pentru aceeași perioadă
+            // Verifică dacă cache-ul este pentru aceeași perioadă și este recent (max 2 minute)
             if (parsed.timestamp && 
-                (now - parsed.timestamp) < 5 * 60 * 1000 &&
                 parsed.dateRange?.startDate === startDate &&
-                parsed.dateRange?.endDate === endDate) {
+                parsed.dateRange?.endDate === endDate &&
+                (now - parsed.timestamp) < 2 * 60 * 1000) {
+              console.log('📦 Folosim cache pentru dailyStats (perioadă identică, cache recent)')
               setDailyStats(parsed.data || [])
-              return // Folosește cache-ul
+              setLoading(false)
+              useCache = true
+            } else {
+              // Perioada diferită sau cache expirat - șterge cache-ul
+              localStorage.removeItem('pl_daily_stats_cache')
+              console.log('🗑️ Cache invalidat - perioadă diferită sau expirat')
             }
           }
         } catch (e) {
           // Ignoră erorile de cache
         }
         
-        setLoading(true)
+        // Dacă folosim cache, nu mai facem request
+        if (useCache) {
+          return
+        }
 
         const params = {
           startDate,
@@ -2188,6 +2213,13 @@ const PL = () => {
   }, [dateRange, locationFilter, providerFilter, cabinetFilter, gameMixFilter])
 
   const handleDateChange = (range) => {
+    // Curăță cache-ul când se schimbă perioada manual
+    try {
+      localStorage.removeItem('pl_daily_stats_cache')
+      console.log('🗑️ Cache curățat - perioadă schimbată manual')
+    } catch (e) {
+      // ignore
+    }
     setDateRange({ startDate: range.startDate, endDate: range.endDate })
     setSelectedDateFilter('custom')
   }
@@ -4235,6 +4267,16 @@ const PL = () => {
           </div>
         </div>
         </div>
+
+        {/* Loading Indicator când se schimbă perioada */}
+        {loading && (
+          <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center gap-3">
+            <RefreshCw className="w-5 h-5 text-blue-600 dark:text-blue-400 animate-spin" />
+            <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+              Se încarcă datele pentru perioada {dateRange.startDate} - {dateRange.endDate}...
+            </span>
+          </div>
+        )}
 
         {/* Carduri KPI principale - mutate aici, imediat după filtre */}
         {(() => {
