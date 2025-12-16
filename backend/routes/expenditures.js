@@ -751,11 +751,11 @@ router.post('/sync', async (req, res) => {
         console.log('🌐 Attempting connection from:', process.env.RENDER_EXTERNAL_HOSTNAME || 'unknown host')
         console.log('🌐 Node environment:', process.env.NODE_ENV || 'unknown')
         
-        // Query cu timeout explicit
+        // Query cu timeout explicit - mărit la 90 secunde pentru conexiuni lente
         const testResult = await Promise.race([
           externalPool.query('SELECT NOW() as current_time, current_database() as db_name'),
           new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Connection test timeout after 60 seconds')), 60000)
+            setTimeout(() => reject(new Error('Connection test timeout after 90 seconds')), 90000)
           )
         ])
         
@@ -1070,6 +1070,34 @@ router.post('/sync', async (req, res) => {
             continue
           }
           
+          // Normalizează numele de locație pentru a converti fără diacritice la cu diacritice
+          const normalizeLocationNameForInsert = (name) => {
+            if (!name) return 'Unknown'
+            const upper = String(name).toUpperCase().trim()
+            
+            if (upper.includes('PITESTI') || upper.includes('PITEȘTI') || upper.includes('PITI')) {
+              return 'Pitești'
+            }
+            if (upper.includes('PLOIESTI') || upper.includes('PLOIEȘTI')) {
+              if (upper.includes('NORD')) return 'Ploiești (nord)'
+              if (upper.includes('CENTRU') || upper.includes('CENTER')) return 'Ploiești (centru)'
+              return 'Ploiești (centru)'
+            }
+            if (upper.includes('VALCEA') || upper.includes('VÂLCEA') || upper.includes('RAMNICU')) {
+              return 'Vâlcea'
+            }
+            if (upper.includes('CRAIOVA') || upper.includes('CARIOVA')) {
+              return 'Craiova'
+            }
+            if (upper.includes('BUCUREȘTI') || upper.includes('BUCHAREST') || upper.includes('BUCURESTI')) {
+              return 'București'
+            }
+            
+            return String(name).trim().replace(/\s+/g, ' ')
+          }
+          
+          const normalizedLocationName = normalizeLocationNameForInsert(row.location_name)
+          
           // Inserăm doar dacă nu există deja - folosim ON CONFLICT pentru siguranță maximă
           // IMPORTANT: Folosim 'bat_sync' ca data_source pentru consistență cu /import-all
           await localPool.query(`
@@ -1080,7 +1108,7 @@ router.post('/sync', async (req, res) => {
             ON CONFLICT (operational_date, amount, location_name, department_name, expenditure_type) 
             DO NOTHING
           `, [
-            row.location_name || 'Unknown',
+            normalizedLocationName,
             row.department_name || 'Unknown',
             row.expenditure_type || 'Unknown',
             normalizedAmount,
@@ -1580,6 +1608,35 @@ router.post('/import-all', authenticateToken, async (req, res) => {
         return String(str).trim().replace(/\s+/g, ' ')
       }
       
+      // Normalizează numele de locație pentru a converti fără diacritice la cu diacritice
+      // IMPORTANT: Convertește "Pitesti" → "Pitești", "Ploiesti" → "Ploiești", "Valcea" → "Vâlcea"
+      const normalizeLocationName = (name) => {
+        if (!name) return 'Unknown'
+        const upper = String(name).toUpperCase().trim()
+        
+        // Convertim la formatul standard cu diacritice
+        if (upper.includes('PITESTI') || upper.includes('PITEȘTI') || upper.includes('PITI')) {
+          return 'Pitești'
+        }
+        if (upper.includes('PLOIESTI') || upper.includes('PLOIEȘTI')) {
+          if (upper.includes('NORD')) return 'Ploiești (nord)'
+          if (upper.includes('CENTRU') || upper.includes('CENTER')) return 'Ploiești (centru)'
+          return 'Ploiești (centru)' // Default pentru Ploiesti
+        }
+        if (upper.includes('VALCEA') || upper.includes('VÂLCEA') || upper.includes('RAMNICU')) {
+          return 'Vâlcea'
+        }
+        if (upper.includes('CRAIOVA') || upper.includes('CARIOVA')) {
+          return 'Craiova'
+        }
+        if (upper.includes('BUCUREȘTI') || upper.includes('BUCHAREST') || upper.includes('BUCURESTI')) {
+          return 'București'
+        }
+        
+        // Dacă nu se potrivește cu niciunul, returnează originalul normalizat
+        return normalizeString(name)
+      }
+      
       const normalizeAmount = (amt) => {
         const num = parseFloat(amt) || 0
         // Rotunjim la 2 zecimale pentru a evita probleme cu floating point
@@ -1595,11 +1652,12 @@ router.post('/import-all', authenticateToken, async (req, res) => {
       }
       
       // Normalizăm datele externe
+      // IMPORTANT: Normalizăm location_name pentru a converti fără diacritice la cu diacritice
       const normalizedExternalData = externalData.map(row => ({
         ...row,
         operational_date: normalizeDate(row.operational_date),
         amount: normalizeAmount(row.amount),
-        location_name: normalizeString(row.location_name),
+        location_name: normalizeLocationName(row.location_name), // Folosește normalizeLocationName în loc de normalizeString
         department_name: normalizeString(row.department_name),
         expenditure_type: normalizeString(row.expenditure_type)
       })).filter(row => row.operational_date) // Eliminăm rândurile fără dată validă
