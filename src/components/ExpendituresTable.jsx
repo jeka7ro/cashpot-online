@@ -335,13 +335,17 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
             <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100 uppercase">
               💰 TOTAL GENERAL
             </td>
-            {locations.map(loc => (
-              <td key={loc} className="px-4 py-4 text-right text-sm text-slate-900 dark:text-slate-100">
-                {formatCurrency(totalsRow[loc] || 0)}
-              </td>
-            ))}
+            {locations.map(loc => {
+              // Calculează totalul pentru fiecare locație din datele grupate după departament
+              const locationTotal = departments.reduce((sum, dept) => sum + (dept.byLocation[loc] || 0), 0)
+              return (
+                <td key={loc} className="px-4 py-4 text-right text-sm text-slate-900 dark:text-slate-100">
+                  {formatCurrency(locationTotal)}
+                </td>
+              )
+            })}
             <td className="px-4 py-4 text-right text-lg font-bold text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/40">
-              {formatCurrency(totalsRow.total || 0)}
+              {formatCurrency(departments.reduce((sum, dept) => sum + dept.total, 0))}
             </td>
           </tr>
         </tbody>
