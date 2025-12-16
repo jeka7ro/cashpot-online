@@ -352,10 +352,10 @@ const getExternalPool = () => {
     ssl: process.env.EXPENDITURES_DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
     max: 5,
     idleTimeoutMillis: 60000,
-    connectionTimeoutMillis: 30000, // 30 secunde pentru conexiune
-    query_timeout: 300000, // 5 MINUTE pentru query-uri mari (42k records)
-    statement_timeout: 300000, // 5 MINUTE pentru statements
-    idle_in_transaction_session_timeout: 300000 // 5 MINUTE pentru sesiuni idle
+    connectionTimeoutMillis: 60000, // 60 secunde pentru conexiune (mărit pentru conexiuni lente)
+    query_timeout: 600000, // 10 MINUTE pentru query-uri mari (42k records)
+    statement_timeout: 600000, // 10 MINUTE pentru statements
+    idle_in_transaction_session_timeout: 600000 // 10 MINUTE pentru sesiuni idle
   })
   
   externalPool.on('error', (err) => {
@@ -738,8 +738,8 @@ router.post('/sync', async (req, res) => {
     // Retry logic pentru conexiuni externe (firewall delay)
     let externalPool
     let lastError = null
-    const maxRetries = 3
-    const retryDelay = 2000 // 2 secunde între retry-uri
+    const maxRetries = 5 // Mărit la 5 retry-uri
+    const retryDelay = 3000 // 3 secunde între retry-uri (mărit pentru conexiuni lente)
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
