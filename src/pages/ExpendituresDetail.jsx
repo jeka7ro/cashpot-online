@@ -99,6 +99,7 @@ const ExpendituresDetail = () => {
   const [loading, setLoading] = useState(false)
   const [categoryFilter, setCategoryFilter] = useState(category || 'all')
   const [locationFilter, setLocationFilter] = useState('all') // NEW: Filtru de locație
+  const [sourceFilter, setSourceFilter] = useState('all') // NEW: Filtru de sursă (data_source)
   const [summaryGranularity, setSummaryGranularity] = useState('month') // 'day', 'month', 'quarter', 'year'
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(25)
@@ -117,12 +118,17 @@ const ExpendituresDetail = () => {
   const [selectedDuplicatesToKeep, setSelectedDuplicatesToKeep] = useState(new Map())
   const [deletingDuplicates, setDeletingDuplicates] = useState(false)
 
-  // Load expenditures data
-  const loadExpendituresData = async () => {
+  // Load expenditures data - CU CACHE BUSTING
+  const loadExpendituresData = async (forceRefresh = false) => {
     try {
       setLoading(true)
-      const response = await axios.get('/api/expenditures/data')
+      // Cache busting: adaugă timestamp pentru a forța reîncărcarea
+      const url = forceRefresh 
+        ? `/api/expenditures/data?_t=${Date.now()}`
+        : '/api/expenditures/data'
+      const response = await axios.get(url)
       setExpendituresData(response.data || [])
+      console.log(`✅ [ExpendituresDetail] Loaded ${response.data?.length || 0} expenditures${forceRefresh ? ' (FORCED REFRESH)' : ''}`)
     } catch (error) {
       console.error('Error loading expenditures detail:', error)
       toast.error('Eroare la încărcarea cheltuielilor pentru detalii')
@@ -159,9 +165,28 @@ const ExpendituresDetail = () => {
     if (locationFilter && locationFilter !== 'all') {
       data = data.filter((item) => (item.location_name || '') === locationFilter)
     }
+    
+    // Filtru de sursă (data_source)
+    if (sourceFilter && sourceFilter !== 'all') {
+      data = data.filter((item) => {
+        const itemSource = item.data_source || ''
+        if (sourceFilter === 'google_sheets') {
+          return itemSource === 'google_sheets'
+        } else if (sourceFilter === 'bat_sync') {
+          return itemSource === 'bat_sync'
+        } else if (sourceFilter === 'electric_invoice') {
+          return itemSource === 'electric_invoice'
+        } else if (sourceFilter === 'api_sync') {
+          return itemSource === 'api_sync'
+        } else if (sourceFilter === 'preferences') {
+          return itemSource === 'preferences'
+        }
+        return true
+      })
+    }
 
     return data
-  }, [expendituresData, department, categoryFilter, locationFilter, dateRange])
+  }, [expendituresData, department, categoryFilter, locationFilter, sourceFilter, dateRange])
 
   const categories = useMemo(() => {
     const set = new Set()
@@ -864,6 +889,26 @@ const ExpendituresDetail = () => {
                 </select>
               </div>
             )}
+            
+            {/* Filtru Sursă */}
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center">
+                <Building2 className="w-4 h-4 mr-2 text-purple-500" />
+                Sursă
+              </label>
+              <select
+                value={sourceFilter}
+                onChange={(e) => setSourceFilter(e.target.value)}
+                className="input-field"
+              >
+                <option value="all">Toate sursele</option>
+                <option value="google_sheets">Google Sheets</option>
+                <option value="bat_sync">BAT Sync</option>
+                <option value="electric_invoice">Facturi Electrice</option>
+                <option value="api_sync">API Extern</option>
+                <option value="preferences">Preferences</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -1143,6 +1188,25 @@ const ExpendituresDetail = () => {
               Înregistrări detaliate ({filteredData.length})
             </h2>
             <div className="flex items-center gap-4">
+              {/* Buton Refresh */}
+              <button
+                onClick={() => {
+                  console.log('🔄 Forțare reîncărcare date...')
+                  loadExpendituresData(true)
+                  toast.success('Datele se reîncarcă...', { duration: 2000 })
+                }}
+                disabled={loading}
+                className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-sm font-semibold border transition-all hover:scale-105 active:scale-95 bg-gradient-to-r from-orange-500 to-amber-500 border-orange-400 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Reîncarcă datele din baza de date"
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                <span>{loading ? 'Se reîncarcă...' : 'Reîncarcă'}</span>
+              </button>
+              
               {/* Buton Căutare Duplicate SMART */}
               <button
                 onClick={handleSearchDuplicates}
