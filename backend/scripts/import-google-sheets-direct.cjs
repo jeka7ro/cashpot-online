@@ -95,7 +95,7 @@ async function importGoogleSheets() {
         
         const [dateStr, explanation, amountStr, location, department, expenditureType] = values
         
-        // Parse date
+        // Parse date - format DD.MM.YYYY
         let operationalDate
         if (dateStr && dateStr.includes('.')) {
           const dateParts = dateStr.split('.')
@@ -116,7 +116,33 @@ async function importGoogleSheets() {
           continue
         }
         
-        const amount = parseFloat(amountStr?.replace(/[^\d.-]/g, '') || 0)
+        // Procesează suma - format românesc: virgulă pentru zecimale, punct pentru mii (ex: 31.087,00 sau 31087,00)
+        let amountStrClean = (amountStr || '').trim().replace(/\s/g, '') // Elimină spații
+        
+        // Dacă are punct și virgulă: punct = mii, virgulă = zecimale (ex: 31.087,00)
+        if (amountStrClean.includes('.') && amountStrClean.includes(',')) {
+          amountStrClean = amountStrClean.replace(/\./g, '').replace(',', '.')
+        }
+        // Dacă are doar virgulă: virgulă = zecimale (ex: 31087,00)
+        else if (amountStrClean.includes(',') && !amountStrClean.includes('.')) {
+          amountStrClean = amountStrClean.replace(',', '.')
+        }
+        // Dacă are doar punct: verifică dacă este mii sau zecimale
+        else if (amountStrClean.includes('.') && !amountStrClean.includes(',')) {
+          // Dacă are mai mult de 2 cifre după ultimul punct, probabil este mii (ex: 31.087)
+          const parts = amountStrClean.split('.')
+          if (parts.length > 1 && parts[parts.length - 1].length <= 2) {
+            // Probabil este zecimal (ex: 31087.00)
+            // Lasă așa
+          } else {
+            // Probabil este mii (ex: 31.087)
+            amountStrClean = amountStrClean.replace(/\./g, '')
+          }
+        }
+        
+        // Elimină caractere non-numerice (păstrează doar cifre, punct și minus)
+        amountStrClean = amountStrClean.replace(/[^\d.-]/g, '')
+        const amount = parseFloat(amountStrClean || 0)
         if (isNaN(amount) || amount === 0) {
           skipped++
           continue

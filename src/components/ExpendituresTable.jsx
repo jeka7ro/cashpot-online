@@ -110,7 +110,37 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
       return itemLocation
     }
     
+    // ELIMINĂ DUPLICATE-URILE înainte de calcul (folosește Set cu cheie unică)
+    const seenKeys = new Set()
+    const uniqueData = []
+    const duplicateKeys = []
+    
     expendituresData.forEach(item => {
+      // Cheie unică: id sau combinația de câmpuri
+      const key = item.id || `${item.operational_date}|${item.amount}|${item.location_name}|${item.department_name}|${item.expenditure_type}|${item.data_source}`
+      
+      if (seenKeys.has(key)) {
+        duplicateKeys.push(key)
+        return // Skip duplicate
+      }
+      
+      seenKeys.add(key)
+      uniqueData.push(item)
+    })
+    
+    if (duplicateKeys.length > 0) {
+      console.warn(`⚠️ [ExpendituresTable] Eliminate ${duplicateKeys.length} duplicate-uri din ${expendituresData.length} înregistrări`)
+    }
+    
+    // DEBUG: Verifică duplicate-uri pentru Birou
+    if (uniqueData.some(item => item.department_name === 'Birou')) {
+      const birouItems = uniqueData.filter(item => item.department_name === 'Birou')
+      const birouTotal = birouItems.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
+      console.log(`🔍 [ExpendituresTable] Birou: ${birouItems.length} înregistrări unice, Total: ${birouTotal.toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} RON`)
+    }
+    
+    // Folosește datele unice pentru calcul
+    uniqueData.forEach(item => {
       const dept = item.department_name || 'Unknown'
       
       // SKIP "Unknown" department (user NU vrea să-l vadă!)
@@ -262,7 +292,12 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
   }, [allExpanded, departmentNamesKey, departments]) // Use departments for the actual logic
   
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)
+    // Formatează cu virgulă pentru zecimale și punct pentru mii (format românesc)
+    return new Intl.NumberFormat('ro-RO', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2,
+      useGrouping: true
+    }).format(amount || 0)
   }
   
   return (
