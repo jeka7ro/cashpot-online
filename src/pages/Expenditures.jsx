@@ -999,16 +999,40 @@ const Expenditures = () => {
     }
     
     // Get unique locations and expenditure types
+    // Normalize location names for consistent grouping
+    const locationNormalizationMap = new Map() // Maps normalized -> original
     const locationsSet = new Set()
     const expenditureTypesSet = new Set()
     
     filteredData.forEach(item => {
-      if (item.location_name) locationsSet.add(item.location_name)
+      if (item.location_name) {
+        const normalized = normalizeDiacritics(item.location_name.toLowerCase().trim())
+        // Store the first occurrence of each normalized location as the canonical form
+        if (!locationNormalizationMap.has(normalized)) {
+          locationNormalizationMap.set(normalized, item.location_name)
+          locationsSet.add(item.location_name)
+        } else {
+          // Use the canonical form if it exists
+          const canonical = locationNormalizationMap.get(normalized)
+          if (canonical !== item.location_name) {
+            // This location has different diacritics - use canonical form
+            locationsSet.add(canonical)
+          } else {
+            locationsSet.add(item.location_name)
+          }
+        }
+      }
       if (item.expenditure_type) expenditureTypesSet.add(item.expenditure_type)
     })
     
     const locations = Array.from(locationsSet).sort()
     const expenditureTypes = Array.from(expenditureTypesSet).sort()
+    
+    // Helper function to normalize location for comparison
+    const normalizeLocationForComparison = (locName) => {
+      if (!locName) return ''
+      return normalizeDiacritics(locName.toLowerCase().trim())
+    }
     
     // Build matrix
     const matrix = expenditureTypes.map(expType => {
@@ -1016,8 +1040,13 @@ const Expenditures = () => {
       let rowTotal = 0
       
       locations.forEach(loc => {
+        const normalizedLoc = normalizeLocationForComparison(loc)
         const amount = filteredData
-          .filter(item => item.expenditure_type === expType && item.location_name === loc)
+          .filter(item => {
+            const itemType = item.expenditure_type === expType
+            const itemLoc = normalizeLocationForComparison(item.location_name)
+            return itemType && itemLoc === normalizedLoc
+          })
           .reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
         
         row[loc] = amount
