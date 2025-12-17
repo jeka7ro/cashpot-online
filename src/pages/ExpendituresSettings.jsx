@@ -1604,12 +1604,21 @@ const ExpendituresSettings = () => {
               
               <div className="bg-slate-50 dark:bg-slate-900/40 rounded-lg p-4">
                 <div className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-                  <strong>{[...new Set(settings.includedExpenditureTypes)].length}</strong> / <strong>{expenditureTypes.length}</strong> tipuri selectate
-                  {settings.includedExpenditureTypes.length !== [...new Set(settings.includedExpenditureTypes)].length && (
+                  {(() => {
+                    const uniqueCount = uniqueDeduplicate(settings.includedExpenditureTypes || []).length
+                    const rawCount = (settings.includedExpenditureTypes || []).length
+                    const dupCount = Math.max(0, rawCount - uniqueCount)
+                    return (
+                      <>
+                        <strong>{uniqueCount}</strong> / <strong>{expenditureTypes.length}</strong> tipuri selectate
+                        {dupCount > 0 && (
                     <span className="ml-2 text-xs text-orange-600 dark:text-orange-400">
-                      (⚠️ {settings.includedExpenditureTypes.length - [...new Set(settings.includedExpenditureTypes)].length} duplicate)
+                            (⚠️ {dupCount} duplicate - se vor elimina la salvare)
                     </span>
-                  )}
+                        )}
+                      </>
+                    )
+                  })()}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[600px] overflow-y-auto">
                   {expenditureTypes.map(type => {
@@ -1693,12 +1702,21 @@ const ExpendituresSettings = () => {
               
               <div className="bg-slate-50 dark:bg-slate-900/40 rounded-lg p-4">
                 <div className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-                  <strong>{[...new Set(settings.includedDepartments || [])].length}</strong> / <strong>{departments.length}</strong> departamente selectate
-                  {settings.includedDepartments && settings.includedDepartments.length !== [...new Set(settings.includedDepartments)].length && (
+                  {(() => {
+                    const uniqueCount = uniqueDeduplicate(settings.includedDepartments || []).length
+                    const rawCount = (settings.includedDepartments || []).length
+                    const dupCount = Math.max(0, rawCount - uniqueCount)
+                    return (
+                      <>
+                        <strong>{uniqueCount}</strong> / <strong>{departments.length}</strong> departamente selectate
+                        {dupCount > 0 && (
                     <span className="ml-2 text-xs text-orange-600 dark:text-orange-400">
-                      (⚠️ {settings.includedDepartments.length - [...new Set(settings.includedDepartments)].length} duplicate - se vor elimina la salvare)
+                            (⚠️ {dupCount} duplicate - se vor elimina la salvare)
                     </span>
-                  )}
+                        )}
+                      </>
+                    )
+                  })()}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[600px] overflow-y-auto">
                   {departments.map(dept => {
@@ -1782,7 +1800,21 @@ const ExpendituresSettings = () => {
               
               <div className="bg-slate-50 dark:bg-slate-900/40 rounded-lg p-4">
                 <div className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-                  <strong>{settings.includedLocations.length}</strong> / <strong>{locations.length}</strong> locații selectate
+                  {(() => {
+                    const uniqueCount = uniqueDeduplicate(settings.includedLocations || []).length
+                    const rawCount = (settings.includedLocations || []).length
+                    const dupCount = Math.max(0, rawCount - uniqueCount)
+                    return (
+                      <>
+                        <strong>{uniqueCount}</strong> / <strong>{locations.length}</strong> locații selectate
+                        {dupCount > 0 && (
+                          <span className="ml-2 text-xs text-orange-600 dark:text-orange-400">
+                            (⚠️ {dupCount} duplicate - se vor elimina la salvare)
+                          </span>
+                        )}
+                      </>
+                    )
+                  })()}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[600px] overflow-y-auto">
                   {locations.map(loc => {

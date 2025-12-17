@@ -179,44 +179,32 @@ async function importBAT() {
           }
           
           const normalizedLocation = normalizeLocationName(row.location_name)
-          
-          // Verifică duplicate
-          const checkResult = await localPool.query(`
-            SELECT id FROM expenditures_sync
-            WHERE operational_date = $1
-              AND ABS(amount - $2) < 0.01
-              AND location_name = $3
-              AND department_name = $4
-              AND expenditure_type = $5
-              AND data_source = 'bat_sync'
-            LIMIT 1
+          const normalizedDept = (row.department_name || 'Nespecificat').trim()
+          const normalizedType = (row.expenditure_type || 'Nespecificat').trim()
+          const normalizedAmount = typeof row.amount === 'number' ? row.amount : (parseFloat(String(row.amount || 0)) || 0)
+
+          // Insert cu ON CONFLICT (evită erori pe duplicate între surse)
+          const insertResult = await localPool.query(`
+            INSERT INTO expenditures_sync (
+              operational_date,
+              amount,
+              location_name,
+              department_name,
+              expenditure_type,
+              description,
+              data_source
+            ) VALUES ($1, $2, $3, $4, $5, $6, 'bat_sync')
+            ON CONFLICT ON CONSTRAINT expenditures_sync_unique_record DO NOTHING
           `, [
             operationalDate,
-            row.amount || 0,
+            normalizedAmount,
             normalizedLocation,
-            row.department_name || 'Nespecificat',
-            row.expenditure_type || 'Nespecificat'
+            normalizedDept,
+            normalizedType,
+            '' // description
           ])
-          
-          if (checkResult.rows.length === 0) {
-            await localPool.query(`
-              INSERT INTO expenditures_sync (
-                operational_date,
-                amount,
-                location_name,
-                department_name,
-                expenditure_type,
-                description,
-                data_source
-              ) VALUES ($1, $2, $3, $4, $5, $6, 'bat_sync')
-            `, [
-              operationalDate,
-              row.amount || 0,
-              normalizedLocation,
-              row.department_name || 'Nespecificat',
-              row.expenditure_type || 'Nespecificat',
-              '' // description
-            ])
+
+          if (insertResult.rowCount > 0) {
             imported++
           } else {
             skipped++
