@@ -141,81 +141,80 @@ async function importBAT() {
     let skipped = 0
     let errors = 0
     
-    const BATCH_SIZE = 100
+    const BATCH_SIZE = 500
+
+    const normalizeOperationalDate = (val) => {
+      if (!val) return null
+      try {
+        if (val instanceof Date) return val.toISOString().split('T')[0]
+        const s = String(val)
+        const d = s.split('T')[0].split(' ')[0]
+        return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null
+      } catch {
+        return null
+      }
+    }
+
+    const normalizeAmount = (val) => {
+      const num = typeof val === 'number' ? val : (parseFloat(String(val || 0)) || 0)
+      // rotunjire 2 zecimale pentru consistență
+      return Math.round(num * 100) / 100
+    }
     
     for (let i = 0; i < batResult.rows.length; i += BATCH_SIZE) {
       const batch = batResult.rows.slice(i, i + BATCH_SIZE)
-      
+      const prepared = []
+
       for (const row of batch) {
-        try {
-          // Procesează data corect - poate fi Date object sau string
-          let operationalDate = null
-          if (row.operational_date) {
-            try {
-              if (row.operational_date instanceof Date) {
-                operationalDate = row.operational_date.toISOString().split('T')[0]
-              } else if (typeof row.operational_date === 'string') {
-                operationalDate = row.operational_date.split('T')[0].split(' ')[0]
-              } else {
-                // Încearcă să convertească la string și apoi la date
-                const dateStr = String(row.operational_date)
-                operationalDate = dateStr.split('T')[0].split(' ')[0]
-              }
-              // Validare format YYYY-MM-DD
-              if (!/^\d{4}-\d{2}-\d{2}$/.test(operationalDate)) {
-                console.warn(`⚠️ Invalid date format: ${row.operational_date} -> ${operationalDate}`)
-                skipped++
-                continue
-              }
-            } catch (e) {
-              console.warn(`⚠️ Error processing date: ${row.operational_date}`, e.message)
-              skipped++
-              continue
-            }
-          }
-          if (!operationalDate) {
-            skipped++
-            continue
-          }
-          
-          const normalizedLocation = normalizeLocationName(row.location_name)
-          const normalizedDept = (row.department_name || 'Nespecificat').trim()
-          const normalizedType = (row.expenditure_type || 'Nespecificat').trim()
-          const normalizedAmount = typeof row.amount === 'number' ? row.amount : (parseFloat(String(row.amount || 0)) || 0)
-
-          // Insert cu ON CONFLICT (evită erori pe duplicate între surse)
-          const insertResult = await localPool.query(`
-            INSERT INTO expenditures_sync (
-              operational_date,
-              amount,
-              location_name,
-              department_name,
-              expenditure_type,
-              description,
-              data_source
-            ) VALUES ($1, $2, $3, $4, $5, $6, 'bat_sync')
-            ON CONFLICT (operational_date, amount, location_name, department_name, expenditure_type) DO NOTHING
-          `, [
-            operationalDate,
-            normalizedAmount,
-            normalizedLocation,
-            normalizedDept,
-            normalizedType,
-            '' // description
-          ])
-
-          if (insertResult.rowCount > 0) {
-            imported++
-          } else {
-            skipped++
-          }
-        } catch (error) {
-          console.error(`❌ Eroare la inserare înregistrare:`, error.message)
-          errors++
+        const operationalDate = normalizeOperationalDate(row.operational_date)
+        if (!operationalDate) {
+          skipped++
+          continue
         }
+
+        prepared.push({
+          operationalDate,
+          amount: normalizeAmount(row.amount),
+          location: normalizeLocationName(row.location_name),
+          dept: (row.department_name || 'Nespecificat').trim(),
+          type: (row.expenditure_type || 'Nespecificat').trim(),
+          description: ''
+        })
+      }
+
+      if (prepared.length === 0) continue
+
+      try {
+        const values = []
+        const placeholders = []
+        let p = 1
+        for (const r of prepared) {
+          placeholders.push(`($${p}, $${p + 1}, $${p + 2}, $${p + 3}, $${p + 4}, $${p + 5}, 'bat_sync')`)
+          values.push(r.operationalDate, r.amount, r.location, r.dept, r.type, r.description)
+          p += 6
+        }
+
+        const insertResult = await localPool.query(`
+          INSERT INTO expenditures_sync (
+            operational_date,
+            amount,
+            location_name,
+            department_name,
+            expenditure_type,
+            description,
+            data_source
+          ) VALUES ${placeholders.join(',')}
+          ON CONFLICT (operational_date, amount, location_name, department_name, expenditure_type) DO NOTHING
+        `, values)
+
+        imported += insertResult.rowCount || 0
+        skipped += Math.max(0, prepared.length - (insertResult.rowCount || 0))
+      } catch (error) {
+        console.error(`❌ Eroare batch insert:`, error.message)
+        errors += prepared.length
       }
       
-      if ((i + BATCH_SIZE) % 500 === 0 || i + BATCH_SIZE >= batResult.rows.length) {
+      if ((i + BATCH_SIZE) % 5000 === 0 || i + BATCH_SIZE >= batResult.rows.length) {
         console.log(`   Procesat: ${Math.min(i + BATCH_SIZE, batResult.rows.length)}/${batResult.rows.length} (importate: ${imported}, omise: ${skipped}, erori: ${errors})`)
       }
     }
