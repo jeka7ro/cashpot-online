@@ -14,12 +14,40 @@ const pool = new pg.Pool({
 function normalizeLocationName(location) {
   if (!location) return 'Unknown'
   
-  const normalized = location
-    .trim()
-    .replace(/Pitesti/gi, 'Pitești')
-    .replace(/Ploiesti/gi, 'Ploiești')
-    .replace(/Valcea/gi, 'Vâlcea')
-    .replace(/Craiova/gi, 'Craiova')
+  let normalized = location.trim()
+  
+  // Elimină "Birou" - nu este o locație
+  if (normalized.toLowerCase().includes('birou')) {
+    return 'Nespecificat'
+  }
+  
+  // Mapare corectă pentru locații (la fel ca în BAT)
+  const locationMap = {
+    'pitesti': 'Pitești',
+    'pitești': 'Pitești',
+    'ploiesti (centru)': 'Ploiești (centru)',
+    'ploiești (centru)': 'Ploiești (centru)',
+    'ploiesti centru': 'Ploiești (centru)',
+    'ploiești centru': 'Ploiești (centru)',
+    'ploiesti (nord)': 'Ploiești (nord)',
+    'ploiești (nord)': 'Ploiești (nord)',
+    'ploiesti nord': 'Ploiești (nord)',
+    'ploiești nord': 'Ploiești (nord)',
+    'valcea': 'Vâlcea',
+    'vâlcea': 'Vâlcea',
+    'craiova': 'Craiova'
+  }
+  
+  // Normalizează: lowercase, elimină spații multiple
+  const key = normalized.toLowerCase().replace(/\s+/g, ' ').trim()
+  
+  // Verifică dacă există în mapare
+  if (locationMap[key]) {
+    return locationMap[key]
+  }
+  
+  // Dacă nu există în mapare, folosește prima literă mare, restul mic
+  normalized = normalized.charAt(0).toUpperCase() + normalized.slice(1).toLowerCase()
   
   return normalized
 }
