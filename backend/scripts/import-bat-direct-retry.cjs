@@ -194,7 +194,7 @@ async function importBAT() {
               description,
               data_source
             ) VALUES ($1, $2, $3, $4, $5, $6, 'bat_sync')
-            ON CONFLICT ON CONSTRAINT expenditures_sync_unique_record DO NOTHING
+            ON CONFLICT (operational_date, amount, location_name, department_name, expenditure_type) DO NOTHING
           `, [
             operationalDate,
             normalizedAmount,
