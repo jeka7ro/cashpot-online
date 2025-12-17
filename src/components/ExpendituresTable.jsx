@@ -139,6 +139,10 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
       console.log(`🔍 [ExpendituresTable] Birou: ${birouItems.length} înregistrări unice, Total: ${birouTotal.toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} RON`)
     }
     
+    // DEBUG: Log toate departamentele unice din date
+    const allUniqueDepartments = [...new Set(uniqueData.map(item => item.department_name).filter(Boolean))]
+    console.log(`🔍 [ExpendituresTable] Toate departamentele din date (${allUniqueDepartments.length}):`, allUniqueDepartments.sort())
+    
     // Folosește datele unice pentru calcul
     uniqueData.forEach(item => {
       const dept = item.department_name || 'Unknown'
