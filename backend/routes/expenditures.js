@@ -1317,7 +1317,7 @@ router.post('/import-all', authenticateToken, async (req, res) => {
     
       // Step 2: Get Google Sheets URL from settings, environment, or use default
       _importAllProgress.currentStep = 'Se caută URL Google Sheets...'
-      const DEFAULT_GOOGLE_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1Z9kCL17y4RrI_tjuG8AipY1Hn7RdF4rbWD0bz0oKwQE/edit?gid=828539440#gid=828539440'
+      const DEFAULT_GOOGLE_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1Z9kCL17y4RrI_tjuG8AipY1Hn7RdF4rbWD0bz0oKwQE/edit?gid=1033202595#gid=1033202595'
       
       let googleSheetsUrl = null
       try {
