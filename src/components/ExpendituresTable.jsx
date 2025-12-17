@@ -152,11 +152,7 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
         return
       }
       
-      // SKIP 4 DEPARTAMENTE DEBIFATE (POS, Registru de Casă, Bancă, Alte Cheltuieli)
-      const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
-      if (excludedDepartments.includes(dept)) {
-        return
-      }
+      // NU mai excludem automat departamente. Totul e controlat din Setări.
       
       const category = item.expenditure_type || 'Unknown'
       const itemLocation = item.location_name || 'Unknown'

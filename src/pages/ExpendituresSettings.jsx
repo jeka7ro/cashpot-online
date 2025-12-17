@@ -47,17 +47,20 @@ const normalizeDiacritics = (str) => {
     .trim()
 }
 
+// Cheie de comparare: fără diacritice + lowercase
+const normalizeKey = (str) => normalizeDiacritics(str).toLowerCase().trim()
+
 // Deduplicate array based on normalized diacritics
-// RETURNEAZĂ valorile NORMALIZATE pentru consistență!
+// Păstrează valoarea ORIGINALĂ (cu diacritice) dar dedup pe normalized
 const uniqueDeduplicate = (arr) => {
   const seen = new Set()
   const unique = []
   
   arr.forEach(item => {
-    const normalized = normalizeDiacritics(item)
+    const normalized = normalizeKey(item)
     if (!seen.has(normalized)) {
       seen.add(normalized)
-      unique.push(normalized) // Returnăm valoarea normalizată
+      unique.push(String(item || '').trim()) // păstrează ce vede user-ul
     }
   })
   
@@ -1454,19 +1457,20 @@ const ExpendituresSettings = () => {
   
   // Helper: check if item exists in list (cu normalizare!)
   const includesNormalized = (list, item) => {
-    const normalizedItem = normalizeDiacritics(item)
-    return list.some(listItem => normalizeDiacritics(listItem) === normalizedItem)
+    const normalizedItem = normalizeKey(item)
+    return (list || []).some(listItem => normalizeKey(listItem) === normalizedItem)
   }
   
   const toggleItem = (list, item, setList) => {
-    const normalizedItem = normalizeDiacritics(item)
+    const normalizedItem = normalizeKey(item)
     
     if (includesNormalized(list, item)) {
       // Remove item (compară normalized)
-      setList(list.filter(i => normalizeDiacritics(i) !== normalizedItem))
+      setList((list || []).filter(i => normalizeKey(i) !== normalizedItem))
     } else {
-      // Add item (adaugă normalized)
-      setList([...list, normalizedItem])
+      // Add item (adaugă ORIGINAL, dar fără duplicate pe normalized)
+      const withoutDup = (list || []).filter(i => normalizeKey(i) !== normalizedItem)
+      setList([...withoutDup, String(item || '').trim()])
     }
   }
   

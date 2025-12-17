@@ -424,13 +424,41 @@ router.get('/external-locations', async (req, res) => {
     if (!localPool) {
       return res.json({ success: true, locations: [], locationsWithNLC: [] })
     }
-    
-    // Obține TOATE locațiile unice din expenditures_sync (BAT + Google Sheets + Electric Invoice)
-    const allLocationsSet = new Set()
-    const locationsWithNLC = []
-    
+
+    // Canonicalize + deduplicate (fără diacritice, fără dubluri)
+    const stripDiacritics = (s) => {
+      return String(s || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/ţ/g, 't')
+        .replace(/ş/g, 's')
+        .replace(/Ţ/g, 'T')
+        .replace(/Ş/g, 'S')
+    }
+
+    const canonicalizeLocationName = (name) => {
+      if (!name) return null
+      const raw = stripDiacritics(String(name).trim()).replace(/\s+/g, ' ')
+      const upper = raw.toUpperCase()
+
+      if (upper.includes('PITESTI') || upper.includes('PITI')) return 'Pitesti'
+      if (upper.includes('PLOIESTI')) {
+        if (upper.includes('NORD')) return 'Ploiesti (nord)'
+        if (upper.includes('CENTRU') || upper.includes('CENTER')) return 'Ploiesti (centru)'
+        return 'Ploiesti (centru)'
+      }
+      if (upper.includes('VALCEA') || upper.includes('RAMNICU')) return 'Valcea'
+      if (upper.includes('CRAIOVA') || upper.includes('CARIOVA')) return 'Craiova'
+      if (upper.includes('BUCURESTI') || upper.includes('BUCHAREST')) return 'Bucuresti'
+
+      return raw
+    }
+
+    const canonicalSet = new Set()
+    const nlcByCanonical = new Map()
+
     try {
-      // 1. Obține locațiile din expenditures_sync (toate sursele)
+      // 1) locații din expenditures_sync (toate sursele)
       const expendituresResult = await localPool.query(`
         SELECT DISTINCT location_name
         FROM expenditures_sync
@@ -440,14 +468,12 @@ router.get('/external-locations', async (req, res) => {
           AND location_name != 'Unknown'
         ORDER BY location_name
       `)
-      
-      expendituresResult.rows.forEach(row => {
-        if (row.location_name) {
-          allLocationsSet.add(row.location_name)
-        }
+      expendituresResult.rows.forEach((row) => {
+        const canonical = canonicalizeLocationName(row.location_name)
+        if (canonical) canonicalSet.add(canonical)
       })
-      
-      // 2. Obține locațiile din tabelul locations cu NLC-uri (pentru matching)
+
+      // 2) locații din tabelul locations + NLC
       const locationsResult = await localPool.query(`
         SELECT id, name, nlc_code
         FROM locations
@@ -455,46 +481,36 @@ router.get('/external-locations', async (req, res) => {
           AND name != ''
         ORDER BY name
       `)
-      
-      // Adaugă și locațiile din tabelul locations
-      locationsResult.rows.forEach(row => {
-        if (row.name) {
-          allLocationsSet.add(row.name)
-          // Adaugă la lista cu NLC-uri dacă există
-          if (row.nlc_code) {
-            locationsWithNLC.push({
-              id: row.id,
-              name: row.name,
-              nlc_code: row.nlc_code
-            })
+
+      locationsResult.rows.forEach((row) => {
+        const canonical = canonicalizeLocationName(row.name)
+        if (canonical) canonicalSet.add(canonical)
+
+        if (row.nlc_code) {
+          // păstrează primul NLC găsit pentru locația canonicală
+          if (canonical && !nlcByCanonical.has(canonical)) {
+            nlcByCanonical.set(canonical, { id: row.id, name: canonical, nlc_code: row.nlc_code })
           }
         }
       })
-      
-      // Convert Set to sorted array
-      const locations = Array.from(allLocationsSet).sort()
-      
-      if (locations.length > 0) {
-        console.log(`✅ Found ${locations.length} unique locations (${expendituresResult.rows.length} from expenditures_sync, ${locationsResult.rows.length} from locations table)`)
-        console.log(`   Locations:`, locations)
-        return res.json({ 
-          success: true, 
-          locations,
-          locationsWithNLC // Include NLC-uri pentru matching precis
-        })
-      }
+
+      const locations = Array.from(canonicalSet).sort((a, b) => a.localeCompare(b, 'en'))
+      const locationsWithNLC = Array.from(nlcByCanonical.values()).sort((a, b) => a.name.localeCompare(b.name, 'en'))
+
+      console.log(
+        `✅ external-locations: ${locations.length} locații canonicale (expenditures_sync: ${expendituresResult.rows.length}, locations: ${locationsResult.rows.length})`
+      )
+
+      return res.json({
+        success: true,
+        locations,
+        locationsWithNLC
+      })
     } catch (dbError) {
       console.log('⚠️ Error fetching locations from database:', dbError.message)
+      const fallback = Array.from(canonicalSet).sort((a, b) => a.localeCompare(b, 'ro'))
+      return res.json({ success: true, locations: fallback, locationsWithNLC: [] })
     }
-    
-    // Fallback: returnează locațiile standard (cu diacritice corecte!)
-    const defaultLocations = ['Pitești', 'Craiova', 'Ploiești (nord)', 'Ploiești (centru)', 'Vâlcea', 'București']
-    console.log(`✅ Returning ${defaultLocations.length} default locations:`, defaultLocations)
-    return res.json({ 
-      success: true, 
-      locations: defaultLocations,
-      locationsWithNLC: defaultLocations.map(name => ({ name, nlc_code: null }))
-    })
   } catch (error) {
     console.error('❌ Error fetching locations:', error)
     res.json({ success: true, locations: [], locationsWithNLC: [] })

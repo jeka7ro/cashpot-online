@@ -16,10 +16,33 @@ const normalizeValue = (str) => {
     .trim()
 }
 
+// Dedup pentru liste (ex: Pitesti/Pitești) pe o cheie fără diacritice
+const normalizeKey = (str) => {
+  return normalizeValue(str)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
+const deduplicateList = (arr) => {
+  const seen = new Set()
+  const out = []
+  ;(arr || []).forEach((v) => {
+    const val = typeof v === 'string' ? v : String(v || '')
+    const key = normalizeKey(val)
+    if (!key) return
+    if (seen.has(key)) return
+    seen.add(key)
+    out.push(normalizeValue(val))
+  })
+  return out
+}
+
 const includesNormalized = (list, value) => {
   if (!Array.isArray(list) || list.length === 0) return true
-  const normalized = normalizeValue(value)
-  return list.some((item) => normalizeValue(item) === normalized)
+  const normalized = normalizeKey(value)
+  return list.some((item) => normalizeKey(item) === normalized)
 }
 
 const formatCurrency = (value) => {
@@ -225,7 +248,8 @@ const ExpendituresSQLTable = () => {
         
         const allDepartments = deptData.map((item) => typeof item === 'string' ? item : item.name).filter(Boolean)
         const allTypes = typeData.map((item) => typeof item === 'string' ? item : item.name).filter(Boolean)
-        const allLocations = locData.map((item) => typeof item === 'string' ? item : item.name).filter(Boolean)
+        const allLocationsRaw = locData.map((item) => typeof item === 'string' ? item : item.name).filter(Boolean)
+        const allLocations = deduplicateList(allLocationsRaw)
 
         const includedDepartments = Array.isArray(settingsRes.data?.includedDepartments)
           ? settingsRes.data.includedDepartments.filter(Boolean)

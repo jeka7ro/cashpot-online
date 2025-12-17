@@ -313,12 +313,7 @@ const Expenditures = () => {
       setExpendituresData(data)
       console.log('✅ Expenditures data loaded:', data.length)
       
-      // Reset departmentFilter dacă este setat pe un departament exclus automat
-      const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
-      if (excludedDepartments.includes(departmentFilter)) {
-        console.warn(`⚠️ departmentFilter (${departmentFilter}) este exclus automat! Resetare la 'all'`)
-        setDepartmentFilter('all')
-      }
+      // Nu mai resetăm departmentFilter automat.
       
       if (data.length > 0) {
         const dateRange = data.reduce((acc, item) => {
@@ -740,13 +735,7 @@ const Expenditures = () => {
     })
     console.log(`  After excluding Unknown: ${beforeUnknown} → ${filteredData.length}`)
     
-    // EXCLUDE 4 DEPARTAMENTE DEBIFATE (POS, Registru de Casă, Bancă, Alte Cheltuieli)
-    const beforeExcluded = filteredData.length
-    const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
-    filteredData = filteredData.filter(item => {
-      return !excludedDepartments.includes(item.department_name)
-    })
-    console.log(`  After excluding POS/Bancă/Alte Cheltuieli: ${beforeExcluded} → ${filteredData.length}`)
+    // NU mai excludem automat departamente. Totul e controlat din Setări (bifezi ce vrei să apară).
     
     // DATE RANGE FILTER
     if (dateRange.startDate && dateRange.endDate) {
@@ -808,6 +797,17 @@ const Expenditures = () => {
         return matches
       })
       console.log(`  After includedDepartments filter (${includedDepartments.length} depts): ${beforeDept} → ${filteredData.length}`)
+      
+      // DEBUG: Log toate departamentele din date și cele incluse
+      console.log(`🔍 [processDataToMatrix] DEBUG includedDepartments:`)
+      console.log(`   Included departments (${includedDepartments.length}):`, includedDepartments)
+      console.log(`   Normalized included:`, normalizedIncluded)
+      console.log(`   Departments in data (${beforeFilterDepts.length}):`, beforeFilterDepts)
+      console.log(`   Normalized data depts:`, beforeFilterDepts.map(d => normalizeDiacritics(d?.toLowerCase().trim() || '')))
+      
+      // DEBUG: Log departamentele care au rămas după filtru
+      const remainingDepts = [...new Set(filteredData.map(d => d.department_name))]
+      console.log(`   Remaining departments (${remainingDepts.length}):`, remainingDepts)
       
       // DEBUG: Verifică specific pentru Salarii
       if (includedDepartments.includes('Salarii')) {
@@ -882,16 +882,8 @@ const Expenditures = () => {
     // DEPARTMENT FILTER (manual dropdown)
     if (departmentFilter !== 'all') {
       const beforeDeptFilter = filteredData.length
-      // Verifică dacă departamentul selectat este unul dintre cele excluse automat
-      const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
-      if (excludedDepartments.includes(departmentFilter)) {
-        console.warn(`  ⚠️ departmentFilter (${departmentFilter}) este exclus automat! Resetare la 'all'`)
-        // Nu aplică filtrul - va rămâne 'all' în UI dar nu va filtra
-        console.log(`  ⏭️ Skipping departmentFilter (${departmentFilter} is excluded)`)
-      } else {
       filteredData = filteredData.filter(item => item.department_name === departmentFilter)
-        console.log(`  After departmentFilter (${departmentFilter}): ${beforeDeptFilter} → ${filteredData.length}`)
-      }
+      console.log(`  After departmentFilter (${departmentFilter}): ${beforeDeptFilter} → ${filteredData.length}`)
     }
     
     // EXPENDITURE TYPE FILTER
@@ -928,8 +920,6 @@ const Expenditures = () => {
     const afterBasicFilters = expendituresData.filter(item => {
       const dept = (item.department_name || '').toLowerCase().trim()
       if (dept === 'unknown' || dept === '' || dept === 'null') return false
-      const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
-      if (excludedDepartments.includes(item.department_name)) return false
       if (dateRange.startDate && dateRange.endDate) {
         if (!item.operational_date) return false
         const itemDate = new Date(item.operational_date)
@@ -956,13 +946,10 @@ const Expenditures = () => {
       const savedTypeFilter = expenditureTypeFilter
       const savedLocationFilter = locationFilter
       
-      // Reapply doar filtrele de bază (exclude Unknown, POS, etc.) dar IGNORĂ filtrele din setări
+      // Reapply doar filtrele de bază (exclude Unknown) dar IGNORĂ filtrele din setări
       filteredData = expendituresData.filter(item => {
         const dept = (item.department_name || '').toLowerCase().trim()
         if (dept === 'unknown' || dept === '' || dept === 'null') return false
-        
-        const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
-        if (excludedDepartments.includes(item.department_name)) return false
         
         // Date range filter (păstrează-l)
         if (dateRange.startDate && dateRange.endDate) {
@@ -978,11 +965,8 @@ const Expenditures = () => {
       
       // REAPLICĂ FILTRELE MANUALE (departmentFilter, expenditureTypeFilter, locationFilter)
       if (savedDepartmentFilter !== 'all') {
-        const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli']
-        if (!excludedDepartments.includes(savedDepartmentFilter)) {
-          filteredData = filteredData.filter(item => item.department_name === savedDepartmentFilter)
-          console.log(`  [FALLBACK] Reapplied departmentFilter (${savedDepartmentFilter}): ${filteredData.length}`)
-        }
+        filteredData = filteredData.filter(item => item.department_name === savedDepartmentFilter)
+        console.log(`  [FALLBACK] Reapplied departmentFilter (${savedDepartmentFilter}): ${filteredData.length}`)
       }
       
       if (savedTypeFilter !== 'all') {
