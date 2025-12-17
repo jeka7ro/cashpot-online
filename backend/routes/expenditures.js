@@ -1109,27 +1109,27 @@ router.post('/sync', async (req, res) => {
             continue
           }
           
-          // Normalizează numele de locație pentru a converti fără diacritice la cu diacritice
+          // Normalizează numele de locație (FĂRĂ diacritice - user vrea fără)
           const normalizeLocationNameForInsert = (name) => {
             if (!name) return 'Unknown'
             const upper = String(name).toUpperCase().trim()
             
             if (upper.includes('PITESTI') || upper.includes('PITEȘTI') || upper.includes('PITI')) {
-              return 'Pitești'
+              return 'Pitesti'
             }
             if (upper.includes('PLOIESTI') || upper.includes('PLOIEȘTI')) {
-              if (upper.includes('NORD')) return 'Ploiești (nord)'
-              if (upper.includes('CENTRU') || upper.includes('CENTER')) return 'Ploiești (centru)'
-              return 'Ploiești (centru)'
+              if (upper.includes('NORD')) return 'Ploiesti (nord)'
+              if (upper.includes('CENTRU') || upper.includes('CENTER')) return 'Ploiesti (centru)'
+              return 'Ploiesti (centru)'
             }
             if (upper.includes('VALCEA') || upper.includes('VÂLCEA') || upper.includes('RAMNICU')) {
-              return 'Vâlcea'
+              return 'Valcea'
             }
             if (upper.includes('CRAIOVA') || upper.includes('CARIOVA')) {
               return 'Craiova'
             }
             if (upper.includes('BUCUREȘTI') || upper.includes('BUCHAREST') || upper.includes('BUCURESTI')) {
-              return 'București'
+              return 'Bucuresti'
             }
             
             return String(name).trim().replace(/\s+/g, ' ')
@@ -1647,29 +1647,28 @@ router.post('/import-all', authenticateToken, async (req, res) => {
         return String(str).trim().replace(/\s+/g, ' ')
       }
       
-      // Normalizează numele de locație pentru a converti fără diacritice la cu diacritice
-      // IMPORTANT: Convertește "Pitesti" → "Pitești", "Ploiesti" → "Ploiești", "Valcea" → "Vâlcea"
+      // Normalizează numele de locație (FĂRĂ diacritice - user vrea fără)
       const normalizeLocationName = (name) => {
         if (!name) return 'Unknown'
         const upper = String(name).toUpperCase().trim()
         
         // Convertim la formatul standard cu diacritice
         if (upper.includes('PITESTI') || upper.includes('PITEȘTI') || upper.includes('PITI')) {
-          return 'Pitești'
+          return 'Pitesti'
         }
         if (upper.includes('PLOIESTI') || upper.includes('PLOIEȘTI')) {
-          if (upper.includes('NORD')) return 'Ploiești (nord)'
-          if (upper.includes('CENTRU') || upper.includes('CENTER')) return 'Ploiești (centru)'
-          return 'Ploiești (centru)' // Default pentru Ploiesti
+          if (upper.includes('NORD')) return 'Ploiesti (nord)'
+          if (upper.includes('CENTRU') || upper.includes('CENTER')) return 'Ploiesti (centru)'
+          return 'Ploiesti (centru)' // Default pentru Ploiesti
         }
         if (upper.includes('VALCEA') || upper.includes('VÂLCEA') || upper.includes('RAMNICU')) {
-          return 'Vâlcea'
+          return 'Valcea'
         }
         if (upper.includes('CRAIOVA') || upper.includes('CARIOVA')) {
           return 'Craiova'
         }
         if (upper.includes('BUCUREȘTI') || upper.includes('BUCHAREST') || upper.includes('BUCURESTI')) {
-          return 'București'
+          return 'Bucuresti'
         }
         
         // Dacă nu se potrivește cu niciunul, returnează originalul normalizat

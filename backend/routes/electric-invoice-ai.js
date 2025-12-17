@@ -54,14 +54,14 @@ const normalizeLocation = (text) => {
   if (!text) return null
   const upper = text.toUpperCase().trim()
   if (upper.includes('CRAIOVA') || upper.includes('CARIOVA')) return 'Craiova'
-  if (upper.includes('PITESTI') || upper.includes('PITEȘTI') || upper.includes('PITI')) return 'Pitești'
+  if (upper.includes('PITESTI') || upper.includes('PITEȘTI') || upper.includes('PITI')) return 'Pitesti'
   if (upper.includes('VALCEA') || upper.includes('VÂLCEA') || upper.includes('RAMNICU')) return 'Valcea'
   if (upper.includes('PLOIESTI') || upper.includes('PLOIEȘTI')) {
     if (upper.includes('NORD')) return 'Ploiesti (nord)'
     if (upper.includes('CENTRU') || upper.includes('CENTER')) return 'Ploiesti (centru)'
     return 'Ploiesti (centru)'
   }
-  if (upper.includes('BUCUREȘTI') || upper.includes('BUCHAREST') || upper.includes('BUCURESTI')) return 'București'
+  if (upper.includes('BUCUREȘTI') || upper.includes('BUCHAREST') || upper.includes('BUCURESTI')) return 'Bucuresti'
   return text.trim()
 }
 

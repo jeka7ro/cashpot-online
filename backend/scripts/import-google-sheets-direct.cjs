@@ -23,18 +23,18 @@ function normalizeLocationName(location) {
   
   // Mapare corectă pentru locații (la fel ca în BAT)
   const locationMap = {
-    'pitesti': 'Pitești',
-    'pitești': 'Pitești',
-    'ploiesti (centru)': 'Ploiești (centru)',
-    'ploiești (centru)': 'Ploiești (centru)',
-    'ploiesti centru': 'Ploiești (centru)',
-    'ploiești centru': 'Ploiești (centru)',
-    'ploiesti (nord)': 'Ploiești (nord)',
-    'ploiești (nord)': 'Ploiești (nord)',
-    'ploiesti nord': 'Ploiești (nord)',
-    'ploiești nord': 'Ploiești (nord)',
-    'valcea': 'Vâlcea',
-    'vâlcea': 'Vâlcea',
+    'pitesti': 'Pitesti',
+    'pitești': 'Pitesti',
+    'ploiesti (centru)': 'Ploiesti (centru)',
+    'ploiești (centru)': 'Ploiesti (centru)',
+    'ploiesti centru': 'Ploiesti (centru)',
+    'ploiești centru': 'Ploiesti (centru)',
+    'ploiesti (nord)': 'Ploiesti (nord)',
+    'ploiești (nord)': 'Ploiesti (nord)',
+    'ploiesti nord': 'Ploiesti (nord)',
+    'ploiești nord': 'Ploiesti (nord)',
+    'valcea': 'Valcea',
+    'vâlcea': 'Valcea',
     'craiova': 'Craiova'
   }
   
