@@ -798,32 +798,6 @@ const Expenditures = () => {
       })
       console.log(`  After includedDepartments filter (${includedDepartments.length} depts): ${beforeDept} → ${filteredData.length}`)
       
-      // DEBUG: Log toate departamentele din date și cele incluse
-      console.log(`🔍 [processDataToMatrix] DEBUG includedDepartments:`)
-      console.log(`   Included departments (${includedDepartments.length}):`, includedDepartments)
-      console.log(`   Normalized included:`, normalizedIncluded)
-      console.log(`   Departments in data (${beforeFilterDepts.length}):`, beforeFilterDepts)
-      console.log(`   Normalized data depts:`, beforeFilterDepts.map(d => normalizeDiacritics(d?.toLowerCase().trim() || '')))
-      
-      // DEBUG: Log departamentele care au rămas după filtru
-      const remainingDepts = [...new Set(filteredData.map(d => d.department_name))]
-      console.log(`   Remaining departments (${remainingDepts.length}):`, remainingDepts)
-      
-      // DEBUG: Verifică specific pentru Salarii
-      if (includedDepartments.includes('Salarii')) {
-        const salariiBefore = filteredData.filter(d => d.department_name === 'Salarii').length
-        const salariiAfter = beforeDept > 0 ? filteredData.filter(d => d.department_name === 'Salarii').length : 0
-        console.log(`  🔍 DEBUG Salarii: ${salariiBefore} → ${salariiAfter} (included: ${includedDepartments.includes('Salarii')})`)
-        if (salariiBefore > 0 && salariiAfter === 0) {
-          const sampleSalarii = filteredData.filter(d => d.department_name === 'Salarii').slice(0, 3)
-          console.error('  ❌ Salarii filtered out! Sample:', sampleSalarii.map(d => ({
-            dept: d.department_name,
-            normalized: normalizeDiacritics((d.department_name || '').toLowerCase().trim()),
-            inIncluded: normalizedIncluded.includes(normalizeDiacritics((d.department_name || '').toLowerCase().trim()))
-          })))
-        }
-      }
-      
       if (filteredData.length === 0 && beforeDept > 0) {
         const sampleDepts = [...new Set(beforeFilterDepts)].slice(0, 10)
         console.error('  ❌ All data filtered out by includedDepartments!')

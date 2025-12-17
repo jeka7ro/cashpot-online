@@ -132,17 +132,6 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
       console.warn(`⚠️ [ExpendituresTable] Eliminate ${duplicateKeys.length} duplicate-uri din ${expendituresData.length} înregistrări`)
     }
     
-    // DEBUG: Verifică duplicate-uri pentru Birou
-    if (uniqueData.some(item => item.department_name === 'Birou')) {
-      const birouItems = uniqueData.filter(item => item.department_name === 'Birou')
-      const birouTotal = birouItems.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
-      console.log(`🔍 [ExpendituresTable] Birou: ${birouItems.length} înregistrări unice, Total: ${birouTotal.toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} RON`)
-    }
-    
-    // DEBUG: Log toate departamentele unice din date
-    const allUniqueDepartments = [...new Set(uniqueData.map(item => item.department_name).filter(Boolean))]
-    console.log(`🔍 [ExpendituresTable] Toate departamentele din date (${allUniqueDepartments.length}):`, allUniqueDepartments.sort())
-    
     // Folosește datele unice pentru calcul
     uniqueData.forEach(item => {
       const dept = item.department_name || 'Unknown'
@@ -191,12 +180,7 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
       deptMap[dept].categories[category].byLocation[location] += amount
     })
     
-    const result = Object.values(deptMap).sort((a, b) => b.total - a.total)
-    
-    // DEBUG: Log departamentele finale care vor fi afișate
-    console.log(`🔍 [ExpendituresTable] Departamente finale care vor fi afișate (${result.length}):`, result.map(d => `${d.name} (${d.total.toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} RON)`))
-    
-    return result
+    return Object.values(deptMap).sort((a, b) => b.total - a.total)
   }, [expendituresData, locations])
   
   // === SORTARE LOGIC ===
