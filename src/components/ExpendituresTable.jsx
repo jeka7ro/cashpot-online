@@ -195,7 +195,12 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
       deptMap[dept].categories[category].byLocation[location] += amount
     })
     
-    return Object.values(deptMap).sort((a, b) => b.total - a.total)
+    const result = Object.values(deptMap).sort((a, b) => b.total - a.total)
+    
+    // DEBUG: Log departamentele finale care vor fi afișate
+    console.log(`🔍 [ExpendituresTable] Departamente finale care vor fi afișate (${result.length}):`, result.map(d => `${d.name} (${d.total.toLocaleString('ro-RO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} RON)`))
+    
+    return result
   }, [expendituresData, locations])
   
   // === SORTARE LOGIC ===
