@@ -425,35 +425,58 @@ router.get('/external-locations', async (req, res) => {
       return res.json({ success: true, locations: [], locationsWithNLC: [] })
     }
     
-    // Obține locațiile din tabelul locations cu NLC-uri (dacă există)
+    // Obține TOATE locațiile unice din expenditures_sync (BAT + Google Sheets + Electric Invoice)
+    const allLocationsSet = new Set()
+    const locationsWithNLC = []
+    
     try {
+      // 1. Obține locațiile din expenditures_sync (toate sursele)
+      const expendituresResult = await localPool.query(`
+        SELECT DISTINCT location_name
+        FROM expenditures_sync
+        WHERE location_name IS NOT NULL 
+          AND location_name != ''
+          AND location_name != 'Nespecificat'
+          AND location_name != 'Unknown'
+        ORDER BY location_name
+      `)
+      
+      expendituresResult.rows.forEach(row => {
+        if (row.location_name) {
+          allLocationsSet.add(row.location_name)
+        }
+      })
+      
+      // 2. Obține locațiile din tabelul locations cu NLC-uri (pentru matching)
       const locationsResult = await localPool.query(`
         SELECT id, name, nlc_code
         FROM locations
         WHERE name IS NOT NULL 
           AND name != ''
-          AND status = 'Active'
         ORDER BY name
       `)
       
-      const locationsWithNLC = locationsResult.rows.map(row => ({
-        id: row.id,
-        name: row.name,
-        nlc_code: row.nlc_code || null
-      }))
+      // Adaugă și locațiile din tabelul locations
+      locationsResult.rows.forEach(row => {
+        if (row.name) {
+          allLocationsSet.add(row.name)
+          // Adaugă la lista cu NLC-uri dacă există
+          if (row.nlc_code) {
+            locationsWithNLC.push({
+              id: row.id,
+              name: row.name,
+              nlc_code: row.nlc_code
+            })
+          }
+        }
+      })
       
-      const locations = locationsResult.rows.map(row => row.name)
+      // Convert Set to sorted array
+      const locations = Array.from(allLocationsSet).sort()
       
       if (locations.length > 0) {
-        console.log(`✅ Found ${locations.length} locations with ${locationsWithNLC.filter(l => l.nlc_code).length} NLC codes`)
-        console.log(`   Sample locations:`, locations.slice(0, 5))
-        // Log locațiile care conțin "Pitești" sau "Pitesti"
-        const pitestiLocations = locations.filter(loc => 
-          loc.toLowerCase().includes('pitest') || loc.toLowerCase().includes('pitești')
-        )
-        if (pitestiLocations.length > 0) {
-          console.log(`   🔍 Locații Pitești găsite:`, pitestiLocations)
-        }
+        console.log(`✅ Found ${locations.length} unique locations (${expendituresResult.rows.length} from expenditures_sync, ${locationsResult.rows.length} from locations table)`)
+        console.log(`   Locations:`, locations)
         return res.json({ 
           success: true, 
           locations,
