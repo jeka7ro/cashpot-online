@@ -245,8 +245,22 @@ const buildSqlTableWhereClause = (query, includedFilters) => {
     values.push(type)
   } else if (types && types.length > 0) {
     // Aplică filtrele de utilizator doar dacă nu e selectat un type explicit
-    filters.push(`expenditure_type = ANY($${paramIndex++}::text[])`)
-    values.push(types)
+    // IMPORTANT: Normalizează diacriticele pentru matching (ț/ţ, ș/ş devin aceleași)
+    // Normalizăm tipurile în JavaScript (transformăm ţ→ț, ș→ș pentru consistență)
+    const normalizedTypes = types.map(t => {
+      if (!t) return ''
+      return String(t).trim()
+        .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
+        .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
+    }).filter(Boolean).map(t => t.toLowerCase())
+    
+    // Normalizăm și valorile din DB în același mod pentru matching insensibil la variantele de diacritice
+    // Folosim REPLACE pentru a transforma ţ→ț și ș→ș, apoi LOWER pentru comparație case-insensitive
+    const normalizedArrayParam = paramIndex++
+    values.push(normalizedTypes)
+    filters.push(`LOWER(REPLACE(REPLACE(REPLACE(REPLACE(expenditure_type, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș')) = ANY($${normalizedArrayParam}::text[])`)
+    
+    console.log(`🔍 [buildSqlTableWhereClause] Applied includedTypes filter: ${normalizedTypes.length} types (sample: ${normalizedTypes.slice(0, 3).join(', ')})`)
   }
 
   // Location: dacă e selectat explicit, folosim doar acela; altfel folosim filtrele de utilizator
@@ -1424,7 +1438,6 @@ router.post('/import-all', authenticateToken, async (req, res) => {
             LEFT JOIN public.casino_expenditure_types et ON p.expenditure_type_id = et.id
             WHERE p.is_deleted = false
               AND p.date >= '2023-01-01'
-              AND p.date <= '2025-12-31'
           `)
           
           externalData = fetchResult.rows.map(row => ({
@@ -3263,9 +3276,14 @@ router.get('/sql-table', authenticateToken, async (req, res) => {
     // DEBUG: Log pentru a vedea ce filtre se aplică
     console.log('🔍 SQL-TABLE DEBUG:', {
       query: req.query,
-      includedFilters,
+      includedFilters: {
+        departments: includedFilters.departments?.length || 0,
+        types: includedFilters.types?.length || 0,
+        locations: includedFilters.locations?.length || 0,
+        typesSample: includedFilters.types?.slice(0, 5)
+      },
       whereClause,
-      values
+      valuesCount: values.length
     })
 
     const countResult = await pool.query(

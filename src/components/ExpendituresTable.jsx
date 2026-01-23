@@ -18,10 +18,40 @@ const normalizeDiacritics = (str) => {
     .trim()
 }
 
-// Normalize location name for consistent comparison
+// Strip ALL diacritics (Ploiești -> Ploiesti) for matching
+const stripDiacritics = (str) => {
+  if (!str) return ''
+  try {
+    return normalizeDiacritics(str).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  } catch {
+    // Fallback if .normalize isn't supported (very unlikely in modern browsers)
+    return normalizeDiacritics(str)
+  }
+}
+
+// Canonicalize Ploiesti variants so "ploiesti centru" == "ploiesti (centru)"
+const canonicalizeLocationCore = (raw) => {
+  const base = stripDiacritics(raw)
+    .toLowerCase()
+    .trim()
+    .replace(/[()]/g, ' ')
+    .replace(/\s+/g, ' ')
+
+  if (base.includes('ploiesti') && base.includes('centru')) return 'ploiesti (centru)'
+  if (base.includes('ploiesti') && base.includes('nord')) return 'ploiesti (nord)'
+
+  return stripDiacritics(raw)
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\s*\(\s*/g, ' (')
+    .replace(/\s*\)\s*/g, ')')
+}
+
+// Normalize location name for consistent comparison (diacritics-insensitive)
 const normalizeLocationName = (str) => {
   if (!str) return ''
-  return normalizeDiacritics(str.toLowerCase().trim())
+  return canonicalizeLocationCore(str)
 }
 
 const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, expendituresData, onAmountClick, allExpanded, onToggleAll }) => {
@@ -80,15 +110,6 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
           locationMap.set(normalized, loc)
         }
       })
-      
-      // DEBUG: Log location mapping for Salarii department
-      if (expendituresData.some(item => item.department_name === 'Salarii')) {
-        console.log('🔍 [ExpendituresTable] Location mapping:', {
-          locationsFromProp: locations,
-          locationMap: Array.from(locationMap.entries()),
-          sampleSalariiLocations: [...new Set(expendituresData.filter(item => item.department_name === 'Salarii').map(item => item.location_name))]
-        })
-      }
     }
     
     // Helper function to find matching location name from locations prop
@@ -391,7 +412,10 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
                     </div>
                   </td>
                   {locations.map(loc => (
-                    <td key={loc} className="px-4 py-3 text-right text-xs text-slate-600 dark:text-slate-400">
+                    <td 
+                      key={loc} 
+                      className="px-4 py-3 text-right text-xs text-slate-600 dark:text-slate-400"
+                    >
                       {category.byLocation[loc] ? formatCurrency(category.byLocation[loc]) : '-'}
                     </td>
                   ))}
@@ -423,7 +447,10 @@ const ExpendituresTable = ({ matrix, locations, expenditureTypes, totalsRow, exp
               // Calculează totalul pentru fiecare locație din datele grupate după departament
               const locationTotal = departments.reduce((sum, dept) => sum + (dept.byLocation[loc] || 0), 0)
               return (
-                <td key={loc} className="px-4 py-4 text-right text-sm text-slate-900 dark:text-slate-100">
+                <td 
+                  key={loc} 
+                  className="px-4 py-4 text-right text-sm text-slate-900 dark:text-slate-100"
+                >
                   {formatCurrency(locationTotal)}
                 </td>
               )

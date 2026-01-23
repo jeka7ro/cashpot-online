@@ -27,6 +27,50 @@ const normalizeDiacritics = (str) => {
     .trim()
 }
 
+// === LOCATIONS ONLY: normalize to ASCII-stable key/display ===
+const stripDiacritics = (str) => {
+  if (!str) return ''
+  try {
+    return normalizeDiacritics(str).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  } catch {
+    return normalizeDiacritics(str)
+  }
+}
+
+// Canonicalize Ploiesti variants so "ploiesti centru" == "ploiesti (centru)"
+const canonicalizeLocationCore = (raw) => {
+  const base = stripDiacritics(raw)
+    .toLowerCase()
+    .trim()
+    // treat punctuation/brackets as separators for matching
+    .replace(/[()]/g, ' ')
+    .replace(/\s+/g, ' ')
+
+  if (base.includes('ploiesti') && base.includes('centru')) return 'ploiesti (centru)'
+  if (base.includes('ploiesti') && base.includes('nord')) return 'ploiesti (nord)'
+
+  // default: keep original content but normalized spacing/parentheses
+  return stripDiacritics(raw)
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\s*\(\s*/g, ' (')
+    .replace(/\s*\)\s*/g, ')')
+}
+
+const normalizeLocationKey = (str) => {
+  if (!str) return ''
+  return canonicalizeLocationCore(str)
+}
+
+const normalizeLocationDisplay = (str) => {
+  if (!str) return ''
+  const key = canonicalizeLocationCore(str)
+  // Display in Title-ish form (no diacritics): "Ploiesti (centru)"
+  return key
+    .replace(/^./, (c) => c.toUpperCase())
+}
+
 const Expenditures = () => {
   const { user } = useAuth()
   const { theme } = useTheme()
@@ -817,6 +861,11 @@ const Expenditures = () => {
       const beforeFilterTypes = [...new Set(filteredData.map(d => d.expenditure_type))]
       
       filteredData = filteredData.filter((item) => {
+        // IMPORTANT: salariile din BAT vin pe mai multe categorii ("Salarii angajați", "Contribuțiile salariale", etc.)
+        // Dacă user-ul a rămas doar cu "Transfer Salarii" bifat în setări, tabelul arată 0 pe Ploiești.
+        // Pentru a nu pierde salariile reale, NU filtrăm departamentul "Salarii" după includedTypes.
+        const itemDept = normalizeDiacritics((item.department_name || '').toLowerCase().trim())
+        if (itemDept === 'salarii') return true
         const itemType = normalizeDiacritics((item.expenditure_type || '').toLowerCase().trim())
         return normalizedIncludedTypes.includes(itemType)
       })
@@ -834,11 +883,11 @@ const Expenditures = () => {
     
     if (Array.isArray(includedLocations) && includedLocations.length > 0) {
       const beforeLoc = filteredData.length
-      const normalizedIncludedLocations = includedLocations.map(l => normalizeDiacritics(l?.toLowerCase().trim() || ''))
+      const normalizedIncludedLocations = includedLocations.map(l => normalizeLocationKey(l || ''))
       const beforeFilterLocations = [...new Set(filteredData.map(d => d.location_name))]
       
       filteredData = filteredData.filter((item) => {
-        const itemLoc = normalizeDiacritics((item.location_name || '').toLowerCase().trim())
+        const itemLoc = normalizeLocationKey(item.location_name || '')
         return normalizedIncludedLocations.includes(itemLoc)
       })
       console.log(`  After includedLocations filter (${includedLocations.length} locations): ${beforeLoc} → ${filteredData.length}`)
@@ -964,20 +1013,16 @@ const Expenditures = () => {
     
     filteredData.forEach(item => {
       if (item.location_name) {
-        const normalized = normalizeDiacritics(item.location_name.toLowerCase().trim())
+        const normalized = normalizeLocationKey(item.location_name)
         // Store the first occurrence of each normalized location as the canonical form
         if (!locationNormalizationMap.has(normalized)) {
-          locationNormalizationMap.set(normalized, item.location_name)
-          locationsSet.add(item.location_name)
+          const canonicalDisplay = normalizeLocationDisplay(item.location_name)
+          locationNormalizationMap.set(normalized, canonicalDisplay)
+          locationsSet.add(canonicalDisplay)
         } else {
           // Use the canonical form if it exists
           const canonical = locationNormalizationMap.get(normalized)
-          if (canonical !== item.location_name) {
-            // This location has different diacritics - use canonical form
-            locationsSet.add(canonical)
-          } else {
-            locationsSet.add(item.location_name)
-          }
+          locationsSet.add(canonical)
         }
       }
       if (item.expenditure_type) expenditureTypesSet.add(item.expenditure_type)
@@ -989,7 +1034,7 @@ const Expenditures = () => {
     // Helper function to normalize location for comparison
     const normalizeLocationForComparison = (locName) => {
       if (!locName) return ''
-      return normalizeDiacritics(locName.toLowerCase().trim())
+      return normalizeLocationKey(locName)
     }
     
     // Build matrix
@@ -1271,8 +1316,19 @@ const Expenditures = () => {
     }
   }, [departmentFilter, uniqueExpenditureTypes, expenditureTypeFilter])
   
-  // Get unique locations for filter
-  const uniqueLocations = [...new Set(expendituresData.map(item => item.location_name))].filter(Boolean).sort()
+  // Get unique locations for filter (LOCATIONS ONLY: without diacritics + deduped)
+  const uniqueLocations = React.useMemo(() => {
+    const map = new Map() // key -> display
+    expendituresData.forEach((item) => {
+      if (!item?.location_name) return
+      const key = normalizeLocationKey(item.location_name)
+      if (!key) return
+      if (!map.has(key)) {
+        map.set(key, normalizeLocationDisplay(item.location_name))
+      }
+    })
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b))
+  }, [expendituresData])
   
   // Format currency
   const formatCurrency = (amount) => {
