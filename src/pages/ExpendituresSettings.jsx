@@ -90,9 +90,7 @@ const ExpendituresSettings = () => {
     // Auto-sync settings
     autoSync: false,
     syncInterval: 24, // hours
-    syncTime: '02:00',
-    syncTimeStart: '19:00', // Ora României - început interval
-    syncTimeEnd: '22:00', // Ora României - sfârșit interval
+    syncTime: '02:00', // Ora la care rulează sincronizarea zilnică (România)
     
     // Filter settings
     excludeDeleted: true,
@@ -713,6 +711,7 @@ const ExpendituresSettings = () => {
   
   // Statistics about data in database
   const [dataStats, setDataStats] = useState(null)
+  const [batDateRange, setBatDateRange] = useState(null) // interval date în sursa BAT (de ce nu apar date mai noi)
   const [loadingStats, setLoadingStats] = useState(false)
   
   // Duplicate SMART modal state
@@ -780,13 +779,21 @@ const ExpendituresSettings = () => {
     }
   }, [])
   
-  // Fetch data statistics
+  // Fetch data statistics + interval date din BAT (sursa datelor)
   const fetchDataStats = async () => {
     setLoadingStats(true)
     try {
-      const response = await axios.get('/api/expenditures/stats')
-      if (response.data?.success) {
-        setDataStats(response.data)
+      const [statsRes, batRes] = await Promise.all([
+        axios.get('/api/expenditures/stats'),
+        axios.get('/api/expenditures/bat-date-range').catch(() => ({ data: null }))
+      ])
+      if (statsRes.data?.success) {
+        setDataStats(statsRes.data)
+      }
+      if (batRes?.data?.success) {
+        setBatDateRange(batRes.data)
+      } else {
+        setBatDateRange(null)
       }
     } catch (error) {
       console.error('Error fetching data stats:', error)
@@ -1276,10 +1283,11 @@ const ExpendituresSettings = () => {
       }
       
       // Load settings - respect empty arrays (user a debifat tot!)
+      // Ora rulare: un singur câmp (syncTime), compatibil cu setări vechi (syncTimeStart)
       setSettings({
         ...loadedSettings,
+        syncTime: loadedSettings.syncTime || loadedSettings.syncTimeStart || '02:00',
         // DACĂ array EXISTĂ (chiar dacă e gol) → folosește-l
-        // DOAR dacă e undefined/null → default la toate
         includedExpenditureTypes: loadedSettings.includedExpenditureTypes !== undefined
           ? loadedSettings.includedExpenditureTypes 
           : typesRes.data.map(t => t.name), // Default: toate bifate
@@ -4038,6 +4046,19 @@ const ExpendituresSettings = () => {
                         </table>
                       </div>
                       
+                      {/* De ce nu apar date mai noi: sursa BAT */}
+                      {batDateRange?.maxDate && (
+                        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                          <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 mb-1">📅 Sursa BAT (baza externă)</p>
+                          <p className="text-sm text-amber-700 dark:text-amber-300">
+                            BAT conține date de la <strong>{batDateRange.minDate}</strong> până la <strong>{batDateRange.maxDate}</strong> ({batDateRange.totalRecords?.toLocaleString('ro-RO')} înregistrări).
+                          </p>
+                          <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                            Dacă în app vezi doar până la {batDateRange.maxDate}, <strong>baza BAT nu are încă date mai noi</strong>. „Import Toate Datele” preia exact ce e în BAT – trebuie actualizată baza externă (export/sincronizare din sistemul sursă).
+                          </p>
+                        </div>
+                      )}
+                      
                       {/* Top 5 Departamente și Locații */}
                       {(dataStats.byDepartment.length > 0 || dataStats.byLocation.length > 0) && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -4380,36 +4401,22 @@ const ExpendituresSettings = () => {
                       </select>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                          Ora Început (România)
-                        </label>
-                        <input
-                          type="time"
-                          value={settings.syncTimeStart || '19:00'}
-                          onChange={(e) => setSettings(prev => ({ ...prev, syncTimeStart: e.target.value }))}
-                          className="input-field"
-                        />
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Sincronizarea va rula doar între aceste ore</p>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                          Ora Sfârșit (România)
-                        </label>
-                        <input
-                          type="time"
-                          value={settings.syncTimeEnd || '22:00'}
-                          onChange={(e) => setSettings(prev => ({ ...prev, syncTimeEnd: e.target.value }))}
-                          className="input-field"
-                        />
-                      </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        Ora rulare (România)
+                      </label>
+                      <input
+                        type="time"
+                        value={settings.syncTime || '02:00'}
+                        onChange={(e) => setSettings(prev => ({ ...prev, syncTime: e.target.value }))}
+                        className="input-field"
+                      />
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Sincronizarea zilnică rulează la această oră.</p>
                     </div>
                     
                     <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
                       <p className="text-xs text-blue-800 dark:text-blue-200">
-                        ℹ️ Sincronizarea automată va rula doar între <strong>{settings.syncTimeStart || '19:00'}</strong> și <strong>{settings.syncTimeEnd || '22:00'}</strong> (ora României).
+                        ℹ️ La intervalul ales (ex. 24h), importul rulează o dată pe zi la <strong>{settings.syncTime || '02:00'}</strong> (ora României).
                       </p>
                     </div>
                   </div>

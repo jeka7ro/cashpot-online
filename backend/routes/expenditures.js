@@ -451,6 +451,35 @@ export const getExternalPool = () => {
   return externalPool
 }
 
+// GET /api/expenditures/bat-date-range - Ultima dată din baza BAT (sursa datelor)
+// Dacă datele tale se opresc la 26.01, verifică acest endpoint: dacă maxDate e 26.01, baza BAT nu are date mai noi.
+router.get('/bat-date-range', async (req, res) => {
+  try {
+    const pool = getExternalPool()
+    const result = await pool.query(`
+      SELECT 
+        MIN(p.date)::text as min_date,
+        MAX(p.date)::text as max_date,
+        COUNT(*) as total
+      FROM public.casino_payments p
+      WHERE p.is_deleted = false AND p.date >= '2023-01-01'
+    `)
+    const row = result.rows[0]
+    res.json({
+      success: true,
+      minDate: row?.min_date || null,
+      maxDate: row?.max_date || null,
+      totalRecords: parseInt(row?.total || 0),
+      message: row?.max_date
+        ? `BAT conține date de la ${row.min_date} până la ${row.max_date}. Dacă în app vezi doar până la ${row.max_date}, sursa (BAT) nu are încă date mai noi – trebuie actualizată baza BAT.`
+        : 'BAT nu conține înregistrări.'
+    })
+  } catch (error) {
+    console.error('❌ bat-date-range error:', error.message)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 // Test connection to external DB
 router.get('/test-connection', async (req, res) => {
   try {
@@ -1520,6 +1549,15 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
           console.log(`✅ Fetched ${externalData.length} records from BAT`)
           
           if (externalData.length > 0) {
+            const dates = externalData.map(r => r.operational_date).filter(Boolean)
+            const minDate = dates.length ? new Date(Math.min(...dates.map(d => new Date(d)))) : null
+            const maxDate = dates.length ? new Date(Math.max(...dates.map(d => new Date(d)))) : null
+            const minStr = minDate ? minDate.toISOString().split('T')[0] : 'N/A'
+            const maxStr = maxDate ? maxDate.toISOString().split('T')[0] : 'N/A'
+            console.log(`📅 BAT interval date: ${minStr} → ${maxStr} (dacă nu vezi date după ${maxStr}, baza BAT nu are încă date mai noi)`)
+            _importAllProgress.batDateRange = { min: minStr, max: maxStr }
+          }
+          if (externalData.length > 0) {
             console.log('📊 Sample record:', {
               date: externalData[0].operational_date,
               location: externalData[0].location_name,
@@ -2519,8 +2557,6 @@ router.put('/settings', authenticateToken, async (req, res) => {
       autoSync: settings.autoSync || false,
       syncInterval: settings.syncInterval || 24,
       syncTime: settings.syncTime || '02:00',
-      syncTimeStart: settings.syncTimeStart || settings.syncTime || '02:00',
-      syncTimeEnd: settings.syncTimeEnd || '22:00',
       excludeDeleted: settings.excludeDeleted !== undefined ? settings.excludeDeleted : true,
       showInExpenditures: settings.showInExpenditures !== undefined ? settings.showInExpenditures : true,
       // Google Sheets URL persistent
@@ -2572,7 +2608,7 @@ router.put('/settings', authenticateToken, async (req, res) => {
     // Sincronizare automată la 24h: creează/actualizează regula în expenditures_backup_rules
     // ca scheduler-ul (schedule-expenditures-import.js) să execute importul zilnic la ora setată
     const AUTO_SYNC_RULE_NAME = 'Import automat (setări Auto-Sincronizare)'
-    const scheduleTime = cleanSettings.syncTimeStart || cleanSettings.syncTime || '02:00'
+    const scheduleTime = cleanSettings.syncTime || '02:00'
     try {
       const existingRule = await pool.query(
         `SELECT id FROM expenditures_backup_rules WHERE name = $1 LIMIT 1`,

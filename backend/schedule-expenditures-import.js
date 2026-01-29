@@ -182,7 +182,7 @@ async function syncRuleFromUserPreferences(pool) {
       const prefs = row.preferences || {}
       const expSettings = prefs.expendituresSettings || {}
       if (expSettings.autoSync === true) {
-        const scheduleTime = expSettings.syncTimeStart || expSettings.syncTime || '02:00'
+        const scheduleTime = expSettings.syncTime || expSettings.syncTimeStart || '02:00'
         const existing = await pool.query(
           `SELECT id FROM expenditures_backup_rules WHERE name = $1 LIMIT 1`,
           [AUTO_SYNC_RULE_NAME]
