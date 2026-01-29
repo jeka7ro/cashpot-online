@@ -5,6 +5,11 @@ import toast from 'react-hot-toast'
 // Configure axios base URL - use relative path for Vite proxy
 // axios.defaults.baseURL = 'http://localhost:5001' // Commented out to use Vite proxy
 
+// Mesaj clar când backend-ul nu răspunde (în development = serverul nu rulează pe port 5001)
+const BACKEND_NOT_RUNNING_MSG = typeof import.meta !== 'undefined' && import.meta.env?.DEV
+  ? 'Backend-ul nu răspunde. Pornește serverul: din folderul backend rulează node server-postgres.js (port 5001).'
+  : 'Backend-ul este temporar indisponibil. Te rugăm să încerci din nou mai târziu.'
+
 const AuthContext = createContext()
 
 export const useAuth = () => {
@@ -181,7 +186,7 @@ export const AuthProvider = ({ children }) => {
             console.warn('🚫 Backend UNAVAILABLE - circuit breaker activ!')
             // Redirecționez la login FĂRĂ să șterg token-ul (pentru când revine backend-ul)
             if (window.location.pathname !== '/login') {
-              toast.error('Backend-ul este temporar indisponibil. Încearcă din nou în câteva minute.', {
+              toast.error(error.response?.status === 500 ? BACKEND_NOT_RUNNING_MSG : 'Backend-ul este temporar indisponibil. Încearcă din nou în câteva minute.', {
                 duration: 10000,
                 id: 'backend-down' // Prevent duplicate toasts!
               })
@@ -198,6 +203,9 @@ export const AuthProvider = ({ children }) => {
             // NU mai afișez toast!
           } else {
             console.error('❌ Auth check failed - clearing session')
+            if (error.response?.status === 500 || error.code === 'ERR_NETWORK') {
+              toast.error(BACKEND_NOT_RUNNING_MSG, { duration: 10000, id: 'backend-down' })
+            }
             sessionStorage.removeItem('authToken')
             setToken(null)
             setUser(null)
@@ -243,19 +251,13 @@ export const AuthProvider = ({ children }) => {
             } else {
               // Backend-ul e încă down
               setLoading(false)
-              toast.error('🔴 Backend-ul este temporar indisponibil. Te rugăm să încerci din nou în câteva minute.', { 
-                duration: 5000, 
-                id: 'backend-down' 
-              })
+              toast.error('🔴 ' + BACKEND_NOT_RUNNING_MSG, { duration: 8000, id: 'backend-down' })
               return { success: false, error: 'Backend unavailable' }
             }
           } catch (healthError) {
-            // Backend-ul e încă down
+            // Backend-ul nu răspunde (nu rulează sau proxy eșuează)
             setLoading(false)
-            toast.error('🔴 Backend-ul este temporar indisponibil. Te rugăm să încerci din nou în câteva minute.', { 
-              duration: 5000, 
-              id: 'backend-down' 
-            })
+            toast.error('🔴 ' + BACKEND_NOT_RUNNING_MSG, { duration: 8000, id: 'backend-down' })
             return { success: false, error: 'Backend unavailable' }
           }
         } else {
@@ -334,7 +336,7 @@ export const AuthProvider = ({ children }) => {
       
       let message
       if (is503 || is500) {
-        message = '🔴 Backend-ul este temporar indisponibil. Te rugăm să încerci din nou mai târziu.'
+        message = '🔴 ' + BACKEND_NOT_RUNNING_MSG
         backendFailures.current++
         lastFailureTime.current = Date.now()
         // Salvează circuit breaker pentru settings și keep-alive

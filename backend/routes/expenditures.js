@@ -2519,6 +2519,8 @@ router.put('/settings', authenticateToken, async (req, res) => {
       autoSync: settings.autoSync || false,
       syncInterval: settings.syncInterval || 24,
       syncTime: settings.syncTime || '02:00',
+      syncTimeStart: settings.syncTimeStart || settings.syncTime || '02:00',
+      syncTimeEnd: settings.syncTimeEnd || '22:00',
       excludeDeleted: settings.excludeDeleted !== undefined ? settings.excludeDeleted : true,
       showInExpenditures: settings.showInExpenditures !== undefined ? settings.showInExpenditures : true,
       // Google Sheets URL persistent
@@ -2566,6 +2568,43 @@ router.put('/settings', authenticateToken, async (req, res) => {
     `, [JSON.stringify(updatedPreferences), userId])
     
     console.log('✅ BACKEND - Setări salvate în users.preferences pentru user', userId)
+
+    // Sincronizare automată la 24h: creează/actualizează regula în expenditures_backup_rules
+    // ca scheduler-ul (schedule-expenditures-import.js) să execute importul zilnic la ora setată
+    const AUTO_SYNC_RULE_NAME = 'Import automat (setări Auto-Sincronizare)'
+    const scheduleTime = cleanSettings.syncTimeStart || cleanSettings.syncTime || '02:00'
+    try {
+      const existingRule = await pool.query(
+        `SELECT id FROM expenditures_backup_rules WHERE name = $1 LIMIT 1`,
+        [AUTO_SYNC_RULE_NAME]
+      )
+      if (cleanSettings.autoSync) {
+        if (existingRule.rows.length > 0) {
+          await pool.query(
+            `UPDATE expenditures_backup_rules SET schedule_type = 'daily', schedule_time = $1, is_active = true, updated_at = CURRENT_TIMESTAMP WHERE name = $2`,
+            [scheduleTime, AUTO_SYNC_RULE_NAME]
+          )
+          console.log(`✅ [AUTO-SYNC] Regula "${AUTO_SYNC_RULE_NAME}" actualizată: zilnic la ${scheduleTime}`)
+        } else {
+          await pool.query(
+            `INSERT INTO expenditures_backup_rules (name, schedule_type, schedule_time, is_active, created_by) VALUES ($1, 'daily', $2, true, $3)`,
+            [AUTO_SYNC_RULE_NAME, scheduleTime, userId]
+          )
+          console.log(`✅ [AUTO-SYNC] Regula "${AUTO_SYNC_RULE_NAME}" creată: zilnic la ${scheduleTime}`)
+        }
+      } else {
+        if (existingRule.rows.length > 0) {
+          await pool.query(
+            `UPDATE expenditures_backup_rules SET is_active = false, updated_at = CURRENT_TIMESTAMP WHERE name = $1`,
+            [AUTO_SYNC_RULE_NAME]
+          )
+          console.log(`✅ [AUTO-SYNC] Regula "${AUTO_SYNC_RULE_NAME}" dezactivată (autoSync off)`)
+        }
+      }
+    } catch (ruleErr) {
+      console.error('❌ [AUTO-SYNC] Eroare la creare/actualizare regulă backup:', ruleErr.message)
+      // Nu blocăm salvarea setărilor
+    }
     
     // Verifică ce s-a salvat (re-citește)
     const verifyResult = await pool.query(`

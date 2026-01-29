@@ -47,6 +47,7 @@ import notificationsRoutes from './routes/notifications.js'
 import expendituresRoutes from './routes/expenditures.js'
 import incasariRoutes from './routes/incasari.js'
 import { scheduleBackups } from './backup.js'
+import { scheduleExpendituresImports } from './schedule-expenditures-import.js'
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
@@ -167,6 +168,10 @@ const connectAndInitDB = async () => {
     
     // Initialize database schema in background
     await initializeDatabase()
+    
+    // Start scheduled imports for expenditures (după inițializarea bazei de date)
+    console.log('🔄 Pornire scheduler pentru import automat cheltuieli...')
+    scheduleExpendituresImports(pool)
   } catch (err) {
     console.error('❌ PostgreSQL connection error:', err)
     console.error('⚠️ Server will continue running but DB operations may fail!')
@@ -1978,7 +1983,7 @@ app.get('/api/auth/verify', async (req, res) => {
     const pool = req.app.get('pool')
     if (!pool) {
       console.error('❌ [verify] Database pool not available')
-      return res.status(500).json({
+      return res.status(503).json({
         success: false,
         message: 'Database connection not available'
       })
@@ -2167,11 +2172,17 @@ app.get('/api/auth/verify', async (req, res) => {
       })
     }
     
-    // Database errors
-    if (error.code === 'ECONNREFUSED' || error.message?.includes('Connection')) {
+    // Database / connection errors → 503 so frontend shows "backend temporarily unavailable"
+    if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.message?.includes('Connection') || error.message?.includes('timeout')) {
       return res.status(503).json({
         success: false,
         message: 'Database connection error'
+      })
+    }
+    if (error.code === 'ECONNRESET') {
+      return res.status(503).json({
+        success: false,
+        message: 'Database temporarily unavailable'
       })
     }
     

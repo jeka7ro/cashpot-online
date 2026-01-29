@@ -413,7 +413,8 @@ const Expenditures = () => {
     } catch (error) {
       if (error.name !== 'CanceledError' && error.code !== 'ECONNABORTED') {
         console.error('Error loading expenditures:', error)
-        toast.error('Eroare la încărcarea cheltuielilor')
+        const msg = error.response?.data?.error || (error.response?.status === 401 ? 'Sesiune expirată. Reconectează-te.' : error.code === 'ERR_NETWORK' ? 'Verifică că serverul backend rulează (ex: localhost:5001).' : error.message)
+        toast.error(`Eroare la încărcarea cheltuielilor: ${msg}`)
       }
     } finally {
       setLoading(false)
@@ -464,7 +465,8 @@ const Expenditures = () => {
       } catch (error) {
         if (error.name !== 'CanceledError' && error.code !== 'ECONNABORTED') {
           console.error('Error loading expenditures:', error)
-          toast.error('Eroare la încărcarea cheltuielilor')
+          const msg = error.response?.data?.error || (error.response?.status === 401 ? 'Sesiune expirată. Reconectează-te.' : error.code === 'ERR_NETWORK' ? 'Verifică că serverul backend rulează (ex: localhost:5001).' : error.message)
+          toast.error(`Eroare la încărcarea cheltuielilor: ${msg}`)
         }
       } finally {
         setLoading(false)
