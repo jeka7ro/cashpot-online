@@ -52,21 +52,44 @@ function formatNumber(num) {
     return num.toFixed(2).replace('.', ',');
 }
 
+// Funcție pentru a normaliza diacriticele (ț/ţ, ș/ş devin aceleași)
+function normalizeDiacritics(str) {
+    if (!str) return ''
+    return String(str)
+        .replace(/ţ/g, 'ț')
+        .replace(/ş/g, 'ș')
+        .replace(/Ţ/g, 'Ț')
+        .replace(/Ş/g, 'Ș')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
+        .toLowerCase()
+        .trim()
+}
+
 // Funcție pentru a obține numărul lunii
 function getMonthNumber(monthName) {
-    const normalized = monthName.toLowerCase().trim();
-    return monthMap[normalized] || null;
+    // Normalizează diacriticele pentru matching corect
+    const normalized = normalizeDiacritics(monthName);
+    // Caută în monthMap după valoarea normalizată
+    for (const [key, value] of Object.entries(monthMap)) {
+        if (normalizeDiacritics(key) === normalized) {
+            return value;
+        }
+    }
+    return null;
 }
 
 // Funcție pentru a parsea luna și anul din diferite formate
 function parseMonthAndYear(monthYearStr) {
     const str = monthYearStr.trim();
     
-    // Format: "ian 2025", "martie 2025", etc.
-    const match1 = str.match(/^([a-zăîâșț]+)\s+(\d{4})$/i);
+    // Format: "ian 2025", "martie 2025", "noiembrie 2025", etc.
+    // Folosim regex mai permisiv care acceptă orice caractere Unicode (inclusiv diacritice)
+    const match1 = str.match(/^([a-zăîâșțĂÎÂȘȚ]+)\s+(\d{4})$/i);
     if (match1) {
         const monthName = match1[1];
         const year = match1[2];
+        // Normalizează diacriticele înainte de a căuta în monthMap
         const monthNum = getMonthNumber(monthName);
         if (monthNum) {
             return { monthNum, year, monthName: monthName };
@@ -185,7 +208,8 @@ function parseContributionsData(inputText) {
         parts.forEach(part => {
             // Încearcă să găsească pattern-uri de tip "ian 2025" sau "Feb-25" urmate de număr
             // Sau doar număr dacă luna este în coloana anterioară
-            const monthYearMatch = part.match(/^([a-zăîâșț]+(?:\s+\d{4}|-\d{2})?)$/i);
+            // Folosim regex mai permisiv care acceptă orice caractere Unicode (inclusiv diacritice)
+            const monthYearMatch = part.match(/^([a-zăîâșțĂÎÂȘȚ]+(?:\s+\d{4}|-\d{2})?)$/i);
             if (monthYearMatch) {
                 const monthYear = parseMonthAndYear(part);
                 if (monthYear) {

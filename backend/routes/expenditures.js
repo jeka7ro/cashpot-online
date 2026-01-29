@@ -231,46 +231,107 @@ const buildSqlTableWhereClause = (query, includedFilters) => {
 
   // Department: dacă e selectat explicit, folosim doar acela; altfel folosim filtrele de utilizator
   if (department && department !== 'all') {
-    filters.push(`department_name = $${paramIndex++}`)
-    values.push(department)
+    // IMPORTANT: Normalizează diacriticele și pentru selecția explicită
+    const normalizedDept = String(department).trim()
+      .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
+      .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+    filters.push(`LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(department_name, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = $${paramIndex++}`)
+    values.push(normalizedDept)
   } else if (departments && departments.length > 0) {
     // Aplică filtrele de utilizator doar dacă nu e selectat un department explicit
-    filters.push(`department_name = ANY($${paramIndex++}::text[])`)
-    values.push(departments)
+    // IMPORTANT: Normalizează diacriticele pentru matching (ț/ţ, ș/ş devin aceleași)
+    // Normalizăm departamentele în JavaScript: transformăm ţ→ț, ș→ș, apoi eliminăm TOATE diacriticele
+    const normalizedDepartments = departments.map(d => {
+      if (!d) return ''
+      return String(d).trim()
+        .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
+        .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
+        .toLowerCase()
+    }).filter(Boolean)
+    
+    // Normalizăm și valorile din DB în același mod pentru matching insensibil la variantele de diacritice
+    // Folosim REPLACE pentru a transforma ţ→ț și ș→ș, apoi eliminăm diacriticele cu regex_replace, apoi LOWER
+    const normalizedDeptArrayParam = paramIndex++
+    values.push(normalizedDepartments)
+    // Normalizează: ţ→ț, ș→ș, apoi elimină diacriticele folosind regex_replace (elimină caracterele Unicode diacritice)
+    filters.push(`LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(department_name, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = ANY($${normalizedDeptArrayParam}::text[])`)
+    
+    console.log(`🔍 [buildSqlTableWhereClause] Applied includedDepartments filter: ${normalizedDepartments.length} departments (sample: ${normalizedDepartments.slice(0, 3).join(', ')})`)
   }
 
   // Type: dacă e selectat explicit, folosim doar acela; altfel folosim filtrele de utilizator
   if (type && type !== 'all') {
-    filters.push(`expenditure_type = $${paramIndex++}`)
-    values.push(type)
+    // IMPORTANT: Normalizează diacriticele și pentru selecția explicită
+    const normalizedType = String(type).trim()
+      .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
+      .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+    filters.push(`LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(expenditure_type, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = $${paramIndex++}`)
+    values.push(normalizedType)
   } else if (types && types.length > 0) {
     // Aplică filtrele de utilizator doar dacă nu e selectat un type explicit
     // IMPORTANT: Normalizează diacriticele pentru matching (ț/ţ, ș/ş devin aceleași)
-    // Normalizăm tipurile în JavaScript (transformăm ţ→ț, ș→ș pentru consistență)
+    // Normalizăm tipurile în JavaScript: transformăm ţ→ț, ș→ș, apoi eliminăm TOATE diacriticele
     const normalizedTypes = types.map(t => {
       if (!t) return ''
       return String(t).trim()
         .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
         .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
-    }).filter(Boolean).map(t => t.toLowerCase())
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
+        .toLowerCase()
+    }).filter(Boolean)
     
     // Normalizăm și valorile din DB în același mod pentru matching insensibil la variantele de diacritice
-    // Folosim REPLACE pentru a transforma ţ→ț și ș→ș, apoi LOWER pentru comparație case-insensitive
+    // Folosim REPLACE pentru a transforma ţ→ț și ș→ș, apoi eliminăm diacriticele cu translate, apoi LOWER
     const normalizedArrayParam = paramIndex++
     values.push(normalizedTypes)
-    filters.push(`LOWER(REPLACE(REPLACE(REPLACE(REPLACE(expenditure_type, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș')) = ANY($${normalizedArrayParam}::text[])`)
+    // Normalizează: ţ→ț, ș→ș, apoi elimină diacriticele folosind regex_replace (elimină caracterele Unicode diacritice)
+    filters.push(`LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(expenditure_type, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = ANY($${normalizedArrayParam}::text[])`)
     
     console.log(`🔍 [buildSqlTableWhereClause] Applied includedTypes filter: ${normalizedTypes.length} types (sample: ${normalizedTypes.slice(0, 3).join(', ')})`)
   }
 
   // Location: dacă e selectat explicit, folosim doar acela; altfel folosim filtrele de utilizator
   if (location && location !== 'all') {
-    filters.push(`location_name = $${paramIndex++}`)
-    values.push(location)
+    // IMPORTANT: Normalizează diacriticele și pentru selecția explicită
+    const normalizedLoc = String(location).trim()
+      .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
+      .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+    filters.push(`LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(location_name, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = $${paramIndex++}`)
+    values.push(normalizedLoc)
   } else if (locations && locations.length > 0) {
     // Aplică filtrele de utilizator doar dacă nu e selectat o locație explicită
-    filters.push(`location_name = ANY($${paramIndex++}::text[])`)
-    values.push(locations)
+    // IMPORTANT: Normalizează diacriticele pentru matching (ț/ţ, ș/ş devin aceleași)
+    // Normalizăm locațiile în JavaScript: transformăm ţ→ț, ș→ș, apoi eliminăm TOATE diacriticele
+    const normalizedLocations = locations.map(l => {
+      if (!l) return ''
+      return String(l).trim()
+        .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
+        .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
+        .toLowerCase()
+    }).filter(Boolean)
+    
+    // Normalizăm și valorile din DB în același mod pentru matching insensibil la variantele de diacritice
+    // Folosim REPLACE pentru a transforma ţ→ț și ș→ș, apoi eliminăm diacriticele cu regex_replace, apoi LOWER
+    const normalizedLocArrayParam = paramIndex++
+    values.push(normalizedLocations)
+    // Normalizează: ţ→ț, ș→ș, apoi elimină diacriticele folosind regex_replace (elimină caracterele Unicode diacritice)
+    filters.push(`LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(location_name, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = ANY($${normalizedLocArrayParam}::text[])`)
+    
+    console.log(`🔍 [buildSqlTableWhereClause] Applied includedLocations filter: ${normalizedLocations.length} locations (sample: ${normalizedLocations.slice(0, 3).join(', ')})`)
   }
 
   if (dataSource && dataSource !== 'all') {
@@ -279,13 +340,23 @@ const buildSqlTableWhereClause = (query, includedFilters) => {
   }
 
   if (search && search.trim().length > 0) {
+    // IMPORTANT: Normalizează diacriticele pentru căutare
+    // Normalizăm termenul de căutare
+    const normalizedSearch = String(search).trim()
+      .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
+      .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+    
+    // Folosim normalizare și pentru coloanele din DB pentru matching insensibil la diacritice
     filters.push(`(
-      description ILIKE $${paramIndex} OR
-      location_name ILIKE $${paramIndex} OR
-      department_name ILIKE $${paramIndex} OR
-      expenditure_type ILIKE $${paramIndex}
+      LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(description, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) ILIKE $${paramIndex} OR
+      LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(location_name, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) ILIKE $${paramIndex} OR
+      LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(department_name, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) ILIKE $${paramIndex} OR
+      LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(expenditure_type, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) ILIKE $${paramIndex}
     )`)
-    values.push(`%${search.trim()}%`)
+    values.push(`%${normalizedSearch}%`)
     paramIndex++
   }
 
@@ -330,7 +401,7 @@ const attachUserNames = async (pool, rows) => {
 // FORȚĂM IP EXTERN 82.76.35.50 pentru acces din afara biroului
 let externalPool = null
 
-const getExternalPool = () => {
+export const getExternalPool = () => {
   // IP EXTERN pentru acces de oriunde - NU mai folosim IP intern 192.168.1.39!
   const dbHost = process.env.EXPENDITURES_DB_HOST || '82.76.35.50'
   
@@ -974,27 +1045,44 @@ router.post('/sync', async (req, res) => {
     _syncProgress.currentStep = 'Filtrare date...'
     let filteredRows = result.rows
     
+    // Helper function pentru normalizare diacritice (folosită și în alte părți)
+    const normalizeForComparison = (str) => {
+      if (!str) return ''
+      return String(str).trim()
+        .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
+        .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
+        .toLowerCase()
+    }
+    
     // Filter by expenditure types (only if list is not empty)
     if (syncSettings.includedExpenditureTypes && syncSettings.includedExpenditureTypes.length > 0) {
-      filteredRows = filteredRows.filter(row => 
-        syncSettings.includedExpenditureTypes.includes(row.expenditure_type)
-      )
+      const normalizedIncludedTypes = syncSettings.includedExpenditureTypes.map(t => normalizeForComparison(t))
+      filteredRows = filteredRows.filter(row => {
+        const normalizedRowType = normalizeForComparison(row.expenditure_type)
+        return normalizedIncludedTypes.includes(normalizedRowType)
+      })
       console.log(`📊 Filtered by expenditure types: ${filteredRows.length} records remaining`)
     }
     
     // Filter by departments (only if list is not empty)
     if (syncSettings.includedDepartments && syncSettings.includedDepartments.length > 0) {
-      filteredRows = filteredRows.filter(row => 
-        syncSettings.includedDepartments.includes(row.department_name)
-      )
+      const normalizedIncludedDepts = syncSettings.includedDepartments.map(d => normalizeForComparison(d))
+      filteredRows = filteredRows.filter(row => {
+        const normalizedRowDept = normalizeForComparison(row.department_name)
+        return normalizedIncludedDepts.includes(normalizedRowDept)
+      })
       console.log(`📊 Filtered by departments: ${filteredRows.length} records remaining`)
     }
     
     // Filter by locations (only if list is not empty)
     if (syncSettings.includedLocations && syncSettings.includedLocations.length > 0) {
-      filteredRows = filteredRows.filter(row => 
-        syncSettings.includedLocations.includes(row.location_name)
-      )
+      const normalizedIncludedLocs = syncSettings.includedLocations.map(l => normalizeForComparison(l))
+      filteredRows = filteredRows.filter(row => {
+        const normalizedRowLoc = normalizeForComparison(row.location_name)
+        return normalizedIncludedLocs.includes(normalizedRowLoc)
+      })
       console.log(`📊 Filtered by locations: ${filteredRows.length} records remaining`)
     }
     
@@ -1273,21 +1361,19 @@ router.get('/import-all-status', authenticateToken, async (req, res) => {
   }
 })
 
-// POST /api/expenditures/import-all - Import TOATE datele din toate sursele (SQL, Google Sheets, BAT) - fără dubluri
-router.post('/import-all', authenticateToken, async (req, res) => {
+/**
+ * Funcție reutilizabilă pentru importul cheltuielilor
+ * Poate fi apelată programatic (pentru scheduler) sau prin API
+ */
+export async function executeExpendituresImport(pool, importSources = { bat: true, googleSheets: true, preferences: true }, progressCallback = null) {
   // Check if already importing
-  // Also check if progress is older than 5 minutes (stale) - allow restart
   const isRunning = _importAllProgress && _importAllProgress.status === 'running'
   const isStale = isRunning && _importAllProgress.startTime && 
     (new Date() - new Date(_importAllProgress.startTime)) > 5 * 60 * 1000 // 5 minutes
   
   if (isRunning && !isStale) {
     console.log('⚠️ Import already running, cannot start new one')
-    return res.status(400).json({ 
-      success: false, 
-      error: 'Import deja în curs. Vă rugăm să așteptați finalizarea.',
-      alreadyRunning: true
-    })
+    throw new Error('Import deja în curs. Vă rugăm să așteptați finalizarea.')
   }
   
   // If stale, clear it and allow new import
@@ -1296,27 +1382,11 @@ router.post('/import-all', authenticateToken, async (req, res) => {
     _importAllProgress = null
   }
   
-  // Get sources from request body (default to all if not specified)
-  const { sources } = req.body || {}
-  const importSources = {
-    bat: sources?.bat !== false, // Default true
-    googleSheets: sources?.googleSheets !== false, // Default true
-    preferences: sources?.preferences !== false // Default true
-  }
-  
   console.log('📥 Import sources selected:', importSources)
   
-  // Return immediately (non-blocking)
-  res.json({ 
-    success: true, 
-    message: 'Import început. Verifică progresul la /api/expenditures/import-all-status',
-    started: true
-  })
-  
-  // Start import in background (non-blocking)
   const startImport = async () => {
     try {
-      const localPool = req.app.get('pool')
+      const localPool = pool // Folosește pool-ul primit ca parametru
       
       const startTime = new Date()
       
@@ -1889,8 +1959,29 @@ router.post('/import-all', authenticateToken, async (req, res) => {
     }
   }
   
-  // Start import in background
-  startImport().catch(err => {
+  // Execute import
+  await startImport()
+}
+
+// POST /api/expenditures/import-all - Import TOATE datele din toate sursele (SQL, Google Sheets, BAT) - fără dubluri
+router.post('/import-all', authenticateToken, async (req, res) => {
+  // Get sources from request body (default to all if not specified)
+  const { sources } = req.body || {}
+  const importSources = {
+    bat: sources?.bat !== false, // Default true
+    googleSheets: sources?.googleSheets !== false, // Default true
+    preferences: sources?.preferences !== false // Default true
+  }
+  
+  // Return immediately (non-blocking)
+  res.json({ 
+    success: true, 
+    message: 'Import început. Verifică progresul la /api/expenditures/import-all-status',
+    started: true
+  })
+  
+  // Start import in background (non-blocking)
+  executeExpendituresImport(req.app.get('pool'), importSources).catch(err => {
     console.error('❌ Fatal error in import-all background process:', err)
   })
 })

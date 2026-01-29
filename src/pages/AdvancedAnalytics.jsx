@@ -10,6 +10,19 @@ import ExpendituresAdvancedCharts from '../components/ExpendituresAdvancedCharts
 import { generateAIInsights } from '../utils/aiInsights'
 import { Calendar, Clock, CalendarDays, CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react'
 
+// Normalize diacritics for comparison (same as Expenditures.jsx)
+const normalizeForComparison = (str) => {
+  if (!str) return ''
+  return String(str).trim()
+    .replace(/ţ/g, 'ț')
+    .replace(/ş/g, 'ș')
+    .replace(/Ţ/g, 'Ț')
+    .replace(/Ş/g, 'Ș')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
+    .toLowerCase()
+}
+
 const AdvancedAnalytics = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -326,22 +339,29 @@ const AdvancedAnalytics = () => {
     })
 
     // Aplică setările de includere din Expenditures Settings
+    // IMPORTANT: Normalizează diacriticele pentru matching corect
     if (Array.isArray(includedDepartments) && includedDepartments.length > 0) {
-      filtered = filtered.filter(item =>
-        includedDepartments.includes(item.department_name || '')
-      )
+      const normalizedIncludedDepts = includedDepartments.map(d => normalizeForComparison(d))
+      filtered = filtered.filter(item => {
+        const normalizedItemDept = normalizeForComparison(item.department_name || '')
+        return normalizedIncludedDepts.includes(normalizedItemDept)
+      })
     }
 
     if (Array.isArray(includedTypes) && includedTypes.length > 0) {
-      filtered = filtered.filter(item =>
-        includedTypes.includes(item.expenditure_type || '')
-      )
+      const normalizedIncludedTypes = includedTypes.map(t => normalizeForComparison(t))
+      filtered = filtered.filter(item => {
+        const normalizedItemType = normalizeForComparison(item.expenditure_type || '')
+        return normalizedIncludedTypes.includes(normalizedItemType)
+      })
     }
 
     if (Array.isArray(includedLocations) && includedLocations.length > 0) {
-      filtered = filtered.filter(item =>
-        includedLocations.includes(item.location_name || '')
-      )
+      const normalizedIncludedLocs = includedLocations.map(l => normalizeForComparison(l))
+      filtered = filtered.filter(item => {
+        const normalizedItemLoc = normalizeForComparison(item.location_name || '')
+        return normalizedIncludedLocs.includes(normalizedItemLoc)
+      })
     }
     
     // DATE RANGE FILTER pentru graficele NOI

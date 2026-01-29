@@ -2474,6 +2474,96 @@ const PL = () => {
     }
   }
 
+  // Export Excel pentru tabelul P&L Lunar Ierarhic
+  const exportPlHierarchicalTableToExcel = () => {
+    try {
+      if (!plMonthlyTableData.hierarchy || plMonthlyTableData.hierarchy.size === 0) {
+        toast.error('Nu există date de exportat')
+        return
+      }
+
+      const locations = plMonthlyTableData.locations || []
+      const totalsByLocation = plMonthlyTableData.totalsByLocation || new Map()
+
+      // Header row
+      const rows = [
+        ['Perioadă', ...locations, 'TOTAL']
+      ]
+
+      // Funcție recursivă pentru a transforma nodurile în rânduri Excel
+      const nodeToRows = (node, level = 0) => {
+        const indent = level > 0 ? '  '.repeat(level) : ''
+        const label = `${indent}${node.label}`
+        const plByLocation = node.plByLocation || new Map()
+        
+        // Calculează totalul pentru acest nod
+        let nodeTotal = 0
+        const locationValues = locations.map((locName) => {
+          const pl = plByLocation.get(locName) || 0
+          nodeTotal += pl
+          return pl
+        })
+
+        // Adaugă rândul pentru acest nod
+        rows.push([label, ...locationValues, nodeTotal])
+
+        // Dacă nodul este expandat sau vrem să exportăm totul, adăugăm și copiii
+        if (node.children && node.children.length > 0) {
+          // Sortăm copiii: trimestrele și lunile în ordine
+          const sortedChildren = [...node.children].sort((a, b) => {
+            if (a.type === 'quarter' && b.type === 'quarter') {
+              return a.quarter - b.quarter
+            }
+            if (a.type === 'month' && b.type === 'month') {
+              return a.month - b.month
+            }
+            return 0
+          })
+
+          sortedChildren.forEach((child) => {
+            nodeToRows(child, level + 1)
+          })
+        }
+      }
+
+      // Parcurge toate nodurile de tip "year" sortate descrescător
+      const yearNodes = Array.from(plMonthlyTableData.hierarchy.values())
+        .filter(node => node.type === 'year')
+        .sort((a, b) => b.year - a.year)
+
+      yearNodes.forEach((yearNode) => {
+        nodeToRows(yearNode, 0)
+      })
+
+      // Adaugă rândul cu totaluri generale
+      const grandTotal = Array.from(totalsByLocation.values()).reduce((sum, pl) => sum + (pl || 0), 0)
+      const totalRow = ['TOTAL', ...locations.map(locName => totalsByLocation.get(locName) || 0), grandTotal]
+      rows.push(totalRow)
+
+      // Creează worksheet
+      const ws = XLSX.utils.aoa_to_sheet(rows)
+      
+      // Setează lățimea coloanelor
+      const colWidths = [
+        { wch: 30 }, // Perioadă
+        ...locations.map(() => ({ wch: 15 })), // Locații
+        { wch: 15 } // TOTAL
+      ]
+      ws['!cols'] = colWidths
+
+      // Creează workbook și salvează
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'P&L Lunar Ierarhic')
+      
+      const fileName = `P&L_Lunar_Ierarhic_${new Date().toISOString().split('T')[0]}.xlsx`
+      XLSX.writeFile(wb, fileName)
+      toast.success('Export Excel realizat cu succes!')
+    } catch (error) {
+      console.error('Eroare la export Excel:', error)
+      toast.error('Eroare la export Excel')
+    }
+  }
+
   const isSingleMonthRange = useMemo(() => {
     if (!dateRange.startDate || !dateRange.endDate) return false
     const start = new Date(dateRange.startDate)
@@ -4539,6 +4629,14 @@ const PL = () => {
                   Structură ierarhică: An → Trimestru → Lună (click pentru expand/collapse)
                 </p>
               </div>
+              <button
+                onClick={exportPlHierarchicalTableToExcel}
+                className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors shadow-sm"
+                title="Exportă tabelul în Excel"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span className="text-sm font-medium">Export Excel</span>
+              </button>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm" style={{ tableLayout: 'fixed' }}>

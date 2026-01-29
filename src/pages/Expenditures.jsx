@@ -857,7 +857,16 @@ const Expenditures = () => {
     
     if (Array.isArray(includedTypes) && includedTypes.length > 0) {
       const beforeTypes = filteredData.length
-      const normalizedIncludedTypes = includedTypes.map(t => normalizeDiacritics(t?.toLowerCase().trim() || ''))
+      // Normalize types: first fix old glyphs (ţ→ț, ş→ș), then remove ALL diacritics for comparison
+      const normalizeTypeForComparison = (str) => {
+        if (!str) return ''
+        return normalizeDiacritics(str)
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
+          .toLowerCase()
+          .trim()
+      }
+      const normalizedIncludedTypes = includedTypes.map(t => normalizeTypeForComparison(t || ''))
       const beforeFilterTypes = [...new Set(filteredData.map(d => d.expenditure_type))]
       
       filteredData = filteredData.filter((item) => {
@@ -866,7 +875,7 @@ const Expenditures = () => {
         // Pentru a nu pierde salariile reale, NU filtrăm departamentul "Salarii" după includedTypes.
         const itemDept = normalizeDiacritics((item.department_name || '').toLowerCase().trim())
         if (itemDept === 'salarii') return true
-        const itemType = normalizeDiacritics((item.expenditure_type || '').toLowerCase().trim())
+        const itemType = normalizeTypeForComparison(item.expenditure_type || '')
         return normalizedIncludedTypes.includes(itemType)
       })
       console.log(`  After includedTypes filter (${includedTypes.length} types): ${beforeTypes} → ${filteredData.length}`)

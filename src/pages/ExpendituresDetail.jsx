@@ -14,7 +14,8 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend
+  Legend,
+  ComposedChart
 } from 'recharts'
 import { ArrowLeft, Filter, TrendingUp, Building2, FileSpreadsheet, Trash2, AlertCircle, CheckSquare, Square, MapPin, Loader2, RefreshCw, X, Calendar, Clock, CalendarDays, CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react'
 import * as XLSX from 'xlsx'
@@ -103,6 +104,7 @@ const ExpendituresDetail = () => {
   const [summaryGranularity, setSummaryGranularity] = useState('month') // 'day', 'month', 'quarter', 'year'
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(25)
+  const [slotsData, setSlotsData] = useState({}) // Date despre sloturi: { '2025-01': { total: 150, locations: {...} } }
   
   // Selectare multiplă și ștergere multiplă
   const [selectedItems, setSelectedItems] = useState(new Set())
@@ -141,6 +143,85 @@ const ExpendituresDetail = () => {
     loadExpendituresData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Load slots data pentru perioada selectată
+  useEffect(() => {
+    const loadSlotsData = async () => {
+      try {
+        const startDate = new Date(dateRange.startDate)
+        const endDate = new Date(dateRange.endDate)
+        const startYear = startDate.getFullYear()
+        const startMonth = startDate.getMonth() + 1 // 1-12
+        const endYear = endDate.getFullYear()
+        const endMonth = endDate.getMonth() + 1 // 1-12
+        
+        // Obține datele despre sloturi pentru toți anii din perioada selectată
+        const slotsMap = {}
+        
+        try {
+          const response = await axios.get(`/api/expenditures/slots-monthly/summary`)
+          if (response.data?.success && response.data?.data) {
+            // Parcurge toți anii din perioada selectată
+            for (let year = startYear; year <= endYear; year++) {
+              const yearData = response.data.data[year]
+              if (yearData) {
+                // Parcurge toate lunile din an (1-12)
+                for (let monthNum = 1; monthNum <= 12; monthNum++) {
+                  const monthKey = `${year}-${String(monthNum).padStart(2, '0')}`
+                  
+                  // Verifică dacă luna este în perioada selectată
+                  let shouldInclude = false
+                  if (year === startYear && year === endYear) {
+                    // Același an - verifică dacă luna este între startMonth și endMonth
+                    shouldInclude = monthNum >= startMonth && monthNum <= endMonth
+                  } else if (year === startYear) {
+                    // Anul de început - include de la startMonth până la 12
+                    shouldInclude = monthNum >= startMonth
+                  } else if (year === endYear) {
+                    // Anul de sfârșit - include de la 1 până la endMonth
+                    shouldInclude = monthNum <= endMonth
+                  } else {
+                    // An întreg între startYear și endYear - include toate lunile
+                    shouldInclude = true
+                  }
+                  
+                  if (shouldInclude) {
+                    // Calculează totalul de sloturi pentru toate locațiile din această lună
+                    const locationsData = yearData[String(monthNum)] // Folosește string pentru key
+                    let totalSlots = 0
+                    const locationsBreakdown = {}
+                    
+                    if (locationsData) {
+                      Object.keys(locationsData).forEach(locationName => {
+                        const slotsCount = parseInt(locationsData[locationName] || 0)
+                        totalSlots += slotsCount
+                        locationsBreakdown[locationName] = slotsCount
+                      })
+                    }
+                    
+                    slotsMap[monthKey] = {
+                      total: totalSlots,
+                      locations: locationsBreakdown
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error loading slots data:', error)
+        }
+        
+        console.log('📊 Slots data loaded:', slotsMap)
+        console.log('📊 Slots keys:', Object.keys(slotsMap).sort())
+        setSlotsData(slotsMap)
+      } catch (error) {
+        console.error('Error loading slots data:', error)
+      }
+    }
+    
+    loadSlotsData()
+  }, [dateRange])
 
   // Filter data for this department / category / date range
   const filteredData = useMemo(() => {
@@ -541,9 +622,12 @@ const ExpendituresDetail = () => {
         .map(([key, value]) => {
           const [year, month, day] = key.split('-')
           const d = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+          const monthKey = `${year}-${month}`
+          const slotsInfo = slotsData[monthKey] || { total: 0 }
           return {
             date: d.toLocaleDateString('ro-RO', { day: '2-digit', month: 'short' }),
-            value: Math.round(value)
+            value: Math.round(value),
+            slots: slotsInfo.total
           }
         })
     }
@@ -556,17 +640,19 @@ const ExpendituresDetail = () => {
       monthMap[monthKey] += parseFloat(item.amount || 0)
     })
 
-    return Object.entries(monthMap)
+        return Object.entries(monthMap)
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([key, value]) => {
         const [year, month] = key.split('-')
         const d = new Date(parseInt(year), parseInt(month) - 1, 1)
+        const slotsInfo = slotsData[key] || { total: 0 }
         return {
           date: d.toLocaleDateString('ro-RO', { month: 'short', year: 'numeric' }),
-          value: Math.round(value)
+          value: Math.round(value),
+          slots: Math.round(slotsInfo.total || 0) // Număr întreg, fără zecimale
         }
       })
-  }, [filteredData, dateRange])
+  }, [filteredData, dateRange, slotsData])
 
   const locationChartData = useMemo(() => {
     if (!filteredData || filteredData.length === 0) return []
@@ -937,13 +1023,23 @@ const ExpendituresDetail = () => {
               </div>
             </div>
             <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={trendData}>
+              <ComposedChart data={trendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
                 <XAxis dataKey="date" stroke="#64748b" style={{ fontSize: '12px' }} />
                 <YAxis
+                  yAxisId="left"
                   stroke="#64748b"
                   style={{ fontSize: '12px' }}
                   tickFormatter={(value) => formatCurrency(value)}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  stroke="#10b981"
+                  style={{ fontSize: '12px' }}
+                  tickFormatter={(value) => Math.round(value).toString()}
+                  domain={[0, 'dataMax']}
+                  allowDecimals={false}
                 />
                 <Tooltip
                   contentStyle={{
@@ -952,17 +1048,44 @@ const ExpendituresDetail = () => {
                     borderRadius: '12px',
                     color: '#fff'
                   }}
-                  formatter={(value) => [`${formatCurrency(value)} RON`, 'Cheltuieli']}
+                  formatter={(value, name) => {
+                    if (name === 'Cheltuieli') {
+                      return [`${formatCurrency(value)} RON`, 'Cheltuieli']
+                    } else if (name === 'Sloturi') {
+                      return [`${Math.round(value)} sloturi`, 'Număr sloturi']
+                    }
+                    return [value, name]
+                  }}
+                />
+                <Legend 
+                  formatter={(value) => {
+                    if (value === 'value') return 'Cheltuieli'
+                    if (value === 'slots') return 'Număr sloturi'
+                    return value
+                  }}
                 />
                 <Line
+                  yAxisId="left"
                   type="monotone"
                   dataKey="value"
                   stroke="#3b82f6"
                   strokeWidth={3}
                   dot={{ fill: '#3b82f6', r: 3 }}
                   activeDot={{ r: 5 }}
+                  name="Cheltuieli"
                 />
-              </LineChart>
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="slots"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  dot={{ fill: '#10b981', r: 3 }}
+                  activeDot={{ r: 5 }}
+                  name="Sloturi"
+                />
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
 
