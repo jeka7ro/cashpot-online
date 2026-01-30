@@ -6,6 +6,7 @@ import mysql from 'mysql2/promise'
 import { fileURLToPath } from 'url'
 import { authenticateToken } from '../middleware/auth.js'
 import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, HeadObjectCommand } from '@aws-sdk/client-s3'
+import crypto from 'crypto'
 
 const router = express.Router()
 const { Pool } = pg
@@ -346,7 +347,7 @@ router.get('/summary', authenticateToken, async (req, res) => {
 
     let summarySql
     let params
-    
+
     // Dacă avem activeIds, folosim filtrarea pe machine_id
     if (activeIds && activeIds.length > 0) {
       summarySql = `
@@ -481,7 +482,7 @@ router.get('/daily-stats', authenticateToken, async (req, res) => {
       try {
         console.log(`🔥 [daily-stats] Calcul direct din Cyber pentru luna trecută: ${lastMonthStartStr} - ${lastMonthEndStr}`)
         const cyberPool = await getCyberPool()
-        
+
         // Construiește lista de location_id-uri permise dacă includeLocations este setat
         let locationIdsFilter = null
         if (locationsArray && locationsArray.length > 0) {
@@ -520,7 +521,7 @@ router.get('/daily-stats', authenticateToken, async (req, res) => {
           cyberParams.push(...locationIdsFilter)
         }
         cyberSql += ` GROUP BY mas.date ORDER BY mas.date`
-        
+
         const [cyberRows] = await cyberPool.query(cyberSql, cyberParams)
         console.log(`🔥 [daily-stats] Luna trecută DIN CYBER - ${cyberRows.length} zile găsite`)
 
@@ -553,10 +554,10 @@ router.get('/daily-stats', authenticateToken, async (req, res) => {
       gameMix,
       includeLocations: locationsArray
     })
-    
+
     let sql
     let params
-    
+
     // Dacă avem activeIds, folosim filtrarea pe machine_id
     if (activeIds && activeIds.length > 0) {
       sql = `
@@ -660,7 +661,7 @@ router.get('/avg-in-by-location', authenticateToken, async (req, res) => {
       try {
         console.log(`🔥 [avg-in-by-location] Calcul direct din Cyber pentru luna trecută: ${lastMonthStartStr} - ${lastMonthEndStr}`)
         const cyberPool = await getCyberPool()
-        
+
         // Construiește lista de location_id-uri permise dacă includeLocations este setat
         let locationIdsFilter = null
         if (locationsArray && locationsArray.length > 0) {
@@ -706,7 +707,7 @@ router.get('/avg-in-by-location', authenticateToken, async (req, res) => {
           cyberParams.push(...locationIdsFilter)
         }
         cyberSql += ` GROUP BY mas.location_id ORDER BY mas.location_id`
-        
+
         const [cyberRows] = await cyberPool.query(cyberSql, cyberParams)
         console.log(`🔥 [avg-in-by-location] Luna trecută DIN CYBER - ${cyberRows.length} locații găsite`)
 
@@ -722,7 +723,7 @@ router.get('/avg-in-by-location', authenticateToken, async (req, res) => {
           console.error('❌ Eroare la încărcarea locations.json:', error)
           locationsData = []
         }
-        
+
         const locationMap = new Map()
         locationsData.forEach((loc) => {
           if (loc && typeof loc.id !== 'undefined') {
@@ -776,10 +777,10 @@ router.get('/avg-in-by-location', authenticateToken, async (req, res) => {
       gameMix,
       includeLocations: locationsArray
     })
-    
+
     let sql
     let params
-    
+
     // Dacă avem activeIds, folosim filtrarea pe machine_id
     if (activeIds && activeIds.length > 0) {
       sql = `
@@ -839,7 +840,7 @@ router.get('/avg-in-by-location', authenticateToken, async (req, res) => {
       console.error('❌ Eroare la încărcarea locations.json:', error)
       locationsData = []
     }
-    
+
     const locationMap = new Map()
     locationsData.forEach((loc) => {
       if (loc && typeof loc.id !== 'undefined') {
@@ -922,10 +923,10 @@ router.get('/daily-by-location', authenticateToken, async (req, res) => {
       gameMix,
       includeLocations: locationsArray
     })
-    
+
     let sql
     let params
-    
+
     if (activeIds && activeIds.length > 0) {
       sql = `
         SELECT
@@ -1016,10 +1017,10 @@ router.get('/avg-in-by-cabinet', authenticateToken, async (req, res) => {
       gameMix,
       includeLocations: locationsArray
     })
-    
+
     let sql
     let params
-    
+
     // Dacă avem activeIds, folosim filtrarea pe machine_id
     if (activeIds && activeIds.length > 0) {
       sql = `
@@ -1063,7 +1064,7 @@ router.get('/avg-in-by-cabinet', authenticateToken, async (req, res) => {
       console.error('❌ Eroare la încărcarea slots.json:', error)
       slotsData = []
     }
-    
+
     const slotMap = new Map()
     if (slotsData && Array.isArray(slotsData)) {
       slotsData.forEach((slot) => {
@@ -1080,29 +1081,29 @@ router.get('/avg-in-by-cabinet', authenticateToken, async (req, res) => {
 
     const cabinetMap = new Map()
 
-    ;(result.rows || []).forEach((row) => {
-      const serialNumber = row.serial_number
-      if (!serialNumber) return
-      
-      // Caută slot-ul după serial_number
-      const slot = slotMap.get(serialNumber)
-      const cabinetName = slot?.cabinet || 'Necunoscut'
+      ; (result.rows || []).forEach((row) => {
+        const serialNumber = row.serial_number
+        if (!serialNumber) return
 
-      if (!cabinetMap.has(cabinetName)) {
-        cabinetMap.set(cabinetName, {
-          cabinetName,
-          totalIn: 0,
-          slotsCount: 0,
-          serialNumbers: new Set()
-        })
-      }
+        // Caută slot-ul după serial_number
+        const slot = slotMap.get(serialNumber)
+        const cabinetName = slot?.cabinet || 'Necunoscut'
 
-      const agg = cabinetMap.get(cabinetName)
-      agg.totalIn += Number(row.total_in || 0)
-      // Numără serial_number distincte
-      agg.serialNumbers.add(serialNumber)
-      agg.slotsCount = agg.serialNumbers.size
-    })
+        if (!cabinetMap.has(cabinetName)) {
+          cabinetMap.set(cabinetName, {
+            cabinetName,
+            totalIn: 0,
+            slotsCount: 0,
+            serialNumbers: new Set()
+          })
+        }
+
+        const agg = cabinetMap.get(cabinetName)
+        agg.totalIn += Number(row.total_in || 0)
+        // Numără serial_number distincte
+        agg.serialNumbers.add(serialNumber)
+        agg.slotsCount = agg.serialNumbers.size
+      })
 
     const rows = Array.from(cabinetMap.values()).map((item) => ({
       cabinetName: item.cabinetName,
@@ -1154,9 +1155,9 @@ router.get('/overview', authenticateToken, async (req, res) => {
     // Datele din incasari_daily sunt agregate pe zi completă (audit_date)
     const now = new Date()
     const currentHour = now.getHours()
-    
+
     let todayDate, yesterdayDate
-    
+
     if (currentHour >= 8) {
       // Dacă este după 08:00, "Azi" operațional = ziua de azi (08:00 azi - 08:00 mâine)
       // Dar datele sunt agregate pe zi, deci folosim ziua de azi
@@ -1169,14 +1170,14 @@ router.get('/overview', authenticateToken, async (req, res) => {
       // "Ieri" operațional = ziua de alaltăieri (08:00 alaltăieri - 08:00 ieri)
       yesterdayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2)
     }
-    
+
     const formatDateLocal = (date) => {
       const year = date.getFullYear()
       const month = String(date.getMonth() + 1).padStart(2, '0')
       const day = String(date.getDate()).padStart(2, '0')
       return `${year}-${month}-${day}`
     }
-    
+
     const todayStr = formatDateLocal(todayDate)
     const yesterdayStr = formatDateLocal(yesterdayDate)
 
@@ -1240,13 +1241,13 @@ router.get('/overview', authenticateToken, async (req, res) => {
         FROM incasari_daily
         WHERE audit_date = $1
       `
-      
+
       // Dacă avem filtrare pe locații, adăugăm condiția
       if (locationIdsFilter && locationIdsFilter.length > 0) {
         const placeholders = locationIdsFilter.map((_, idx) => `$${idx + 2}`).join(',')
         sql += ` AND location_id = ANY(ARRAY[${placeholders}])`
       }
-      
+
       return sql
     }
 
@@ -1291,7 +1292,7 @@ router.get('/overview', authenticateToken, async (req, res) => {
         return await pool.query(buildOverviewSql(todayStr), overviewParams(todayStr))
       }
     }
-    
+
     const getYesterdayFromCyber = async () => {
       try {
         const cyberPool = await getCyberPool()
@@ -1346,13 +1347,13 @@ router.get('/overview', authenticateToken, async (req, res) => {
         FROM incasari_daily
         WHERE audit_date BETWEEN $1 AND $2
       `
-      
+
       // Dacă avem filtrare pe locații, adăugăm condiția
       if (locationIdsFilter && locationIdsFilter.length > 0) {
         const placeholders = locationIdsFilter.map((_, idx) => `$${idx + 3}`).join(',')
         sql += ` AND location_id = ANY(ARRAY[${placeholders}])`
       }
-      
+
       return sql
     }
 
@@ -1373,22 +1374,22 @@ router.get('/overview', authenticateToken, async (req, res) => {
             OR (department_name IS NOT NULL AND UPPER(TRIM(department_name)) = 'POS')
           )
       `
-      
+
       // Dacă includeLocations este setat, filtrează pe locații
       if (locationsArray && locationsArray.length > 0) {
         const locationPlaceholders = locationsArray.map((_, idx) => `$${idx + 3}`).join(',')
         sql += ` AND location_name = ANY(ARRAY[${locationPlaceholders}])`
       }
-      
+
       return sql
     }
-    
+
     const posSqlToday = buildPosSql(todayStr, todayStr)
     const posSqlYesterday = buildPosSql(yesterdayStr, yesterdayStr)
     const posSqlCurrentMonth = buildPosSql(currentMonthStartStr, currentMonthEndStr)
     const posSqlLastMonth = buildPosSql(lastMonthStartStr, lastMonthEndStr)
     const posSqlCurrentYear = buildPosSql(currentYearStartStr, currentYearEndStr)
-    
+
     // Prepare parameters for POS queries
     const posParams = (dateStart, dateEnd) => {
       const params = [dateStart, dateEnd]
@@ -1428,9 +1429,9 @@ router.get('/overview', authenticateToken, async (req, res) => {
     const getCurrentMonthFromCyber = async () => {
       try {
         console.log(`🔥 [overview] Încep citirea din Cyber pentru luna curentă: ${currentMonthStartStr} - ${currentMonthEndStr}`)
-        
+
         const cyberPool = await getCyberPool()
-        
+
         // Mai întâi, verificăm dacă există date în Cyber pentru această perioadă
         const checkSql = `
           SELECT COUNT(*) as count, 
@@ -1444,7 +1445,7 @@ router.get('/overview', authenticateToken, async (req, res) => {
         const [checkRows] = await cyberPool.query(checkSql, checkParams)
         const checkRow = checkRows[0] || {}
         console.log(`🔥 [overview] Cyber check - Total rânduri: ${checkRow.count || 0}, Zile distincte: ${checkRow.distinct_days || 0}, Min date: ${checkRow.min_date || 'N/A'}, Max date: ${checkRow.max_date || 'N/A'}`)
-        
+
         // Construim query-ul exact ca în import-incasari-from-cyber.js
         let cyberSql = `
           SELECT
@@ -1461,9 +1462,9 @@ router.get('/overview', authenticateToken, async (req, res) => {
           FROM cyberslot_dbn.machine_audit_summaries mas
           WHERE mas.date >= ? AND mas.date <= ?
         `
-        
+
         const cyberParams = [currentMonthStartStr, currentMonthEndStr]
-        
+
         // Dacă avem filtrare pe locații, adăugăm condiția WHERE
         if (locationIdsFilter && locationIdsFilter.length > 0) {
           const placeholders = locationIdsFilter.map(() => '?').join(',')
@@ -1473,27 +1474,27 @@ router.get('/overview', authenticateToken, async (req, res) => {
         } else {
           console.log(`🔥 [overview] Cyber query FĂRĂ filtrare pe locații (toate locațiile)`)
         }
-        
+
         console.log(`🔥 [overview] Execut query Cyber:`, cyberSql.replace(/\s+/g, ' ').trim())
         console.log(`🔥 [overview] Parametri Cyber:`, cyberParams)
-        
+
         const [cyberRows] = await cyberPool.query(cyberSql, cyberParams)
         const cyberRow = cyberRows[0] || {}
-        
+
         const totalIn = Number(cyberRow.total_in || 0)
         const totalOut = Number(cyberRow.total_out || 0)
         const totalProfit = Number(cyberRow.total_profit || 0)
-        
+
         console.log(`🔥 [overview] Luna curentă DIN CYBER - Total IN: ${totalIn}`)
         console.log(`🔥 [overview] Luna curentă DIN CYBER - Total OUT: ${totalOut}`)
         console.log(`🔥 [overview] Luna curentă DIN CYBER - Total GGR: ${totalProfit}`)
         console.log(`🔥 [overview] Luna curentă DIN CYBER - Total BET: ${Number(cyberRow.total_bet || 0)}`)
         console.log(`🔥 [overview] Luna curentă DIN CYBER - Total WIN: ${Number(cyberRow.total_win || 0)}`)
-        
+
         if (totalIn === 0) {
           console.warn(`⚠️ [overview] ATENȚIE: Cyber returnează IN = 0 pentru ${currentMonthStartStr} - ${currentMonthEndStr}`)
         }
-        
+
         // Returnează în formatul așteptat de formatRow
         return {
           rows: [{
@@ -1573,7 +1574,7 @@ router.get('/overview', authenticateToken, async (req, res) => {
       pool.query(posSqlLastMonth, posParams(lastMonthStartStr, lastMonthEndStr)),
       pool.query(posSqlCurrentYear, posParams(currentYearStartStr, currentYearEndStr))
     ])
-    
+
     console.log(`📊 [overview] Luna curentă - Total IN: ${currentMonthResult.rows[0]?.total_in || 0}`)
     console.log(`📊 [overview] Luna curentă - Total OUT: ${currentMonthResult.rows[0]?.total_out || 0}`)
     console.log(`📊 [overview] Luna curentă - Total GGR: ${currentMonthResult.rows[0]?.total_profit || 0}`)
@@ -1589,10 +1590,10 @@ router.get('/overview', authenticateToken, async (req, res) => {
       endExclusive.setDate(endExclusive.getDate() - 1) // Exclude endDate
       const startDateObj = new Date(endExclusive)
       startDateObj.setDate(startDateObj.getDate() - 15) // Last 15 days before endDate
-      
+
       const startStr = formatDateLocal(startDateObj)
       const endStr = formatDateLocal(endExclusive)
-      
+
       // CORECT: Mai întâi calculăm SUM(profit) per zi, apoi facem media zilnică
       const sql = `
         SELECT COALESCE(AVG(daily_profit), 0) AS avg_profit
@@ -1603,7 +1604,7 @@ router.get('/overview', authenticateToken, async (req, res) => {
           GROUP BY audit_date
         ) daily_sums
       `
-      
+
       const result = await pool.query(sql, [startStr, endStr])
       return Number(result.rows[0]?.avg_profit || 0)
     }
@@ -1692,7 +1693,7 @@ router.get('/overview', authenticateToken, async (req, res) => {
     const lastYearEnd = new Date(now.getFullYear() - 1, 11, 31)
     const lastYearStartStr = `${lastYearStart.getFullYear()}-${String(lastYearStart.getMonth() + 1).padStart(2, '0')}-${String(lastYearStart.getDate()).padStart(2, '0')}`
     const lastYearEndStr = `${lastYearEnd.getFullYear()}-${String(lastYearEnd.getMonth() + 1).padStart(2, '0')}-${String(lastYearEnd.getDate()).padStart(2, '0')}`
-    
+
     // Calculăm aceeași perioadă de zile din anul trecut (de la 1 ianuarie până la data de azi)
     const daysPassedThisYear = Math.floor((now - currentYearStart) / (1000 * 60 * 60 * 24)) + 1
     const lastYearPeriodEnd = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
@@ -2041,20 +2042,20 @@ router.get('/dynamics', authenticateToken, async (req, res) => {
       gameMix,
       includeLocations: locationsArray
     })
-    
+
     // Dacă avem startDate și endDate, folosim perioada selectată
     // Altfel, folosim luna curentă (comportament vechi pentru backward compatibility)
     let currentStartStr, currentEndStr, lastStartStr, lastEndStr
-    
+
     if (startDate && endDate) {
       // Folosim perioada selectată
       const start = new Date(startDate)
       const end = new Date(endDate)
-      
+
       // Calculează aceleași zile din luna trecută
       const lastStart = new Date(start.getFullYear(), start.getMonth() - 1, start.getDate())
       const lastEnd = new Date(end.getFullYear(), end.getMonth() - 1, end.getDate())
-      
+
       currentStartStr = startDate
       currentEndStr = endDate
       lastStartStr = `${lastStart.getFullYear()}-${String(lastStart.getMonth() + 1).padStart(2, '0')}-${String(lastStart.getDate()).padStart(2, '0')}`
@@ -2082,7 +2083,7 @@ router.get('/dynamics', authenticateToken, async (req, res) => {
 
     let dynamicsSql
     let currentParams, lastParams
-    
+
     // Dacă avem activeIds, folosim filtrarea pe machine_id
     if (activeIds && activeIds.length > 0) {
       dynamicsSql = `
@@ -2424,11 +2425,11 @@ router.get('/floorplan-data', authenticateToken, async (req, res) => {
         if (!Number.isFinite(id)) return false
         if (!machineIdsWithData.has(id)) return false
         if (allowedMachineIds.size > 0 && !allowedMachineIds.has(id)) return false
-        
+
         // FILTRU IMPORTANT: Excludem sloturile cu totalIn = 0 (nu au avut nicio încasare)
         const agg = aggMap.get(id)
         if (!agg || agg.totalIn <= 0) return false
-        
+
         return true
       })
       .map((slot) => {
@@ -2540,7 +2541,7 @@ router.get('/location-expenditures', authenticateToken, async (req, res) => {
 
     // Obține filtrele din setări
     const includedFilters = await getIncludedFiltersForUser(pool, userId)
-    
+
     console.log(`🔍 [location-expenditures] User ID: ${userId}`)
     console.log(`🔍 [location-expenditures] Filtre obținute:`, {
       departments: includedFilters.departments?.length || 0,
@@ -2564,7 +2565,7 @@ router.get('/location-expenditures', authenticateToken, async (req, res) => {
 
     // EXCLUDE departamentele care nu trebuie să apară în P&L (hardcodate)
     const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli', 'Nespecificat']
-    
+
     let sql = `
       SELECT
         COALESCE(location_name, 'Nespecificat') AS location_name,
@@ -2590,7 +2591,7 @@ router.get('/location-expenditures', authenticateToken, async (req, res) => {
           .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
           .toLowerCase()
       }).filter(Boolean)
-      
+
       sql += ` AND LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(department_name, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = ANY($${paramIndex}::text[])`
       params.push(normalizedDepartments)
       paramIndex++
@@ -2608,7 +2609,7 @@ router.get('/location-expenditures', authenticateToken, async (req, res) => {
           .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
           .toLowerCase()
       }).filter(Boolean)
-      
+
       sql += ` AND LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(expenditure_type, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = ANY($${paramIndex}::text[])`
       params.push(normalizedTypes)
       paramIndex++
@@ -2626,7 +2627,7 @@ router.get('/location-expenditures', authenticateToken, async (req, res) => {
           .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
           .toLowerCase()
       }).filter(Boolean)
-      
+
       sql += ` AND LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(location_name, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = ANY($${paramIndex}::text[])`
       params.push(normalizedLocations)
       paramIndex++
@@ -2644,7 +2645,7 @@ router.get('/location-expenditures', authenticateToken, async (req, res) => {
           .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
           .toLowerCase()
       }).filter(Boolean)
-      
+
       sql += ` AND LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(location_name, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = ANY($${paramIndex}::text[])`
       params.push(normalizedLocationsArray)
       paramIndex++
@@ -2704,10 +2705,12 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
     let params
 
     // Query OPTIMIZAT pentru date lunare grupate pe an, lună și locație
-    // Folosește DATE_TRUNC pentru performanță mai bună și limitează la ultimii 5 ani
+    // Folosește DATE_TRUNC pentru performanță mai bună și limitează la ultimii 2 ani (optimizat pentru viteză)
     const currentYear = new Date().getFullYear()
-    const startYear = currentYear - 4 // Ultimii 5 ani
-    
+    const startYear = currentYear - 1 // Ultimii 2 ani (anul curent + anul trecut)
+
+    console.log(`🔍 [monthly-by-location] activeIds count: ${activeIds?.length || 0}`)
+
     if (activeIds && activeIds.length > 0) {
       sql = `
         SELECT
@@ -2720,7 +2723,7 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
           COALESCE(SUM(win), 0) AS total_win,
           COALESCE(SUM(jackpot), 0) AS total_jackpot,
           COALESCE(SUM(hh), 0) AS total_hh,
-          COALESCE(SUM(cb_real), 0) AS total_cb_real,
+          COALESCE(SUM(cb_real), 0) AS total_cashback_real,
           COALESCE(SUM(cb_birthday), 0) AS total_cb_birthday,
           COALESCE(SUM(cb_raffle), 0) AS total_cb_raffle,
           COUNT(DISTINCT serial_number) AS slots_count
@@ -2732,6 +2735,25 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
       `
       params = [activeIds, `${startYear}-01-01`]
     } else {
+      // Fallback: Dacă nu avem activeIds, dar avem includeLocations, încercăm să filtrăm după location_id mapate din locations.json
+      let locationFilterClause = ''
+      const fallbackParams = [`${startYear}-01-01`]
+
+      if (locationsArray && locationsArray.length > 0) {
+        // Încarcă locațiile pentru a găsi ID-urile corespunzătoare numelor solicitate
+        const locs = loadExportedData('locations.json')
+        const targetIds = locs
+          .filter(l => locationsArray.includes(normalizeLocationName(l.name || l.location)))
+          .map(l => l.id)
+          .filter(id => id !== undefined && id !== null)
+
+        if (targetIds.length > 0) {
+          locationFilterClause = ` AND location_id = ANY($2::integer[])`
+          fallbackParams.push(targetIds)
+          console.log(`🔍 [monthly-by-location] Fallback filtering by location_ids: ${targetIds.join(', ')}`)
+        }
+      }
+
       sql = `
         SELECT
           EXTRACT(YEAR FROM audit_date)::INTEGER AS year,
@@ -2743,19 +2765,45 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
           COALESCE(SUM(win), 0) AS total_win,
           COALESCE(SUM(jackpot), 0) AS total_jackpot,
           COALESCE(SUM(hh), 0) AS total_hh,
-          COALESCE(SUM(cb_real), 0) AS total_cb_real,
+          COALESCE(SUM(cb_real), 0) AS total_cashback_real,
           COALESCE(SUM(cb_birthday), 0) AS total_cb_birthday,
           COALESCE(SUM(cb_raffle), 0) AS total_cb_raffle,
           COUNT(DISTINCT serial_number) AS slots_count
         FROM incasari_daily
-        WHERE audit_date >= $1::date
+        WHERE audit_date >= $1::date ${locationFilterClause}
         GROUP BY EXTRACT(YEAR FROM audit_date), EXTRACT(MONTH FROM audit_date), location_id
         ORDER BY year DESC, month DESC, location_id
       `
-      params = [`${startYear}-01-01`]
+      params = fallbackParams
     }
 
-    console.log('📊 [monthly-by-location] Executare query optimizat pentru ultimii 5 ani...')
+    // --- CACHE LOGIC START ---
+    const cacheParams = {
+      location, provider, cabinet, gameMix, includeLocations,
+      startYear // cache depends on start year
+    }
+    const cacheKeyString = JSON.stringify(cacheParams)
+    const cacheHash = crypto.createHash('md5').update(cacheKeyString).digest('hex')
+    const cacheKey = `incasari_monthly_v1_${cacheHash}`
+
+    try {
+      // Check cache (valid for 1 hour)
+      const cacheResult = await pool.query(`
+        SELECT data FROM incasari_monthly_cache 
+        WHERE cache_key = $1 
+          AND created_at > NOW() - INTERVAL '1 hour'
+      `, [cacheKey])
+
+      if (cacheResult.rows.length > 0) {
+        console.log(`⚡ [monthly-by-location] CACHE HIT (${cacheKey})`)
+        return res.json(cacheResult.rows[0].data)
+      }
+    } catch (err) {
+      console.warn('⚠️ Cache check failed:', err.message)
+    }
+    // --- CACHE LOGIC END ---
+
+    console.log('📊 [monthly-by-location] Executare query optimizat pentru ultimii 2 ani (CACHE MISS)...')
     const startTime = Date.now()
     const result = await pool.query(sql, params)
     console.log(`✅ [monthly-by-location] Query incasari_daily completat în ${Date.now() - startTime}ms, ${result.rows.length} rânduri`)
@@ -2782,7 +2830,7 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
     // Obține filtrele din setări pentru a aplica filtrele corecte
     const userId = req.user?.id
     const includedFilters = await getIncludedFiltersForUser(pool, userId)
-    
+
     console.log(`🔍 [monthly-by-location] User ID: ${userId}`)
     console.log(`🔍 [monthly-by-location] Filtre obținute:`, {
       departments: includedFilters.departments?.length || 0,
@@ -2796,7 +2844,7 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
       console.log(`🔍 [monthly-by-location] Primele 5 tipuri:`, includedFilters.types.slice(0, 5))
     }
 
-    // Obține cheltuielile din expenditures_sync grupate pe an, lună și locație (OPTIMIZAT - ultimii 5 ani)
+    // Obține cheltuielile din expenditures_sync grupate pe an, lună și locație (OPTIMIZAT - ultimii 2 ani)
     // APLICĂ FILTRELE DIN SETĂRI (departamente și tipuri incluse)
     const expendituresStartTime = Date.now()
     let expendituresSql = `
@@ -2814,7 +2862,7 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
         AND (department_name IS NOT NULL AND department_name NOT IN ('POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli', 'Nespecificat'))
         AND (LOWER(TRIM(COALESCE(department_name, ''))) NOT IN ('unknown', 'null', ''))
     `
-    
+
     const expendituresParams = [`${startYear}-01-01`]
     let expendituresParamIndex = 2
 
@@ -2830,7 +2878,7 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
           .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
           .toLowerCase()
       }).filter(Boolean)
-      
+
       expendituresSql += ` AND LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(department_name, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = ANY($${expendituresParamIndex}::text[])`
       expendituresParams.push(normalizedDepartments)
       expendituresParamIndex++
@@ -2848,7 +2896,7 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
           .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
           .toLowerCase()
       }).filter(Boolean)
-      
+
       expendituresSql += ` AND LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(expenditure_type, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = ANY($${expendituresParamIndex}::text[])`
       expendituresParams.push(normalizedTypes)
       expendituresParamIndex++
@@ -2879,11 +2927,11 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
         locationId === null || typeof locationId === 'undefined' ? null : String(locationId)
       const locationName = key ? locationMap.get(key) || `Loc ${key}` : 'Nesetat'
       const normalizedLocationName = normalizeLocationName(locationName)
-      
+
       // Caută cheltuielile pentru această combinație an-lună-locație (folosind nume normalizat)
       const expendituresKey = `${parseInt(row.year)}-${parseInt(row.month)}-${normalizedLocationName}`
       const totalExpenditures = expendituresMap.get(expendituresKey) || 0
-      
+
       return {
         year: parseInt(row.year),
         month: parseInt(row.month),
@@ -2903,10 +2951,35 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
       }
     })
 
-    return res.json({
+    console.log(`📊 [monthly-by-location] Procesat ${rows.length} rânduri pentru raspuns final`)
+    if (rows.length > 0) {
+      const sample = rows[0]
+      console.log(`🔍 [monthly-by-location] Sample result (first row): ${sample.year}-${sample.month} | ${sample.locationName} | GGR: ${sample.totalGgr}`)
+    } else {
+      console.warn(`⚠️ [monthly-by-location] Rezultat empty pentru parametrii:`, cacheParams)
+    }
+
+    const responseData = {
       success: true,
       rows
-    })
+    }
+
+    // --- SAVE TO CACHE (at the end, after all processing) ---
+    try {
+      await pool.query(`
+        INSERT INTO incasari_monthly_cache (cache_key, data, created_at)
+        VALUES ($1, $2, NOW())
+        ON CONFLICT (cache_key) 
+        DO UPDATE SET data = $2, created_at = NOW()
+      `, [cacheKey, responseData])
+
+      console.log(`💾 [monthly-by-location] Result saved to cache (Rows: ${rows.length})`)
+    } catch (err) {
+      console.warn('⚠️ Error saving to cache:', err.message)
+    }
+    // --- CACHE SAVE END ---
+
+    return res.json(responseData)
   } catch (error) {
     console.error('❌ Error in /api/incasari/monthly-by-location:', error)
     return res.status(500).json({
@@ -2968,7 +3041,7 @@ router.get('/operational', authenticateToken, async (req, res) => {
     // Folosește DATE_TRUNC pentru performanță mai bună și limitează la ultimii 5 ani
     const currentYear = new Date().getFullYear()
     const startYear = currentYear - 4 // Ultimii 5 ani
-    
+
     if (activeIds && activeIds.length > 0) {
       sql = `
         SELECT
@@ -3016,7 +3089,7 @@ router.get('/operational', authenticateToken, async (req, res) => {
 
     console.log('📊 [operational] Executare query optimizat pentru ultimii 5 ani...')
     const startTime = Date.now()
-    
+
     // Debug: EXPLAIN ANALYZE pentru performanță
     try {
       const explainSql = `EXPLAIN ANALYZE ${sql}`
@@ -3025,7 +3098,7 @@ router.get('/operational', authenticateToken, async (req, res) => {
     } catch (explainError) {
       console.warn('⚠️ [operational] Nu s-a putut executa EXPLAIN ANALYZE:', explainError.message)
     }
-    
+
     const result = await pool.query(sql, params)
     console.log(`✅ [operational] Query incasari_daily completat în ${Date.now() - startTime}ms, ${result.rows.length} rânduri`)
 
@@ -3057,7 +3130,7 @@ router.get('/operational', authenticateToken, async (req, res) => {
     const rows = (result.rows || []).map((row) => {
       const key = `${parseInt(row.year)}-${parseInt(row.month)}`
       const totalMarketing = marketingMap.get(key) || 0
-      
+
       return {
         year: parseInt(row.year),
         month: parseInt(row.month),
@@ -3123,7 +3196,7 @@ router.get('/operational-by-location', authenticateToken, async (req, res) => {
     // Query pentru date pe locații pentru luna specificată
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`
     const endDate = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0]
-    
+
     let sql
     let params
 
@@ -3287,7 +3360,7 @@ router.get('/operational-by-provider-cabinet', authenticateToken, async (req, re
     // Query pentru date pe provider și cabinet pentru locația și luna specificată
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`
     const endDate = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0]
-    
+
     let sql
     let params
 
@@ -3357,7 +3430,7 @@ router.get('/operational-by-provider-cabinet', authenticateToken, async (req, re
     result.rows.forEach((row) => {
       const slotInfo = slotMap.get(Number(row.machine_id)) || { provider: '', cabinet: '' }
       const key = `${slotInfo.provider}|||${slotInfo.cabinet}`
-      
+
       if (!groupedData.has(key)) {
         groupedData.set(key, {
           provider: slotInfo.provider,
@@ -3373,7 +3446,7 @@ router.get('/operational-by-provider-cabinet', authenticateToken, async (req, re
           cashbackReal: 0
         })
       }
-      
+
       const group = groupedData.get(key)
       group.in += Number(row.total_in || 0)
       group.out += Number(row.total_out || 0)
@@ -3443,7 +3516,7 @@ router.get('/estimated-profit', authenticateToken, async (req, res) => {
       gameMix,
       includeLocations: locationsArray
     })
-    
+
     const today = new Date()
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
     const fifteenDaysAgo = new Date(today)
@@ -3452,7 +3525,7 @@ router.get('/estimated-profit', authenticateToken, async (req, res) => {
 
     let sql
     let params
-    
+
     // CORECT: Mai întâi calculăm SUM(profit) per zi, apoi facem media zilnică
     // Dacă avem activeIds, folosim filtrarea pe machine_id
     if (activeIds && activeIds.length > 0) {
@@ -3545,23 +3618,23 @@ router.post('/sync', authenticateToken, async (req, res) => {
     // Verifică dacă se cere import forțat pentru luna curentă
     const { forceCurrentMonth } = req.body
     let scriptArgs = []
-    
+
     if (forceCurrentMonth) {
       // Calculează prima și ultima zi a lunii curente
       const now = new Date()
       const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
       const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-      
+
       const startYear = currentMonthStart.getFullYear()
       const startMonth = String(currentMonthStart.getMonth() + 1).padStart(2, '0')
       const startDay = String(currentMonthStart.getDate()).padStart(2, '0')
       const start = `${startYear}-${startMonth}-${startDay}`
-      
+
       const endYear = currentMonthEnd.getFullYear()
       const endMonth = String(currentMonthEnd.getMonth() + 1).padStart(2, '0')
       const endDay = String(currentMonthEnd.getDate()).padStart(2, '0')
       const end = `${endYear}-${endMonth}-${endDay}`
-      
+
       scriptArgs = [start, end]
       console.log(`🔄 [SYNC] Import forțat pentru luna curentă: ${start} → ${end}`)
     }
@@ -3569,7 +3642,7 @@ router.post('/sync', authenticateToken, async (req, res) => {
     // Return immediately (non-blocking)
     res.json({
       success: true,
-      message: forceCurrentMonth 
+      message: forceCurrentMonth
         ? 'Import forțat pentru luna curentă început. Datele vor fi actualizate în curând.'
         : 'Sincronizare începută. Datele vor fi actualizate în curând.'
     })
@@ -3613,7 +3686,7 @@ router.post('/sync', authenticateToken, async (req, res) => {
         console.error(`❌ [INCASARI SYNC] Output final:`, global._incasariSyncOutput)
       }
     })
-    
+
     child.on('error', (error) => {
       global._incasariSyncRunning = false
       global._incasariSyncChild = null
@@ -3666,7 +3739,7 @@ router.delete('/sync-stop', authenticateToken, async (req, res) => {
     try {
       // Oprește procesul
       global._incasariSyncChild.kill('SIGTERM')
-      
+
       // Așteaptă puțin, apoi forțează oprirea dacă nu s-a oprit
       setTimeout(() => {
         if (global._incasariSyncChild && !global._incasariSyncChild.killed) {
@@ -3772,7 +3845,7 @@ router.get('/slots-by-month-location', authenticateToken, async (req, res) => {
     if (result.rows.length > 0) {
       console.log('📊 [slots-by-month-location] Primele 5 rânduri:', result.rows.slice(0, 5))
     }
-    
+
     // Debug: verifică dacă există date în incasari_daily pentru anul curent
     const debugSql = `
       SELECT 
@@ -3800,7 +3873,7 @@ router.get('/slots-by-month-location', authenticateToken, async (req, res) => {
         }
       }
     })
-    
+
     // Obține toate locațiile unice (normalizate) pentru a inițializa structura
     // Exclude "Depozit"
     const allLocationNames = new Set()
@@ -3814,20 +3887,20 @@ router.get('/slots-by-month-location', authenticateToken, async (req, res) => {
     // Inițializează toate lunile cu toate locațiile la 0
     const monthData = {}
     const sortedLocationNames = Array.from(allLocationNames).sort()
-    
+
     for (let month = 1; month <= 12; month++) {
       monthData[month] = {}
       sortedLocationNames.forEach(locationName => {
         monthData[month][locationName] = 0
       })
     }
-    
+
     // Populează cu datele reale (exclude "Depozit")
     result.rows.forEach(row => {
       const month = row.month
       const locationId = String(row.location_id || '')
       const locationName = locationMap.get(locationId)
-      
+
       // Exclude "Depozit"
       if (month && locationName && locationName.toLowerCase() !== 'depozit' && monthData[month]) {
         const currentCount = monthData[month][locationName] || 0
@@ -3836,7 +3909,7 @@ router.get('/slots-by-month-location', authenticateToken, async (req, res) => {
         monthData[month][locationName] = Math.max(currentCount, newCount)
       }
     })
-    
+
     console.log('📊 [slots-by-month-location] Structura finală pentru Ianuarie:', monthData[1])
 
     return res.json({
@@ -3871,7 +3944,7 @@ router.get('/ggr-by-month-location', authenticateToken, async (req, res) => {
     const now = new Date()
     const currentYear = now.getFullYear()
     const currentMonth = now.getMonth() + 1
-    
+
     // Pentru anul curent, calculează până la sfârșitul lunii curente (nu ziua operațională)
     // Pentru anii trecuți, calculează pentru tot anul
     let startDate, endDate
@@ -3901,7 +3974,7 @@ router.get('/ggr-by-month-location', authenticateToken, async (req, res) => {
 
     const result = await pool.query(sql, [startDate, endDate])
     console.log(`📊 [ggr-by-month-location] Găsite ${result.rows.length} rânduri pentru anul ${year} (${startDate} - ${endDate})`)
-    
+
     // Folosește locations.json pentru mapping
     const locationsData = loadExportedData('locations.json')
     const locationMap = new Map()
@@ -3914,7 +3987,7 @@ router.get('/ggr-by-month-location', authenticateToken, async (req, res) => {
         }
       }
     })
-    
+
     // Obține toate locațiile unice (normalizate) pentru a inițializa structura
     // Exclude "Depozit"
     const allLocationNames = new Set()
@@ -3928,26 +4001,26 @@ router.get('/ggr-by-month-location', authenticateToken, async (req, res) => {
     // Inițializează toate lunile cu toate locațiile la 0
     const monthData = {}
     const sortedLocationNames = Array.from(allLocationNames).sort()
-    
+
     for (let month = 1; month <= 12; month++) {
       monthData[month] = {}
       sortedLocationNames.forEach(locationName => {
         monthData[month][locationName] = 0
       })
     }
-    
+
     // Populează cu datele reale (exclude "Depozit")
     result.rows.forEach(row => {
       const month = row.month
       const locationId = String(row.location_id || '')
       const locationName = locationMap.get(locationId)
-      
+
       // Exclude "Depozit"
       if (month && locationName && locationName.toLowerCase() !== 'depozit' && monthData[month]) {
         monthData[month][locationName] = Number(row.total_ggr || 0)
       }
     })
-    
+
     console.log('📊 [ggr-by-month-location] Structura finală pentru Ianuarie:', monthData[1])
 
     return res.json({
@@ -3987,7 +4060,7 @@ router.get('/aws-status', authenticateToken, async (req, res) => {
       process.env.AWS_REGION &&
       s3Client
     )
-    
+
     return res.json({
       success: true,
       available
@@ -4012,7 +4085,7 @@ router.post('/aws-save', authenticateToken, async (req, res) => {
     }
 
     const { key, data, timestamp } = req.body
-    
+
     const body = JSON.stringify({
       data,
       timestamp: timestamp || Date.now(),
@@ -4028,7 +4101,7 @@ router.post('/aws-save', authenticateToken, async (req, res) => {
     })
 
     await s3Client.send(command)
-    
+
     return res.json({
       success: true,
       message: 'Date salvate în AWS S3'
@@ -4054,7 +4127,7 @@ router.get('/aws-get', authenticateToken, async (req, res) => {
     }
 
     const { key } = req.query
-    
+
     const command = new GetObjectCommand({
       Bucket: S3_BUCKET,
       Key: key
@@ -4063,7 +4136,7 @@ router.get('/aws-get', authenticateToken, async (req, res) => {
     const response = await s3Client.send(command)
     const body = await response.Body.transformToString()
     const parsed = JSON.parse(body)
-    
+
     return res.json({
       success: true,
       data: parsed.data,
@@ -4076,7 +4149,7 @@ router.get('/aws-get', authenticateToken, async (req, res) => {
         error: 'Cheie nu există în AWS S3'
       })
     }
-    
+
     console.error('❌ Eroare la citire AWS S3:', error)
     return res.status(500).json({
       success: false,
@@ -4097,7 +4170,7 @@ router.get('/aws-timestamp', authenticateToken, async (req, res) => {
     }
 
     const { key } = req.query
-    
+
     const command = new HeadObjectCommand({
       Bucket: S3_BUCKET,
       Key: key
@@ -4105,7 +4178,7 @@ router.get('/aws-timestamp', authenticateToken, async (req, res) => {
 
     const response = await s3Client.send(command)
     const metadata = response.Metadata || {}
-    
+
     // Încearcă să citească timestamp din metadata sau din fișier
     if (metadata.timestamp) {
       return res.json({
@@ -4113,17 +4186,17 @@ router.get('/aws-timestamp', authenticateToken, async (req, res) => {
         timestamp: parseInt(metadata.timestamp)
       })
     }
-    
+
     // Dacă nu e în metadata, citește fișierul
     const getCommand = new GetObjectCommand({
       Bucket: S3_BUCKET,
       Key: key
     })
-    
+
     const getResponse = await s3Client.send(getCommand)
     const body = await getResponse.Body.transformToString()
     const parsed = JSON.parse(body)
-    
+
     return res.json({
       success: true,
       timestamp: parsed.timestamp || null
@@ -4135,7 +4208,7 @@ router.get('/aws-timestamp', authenticateToken, async (req, res) => {
         error: 'Cheie nu există'
       })
     }
-    
+
     return res.status(500).json({
       success: false,
       error: error.message
@@ -4160,10 +4233,10 @@ router.get('/aws-list', authenticateToken, async (req, res) => {
     })
 
     const response = await s3Client.send(command)
-    const keys = (response.Contents || []).map(item => 
+    const keys = (response.Contents || []).map(item =>
       item.Key.replace(S3_PREFIX, '').replace('.json', '')
     )
-    
+
     return res.json({
       success: true,
       keys

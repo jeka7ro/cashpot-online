@@ -69,13 +69,13 @@ const loadExportedData = (filename) => {
 router.delete('/all-data', authenticateToken, async (req, res) => {
   try {
     console.log('🗑️ DELETE /api/expenditures/all-data - Request received')
-    
+
     // SECURITATE: Verifică dacă există confirmarea suplimentară
     const { confirmDelete, confirmationToken } = req.body
-    
+
     // Token de confirmare: trebuie să fie exact "DELETE_ALL_DATA_CONFIRMED_2025"
     const REQUIRED_CONFIRMATION_TOKEN = 'DELETE_ALL_DATA_CONFIRMED_2025'
-    
+
     if (!confirmDelete || confirmationToken !== REQUIRED_CONFIRMATION_TOKEN) {
       console.warn('⚠️ DELETE /all-data - Confirmare invalidă sau lipsă')
       return res.status(400).json({
@@ -83,7 +83,7 @@ router.delete('/all-data', authenticateToken, async (req, res) => {
         error: 'Confirmare necesară pentru ștergerea tuturor datelor. Trimite confirmDelete: true și confirmationToken: "DELETE_ALL_DATA_CONFIRMED_2025"'
       })
     }
-    
+
     const pool = req.app.get('pool')
     if (!pool) {
       console.error('❌ Database pool not initialized')
@@ -94,7 +94,7 @@ router.delete('/all-data', authenticateToken, async (req, res) => {
     const countResult = await pool.query('SELECT COUNT(*) as total FROM expenditures_sync')
     const totalCount = parseInt(countResult.rows[0].total) || 0
     console.log(`📊 Total records before deletion: ${totalCount}`)
-    
+
     if (totalCount === 0) {
       return res.json({
         success: true,
@@ -213,125 +213,61 @@ const buildSqlTableWhereClause = (query, includedFilters) => {
 
   const { departments, types, locations } = includedFilters
 
-  // IMPORTANT: Dacă utilizatorul selectează explicit un filtru din dropdown,
-  // folosim DOAR acel filtru, nu și filtrele de utilizator
-  // Astfel, utilizatorul poate vedea orice department/tip/locație dacă îl selectează explicit
+  // Normalizare helper (trebuie sa fie IDENTICA cu cea din optimize_db.js)
+  const normalizeText = (text) => {
+    if (!text) return '';
+    return String(text).trim()
+      .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
+      .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+  };
 
   if (startDate) {
-    // Convertim la DATE pentru comparație corectă (evită probleme cu timezone/time)
     filters.push(`DATE(operational_date) >= DATE($${paramIndex++}::text)`)
     values.push(startDate)
   }
 
   if (endDate) {
-    // Convertim la DATE pentru comparație corectă (evită probleme cu timezone/time)
     filters.push(`DATE(operational_date) <= DATE($${paramIndex++}::text)`)
     values.push(endDate)
   }
 
-  // Department: dacă e selectat explicit, folosim doar acela; altfel folosim filtrele de utilizator
+  // Department: folosim coloana pre-calculată normalized_department_name
   if (department && department !== 'all') {
-    // IMPORTANT: Normalizează diacriticele și pentru selecția explicită
-    const normalizedDept = String(department).trim()
-      .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
-      .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-    filters.push(`LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(department_name, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = $${paramIndex++}`)
-    values.push(normalizedDept)
+    filters.push(`normalized_department_name = $${paramIndex++}`)
+    values.push(normalizeText(department))
   } else if (departments && departments.length > 0) {
-    // Aplică filtrele de utilizator doar dacă nu e selectat un department explicit
-    // IMPORTANT: Normalizează diacriticele pentru matching (ț/ţ, ș/ş devin aceleași)
-    // Normalizăm departamentele în JavaScript: transformăm ţ→ț, ș→ș, apoi eliminăm TOATE diacriticele
-    const normalizedDepartments = departments.map(d => {
-      if (!d) return ''
-      return String(d).trim()
-        .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
-        .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
-        .toLowerCase()
-    }).filter(Boolean)
-    
-    // Normalizăm și valorile din DB în același mod pentru matching insensibil la variantele de diacritice
-    // Folosim REPLACE pentru a transforma ţ→ț și ș→ș, apoi eliminăm diacriticele cu regex_replace, apoi LOWER
+    const normalizedDepartments = departments.map(normalizeText).filter(Boolean)
     const normalizedDeptArrayParam = paramIndex++
     values.push(normalizedDepartments)
-    // Normalizează: ţ→ț, ș→ș, apoi elimină diacriticele folosind regex_replace (elimină caracterele Unicode diacritice)
-    filters.push(`LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(department_name, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = ANY($${normalizedDeptArrayParam}::text[])`)
-    
-    console.log(`🔍 [buildSqlTableWhereClause] Applied includedDepartments filter: ${normalizedDepartments.length} departments (sample: ${normalizedDepartments.slice(0, 3).join(', ')})`)
+    filters.push(`normalized_department_name = ANY($${normalizedDeptArrayParam}::text[])`)
+    console.log(`🔍 [Optimized Filter] Departments: ${normalizedDepartments.length} included`)
   }
 
-  // Type: dacă e selectat explicit, folosim doar acela; altfel folosim filtrele de utilizator
+  // Type: folosim coloana pre-calculată normalized_expenditure_type
   if (type && type !== 'all') {
-    // IMPORTANT: Normalizează diacriticele și pentru selecția explicită
-    const normalizedType = String(type).trim()
-      .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
-      .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-    filters.push(`LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(expenditure_type, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = $${paramIndex++}`)
-    values.push(normalizedType)
+    filters.push(`normalized_expenditure_type = $${paramIndex++}`)
+    values.push(normalizeText(type))
   } else if (types && types.length > 0) {
-    // Aplică filtrele de utilizator doar dacă nu e selectat un type explicit
-    // IMPORTANT: Normalizează diacriticele pentru matching (ț/ţ, ș/ş devin aceleași)
-    // Normalizăm tipurile în JavaScript: transformăm ţ→ț, ș→ș, apoi eliminăm TOATE diacriticele
-    const normalizedTypes = types.map(t => {
-      if (!t) return ''
-      return String(t).trim()
-        .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
-        .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
-        .toLowerCase()
-    }).filter(Boolean)
-    
-    // Normalizăm și valorile din DB în același mod pentru matching insensibil la variantele de diacritice
-    // Folosim REPLACE pentru a transforma ţ→ț și ș→ș, apoi eliminăm diacriticele cu translate, apoi LOWER
+    const normalizedTypes = types.map(normalizeText).filter(Boolean)
     const normalizedArrayParam = paramIndex++
     values.push(normalizedTypes)
-    // Normalizează: ţ→ț, ș→ș, apoi elimină diacriticele folosind regex_replace (elimină caracterele Unicode diacritice)
-    filters.push(`LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(expenditure_type, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = ANY($${normalizedArrayParam}::text[])`)
-    
-    console.log(`🔍 [buildSqlTableWhereClause] Applied includedTypes filter: ${normalizedTypes.length} types (sample: ${normalizedTypes.slice(0, 3).join(', ')})`)
+    filters.push(`normalized_expenditure_type = ANY($${normalizedArrayParam}::text[])`)
+    console.log(`🔍 [Optimized Filter] Types: ${normalizedTypes.length} included`)
   }
 
-  // Location: dacă e selectat explicit, folosim doar acela; altfel folosim filtrele de utilizator
+  // Location: folosim coloana pre-calculată normalized_location_name
   if (location && location !== 'all') {
-    // IMPORTANT: Normalizează diacriticele și pentru selecția explicită
-    const normalizedLoc = String(location).trim()
-      .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
-      .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-    filters.push(`LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(location_name, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = $${paramIndex++}`)
-    values.push(normalizedLoc)
+    filters.push(`normalized_location_name = $${paramIndex++}`)
+    values.push(normalizeText(location))
   } else if (locations && locations.length > 0) {
-    // Aplică filtrele de utilizator doar dacă nu e selectat o locație explicită
-    // IMPORTANT: Normalizează diacriticele pentru matching (ț/ţ, ș/ş devin aceleași)
-    // Normalizăm locațiile în JavaScript: transformăm ţ→ț, ș→ș, apoi eliminăm TOATE diacriticele
-    const normalizedLocations = locations.map(l => {
-      if (!l) return ''
-      return String(l).trim()
-        .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
-        .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
-        .toLowerCase()
-    }).filter(Boolean)
-    
-    // Normalizăm și valorile din DB în același mod pentru matching insensibil la variantele de diacritice
-    // Folosim REPLACE pentru a transforma ţ→ț și ș→ș, apoi eliminăm diacriticele cu regex_replace, apoi LOWER
+    const normalizedLocations = locations.map(normalizeText).filter(Boolean)
     const normalizedLocArrayParam = paramIndex++
     values.push(normalizedLocations)
-    // Normalizează: ţ→ț, ș→ș, apoi elimină diacriticele folosind regex_replace (elimină caracterele Unicode diacritice)
-    filters.push(`LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(location_name, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = ANY($${normalizedLocArrayParam}::text[])`)
-    
-    console.log(`🔍 [buildSqlTableWhereClause] Applied includedLocations filter: ${normalizedLocations.length} locations (sample: ${normalizedLocations.slice(0, 3).join(', ')})`)
+    filters.push(`normalized_location_name = ANY($${normalizedLocArrayParam}::text[])`)
+    console.log(`🔍 [Optimized Filter] Locations: ${normalizedLocations.length} included`)
   }
 
   if (dataSource && dataSource !== 'all') {
@@ -340,21 +276,15 @@ const buildSqlTableWhereClause = (query, includedFilters) => {
   }
 
   if (search && search.trim().length > 0) {
-    // IMPORTANT: Normalizează diacriticele pentru căutare
-    // Normalizăm termenul de căutare
-    const normalizedSearch = String(search).trim()
-      .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
-      .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-    
-    // Folosim normalizare și pentru coloanele din DB pentru matching insensibil la diacritice
+    const normalizedSearch = normalizeText(search)
+
+    // Căutare optimizată în coloanele normalizate
+    // Folosim LIKE %...% pe coloanele normalizate care sunt deja lowercase și fără diacritice
     filters.push(`(
-      LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(description, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) ILIKE $${paramIndex} OR
-      LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(location_name, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) ILIKE $${paramIndex} OR
-      LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(department_name, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) ILIKE $${paramIndex} OR
-      LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(expenditure_type, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) ILIKE $${paramIndex}
+      normalized_department_name LIKE $${paramIndex} OR
+      normalized_location_name LIKE $${paramIndex} OR
+      normalized_expenditure_type LIKE $${paramIndex} OR
+      LOWER(description) LIKE $${paramIndex}
     )`)
     values.push(`%${normalizedSearch}%`)
     paramIndex++
@@ -404,15 +334,15 @@ let externalPool = null
 export const getExternalPool = () => {
   // IP EXTERN pentru acces de oriunde - NU mai folosim IP intern 192.168.1.39!
   const dbHost = process.env.EXPENDITURES_DB_HOST || '82.76.35.50'
-  
+
   // Întotdeauna resetăm pool-ul pentru a folosi IP-ul extern
   if (externalPool) {
     try {
-      externalPool.end().catch(() => {})
-    } catch (e) {}
+      externalPool.end().catch(() => { })
+    } catch (e) { }
     externalPool = null
   }
-  
+
   // Credențiale pentru baza de date externă
   // Pot fi suprascrise din variabilele de mediu EXPENDITURES_DB_USER și EXPENDITURES_DB_PASSWORD
   // NOTĂ: jeka/31Ianuarie pe port 9858 sunt pentru LOGARE PC, nu pentru baza de date!
@@ -420,14 +350,14 @@ export const getExternalPool = () => {
   const dbPassword = process.env.EXPENDITURES_DB_PASSWORD || '129hj8oahwd7yaw3e21321'
   const dbPort = parseInt(process.env.EXPENDITURES_DB_PORT || '26257')
   const dbName = process.env.EXPENDITURES_DB_NAME || 'cashpot'
-  
+
   console.log(`🔌 Creating NEW external DB pool:`)
   console.log(`   Host: ${dbHost}`)
   console.log(`   Port: ${dbPort}`)
   console.log(`   Database: ${dbName}`)
   console.log(`   User: ${dbUser}`)
   console.log(`   Password: ${dbPassword ? '***' + dbPassword.slice(-3) : 'NOT SET'}`)
-  
+
   externalPool = new Pool({
     user: dbUser,
     password: dbPassword,
@@ -442,12 +372,12 @@ export const getExternalPool = () => {
     statement_timeout: 600000, // 10 MINUTE pentru statements
     idle_in_transaction_session_timeout: 600000 // 10 MINUTE pentru sesiuni idle
   })
-  
+
   externalPool.on('error', (err) => {
     console.error('❌ External DB pool error:', err.message)
     externalPool = null // Reset pool on error
   })
-  
+
   return externalPool
 }
 
@@ -493,12 +423,12 @@ router.get('/test-connection', async (req, res) => {
       hostname: process.env.RENDER_EXTERNAL_HOSTNAME || 'unknown',
       nodeEnv: process.env.NODE_ENV || 'unknown'
     })
-    
+
     const pool = getExternalPool()
     const result = await pool.query('SELECT NOW() as current_time, current_database() as db_name, inet_server_addr() as server_ip')
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: 'Connection successful',
       timestamp: result.rows[0].current_time,
       database: result.rows[0].db_name,
@@ -514,13 +444,13 @@ router.get('/test-connection', async (req, res) => {
     console.error('❌ External DB connection error:', error)
     console.error('❌ Error code:', error.code)
     console.error('❌ Error details:', error.toString())
-    
-    res.status(500).json({ 
-      success: false, 
+
+    res.status(500).json({
+      success: false,
       error: error.message,
       errorCode: error.code,
-      hint: error.code === 'ENETUNREACH' 
-        ? '⚠️ IMPORTANT: Firewall-ul din birou trebuie să permită conexiuni de la IP-urile Render! Verifică whitelist-ul pe router/firewall.' 
+      hint: error.code === 'ENETUNREACH'
+        ? '⚠️ IMPORTANT: Firewall-ul din birou trebuie să permită conexiuni de la IP-urile Render! Verifică whitelist-ul pe router/firewall.'
         : 'Verifică configurația conexiunii și firewall-ul',
       connectionInfo: {
         host: process.env.EXPENDITURES_DB_HOST || '82.76.35.50',
@@ -534,7 +464,7 @@ router.get('/test-connection', async (req, res) => {
 router.get('/external-locations', async (req, res) => {
   try {
     const localPool = req.app.get('pool')
-    
+
     if (!localPool) {
       return res.json({ success: true, locations: [], locationsWithNLC: [] })
     }
@@ -635,7 +565,7 @@ router.get('/external-locations', async (req, res) => {
 router.get('/expenditure-types', async (req, res) => {
   try {
     const localPool = req.app.get('pool')
-    
+
     // HARDCODED categories (comune) - user poate configura ÎNAINTE de sync
     const hardcodedTypes = [
       { id: 1, name: 'Chirie locație lunară', record_count: 0, total_amount: 0 },
@@ -649,7 +579,7 @@ router.get('/expenditure-types', async (req, res) => {
       { id: 9, name: 'Reparații', record_count: 0, total_amount: 0 },
       { id: 10, name: 'Marketing', record_count: 0, total_amount: 0 }
     ]
-    
+
     // Try to get from local sync data (dacă există)
     try {
       const result = await localPool.query(`
@@ -663,7 +593,7 @@ router.get('/expenditure-types', async (req, res) => {
         GROUP BY expenditure_type
         ORDER BY expenditure_type
       `)
-      
+
       if (result.rows.length > 0) {
         console.log(`✅ Found ${result.rows.length} expenditure types in local sync data`)
         return res.json(result.rows)
@@ -671,7 +601,7 @@ router.get('/expenditure-types', async (req, res) => {
     } catch (dbError) {
       console.log('⚠️ No sync data yet, returning hardcoded categories')
     }
-    
+
     // Fallback: Return hardcoded list
     console.log(`✅ Returning ${hardcodedTypes.length} hardcoded categories`)
     res.json(hardcodedTypes)
@@ -685,7 +615,7 @@ router.get('/expenditure-types', async (req, res) => {
 router.get('/departments', async (req, res) => {
   try {
     const localPool = req.app.get('pool')
-    
+
     // HARDCODED departments from Power BI (user poate configura ÎNAINTE de sync!)
     const hardcodedDepartments = [
       { id: 1, name: 'Unknown', record_count: 0, total_amount: 0 },
@@ -695,7 +625,7 @@ router.get('/departments', async (req, res) => {
       { id: 5, name: 'Alte Cheltuieli', record_count: 0, total_amount: 0 },
       { id: 6, name: 'Salarii', record_count: 0, total_amount: 0 }
     ]
-    
+
     // Try to get from local sync data (dacă există)
     try {
       const result = await localPool.query(`
@@ -709,7 +639,7 @@ router.get('/departments', async (req, res) => {
         GROUP BY department_name
         ORDER BY department_name
       `)
-      
+
       if (result.rows.length > 0) {
         console.log(`✅ Found ${result.rows.length} departments in local sync data`)
         return res.json(result.rows)
@@ -717,7 +647,7 @@ router.get('/departments', async (req, res) => {
     } catch (dbError) {
       console.log('⚠️ No sync data yet, returning hardcoded departments')
     }
-    
+
     // Fallback: Return hardcoded list
     console.log(`✅ Returning ${hardcodedDepartments.length} hardcoded departments (user poate configura ÎNAINTE de sync)`)
     res.json(hardcodedDepartments)
@@ -733,7 +663,7 @@ router.post('/upload', async (req, res) => {
   try {
     const { records, syncToken } = req.body
     const localPool = req.app.get('pool')
-    
+
     // SECURITATE: Verifică token-ul de sync
     const REQUIRED_SYNC_TOKEN = 'SYNC_UPLOAD_TOKEN_2025'
     if (!syncToken || syncToken !== REQUIRED_SYNC_TOKEN) {
@@ -743,30 +673,30 @@ router.post('/upload', async (req, res) => {
         error: 'Token de sync necesar pentru upload. Contactează administratorul.'
       })
     }
-    
+
     if (!records || !Array.isArray(records)) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid format. Expected: { records: [...] }' 
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid format. Expected: { records: [...] }'
       })
     }
-    
+
     console.log(`📤 Receiving ${records.length} expenditure records from LOCAL sync...`)
-    
+
     // Verifică câte înregistrări există înainte de import
     const countResult = await localPool.query('SELECT COUNT(*) as total FROM expenditures_sync')
     const totalCount = parseInt(countResult.rows[0].total) || 0
     console.log(`📊 Total records before import: ${totalCount}`)
-    
+
     // NU ȘTERGEM DATELE VECHI! Folosim INSERT cu ON CONFLICT pentru a păstra datele existente
     // și a actualiza doar dacă există duplicate
     console.log('🔄 Import cu păstrare date vechi - verificare duplicate...')
-    
+
     // Insert new records cu verificare duplicate
     let inserted = 0
     let updated = 0
     let skipped = 0
-    
+
     for (const record of records) {
       try {
         // Verifică dacă există deja (duplicat)
@@ -786,40 +716,58 @@ router.post('/upload', async (req, res) => {
           parseFloat(record.amount || 0),
           record.data_source || 'bat_sync'
         ])
-        
+
+
+        const normLoc = String(record.location_name || 'Unknown').trim()
+          .replace(/ţ/g, 'ț').replace(/ş/g, 'ș').replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+        const normDept = String(record.department_name || 'Unknown').trim()
+          .replace(/ţ/g, 'ț').replace(/ş/g, 'ș').replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+        const normType = String(record.expenditure_type || 'Unknown').trim()
+          .replace(/ţ/g, 'ț').replace(/ş/g, 'ș').replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
         if (existingCheck.rows.length > 0) {
           // Există deja - actualizează doar dacă datele sunt diferite
           await localPool.query(`
             UPDATE expenditures_sync SET
               description = COALESCE($1, description),
-              synced_at = NOW()
+              synced_at = NOW(),
+              normalized_location_name = $3,
+              normalized_department_name = $4,
+              normalized_expenditure_type = $5
             WHERE id = $2
           `, [
             record.description || null,
-            existingCheck.rows[0].id
+            existingCheck.rows[0].id,
+            normLoc,
+            normDept,
+            normType
           ])
           updated++
         } else {
-          // Nu există - inserează nou
+          // Nu există - INSERT
           await localPool.query(`
             INSERT INTO expenditures_sync (
-              location_name,
-              department_name,
-              expenditure_type,
-              amount,
-              operational_date,
-              description,
-              data_source,
-              synced_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+              operational_date, location_name, department_name, expenditure_type,
+              amount, description, data_source, synced_at,
+              normalized_location_name, normalized_department_name, normalized_expenditure_type
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9, $10)
           `, [
+            record.operational_date,
             record.location_name || 'Unknown',
             record.department_name || 'Unknown',
             record.expenditure_type || 'Unknown',
             parseFloat(record.amount || 0),
-            record.operational_date,
             record.description || null,
-            record.data_source || 'bat_sync'
+            record.data_source || 'bat_sync',
+            normLoc,
+            normDept,
+            normType
           ])
           inserted++
         }
@@ -828,15 +776,15 @@ router.post('/upload', async (req, res) => {
         skipped++
       }
     }
-    
+
     const finalCountResult = await localPool.query('SELECT COUNT(*) as total FROM expenditures_sync')
     const finalCount = parseInt(finalCountResult.rows[0].total) || 0
-    
+
     console.log(`✅ Import complet: ${inserted} noi, ${updated} actualizate, ${skipped} erori`)
     console.log(`📊 Total înregistrări în DB: ${finalCount} (înainte: ${totalCount})`)
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: `Import complet: ${inserted} înregistrări noi, ${updated} actualizate. Total în DB: ${finalCount}`,
       records: inserted,
       updated: updated,
@@ -846,9 +794,9 @@ router.post('/upload', async (req, res) => {
     })
   } catch (error) {
     console.error('❌ Error uploading expenditures:', error)
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      error: error.message
     })
   }
 })
@@ -862,12 +810,12 @@ router.get('/sync-status', async (req, res) => {
         message: 'Nu există sincronizare în curs'
       })
     }
-    
+
     res.json(_syncProgress)
   } catch (error) {
     console.error('Error getting sync status:', error)
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       error: error.message,
       status: 'error'
     })
@@ -878,40 +826,40 @@ router.get('/sync-status', async (req, res) => {
 router.post('/sync', async (req, res) => {
   // Check if already syncing
   if (_syncProgress && _syncProgress.status === 'running') {
-    return res.status(400).json({ 
-      success: false, 
-      error: 'Sincronizare deja în curs. Vă rugăm să așteptați finalizarea.' 
+    return res.status(400).json({
+      success: false,
+      error: 'Sincronizare deja în curs. Vă rugăm să așteptați finalizarea.'
     })
   }
   try {
     const { startDate, endDate, filters } = req.body
     const localPool = req.app.get('pool')
-    
+
     // Try to get external pool - catch error if connection fails
     // Retry logic pentru conexiuni externe (firewall delay)
     let externalPool
     let lastError = null
     const maxRetries = 5 // Mărit la 5 retry-uri
     const retryDelay = 3000 // 3 secunde între retry-uri (mărit pentru conexiuni lente)
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`🔌 Attempting to create external DB connection (attempt ${attempt}/${maxRetries})...`)
         externalPool = getExternalPool()
-        
+
         // Test connection immediately cu timeout mai mare
         console.log('🧪 Testing external DB connection...')
         console.log('🌐 Attempting connection from:', process.env.RENDER_EXTERNAL_HOSTNAME || 'unknown host')
         console.log('🌐 Node environment:', process.env.NODE_ENV || 'unknown')
-        
+
         // Query cu timeout explicit - mărit la 90 secunde pentru conexiuni lente
         const testResult = await Promise.race([
           externalPool.query('SELECT NOW() as current_time, current_database() as db_name'),
-          new Promise((_, reject) => 
+          new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Connection test timeout after 90 seconds')), 90000)
           )
         ])
-        
+
         console.log('✅ External DB connection test successful!')
         console.log(`   Database: ${testResult.rows[0].db_name}`)
         console.log(`   Time: ${testResult.rows[0].current_time}`)
@@ -922,15 +870,15 @@ router.post('/sync', async (req, res) => {
         lastError = poolError
         console.error(`❌ Connection attempt ${attempt}/${maxRetries} failed:`, poolError.message)
         console.error('❌ Error code:', poolError.code)
-        
+
         if (attempt < maxRetries) {
           console.log(`⏳ Retrying in ${retryDelay}ms...`)
           await new Promise(resolve => setTimeout(resolve, retryDelay))
           // Reset pool pentru următorul retry
           if (externalPool) {
             try {
-              externalPool.end().catch(() => {})
-            } catch (e) {}
+              externalPool.end().catch(() => { })
+            } catch (e) { }
             externalPool = null
           }
         } else {
@@ -939,12 +887,12 @@ router.post('/sync', async (req, res) => {
         }
       }
     }
-    
+
     // Dacă toate retry-urile au eșuat
     if (lastError) {
       let errorMessage = 'Nu se poate conecta la baza de date externă'
       let errorHint = ''
-      
+
       if (lastError.code === 'ECONNREFUSED') {
         errorMessage = `Nu se poate conecta la ${process.env.EXPENDITURES_DB_HOST || '82.76.35.50'}:${process.env.EXPENDITURES_DB_PORT || '26257'}`
         errorHint = 'Verifică dacă IP-ul și portul sunt corecte și dacă baza de date acceptă conexiuni externe'
@@ -958,7 +906,7 @@ router.post('/sync', async (req, res) => {
         errorMessage = 'Timeout la conectare la baza de date externă (60 secunde)'
         errorHint = 'Firewall-ul din birou blochează conexiuni sau nu este configurat Port Forwarding pentru 82.76.35.50:26257. Verifică configurarea router-ului/firewall-ului pentru a permite conexiuni INBOUND de la IP-urile Render.'
       }
-      
+
       return res.status(500).json({
         success: false,
         error: errorMessage,
@@ -967,9 +915,9 @@ router.post('/sync', async (req, res) => {
         attempts: maxRetries
       })
     }
-    
+
     console.log('🔄 Starting expenditures sync...', { startDate, endDate, filters })
-    
+
     // Initialize progress tracking
     _syncProgress = {
       status: 'running',
@@ -982,7 +930,7 @@ router.post('/sync', async (req, res) => {
       errors: 0,
       startTime: new Date()
     }
-    
+
     // Load settings to get included items
     let syncSettings = {
       includedExpenditureTypes: [],
@@ -991,14 +939,14 @@ router.post('/sync', async (req, res) => {
       excludeDeleted: true,
       showInExpenditures: null
     }
-    
+
     try {
       const settingsResult = await localPool.query(`
         SELECT setting_value 
         FROM global_settings 
         WHERE setting_key = 'expenditures_sync_config'
       `)
-      
+
       if (settingsResult.rows.length > 0 && settingsResult.rows[0].setting_value) {
         const settingValue = settingsResult.rows[0].setting_value
         // Handle both string JSON and already parsed object
@@ -1012,39 +960,39 @@ router.post('/sync', async (req, res) => {
       console.warn('⚠️ Error loading sync settings, using defaults:', settingsError.message)
       // Continue with default settings
     }
-    
+
     console.log('📋 Sync settings:', syncSettings)
-    
+
     // Build WHERE clause based on filters
     let whereConditions = []
     const queryParams = []
     let paramCounter = 1
-    
+
     // is_deleted filter
     if (syncSettings.excludeDeleted) {
       whereConditions.push('p.is_deleted = false')
     }
-    
+
     // show_in_expenditures filter - verifică dacă coloana există înainte
     // Nu aplicăm acest filter dacă coloana nu există în baza de date
     // if (syncSettings.showInExpenditures !== null) {
     //   whereConditions.push(`p.show_in_expenditures = ${syncSettings.showInExpenditures}`)
     // }
-    
+
     if (startDate) {
       whereConditions.push(`p.date >= $${paramCounter}`)
       queryParams.push(startDate)
       paramCounter++
     }
-    
+
     if (endDate) {
       whereConditions.push(`p.date <= $${paramCounter}`)
       queryParams.push(endDate)
       paramCounter++
     }
-    
+
     const whereClause = whereConditions.length > 0 ? whereConditions.join(' AND ') : '1=1'
-    
+
     // Fetch data from external DB
     // IMPORTANT: Câmpul corect din casino_payments este 'date', nu 'operational_date'
     const query = `
@@ -1063,17 +1011,17 @@ router.post('/sync', async (req, res) => {
       WHERE ${whereClause}
       ORDER BY p.date DESC, l.name, et.name
     `
-    
+
     _syncProgress.currentStep = 'Preluare date din baza externă...'
     const result = await externalPool.query(query, queryParams)
     console.log(`✅ Fetched ${result.rows.length} expenditure records from external DB`)
-    
+
     _syncProgress.totalFetched = result.rows.length
-    
+
     // Filter data based on included items
     _syncProgress.currentStep = 'Filtrare date...'
     let filteredRows = result.rows
-    
+
     // Helper function pentru normalizare diacritice (folosită și în alte părți)
     const normalizeForComparison = (str) => {
       if (!str) return ''
@@ -1084,7 +1032,7 @@ router.post('/sync', async (req, res) => {
         .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
         .toLowerCase()
     }
-    
+
     // Filter by expenditure types (only if list is not empty)
     if (syncSettings.includedExpenditureTypes && syncSettings.includedExpenditureTypes.length > 0) {
       const normalizedIncludedTypes = syncSettings.includedExpenditureTypes.map(t => normalizeForComparison(t))
@@ -1094,7 +1042,7 @@ router.post('/sync', async (req, res) => {
       })
       console.log(`📊 Filtered by expenditure types: ${filteredRows.length} records remaining`)
     }
-    
+
     // Filter by departments (only if list is not empty)
     if (syncSettings.includedDepartments && syncSettings.includedDepartments.length > 0) {
       const normalizedIncludedDepts = syncSettings.includedDepartments.map(d => normalizeForComparison(d))
@@ -1104,7 +1052,7 @@ router.post('/sync', async (req, res) => {
       })
       console.log(`📊 Filtered by departments: ${filteredRows.length} records remaining`)
     }
-    
+
     // Filter by locations (only if list is not empty)
     if (syncSettings.includedLocations && syncSettings.includedLocations.length > 0) {
       const normalizedIncludedLocs = syncSettings.includedLocations.map(l => normalizeForComparison(l))
@@ -1114,12 +1062,12 @@ router.post('/sync', async (req, res) => {
       })
       console.log(`📊 Filtered by locations: ${filteredRows.length} records remaining`)
     }
-    
+
     console.log(`✅ Final filtered data: ${filteredRows.length} records`)
-    
+
     _syncProgress.totalFiltered = filteredRows.length
     _syncProgress.currentStep = `Verificare duplicate și inserare înregistrări noi... (${filteredRows.length} de procesat)`
-    
+
     if (filteredRows.length === 0) {
       _syncProgress.status = 'completed'
       _syncProgress.currentStep = 'Nu există date de sincronizat'
@@ -1132,7 +1080,7 @@ router.post('/sync', async (req, res) => {
         warning: 'Toate datele au fost filtrate. Verifică setările de sincronizare!'
       })
     }
-    
+
     // Get location mapping
     const mappingResult = await localPool.query('SELECT * FROM expenditure_location_mapping')
     const mapping = {}
@@ -1140,37 +1088,37 @@ router.post('/sync', async (req, res) => {
       mapping[row.external_location_name] = row.local_location_id
     })
     console.log(`📍 Loaded ${mappingResult.rows.length} location mappings`)
-    
+
     // NU ștergem datele existente! Verificăm duplicatele și inserăm doar pe cele noi
     console.log('🔄 Verificare duplicate și inserare doar înregistrări noi...')
-    
+
     // Insert synced data - batch insert pentru performanță mai bună
     let inserted = 0
     let skipped = 0 // Duplicatele
     let errors = 0
     const batchSize = 50 // Insert în batch-uri de 50
     const totalRecords = filteredRows.length
-    
+
     console.log(`📊 Starting sync: ${totalRecords} records to process...`)
-    
+
     for (let i = 0; i < filteredRows.length; i += batchSize) {
       const batch = filteredRows.slice(i, i + batchSize)
       const currentIndex = i + batch.length
       const progress = Math.round((currentIndex / totalRecords) * 100)
-      
+
       // Update progress
       _syncProgress.processed = currentIndex
       _syncProgress.inserted = inserted
       _syncProgress.skipped = skipped
       _syncProgress.errors = errors
       _syncProgress.currentStep = `Procesare: ${currentIndex}/${totalRecords} (${progress}%) | Noi: ${inserted} | Duplicate: ${skipped} | Erori: ${errors}`
-      
+
       console.log(`📝 Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(totalRecords / batchSize)}: ${currentIndex}/${totalRecords} (${progress}%) - Inserted: ${inserted}, Skipped: ${skipped}, Errors: ${errors}`)
-      
+
       for (const row of batch) {
         try {
           const mappedLocationId = mapping[row.location_name] || null
-          
+
           // NORMALIZARE SUMĂ - gestionează atât punct cât și virgulă ca separator zecimal
           let normalizedAmount = 0
           if (row.amount) {
@@ -1203,17 +1151,17 @@ router.post('/sync', async (req, res) => {
               normalizedAmount = parseFloat(cleanAmount) || 0
             }
           }
-          
+
           // Validare sumă
           if (isNaN(normalizedAmount) || normalizedAmount < 0) {
             console.warn(`⚠️ Invalid amount for record: ${JSON.stringify(row)} - normalized: ${normalizedAmount}`)
             errors++
             continue
           }
-          
+
           // Rotunjire la 2 zecimale pentru consistență
           normalizedAmount = Math.round(normalizedAmount * 100) / 100
-          
+
           // Verificăm dacă înregistrarea există deja (duplicat)
           // Verificăm după: operational_date, amount, location_name, department_name, expenditure_type
           // NU verificăm după data_source - datele pot veni din multiple surse (BAT, Google Sheets, API)
@@ -1233,18 +1181,18 @@ router.post('/sync', async (req, res) => {
             row.department_name || 'Unknown',
             row.expenditure_type || 'Unknown'
           ])
-          
+
           // Dacă există deja, skip
           if (existingCheck.rows.length > 0) {
             skipped++
             continue
           }
-          
+
           // Normalizează numele de locație (FĂRĂ diacritice - user vrea fără)
           const normalizeLocationNameForInsert = (name) => {
             if (!name) return 'Unknown'
             const upper = String(name).toUpperCase().trim()
-            
+
             if (upper.includes('PITESTI') || upper.includes('PITEȘTI') || upper.includes('PITI')) {
               return 'Pitesti'
             }
@@ -1262,12 +1210,12 @@ router.post('/sync', async (req, res) => {
             if (upper.includes('BUCUREȘTI') || upper.includes('BUCHAREST') || upper.includes('BUCURESTI')) {
               return 'Bucuresti'
             }
-            
+
             return String(name).trim().replace(/\s+/g, ' ')
           }
-          
+
           const normalizedLocationName = normalizeLocationNameForInsert(row.location_name)
-          
+
           // Inserăm doar dacă nu există deja - folosim ON CONFLICT pentru siguranță maximă
           // IMPORTANT: Folosim 'bat_sync' ca data_source pentru consistență cu /import-all
           await localPool.query(`
@@ -1295,15 +1243,15 @@ router.post('/sync', async (req, res) => {
         }
       }
     }
-    
+
     console.log(`✅ Synced ${inserted} new expenditure records to local DB`)
     console.log(`   - ${skipped} records skipped (already exist)`)
     console.log(`   - ${errors} errors`)
-    
+
     if (errors > 0) {
       console.warn(`⚠️ Sync completed with ${errors} errors out of ${filteredRows.length} total records`)
     }
-    
+
     // Update final progress
     _syncProgress.status = 'completed'
     _syncProgress.processed = filteredRows.length
@@ -1312,7 +1260,7 @@ router.post('/sync', async (req, res) => {
     _syncProgress.errors = errors
     _syncProgress.currentStep = `Completat! ${inserted} noi, ${skipped} duplicate, ${errors} erori`
     _syncProgress.endTime = new Date()
-    
+
     const response = {
       success: true,
       message: `Sincronizate ${inserted} înregistrări noi${skipped > 0 ? ` (${skipped} deja existente)` : ''}${errors > 0 ? ` (${errors} erori)` : ''}`,
@@ -1323,21 +1271,21 @@ router.post('/sync', async (req, res) => {
       totalFiltered: filteredRows.length,
       dateRange: { startDate, endDate }
     }
-    
+
     // Clear progress after 5 seconds
     setTimeout(() => {
       _syncProgress = null
     }, 5000)
-    
+
     res.json(response)
   } catch (error) {
     console.error('❌ Error syncing expenditures:', error)
     console.error('❌ Error stack:', error.stack)
-    
+
     // Provide detailed error message
     let errorMessage = error.message || 'Eroare necunoscută la sincronizare'
     let errorHint = ''
-    
+
     // Check for connection errors
     if (error.code === 'ECONNREFUSED' || error.code === 'ENETUNREACH' || error.message?.includes('connect')) {
       errorMessage = 'Nu se poate conecta la baza de date externă (82.76.35.50:26257)'
@@ -1349,7 +1297,7 @@ router.post('/sync', async (req, res) => {
       errorMessage = 'Eroare de autentificare la baza de date externă'
       errorHint = 'Verifică credențialele în configurarea backend-ului'
     }
-    
+
     // Update progress on error
     if (_syncProgress) {
       _syncProgress.status = 'failed'
@@ -1359,9 +1307,9 @@ router.post('/sync', async (req, res) => {
         _syncProgress = null
       }, 10000)
     }
-    
-    res.status(500).json({ 
-      success: false, 
+
+    res.status(500).json({
+      success: false,
       error: errorMessage,
       hint: errorHint || undefined,
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
@@ -1378,12 +1326,12 @@ router.get('/import-all-status', authenticateToken, async (req, res) => {
         message: 'Nu există import în curs'
       })
     }
-    
+
     res.json(_importAllProgress)
   } catch (error) {
     console.error('Error getting import-all status:', error)
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       error: error.message,
       status: 'error'
     })
@@ -1397,28 +1345,28 @@ router.get('/import-all-status', authenticateToken, async (req, res) => {
 export async function executeExpendituresImport(pool, importSources = { bat: true, googleSheets: true, preferences: true }, progressCallback = null) {
   // Check if already importing
   const isRunning = _importAllProgress && _importAllProgress.status === 'running'
-  const isStale = isRunning && _importAllProgress.startTime && 
+  const isStale = isRunning && _importAllProgress.startTime &&
     (new Date() - new Date(_importAllProgress.startTime)) > 5 * 60 * 1000 // 5 minutes
-  
+
   if (isRunning && !isStale) {
     console.log('⚠️ Import already running, cannot start new one')
     throw new Error('Import deja în curs. Vă rugăm să așteptați finalizarea.')
   }
-  
+
   // If stale, clear it and allow new import
   if (isStale) {
     console.log('⚠️ Stale import progress detected, clearing and allowing new import')
     _importAllProgress = null
   }
-  
+
   console.log('📥 Import sources selected:', importSources)
-  
+
   const startImport = async () => {
     try {
       const localPool = pool // Folosește pool-ul primit ca parametru
-      
+
       const startTime = new Date()
-      
+
       // Initialize progress
       _importAllProgress = {
         status: 'running',
@@ -1436,9 +1384,9 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
         endTime: null
       }
       console.log('✅ Progress initialized:', JSON.stringify(_importAllProgress, null, 2))
-      
+
       console.log('🔄 Starting import ALL expenditures from all sources...')
-      
+
       // Step 1: Get all data from SQL table - TOATE DATELE, FĂRĂ FILTRE!
       _importAllProgress.currentStep = 'Se încarcă datele existente din SQL...'
       console.log('📊 Step 1: Getting ALL existing data from expenditures_sync (NO DATE FILTERS)...')
@@ -1448,7 +1396,7 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
       `)
       const existingData = existingResult.rows
       _importAllProgress.existing = existingData.length
-      
+
       // Log date range for debugging
       if (existingData.length > 0) {
         const dates = existingData.map(r => r.operational_date).filter(d => d)
@@ -1466,31 +1414,31 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
       } else {
         console.log(`✅ Found 0 existing records in expenditures_sync`)
       }
-    
+
       // Step 2: Get Google Sheets URL from settings, environment, or use default
       _importAllProgress.currentStep = 'Se caută URL Google Sheets...'
       const DEFAULT_GOOGLE_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1Z9kCL17y4RrI_tjuG8AipY1Hn7RdF4rbWD0bz0oKwQE/edit?gid=1033202595#gid=1033202595'
-      
+
       let googleSheetsUrl = null
       try {
         console.log('🔍 Step 2: Looking for Google Sheets URL...')
-        
+
         const settingsResult = await localPool.query(`
           SELECT setting_value 
           FROM global_settings 
           WHERE setting_key = 'expenditures_sync_config'
         `)
-        
+
         if (settingsResult.rows.length > 0 && settingsResult.rows[0].setting_value) {
           const settingValue = settingsResult.rows[0].setting_value
           const settings = typeof settingValue === 'string' ? JSON.parse(settingValue) : settingValue
           googleSheetsUrl = settings.googleSheetsUrl || null
         }
-        
+
         if (!googleSheetsUrl) {
           googleSheetsUrl = process.env.GOOGLE_SHEETS_URL || null
         }
-        
+
         if (!googleSheetsUrl) {
           googleSheetsUrl = DEFAULT_GOOGLE_SHEETS_URL
         }
@@ -1498,7 +1446,7 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
         console.warn('⚠️ Error getting Google Sheets URL, using default:', urlError.message)
         googleSheetsUrl = DEFAULT_GOOGLE_SHEETS_URL
       }
-      
+
       // Step 3: Try to get data from external DB (API sync source) - DOAR DACĂ BAT ESTE SELECTAT
       let externalData = []
       if (importSources.bat) {
@@ -1506,23 +1454,23 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
         try {
           console.log('📊 Step 3: Getting data from external DB (BAT sync) - OPTIMIZED VERSION...')
           const externalPool = getExternalPool()
-          
+
           // Test connection
           console.log('🔌 Testing BAT connection...')
           const testResult = await externalPool.query('SELECT NOW() as current_time')
           console.log('✅ External DB connection successful')
-          
+
           // Get count for progress tracking
           _importAllProgress.currentStep = 'Se numără înregistrările din BAT...'
           const countResult = await externalPool.query('SELECT COUNT(*) as cnt FROM public.casino_payments WHERE is_deleted = false')
           const totalCount = parseInt(countResult.rows[0].cnt || 0)
           console.log(`📊 Total records in BAT: ${totalCount}`)
           _importAllProgress.totalFound = totalCount
-          
+
           // Fetch ALL data - NO LIMIT, NO ORDER BY for maximum speed
           _importAllProgress.currentStep = `Se preiau ${totalCount} înregistrări din BAT...`
           console.log('📥 Fetching ALL data from BAT...')
-          
+
           const fetchResult = await externalPool.query(`
             SELECT 
               l.name as location_name,
@@ -1538,7 +1486,7 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
             WHERE p.is_deleted = false
               AND p.date >= '2023-01-01'
           `)
-          
+
           externalData = fetchResult.rows.map(row => ({
             ...row,
             data_source: 'bat_sync',
@@ -1547,7 +1495,7 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
           _importAllProgress.fromExternalAPI = externalData.length
           _importAllProgress.totalFound = externalData.length
           console.log(`✅ Fetched ${externalData.length} records from BAT`)
-          
+
           if (externalData.length > 0) {
             const dates = externalData.map(r => r.operational_date).filter(Boolean)
             const minDate = dates.length ? new Date(Math.min(...dates.map(d => new Date(d)))) : null
@@ -1566,7 +1514,7 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
               data_source: externalData[0].data_source
             })
           }
-          
+
         } catch (batError) {
           console.error('❌ Error fetching from BAT:', batError.message)
           console.error('❌ BAT Error stack:', batError.stack)
@@ -1579,11 +1527,11 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
       } else {
         console.log('⏭️ Skipping BAT import (not selected)')
       }
-      
+
       // REMOVED: Old complex year-by-year fetching code
       // The simplified version above replaces ~500 lines of complex code
-      
-    
+
+
       // Step 4: Import from Google Sheets if URL is available - DOAR DACĂ GOOGLE SHEETS ESTE SELECTAT
       let googleSheetsData = []
       if (importSources.googleSheets && googleSheetsUrl) {
@@ -1591,7 +1539,7 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
         try {
           console.log('📊 Step 4: Importing data from Google Sheets...')
           console.log('🔗 Google Sheets URL:', googleSheetsUrl)
-          
+
           let csvUrl = googleSheetsUrl
           if (googleSheetsUrl.includes('/edit')) {
             const sheetId = googleSheetsUrl.match(/\/d\/(.*?)\//)?.[1]
@@ -1600,39 +1548,39 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
             console.log('📋 Converted to CSV URL:', csvUrl)
             console.log('📋 Sheet ID:', sheetId, 'GID:', gid)
           }
-          
+
           console.log('📥 Fetching CSV from Google Sheets...')
           const csvResponse = await fetch(csvUrl)
           console.log('📥 CSV Response status:', csvResponse.status, csvResponse.statusText)
-          
+
           if (!csvResponse.ok) {
             const errorText = await csvResponse.text()
             console.error('❌ CSV Response error:', errorText.substring(0, 500))
             throw new Error(`Failed to fetch CSV: ${csvResponse.status} ${csvResponse.statusText}`)
           }
-          
+
           const csvText = await csvResponse.text()
           console.log('📄 CSV text length:', csvText.length, 'characters')
           console.log('📄 First 500 chars of CSV:', csvText.substring(0, 500))
-          
+
           const lines = csvText.split('\n').filter(line => line.trim())
           console.log('📊 Total lines in CSV:', lines.length)
-          
+
           if (lines.length >= 2) {
             console.log('📋 Header line:', lines[0])
             const rows = lines.slice(1) // Skip header
             console.log('📊 Rows to process:', rows.length)
-            
+
             let parsedRows = 0
             let skippedRows = 0
             let errorRows = 0
-            
+
             for (const row of rows) {
               try {
                 const values = []
                 let current = ''
                 let inQuotes = false
-                
+
                 for (let i = 0; i < row.length; i++) {
                   const char = row[i]
                   if (char === '"') {
@@ -1645,7 +1593,7 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
                   }
                 }
                 values.push(current.trim())
-                
+
                 if (values.length < 5) {
                   skippedRows++
                   if (parsedRows === 0 && skippedRows <= 3) {
@@ -1653,9 +1601,9 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
                   }
                   continue
                 }
-                
+
                 const [dateStr, explanation, amountStr, location, department, expenditureType] = values
-                
+
                 let operationalDate
                 if (dateStr && dateStr.trim()) {
                   if (dateStr.includes('.')) {
@@ -1672,7 +1620,7 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
                     operationalDate = dateStr.split('T')[0] // Take only date part if datetime
                   }
                 }
-                
+
                 if (!operationalDate) {
                   skippedRows++
                   if (parsedRows === 0 && skippedRows <= 3) {
@@ -1680,13 +1628,13 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
                   }
                   continue
                 }
-                
+
                 let amount
                 if (amountStr) {
                   const cleanAmount = amountStr.replace(/\s/g, '').replace(/\./g, '').replace(',', '.')
                   amount = parseFloat(cleanAmount)
                 }
-                
+
                 if (!amount || isNaN(amount) || !location || !department) {
                   skippedRows++
                   if (parsedRows === 0 && skippedRows <= 3) {
@@ -1698,7 +1646,7 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
                   }
                   continue
                 }
-                
+
                 googleSheetsData.push({
                   operational_date: operationalDate,
                   amount: amount,
@@ -1716,11 +1664,11 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
                 }
               }
             }
-            
+
             _importAllProgress.fromGoogleSheets = googleSheetsData.length
             console.log(`✅ Google Sheets: Parsed ${parsedRows} valid rows, skipped ${skippedRows}, errors ${errorRows}`)
             console.log(`✅ Total fetched ${googleSheetsData.length} records from Google Sheets`)
-            
+
             if (googleSheetsData.length === 0 && rows.length > 0) {
               console.error('⚠️ WARNING: No valid data parsed from Google Sheets!')
               console.error('⚠️ Check CSV format - first few rows:', rows.slice(0, 3))
@@ -1735,7 +1683,7 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
       } else {
         console.log('⏭️ Skipping Google Sheets import (not selected)')
       }
-      
+
       // Step 5: Import from Preferences if selected
       let preferencesData = []
       if (importSources.preferences) {
@@ -1752,27 +1700,27 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
       } else {
         console.log('⏭️ Skipping Preferences import (not selected)')
       }
-      
+
       // Step 6: Combine and deduplicate
       _importAllProgress.currentStep = 'Se combină și se verifică duplicatele...'
       console.log('📊 Step 6: Combining and deduplicating data...')
-      
+
       // Combine all external data (only from selected sources)
       externalData = [...externalData, ...googleSheetsData, ...preferencesData]
       console.log(`📊 Total external data before deduplication: ${externalData.length} (BAT: ${externalData.length - googleSheetsData.length - preferencesData.length}, Google Sheets: ${googleSheetsData.length}, Preferences: ${preferencesData.length})`)
-      
+
       // CRITICAL: Normalize and deduplicate externalData ÎNAINTE de procesare!
       // Normalizăm datele pentru a avea același format (trim, lowercase, etc.)
       const normalizeString = (str) => {
         if (!str) return 'Unknown'
         return String(str).trim().replace(/\s+/g, ' ')
       }
-      
+
       // Normalizează numele de locație (FĂRĂ diacritice - user vrea fără)
       const normalizeLocationName = (name) => {
         if (!name) return 'Unknown'
         const upper = String(name).toUpperCase().trim()
-        
+
         // Convertim la formatul standard cu diacritice
         if (upper.includes('PITESTI') || upper.includes('PITEȘTI') || upper.includes('PITI')) {
           return 'Pitesti'
@@ -1791,17 +1739,17 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
         if (upper.includes('BUCUREȘTI') || upper.includes('BUCHAREST') || upper.includes('BUCURESTI')) {
           return 'Bucuresti'
         }
-        
+
         // Dacă nu se potrivește cu niciunul, returnează originalul normalizat
         return normalizeString(name)
       }
-      
+
       const normalizeAmount = (amt) => {
         const num = parseFloat(amt) || 0
         // Rotunjim la 2 zecimale pentru a evita probleme cu floating point
         return Math.round(num * 100) / 100
       }
-      
+
       const normalizeDate = (dateStr) => {
         if (!dateStr) return null
         // Asigurăm că data este în format YYYY-MM-DD
@@ -1809,7 +1757,7 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
         if (isNaN(date.getTime())) return null
         return date.toISOString().split('T')[0]
       }
-      
+
       // Normalizăm datele externe
       // IMPORTANT: Normalizăm location_name pentru a converti fără diacritice la cu diacritice
       const normalizedExternalData = externalData.map(row => ({
@@ -1820,15 +1768,15 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
         department_name: normalizeString(row.department_name),
         expenditure_type: normalizeString(row.expenditure_type)
       })).filter(row => row.operational_date) // Eliminăm rândurile fără dată validă
-      
+
       // Deduplicăm externalData normalizat
       const externalDataMap = new Map()
       const deduplicatedExternalData = []
       let externalDuplicates = 0
-      
+
       for (const row of normalizedExternalData) {
         const key = `${row.operational_date}|${row.amount}|${row.location_name}|${row.department_name}|${row.expenditure_type}`
-        
+
         if (!externalDataMap.has(key)) {
           externalDataMap.set(key, row)
           deduplicatedExternalData.push(row)
@@ -1836,35 +1784,35 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
           externalDuplicates++
         }
       }
-      
+
       console.log(`✅ Deduplicated external data: ${externalData.length} → ${deduplicatedExternalData.length} (removed ${externalDuplicates} duplicates)`)
       externalData = deduplicatedExternalData
       _importAllProgress.totalFound = externalData.length
       _importAllProgress.totalRecords = externalData.length // Setăm și totalRecords pentru UI
       console.log(`📊 Total records to process: ${externalData.length}`)
-      
+
       // Skip building existing map - let PostgreSQL handle duplicates via UNIQUE INDEX
       console.log(`📊 Existing records in database: ${existingData.length} (will be handled by PostgreSQL UNIQUE INDEX)`)
-      
+
       const mappingResult = await localPool.query('SELECT * FROM expenditure_location_mapping')
       const mapping = {}
       mappingResult.rows.forEach(row => {
         mapping[row.external_location_name] = row.local_location_id
       })
-      
+
       // Process external data and check for duplicates ÎNAINTE de insert!
       // Folosim batch insert cu ON CONFLICT pentru siguranță maximă!
       let imported = 0
       let skipped = 0
       let errors = 0
-      
+
       _importAllProgress.currentStep = 'Se procesează și se inserează datele...'
-      
+
       // Batch size pentru inserare eficientă
       const batchSize = 100
-      
+
       console.log(`🔄 Starting to process ${externalData.length} records in batches of ${batchSize}...`)
-      
+
       if (externalData.length === 0) {
         console.warn('⚠️ WARNING: No external data to import!')
         _importAllProgress.currentStep = 'Nu există date de importat!'
@@ -1872,20 +1820,20 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
         _importAllProgress.endTime = new Date().toISOString()
         return
       }
-      
+
       for (let batchStart = 0; batchStart < externalData.length; batchStart += batchSize) {
         const batch = externalData.slice(batchStart, batchStart + batchSize)
         const batchPromises = []
-        
+
         for (const row of batch) {
           const mappedLocationId = mapping[row.location_name] || null
           const dataSource = row.data_source || 'api_sync'
           const description = row.description || null
-          
+
           // Direct INSERT cu ON CONFLICT DO NOTHING
           const insertPromise = (async () => {
             try {
-              
+
               const result = dataSource === 'google_sheets' && description
                 ? await localPool.query(`
                     INSERT INTO expenditures_sync (
@@ -1895,15 +1843,15 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
                     ON CONFLICT (operational_date, amount, location_name, department_name, expenditure_type) 
                     DO NOTHING
                   `, [
-                    row.location_name,
-                    row.department_name,
-                    row.expenditure_type,
-                    row.amount,
-                    row.operational_date,
-                    mappedLocationId,
-                    dataSource,
-                    description
-                  ])
+                  row.location_name,
+                  row.department_name,
+                  row.expenditure_type,
+                  row.amount,
+                  row.operational_date,
+                  mappedLocationId,
+                  dataSource,
+                  description
+                ])
                 : await localPool.query(`
                     INSERT INTO expenditures_sync (
                       location_name, department_name, expenditure_type, amount, 
@@ -1912,15 +1860,15 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
                     ON CONFLICT (operational_date, amount, location_name, department_name, expenditure_type) 
                     DO NOTHING
                   `, [
-                    row.location_name,
-                    row.department_name,
-                    row.expenditure_type,
-                    row.amount,
-                    row.operational_date,
-                    mappedLocationId,
-                    dataSource
-                  ])
-              
+                  row.location_name,
+                  row.department_name,
+                  row.expenditure_type,
+                  row.amount,
+                  row.operational_date,
+                  mappedLocationId,
+                  dataSource
+                ])
+
               if (result.rowCount > 0) {
                 imported++
                 _importAllProgress.imported = imported
@@ -1941,46 +1889,46 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
               }
             }
           })()
-          
+
           batchPromises.push(insertPromise)
         }
-        
+
         // Așteptăm batch-ul să se termine
         try {
           await Promise.all(batchPromises.filter(p => p !== null))
         } catch (batchError) {
           console.error('❌ Batch error:', batchError.message)
         }
-        
+
         _importAllProgress.totalProcessed = Math.min(batchStart + batchSize, externalData.length)
-        
+
         // Update progress
         if ((batchStart + batchSize) % 200 === 0 || batchStart + batchSize >= externalData.length) {
           _importAllProgress.currentStep = `Se procesează... ${_importAllProgress.totalProcessed}/${externalData.length} (${imported} noi, ${skipped} duplicate, ${errors} erori)`
           console.log(`📊 Progress: ${_importAllProgress.totalProcessed}/${externalData.length} (${imported} noi, ${skipped} duplicate, ${errors} erori)`)
         }
       }
-      
+
       console.log(`✅ Import completed: ${imported} new, ${skipped} duplicate, ${errors} errors`)
-      
+
       const finalCount = await localPool.query('SELECT COUNT(*) as total FROM expenditures_sync')
       const totalRecords = parseInt(finalCount.rows[0].total)
-      
+
       const endTime = new Date()
       _importAllProgress.status = 'completed'
       _importAllProgress.currentStep = 'Import completat!'
       _importAllProgress.endTime = endTime.toISOString()
       _importAllProgress.total = totalRecords
       _importAllProgress.totalRecords = totalRecords // Asigură-te că totalRecords este setat pentru UI
-      
+
       console.log(`📊 Final database count: ${totalRecords} records`)
       console.log(`📊 Import summary: ${imported} new, ${skipped} duplicate, ${errors} errors`)
-      
+
       // Clear progress after 5 seconds
       setTimeout(() => {
         _importAllProgress = null
       }, 5000)
-      
+
     } catch (error) {
       console.error('❌ Error importing all expenditures:', error)
       const endTime = new Date()
@@ -1990,13 +1938,13 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
         endTime: endTime.toISOString(),
         error: error.message
       }
-      
+
       setTimeout(() => {
         _importAllProgress = null
       }, 5000)
     }
   }
-  
+
   // Execute import
   await startImport()
 }
@@ -2010,14 +1958,14 @@ router.post('/import-all', authenticateToken, async (req, res) => {
     googleSheets: sources?.googleSheets !== false, // Default true
     preferences: sources?.preferences !== false // Default true
   }
-  
+
   // Return immediately (non-blocking)
-  res.json({ 
-    success: true, 
+  res.json({
+    success: true,
     message: 'Import început. Verifică progresul la /api/expenditures/import-all-status',
     started: true
   })
-  
+
   // Start import in background (non-blocking)
   executeExpendituresImport(req.app.get('pool'), importSources).catch(err => {
     console.error('❌ Fatal error in import-all background process:', err)
@@ -2031,18 +1979,27 @@ router.get('/data', async (req, res) => {
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
-    
-    const result = await pool.query(`
-      SELECT * FROM expenditures_sync
-      ORDER BY operational_date DESC
-    `)
-    
+
+    const { startDate, endDate } = req.query
+
+    let query = 'SELECT * FROM expenditures_sync'
+    const queryParams = []
+
+    if (startDate && endDate) {
+      query += ' WHERE operational_date >= $1 AND operational_date <= $2'
+      queryParams.push(startDate, endDate)
+    }
+
+    query += ' ORDER BY operational_date DESC'
+
+    const result = await pool.query(query, queryParams)
+
     console.log(`📊 [GET /data] Returning ${result.rows.length} expenditures`)
-    
+
     if (result.rows.length === 0) {
       console.warn('⚠️ [GET /data] No expenditures found in expenditures_sync table')
     }
-    
+
     res.json(result.rows)
   } catch (error) {
     console.error('❌ Error fetching expenditures:', error)
@@ -2067,10 +2024,10 @@ router.put('/mapping', async (req, res) => {
   try {
     const { mappings } = req.body // Array of { external_location_name, local_location_id }
     const pool = req.app.get('pool')
-    
+
     // Clear existing mappings
     await pool.query('DELETE FROM expenditure_location_mapping')
-    
+
     // Insert new mappings
     for (const mapping of mappings) {
       if (mapping.local_location_id) {
@@ -2080,7 +2037,7 @@ router.put('/mapping', async (req, res) => {
         )
       }
     }
-    
+
     res.json({ success: true, message: 'Mapping updated successfully' })
   } catch (error) {
     console.error('Error updating mapping:', error)
@@ -2178,18 +2135,18 @@ router.get('/settings', authenticateToken, async (req, res) => {
   try {
     const pool = req.app.get('pool')
     const userId = req.user?.userId || req.user?.id
-    
+
     if (!userId) {
       return res.status(401).json({ success: false, error: 'User not authenticated' })
     }
-    
+
     // Load settings from user preferences
     const result = await pool.query(`
       SELECT preferences 
       FROM users 
       WHERE id = $1
     `, [userId])
-    
+
     if (result.rows.length > 0 && result.rows[0].preferences?.expendituresSettings) {
       const settings = result.rows[0].preferences.expendituresSettings
       console.log('✅ Loaded expenditures settings for user', userId, ':', settings)
@@ -2500,31 +2457,31 @@ router.put('/settings', authenticateToken, async (req, res) => {
     const { settings } = req.body
     const pool = req.app.get('pool')
     const userId = req.user?.userId || req.user?.id
-    
+
     console.log('🔧 PUT /settings - Received request')
     console.log('   User ID:', userId)
     console.log('   Settings:', settings ? 'YES' : 'NO')
     console.log('   Pool:', pool ? 'YES' : 'NO')
-    
+
     if (!userId) {
       return res.status(401).json({ success: false, error: 'User not authenticated' })
     }
-    
+
     // VERIFICARE POOL (Render poate să returneze undefined/null)
     if (!pool) {
       console.error('❌ POOL is NULL/undefined - Render connection failed!')
-      return res.status(503).json({ 
-        success: false, 
-        error: 'Database connection not available. Try again in 30 seconds.' 
+      return res.status(503).json({
+        success: false,
+        error: 'Database connection not available. Try again in 30 seconds.'
       })
     }
-    
+
     console.log('💾 BACKEND - Primesc setări de salvat pentru user', userId, ':')
     console.log('   - includedDepartments:', settings.includedDepartments?.length, 'items')
     console.log('   - includedExpenditureTypes:', settings.includedExpenditureTypes?.length, 'items')
     console.log('   - includedLocations:', settings.includedLocations?.length, 'items')
     console.log('   - Full departments array:', settings.includedDepartments)
-    
+
     // NORMALIZE DIACRITICS (ț/ţ, ș/ş) pentru a detecta duplicate Unicode!
     // ACEEAȘI LOGICĂ ca în frontend!
     const normalizeDiacritics = (str) => {
@@ -2536,11 +2493,11 @@ router.put('/settings', authenticateToken, async (req, res) => {
         .replace(/Ş/g, 'Ș')
         .trim() // IMPORTANT! La fel ca în frontend
     }
-    
+
     const removeDuplicatesWithNormalization = (arr) => {
       const seen = new Set()
       const unique = []
-      
+
       arr.forEach(item => {
         const normalized = normalizeDiacritics(item)
         if (!seen.has(normalized)) {
@@ -2548,10 +2505,10 @@ router.put('/settings', authenticateToken, async (req, res) => {
           unique.push(normalized) // Salvează forma normalizată
         }
       })
-      
+
       return unique
     }
-    
+
     // Clean settings object (remove undefined/null/circular refs + DUPLICATES!)
     const cleanSettings = {
       autoSync: settings.autoSync || false,
@@ -2562,47 +2519,47 @@ router.put('/settings', authenticateToken, async (req, res) => {
       // Google Sheets URL persistent
       googleSheetsUrl: settings.googleSheetsUrl || '',
       // REMOVE DUPLICATES cu normalizare diacritice!
-      includedExpenditureTypes: Array.isArray(settings.includedExpenditureTypes) 
+      includedExpenditureTypes: Array.isArray(settings.includedExpenditureTypes)
         ? removeDuplicatesWithNormalization(settings.includedExpenditureTypes)
         : [],
-      includedDepartments: Array.isArray(settings.includedDepartments) 
+      includedDepartments: Array.isArray(settings.includedDepartments)
         ? removeDuplicatesWithNormalization(settings.includedDepartments)
         : [],
-      includedLocations: Array.isArray(settings.includedLocations) 
+      includedLocations: Array.isArray(settings.includedLocations)
         ? removeDuplicatesWithNormalization(settings.includedLocations)
         : []
     }
-    
+
     console.log('🧹 CLEANED arrays (duplicates removed + diacritics normalized):')
     console.log('   - Departments:', cleanSettings.includedDepartments.length, 'unique')
     console.log('   - Types:', cleanSettings.includedExpenditureTypes.length, 'unique')
     console.log('   - Locations:', cleanSettings.includedLocations.length, 'unique')
     console.log('   - Original types count:', settings.includedExpenditureTypes?.length)
     if (settings.includedExpenditureTypes?.length !== cleanSettings.includedExpenditureTypes.length) {
-      console.log('   ⚠️ DUPLICATE GĂSIT ȘI ELIMINAT:', 
+      console.log('   ⚠️ DUPLICATE GĂSIT ȘI ELIMINAT:',
         settings.includedExpenditureTypes.length - cleanSettings.includedExpenditureTypes.length, 'duplicates')
     }
-    
+
     // SALVARE în users.preferences.expendituresSettings (PER USER!)
     console.log('📦 Salvez setări pentru user', userId)
-    
+
     // 1. Load current preferences
     const currentResult = await pool.query('SELECT preferences FROM users WHERE id = $1', [userId])
     const currentPreferences = currentResult.rows[0]?.preferences || {}
-    
+
     // 2. Update expendituresSettings
     const updatedPreferences = {
       ...currentPreferences,
       expendituresSettings: cleanSettings
     }
-    
+
     // 3. Save back to database
     await pool.query(`
       UPDATE users 
       SET preferences = $1::jsonb, updated_at = CURRENT_TIMESTAMP 
       WHERE id = $2
     `, [JSON.stringify(updatedPreferences), userId])
-    
+
     console.log('✅ BACKEND - Setări salvate în users.preferences pentru user', userId)
 
     // Sincronizare automată la 24h: creează/actualizează regula în expenditures_backup_rules
@@ -2641,21 +2598,21 @@ router.put('/settings', authenticateToken, async (req, res) => {
       console.error('❌ [AUTO-SYNC] Eroare la creare/actualizare regulă backup:', ruleErr.message)
       // Nu blocăm salvarea setărilor
     }
-    
+
     // Verifică ce s-a salvat (re-citește)
     const verifyResult = await pool.query(`
       SELECT preferences 
       FROM users 
       WHERE id = $1
     `, [userId])
-    
+
     const savedSettings = verifyResult.rows[0].preferences?.expendituresSettings
     console.log('🔍 BACKEND - Verificare: Ce e în DB pentru user', userId, ':', {
       departments: savedSettings?.includedDepartments?.length,
       types: savedSettings?.includedExpenditureTypes?.length,
       locations: savedSettings?.includedLocations?.length
     })
-    
+
     res.json({ success: true, message: 'Settings updated successfully for user ' + userId, settings: savedSettings })
   } catch (error) {
     console.error('Error updating sync settings:', error)
@@ -2669,16 +2626,16 @@ router.put('/settings', authenticateToken, async (req, res) => {
 router.post('/preview-google-sheets', authenticateToken, async (req, res) => {
   try {
     const { sheetUrl, startDate, endDate, department, location } = req.body
-    
+
     if (!sheetUrl) {
       return res.status(400).json({ success: false, error: 'Sheet URL is required' })
     }
-    
+
     console.log('👀 PREVIEW Google Sheets data from:', sheetUrl)
     if (startDate || endDate || department || location) {
       console.log('🔍 Filtre active:', { startDate, endDate, department, location })
     }
-    
+
     // Convert Google Sheets URL to CSV export URL
     let csvUrl = sheetUrl
     if (sheetUrl.includes('/edit')) {
@@ -2686,50 +2643,50 @@ router.post('/preview-google-sheets', authenticateToken, async (req, res) => {
       const gid = sheetUrl.match(/gid=(\d+)/)?.[1] || '0'
       csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`
     }
-    
+
     // Fetch CSV data
     const response = await fetch(csvUrl)
     if (!response.ok) {
       throw new Error(`Failed to fetch CSV: ${response.statusText}`)
     }
-    
+
     const csvText = await response.text()
     const lines = csvText.split('\n').filter(line => line.trim())
-    
+
     if (lines.length < 2) {
       return res.status(400).json({ success: false, error: 'CSV is empty or invalid' })
     }
-    
+
     // Parse CSV (skip header)
     const rows = lines.slice(1)
-    
+
     // PostgreSQL connection
     const { Pool } = pg
     const pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
     })
-    
+
     let newRows = []
     let duplicates = []
     let errors = 0
-    
+
     console.log(`📊 Total rows in CSV: ${rows.length}`)
-    
+
     // PREVIEW MODE - procesează MAXIM primele 2000 rânduri (pentru viteză)
     const rowsToCheck = rows.slice(0, 2000)
     console.log(`🚀 PREVIEW MODE: Procesez primele ${rowsToCheck.length} rânduri (din ${rows.length} total)`)
-    
+
     for (const row of rowsToCheck) {
       try {
         // Parse CSV with better handling
         const values = []
         let current = ''
         let inQuotes = false
-        
+
         for (let i = 0; i < row.length; i++) {
           const char = row[i]
-          
+
           if (char === '"') {
             inQuotes = !inQuotes
           } else if (char === ',' && !inQuotes) {
@@ -2740,20 +2697,20 @@ router.post('/preview-google-sheets', authenticateToken, async (req, res) => {
           }
         }
         values.push(current.trim()) // Last value
-        
+
         // Log doar la fiecare 100 rânduri
         if (newRows.length % 100 === 0 && newRows.length > 0) {
           console.log(`✅ Procesat ${newRows.length + duplicates.length + errors} rânduri...`)
         }
-        
+
         if (values.length < 5) { // Minim 5 coloane: Date, Amount, Location, Department, Type
           console.log(`⚠️ Skipping row with only ${values.length} columns`)
           errors++
           continue
         }
-        
+
         const [dateStr, explanation, amountStr, location, department, expenditureType, createdBy, createdAt] = values
-        
+
         // Parse date - accept multiple formats
         let operationalDate
         if (dateStr.includes('.')) {
@@ -2772,20 +2729,20 @@ router.post('/preview-google-sheets', authenticateToken, async (req, res) => {
           // YYYY-MM-DD (already correct)
           operationalDate = dateStr
         }
-        
+
         if (!operationalDate) {
           console.log(`⚠️ Invalid date format: "${dateStr}"`)
           errors++
           continue
         }
-        
+
         // Parse amount - handle multiple formats (ROBUST - same as BAT sync)
         let amount = 0
         if (amountStr) {
           const amountStrClean = String(amountStr).trim()
           // Elimină spații și separatori de mii
           let cleanAmount = amountStrClean.replace(/\s/g, '')
-          
+
           // Strategie: dacă există virgulă, folosește-o ca separator zecimal (format românesc)
           if (amountStrClean.includes(',')) {
             // Format românesc: 1234,56 sau 1.234,56
@@ -2804,19 +2761,19 @@ router.post('/preview-google-sheets', authenticateToken, async (req, res) => {
             // Multiple puncte = separator de mii românesc
             cleanAmount = amountStrClean.replace(/\./g, '')
           }
-          
+
           amount = parseFloat(cleanAmount) || 0
-          
+
           // Rotunjire la 2 zecimale pentru consistență
           amount = Math.round(amount * 100) / 100
         }
-        
+
         if (!amount || isNaN(amount) || !locationRow || !departmentRow) {
           console.log(`⚠️ Invalid data: amount=${amount}, location="${locationRow}", department="${departmentRow}"`)
           errors++
           continue
         }
-        
+
         // Aplică filtre (dacă sunt specificate)
         if (startDate && operationalDate < startDate) {
           continue // Skip rândurile înainte de startDate
@@ -2836,7 +2793,7 @@ router.post('/preview-google-sheets', authenticateToken, async (req, res) => {
             continue
           }
         }
-        
+
         // Check if exists in DB
         const existing = await pool.query(`
           SELECT id FROM expenditures_sync 
@@ -2847,7 +2804,7 @@ router.post('/preview-google-sheets', authenticateToken, async (req, res) => {
             AND expenditure_type = $5
           LIMIT 1
         `, [operationalDate, amount, locationRow, departmentRow, expenditureType])
-        
+
         const rowData = {
           date: operationalDate,
           amount: amount,
@@ -2856,29 +2813,29 @@ router.post('/preview-google-sheets', authenticateToken, async (req, res) => {
           type: expenditureType,
           description: explanation
         }
-        
+
         if (existing.rows.length > 0) {
           duplicates.push(rowData)
         } else {
           newRows.push(rowData)
         }
-        
+
       } catch (rowError) {
         console.error('❌ Error processing row:', rowError.message)
         errors++
       }
     }
-    
+
     await pool.end()
-    
+
     // Calculăm estimare pentru TOATE rândurile dacă am verificat doar o parte
     const checkedRows = rowsToCheck.length
     const totalRows = rows.length
     const wasLimited = totalRows > checkedRows
-    
+
     let estimatedNew = newRows.length
     let estimatedDuplicates = duplicates.length
-    
+
     if (wasLimited) {
       // Extrapolare liniară
       const ratio = totalRows / checkedRows
@@ -2886,11 +2843,11 @@ router.post('/preview-google-sheets', authenticateToken, async (req, res) => {
       estimatedDuplicates = Math.round(duplicates.length * ratio)
       console.log(`📊 Estimare pentru TOATE ${totalRows} rânduri: ~${estimatedNew} noi, ~${estimatedDuplicates} duplicate`)
     }
-    
+
     console.log(`👀 Preview COMPLET: ${newRows.length} noi, ${duplicates.length} duplicate, ${errors} erori din ${checkedRows}/${totalRows} verificate`)
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       totalRows: totalRows,
       checkedRows: checkedRows,
       wasLimited: wasLimited,
@@ -2901,12 +2858,12 @@ router.post('/preview-google-sheets', authenticateToken, async (req, res) => {
       errorCount: errors,
       message: wasLimited ? `Verificate ${checkedRows} din ${totalRows} rânduri. Estimare: ~${estimatedNew} date noi.` : 'Toate rândurile au fost verificate.'
     })
-    
+
   } catch (error) {
     console.error('❌ Preview error:', error)
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      error: error.message
     })
   }
 })
@@ -2915,16 +2872,16 @@ router.post('/preview-google-sheets', authenticateToken, async (req, res) => {
 router.post('/import-google-sheets', authenticateToken, async (req, res) => {
   try {
     const { sheetUrl, force = false, startDate, endDate, department, location } = req.body
-    
+
     if (!sheetUrl) {
       return res.status(400).json({ success: false, error: 'Sheet URL is required' })
     }
-    
+
     console.log('🔄 Starting Google Sheets import from:', sheetUrl)
     if (startDate || endDate || department || location) {
       console.log('🔍 Filtre active:', { startDate, endDate, department, location })
     }
-    
+
     // Convert Google Sheets URL to CSV export URL
     let csvUrl = sheetUrl
     if (sheetUrl.includes('/edit')) {
@@ -2932,36 +2889,36 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
       const gid = sheetUrl.match(/gid=(\d+)/)?.[1] || '0'
       csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`
     }
-    
+
     console.log('📥 Fetching CSV from:', csvUrl)
-    
+
     // Fetch CSV data
     const response = await fetch(csvUrl)
     if (!response.ok) {
       throw new Error(`Failed to fetch CSV: ${response.statusText}`)
     }
-    
+
     const csvText = await response.text()
     const lines = csvText.split('\n').filter(line => line.trim())
-    
+
     if (lines.length < 2) {
       return res.status(400).json({ success: false, error: 'CSV is empty or invalid' })
     }
-    
+
     // Parse CSV (skip header)
     const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
     const rows = lines.slice(1)
-    
+
     console.log(`📊 CSV Headers: ${headers.slice(0, 8).join(', ')}`)
     console.log(`📈 Total rows to process: ${rows.length}`)
-    
+
     // PostgreSQL connection (Render.com DB)
     const { Pool } = pg
     const pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
     })
-    
+
     let imported = 0
     let skipped = 0
     let errors = 0
@@ -2970,17 +2927,17 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
     // Cheia folosește exact combinația din UNIQUE INDEX:
     // operational_date, amount, location_name, department_name, expenditure_type, data_source='google_sheets'
     const currentKeys = new Set()
-    
+
     for (const row of rows) {
       try {
         // Parse CSV with proper quote handling
         const values = []
         let current = ''
         let inQuotes = false
-        
+
         for (let i = 0; i < row.length; i++) {
           const char = row[i]
-          
+
           if (char === '"') {
             inQuotes = !inQuotes
           } else if (char === ',' && !inQuotes) {
@@ -2991,16 +2948,16 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
           }
         }
         values.push(current.trim()) // Last value
-        
+
         if (values.length < 5) { // Minim 5 coloane
           console.log('⚠️ Skipping row with only', values.length, 'columns')
           skipped++
           continue
         }
-        
+
         // Map columns (A=0, B=1, C=2, D=3, E=4, F=5, G=6, H=7)
         const [dateStr, explanation, amountStr, location, department, expenditureType, createdBy, createdAt] = values
-        
+
         // Parse date - accept multiple formats
         let operationalDate
         if (dateStr && dateStr.includes('.')) {
@@ -3016,20 +2973,20 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
         } else if (dateStr && dateStr.includes('-')) {
           operationalDate = dateStr.split('T')[0]
         }
-        
+
         if (!operationalDate) {
           console.log('⚠️ Invalid date format:', dateStr)
           skipped++
           continue
         }
-        
+
         // Parse amount - handle multiple formats (ROBUST - same as BAT sync)
         let amount = 0
         if (amountStr) {
           const amountStrClean = String(amountStr).trim()
           // Elimină spații și separatori de mii
           let cleanAmount = amountStrClean.replace(/\s/g, '')
-          
+
           // Strategie: dacă există virgulă, folosește-o ca separator zecimal (format românesc)
           if (amountStrClean.includes(',')) {
             // Format românesc: 1234,56 sau 1.234,56
@@ -3048,19 +3005,19 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
             // Multiple puncte = separator de mii românesc
             cleanAmount = amountStrClean.replace(/\./g, '')
           }
-          
+
           amount = parseFloat(cleanAmount) || 0
-          
+
           // Rotunjire la 2 zecimale pentru consistență
           amount = Math.round(amount * 100) / 100
         }
-        
+
         if (!amount || isNaN(amount) || !locationRow || !departmentRow) {
           console.log('⚠️ Invalid data:', { amount, location: locationRow, department: departmentRow })
           skipped++
           continue
         }
-        
+
         // Aplică filtre (dacă sunt specificate)
         if (startDate && operationalDate < startDate) {
           continue // Skip rândurile înainte de startDate
@@ -3095,7 +3052,7 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
           'google_sheets'
         ].join('||')
         currentKeys.add(key)
-        
+
         // Check if already exists (to avoid duplicates)
         if (!force) {
           const existing = await pool.query(`
@@ -3108,13 +3065,13 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
               AND data_source = 'google_sheets'
             LIMIT 1
           `, [operationalDate, amount, normalizedLocation, normalizedDepartment, normalizedType])
-          
+
           if (existing.rows.length > 0) {
             skipped++
             continue
           }
         }
-        
+
         // Insert into DB
         await pool.query(`
           INSERT INTO expenditures_sync (
@@ -3138,19 +3095,19 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
           'google_sheets',
           createdBy
         ])
-        
+
         imported++
-        
+
         if (imported % 100 === 0) {
           console.log(`✅ Imported ${imported} rows...`)
         }
-        
+
       } catch (rowError) {
         console.error('❌ Error processing row:', rowError.message)
         errors++
       }
     }
-    
+
     // După import: detectăm înregistrările care există în SQL cu data_source='google_sheets'
     // dar NU mai există în Google Sheets (au fost șterse din sheet)
     console.log('🔍 Checking for records that exist in SQL but not in current Google Sheet...')
@@ -3195,21 +3152,21 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
     }
 
     await pool.end()
-    
+
     console.log(`🎉 Import completed: ${imported} imported, ${skipped} skipped, ${errors} errors`)
     console.log(`🧹 Found ${orphanIds.length} records present in SQL but missing from current Google Sheet`)
-    
-    res.json({ 
-      success: true, 
-      imported, 
-      skipped, 
+
+    res.json({
+      success: true,
+      imported,
+      skipped,
       errors,
       orphanCount: orphanIds.length,
       orphanIds,
       orphanSample,
       message: `Successfully imported ${imported} expenditures from Google Sheets`
     })
-    
+
   } catch (error) {
     console.error('❌ Google Sheets import error:', error)
     res.status(500).json({ success: false, error: error.message })
@@ -3229,7 +3186,7 @@ router.delete('/google-sheets-data', authenticateToken, async (req, res) => {
         error: 'Confirmare necesară. Trimite confirmDelete: true'
       })
     }
-    
+
     const pool = req.app.get('pool')
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database pool not initialized' })
@@ -3274,7 +3231,7 @@ router.delete('/google-sheets-data', authenticateToken, async (req, res) => {
     const result = await pool.query(query, params)
 
     console.log(`🗑️ Șterse ${result.rowCount} înregistrări Google Sheets${department ? ` pentru ${department}` : ''}${startDate && endDate ? ` (${startDate} - ${endDate})` : ''}`)
-    
+
     res.json({
       success: true,
       deleted: result.rowCount,
@@ -3293,7 +3250,7 @@ router.get('/google-sheets-status', authenticateToken, async (req, res) => {
       connectionString: process.env.DATABASE_URL,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
     })
-    
+
     const result = await pool.query(`
       SELECT 
         COUNT(*) as total_records,
@@ -3303,13 +3260,13 @@ router.get('/google-sheets-status', authenticateToken, async (req, res) => {
       FROM expenditures_sync 
       WHERE data_source = 'google_sheets'
     `)
-    
+
     await pool.end()
-    
+
     const stats = result.rows[0]
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       hasData: parseInt(stats.total_records) > 0,
       stats: {
         totalRecords: parseInt(stats.total_records),
@@ -3328,28 +3285,28 @@ router.get('/google-sheets-status', authenticateToken, async (req, res) => {
 router.get('/google-sheets-settings', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id
-    
+
     const { Pool } = pg
     const pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
     })
-    
+
     const result = await pool.query(`
       SELECT preferences 
       FROM users 
       WHERE id = $1
     `, [userId])
-    
+
     await pool.end()
-    
+
     const settings = result.rows[0]?.preferences?.googleSheetsSync || {
       enabled: false,
       sheetUrl: '',
       syncInterval: 24, // hours
       lastSync: null
     }
-    
+
     res.json({ success: true, settings })
   } catch (error) {
     console.error('Error loading Google Sheets settings:', error)
@@ -3362,22 +3319,22 @@ router.put('/google-sheets-settings', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id
     const { enabled, sheetUrl, syncInterval } = req.body
-    
+
     const { Pool } = pg
     const pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
     })
-    
+
     // Get current preferences
     const current = await pool.query(`
       SELECT preferences 
       FROM users 
       WHERE id = $1
     `, [userId])
-    
+
     const preferences = current.rows[0]?.preferences || {}
-    
+
     // Update Google Sheets sync settings
     preferences.googleSheetsSync = {
       enabled,
@@ -3385,18 +3342,18 @@ router.put('/google-sheets-settings', authenticateToken, async (req, res) => {
       syncInterval: parseInt(syncInterval) || 24,
       lastSync: preferences.googleSheetsSync?.lastSync || null
     }
-    
+
     // Save to DB
     await pool.query(`
       UPDATE users 
       SET preferences = $1 
       WHERE id = $2
     `, [JSON.stringify(preferences), userId])
-    
+
     await pool.end()
-    
+
     console.log('✅ Google Sheets sync settings saved for user', userId)
-    
+
     res.json({ success: true, settings: preferences.googleSheetsSync })
   } catch (error) {
     console.error('Error updating Google Sheets settings:', error)
@@ -3708,7 +3665,7 @@ router.put('/sql-table/:id', authenticateToken, async (req, res) => {
 router.delete('/sql-table/:id', authenticateToken, async (req, res) => {
   try {
     const { confirmDelete } = req.body || {}
-    
+
     // SECURITATE: Verifică confirmarea
     if (!confirmDelete || confirmDelete !== true) {
       return res.status(400).json({
@@ -3716,7 +3673,7 @@ router.delete('/sql-table/:id', authenticateToken, async (req, res) => {
         error: 'Confirmare necesară pentru ștergere. Trimite confirmDelete: true în body'
       })
     }
-    
+
     const pool = req.app.get('pool')
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database pool not initialized' })
@@ -3804,7 +3761,7 @@ router.post('/sql-table/bulk-delete', authenticateToken, async (req, res) => {
 router.post('/clean-duplicates', authenticateToken, async (req, res) => {
   try {
     const { confirmDelete } = req.body || {}
-    
+
     // SECURITATE: Verifică confirmarea
     if (!confirmDelete || confirmDelete !== true) {
       return res.status(400).json({
@@ -3812,15 +3769,15 @@ router.post('/clean-duplicates', authenticateToken, async (req, res) => {
         error: 'Confirmare necesară pentru ștergerea duplicatelor. Trimite confirmDelete: true'
       })
     }
-    
+
     const pool = req.app.get('pool')
-    
+
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
-    
+
     console.log('🧹 Starting duplicate cleanup in expenditures_sync...')
-    
+
     // Find duplicates
     const duplicateQuery = `
       SELECT 
@@ -3835,33 +3792,33 @@ router.post('/clean-duplicates', authenticateToken, async (req, res) => {
       GROUP BY operational_date, amount, location_name, department_name, expenditure_type
       HAVING COUNT(*) > 1
     `
-    
+
     const duplicateResult = await pool.query(duplicateQuery)
     const duplicates = duplicateResult.rows
-    
+
     console.log(`📊 Found ${duplicates.length} groups with duplicates`)
-    
+
     let totalDuplicatesRemoved = 0
     let totalRecordsAfter = 0
-    
+
     if (duplicates.length > 0) {
       // Keep first ID from each group, delete the rest
       for (const dup of duplicates) {
         const ids = dup.ids
         const keepId = ids[0] // Keep first ID
         const deleteIds = ids.slice(1) // Delete the rest
-        
+
         if (deleteIds.length > 0) {
           await pool.query(`
             DELETE FROM expenditures_sync
             WHERE id = ANY($1::int[])
           `, [deleteIds])
-          
+
           totalDuplicatesRemoved += deleteIds.length
           console.log(`🧹 Removed ${deleteIds.length} duplicates for ${dup.operational_date}, ${dup.location_name}, ${dup.department_name}`)
         }
       }
-      
+
       // Get final count
       const finalCountResult = await pool.query('SELECT COUNT(*) as total FROM expenditures_sync')
       totalRecordsAfter = parseInt(finalCountResult.rows[0].total)
@@ -3869,10 +3826,10 @@ router.post('/clean-duplicates', authenticateToken, async (req, res) => {
       const countResult = await pool.query('SELECT COUNT(*) as total FROM expenditures_sync')
       totalRecordsAfter = parseInt(countResult.rows[0].total)
     }
-    
+
     console.log(`✅ Cleanup complete: Removed ${totalDuplicatesRemoved} duplicate records`)
     console.log(`📊 Total records after cleanup: ${totalRecordsAfter}`)
-    
+
     res.json({
       success: true,
       message: `Curățare duplicate completă: ${totalDuplicatesRemoved} duplicate eliminate`,
@@ -3894,13 +3851,13 @@ router.post('/clean-duplicates', authenticateToken, async (req, res) => {
 router.post('/import-preferences', authenticateToken, async (req, res) => {
   try {
     const { sheetUrl } = req.body
-    
+
     if (!sheetUrl) {
       return res.status(400).json({ success: false, error: 'Sheet URL is required' })
     }
-    
+
     console.log('🔄 Starting Preferences import from:', sheetUrl)
-    
+
     // Convert Google Sheets URL to CSV export URL
     let csvUrl = sheetUrl
     if (sheetUrl.includes('/edit')) {
@@ -3908,38 +3865,38 @@ router.post('/import-preferences', authenticateToken, async (req, res) => {
       const gid = sheetUrl.match(/gid=(\d+)/)?.[1] || '0'
       csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`
     }
-    
+
     console.log('📥 Fetching CSV from:', csvUrl)
-    
+
     // Fetch CSV data
     const response = await fetch(csvUrl)
     if (!response.ok) {
       throw new Error(`Failed to fetch CSV: ${response.statusText}`)
     }
-    
+
     const csvText = await response.text()
     const lines = csvText.split('\n').filter(line => line.trim())
-    
+
     if (lines.length < 2) {
       return res.status(400).json({ success: false, error: 'CSV is empty or invalid' })
     }
-    
+
     // Parse CSV (skip header)
     const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
     const rows = lines.slice(1)
-    
+
     console.log(`📊 CSV Headers: ${headers.join(', ')}`)
     console.log(`📈 Total rows to process: ${rows.length}`)
-    
+
     const pool = req.app.get('pool')
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
-    
+
     let imported = 0
     let skipped = 0
     let errors = 0
-    
+
     // Process each row
     for (const row of rows) {
       try {
@@ -3947,10 +3904,10 @@ router.post('/import-preferences', authenticateToken, async (req, res) => {
         const values = []
         let current = ''
         let inQuotes = false
-        
+
         for (let i = 0; i < row.length; i++) {
           const char = row[i]
-          
+
           if (char === '"') {
             inQuotes = !inQuotes
           } else if (char === ',' && !inQuotes) {
@@ -3961,16 +3918,16 @@ router.post('/import-preferences', authenticateToken, async (req, res) => {
           }
         }
         values.push(current.trim()) // Last value
-        
+
         if (values.length < 3) {
           skipped++
           continue
         }
-        
+
         // Map columns based on preferences sheet structure
         // Assuming: Date, Category, Amount, Location, Department, Type, etc.
         const [dateStr, category, amountStr, location, department, type, ...rest] = values
-        
+
         // Parse date
         let operationalDate
         if (dateStr && dateStr.includes('.')) {
@@ -3989,7 +3946,7 @@ router.post('/import-preferences', authenticateToken, async (req, res) => {
           skipped++
           continue
         }
-        
+
         // Parse amount
         // Parse amount - handle multiple formats (ROBUST - same as BAT sync)
         let amount = 0
@@ -3997,7 +3954,7 @@ router.post('/import-preferences', authenticateToken, async (req, res) => {
           const amountStrClean = String(amountStr).trim()
           // Elimină spații și separatori de mii
           let cleanAmount = amountStrClean.replace(/\s/g, '')
-          
+
           // Strategie: dacă există virgulă, folosește-o ca separator zecimal (format românesc)
           if (amountStrClean.includes(',')) {
             // Format românesc: 1234,56 sau 1.234,56
@@ -4016,9 +3973,9 @@ router.post('/import-preferences', authenticateToken, async (req, res) => {
             // Multiple puncte = separator de mii românesc
             cleanAmount = amountStrClean.replace(/\./g, '')
           }
-          
+
           amount = parseFloat(cleanAmount) || 0
-          
+
           // Rotunjire la 2 zecimale pentru consistență
           amount = Math.round(amount * 100) / 100
         }
@@ -4026,7 +3983,7 @@ router.post('/import-preferences', authenticateToken, async (req, res) => {
           skipped++
           continue
         }
-        
+
         // Insert into expenditures_sync with data_source='preferences'
         const result = await pool.query(`
           INSERT INTO expenditures_sync (
@@ -4043,21 +4000,21 @@ router.post('/import-preferences', authenticateToken, async (req, res) => {
           department || 'Nespecificat',
           type || category || 'Nespecificat'
         ])
-        
+
         if (result.rows.length > 0) {
           imported++
         } else {
           skipped++
         }
-        
+
       } catch (error) {
         console.error('Error processing row:', error)
         errors++
       }
     }
-    
+
     console.log(`✅ Preferences import complete: ${imported} imported, ${skipped} skipped, ${errors} errors`)
-    
+
     return res.json({
       success: true,
       imported,
@@ -4065,7 +4022,7 @@ router.post('/import-preferences', authenticateToken, async (req, res) => {
       errors,
       total: rows.length
     })
-    
+
   } catch (error) {
     console.error('❌ Error importing preferences:', error)
     return res.status(500).json({
@@ -4083,11 +4040,11 @@ import { extractElectricInvoiceDataSmart } from './electric-invoice-ai.js'
 router.post('/analyze-electric-invoice', authenticateToken, async (req, res, next) => {
   // Dacă este JSON (link), treci direct, altfel folosește multer pentru fișier
   const contentType = req.headers['content-type'] || ''
-  
+
   if (contentType.includes('application/json')) {
     return next()
   }
-  
+
   // Pentru multipart/form-data, folosim upload local dedicat (nu depinde de AWS)
   if (contentType.includes('multipart/form-data')) {
     return electricInvoiceUpload.single('file')(req, res, (err) => {
@@ -4100,7 +4057,7 @@ router.post('/analyze-electric-invoice', authenticateToken, async (req, res, nex
           name: err.name,
           stack: err.stack?.substring(0, 500)
         })
-        
+
         // Mesaje de eroare mai clare pentru diferite tipuri de erori
         let errorMessage = 'Eroare la procesarea fișierului'
         if (err.message.includes('signature')) {
@@ -4112,13 +4069,13 @@ router.post('/analyze-electric-invoice', authenticateToken, async (req, res, nex
         } else {
           errorMessage = `Eroare la procesarea fișierului: ${err.message}`
         }
-        
+
         return res.status(400).json({ success: false, error: errorMessage })
       }
       next()
     })
   }
-  
+
   // Dacă nu este nici JSON nici multipart, verifică dacă există body cu link
   // (poate fi trimis ca application/x-www-form-urlencoded)
   return next()
@@ -4131,15 +4088,15 @@ router.post('/analyze-electric-invoice', authenticateToken, async (req, res, nex
 
     // Validare explicită: trebuie să existe fie link, fie file
     if (!req.body?.link && !req.file) {
-      console.error('❌ No file or link provided:', { 
-        hasBody: !!req.body, 
+      console.error('❌ No file or link provided:', {
+        hasBody: !!req.body,
         bodyKeys: req.body ? Object.keys(req.body) : [],
         hasFile: !!req.file,
         contentType: req.headers['content-type']
       })
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Trebuie să furnizezi un fișier PDF sau un link' 
+      return res.status(400).json({
+        success: false,
+        error: 'Trebuie să furnizezi un fișier PDF sau un link'
       })
     }
 
@@ -4151,7 +4108,7 @@ router.post('/analyze-electric-invoice', authenticateToken, async (req, res, nex
       // Link URL - procesează direct
       try {
         const axiosImport = (await import('axios')).default
-        const response = await axiosImport.get(req.body.link, { 
+        const response = await axiosImport.get(req.body.link, {
           responseType: 'arraybuffer',
           timeout: 30000
         })
@@ -4167,9 +4124,9 @@ router.post('/analyze-electric-invoice', authenticateToken, async (req, res, nex
         }
       } catch (linkError) {
         console.error('❌ Error fetching PDF from link:', linkError)
-        return res.status(400).json({ 
-          success: false, 
-          error: `Eroare la descărcarea PDF-ului din link: ${linkError.message}` 
+        return res.status(400).json({
+          success: false,
+          error: `Eroare la descărcarea PDF-ului din link: ${linkError.message}`
         })
       }
     } else if (req.file) {
@@ -4178,11 +4135,11 @@ router.post('/analyze-electric-invoice', authenticateToken, async (req, res, nex
         if (!req.file.path) {
           throw new Error('Fișierul nu are locație validă')
         }
-        
+
         // Citește fișierul local
         pdfBuffer = fs.readFileSync(req.file.path)
         console.log('✅ Read PDF file:', req.file.path)
-        
+
         // Extrage text din PDF folosind pdf-parse
         try {
           const pdfData = await pdfParse(pdfBuffer)
@@ -4193,7 +4150,7 @@ router.post('/analyze-electric-invoice', authenticateToken, async (req, res, nex
           // Continuă cu text gol - va folosi datele simulate
           pdfText = ''
         }
-        
+
         // Cleanup: șterge fișierul temporar după procesare
         try {
           fs.unlinkSync(req.file.path)
@@ -4203,15 +4160,15 @@ router.post('/analyze-electric-invoice', authenticateToken, async (req, res, nex
         }
       } catch (fileError) {
         console.error('❌ Error reading uploaded file:', fileError)
-        return res.status(400).json({ 
-          success: false, 
-          error: `Eroare la citirea fișierului: ${fileError.message}` 
+        return res.status(400).json({
+          success: false,
+          error: `Eroare la citirea fișierului: ${fileError.message}`
         })
       }
     } else {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Trebuie să furnizezi un fișier PDF sau un link' 
+      return res.status(400).json({
+        success: false,
+        error: 'Trebuie să furnizezi un fișier PDF sau un link'
       })
     }
 
@@ -4219,9 +4176,9 @@ router.post('/analyze-electric-invoice', authenticateToken, async (req, res, nex
     try {
       const { extractElectricInvoiceDataSmart } = await import('./electric-invoice-ai.js')
       const extractedData = await extractElectricInvoiceDataSmart(pdfBuffer || pdfText)
-      
+
       console.log('✅ Extracted data:', JSON.stringify(extractedData, null, 2))
-      
+
       // Completează cu valori default dacă lipsesc
       if (!extractedData.numar_factura) extractedData.numar_factura = 'N/A'
       if (!extractedData.data_emiterii) extractedData.data_emiterii = new Date().toISOString().split('T')[0]
@@ -4242,7 +4199,7 @@ router.post('/analyze-electric-invoice', authenticateToken, async (req, res, nex
         const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0)
         extractedData.perioada_facturare = `${firstDay.toLocaleDateString('ro-RO')} - ${lastDay.toLocaleDateString('ro-RO')}`
       }
-      
+
       return res.json({
         success: true,
         extractedData,
@@ -4275,13 +4232,13 @@ router.post('/save-electric-nlc', authenticateToken, async (req, res) => {
 
     const { extractedData, invoiceFile, invoiceLink, pdfData, pdfFilename } = req.body
     const userId = req.user?.userId || req.user?.id
-    
+
     // DEBUG: Log toate datele primite
     console.log('📥 SAVE-ELECTRIC-NLC REQUEST:')
     console.log('   - extractedData:', extractedData ? 'DA' : 'NU')
     console.log('   - pdfData:', pdfData ? `DA (${Math.round(pdfData.length / 1024)} KB)` : 'NU (undefined/null)')
     console.log('   - pdfFilename:', pdfFilename || 'NU')
-    
+
     // Log dacă avem PDF atașat
     if (pdfData) {
       console.log(`📎 PDF atașat: ${pdfFilename || 'unnamed.pdf'} (${Math.round(pdfData.length / 1024)} KB)`);
@@ -4297,7 +4254,7 @@ router.post('/save-electric-nlc', authenticateToken, async (req, res) => {
     const nlcData = extractedData.nlc_data || []
     const numarFactura = extractedData.numar_factura || null
     const perioadaGenerala = extractedData.perioada_facturare || null
-    
+
     if (nlcData.length === 0) {
       return res.status(400).json({ success: false, error: 'Nu s-au găsit coduri NLC în factură' })
     }
@@ -4338,7 +4295,7 @@ router.post('/save-electric-nlc', authenticateToken, async (req, res) => {
 
     const savedNlcs = []
     let duplicates = 0
-    
+
     for (const nlcInfo of nlcData) {
       const nlcCode = nlcInfo.nlc
       const locationForNlc = nlcInfo.location || 'N/A'
@@ -4352,32 +4309,32 @@ router.post('/save-electric-nlc', authenticateToken, async (req, res) => {
       const perioadaForNlc = perioadaGenerala || nlcInfo.period || null
       console.log(`   📅 Perioada pentru NLC ${nlcCode}: ${perioadaForNlc} (general: ${perioadaGenerala}, nlc: ${nlcInfo.period})`)
       const pretPerKwh = nlcInfo.pretCalculat || extractedData.pret_per_kwh || null
-      
+
       // Skip NLC-uri fără date valide
       if (!nlcCode) {
         console.log(`   ⏭️ Skip NLC invalid`)
         continue
       }
-      
+
       // === CALCUL SLOTS ȘI CONSUM PER SLOT ===
       let slotsCount = null
       let kwhPerSlot = null
       let costPerSlot = null
-      
+
       // Extrage luna și anul din perioada de facturare (format: DD.MM.YYYY - DD.MM.YYYY)
       if (perioadaForNlc && locationForNlc && locationForNlc !== 'N/A') {
         const periodMatch = perioadaForNlc.match(/(\d{2})\.(\d{2})\.(\d{4})/)
         if (periodMatch) {
           const month = parseInt(periodMatch[2])
           const year = parseInt(periodMatch[3])
-          
+
           // Normalizează numele locației pentru căutare în slots_monthly
           // Pitești -> Pitesti, Valcea -> Valcea, etc.
           let searchLocation = locationForNlc
             .replace(/ț/gi, 't').replace(/ș/gi, 's')
             .replace(/ă/gi, 'a').replace(/â/gi, 'a').replace(/î/gi, 'i')
             .trim()
-          
+
           // Caută sloturi pentru această locație și lună
           try {
             const slotsResult = await pool.query(`
@@ -4387,10 +4344,10 @@ router.post('/save-electric-nlc', authenticateToken, async (req, res) => {
               AND year = $2 AND month = $3
               LIMIT 1
             `, [`%${searchLocation}%`, year, month])
-            
+
             if (slotsResult.rows.length > 0) {
               slotsCount = slotsResult.rows[0].slots_count
-              
+
               // Calculează kWh per slot și cost per slot
               if (slotsCount > 0) {
                 if (consumActiv) {
@@ -4400,7 +4357,7 @@ router.post('/save-electric-nlc', authenticateToken, async (req, res) => {
                   costPerSlot = sumaTotala / slotsCount
                 }
               }
-              
+
               console.log(`      📊 Sloturi (${month}/${year}): ${slotsCount} | kWh/slot: ${kwhPerSlot?.toFixed(2) || 'N/A'} | Cost/slot: ${costPerSlot?.toFixed(2) || 'N/A'} RON`)
             } else {
               console.log(`      ⚠️ Nu s-au găsit sloturi pentru ${searchLocation} în ${month}/${year}`)
@@ -4410,7 +4367,7 @@ router.post('/save-electric-nlc', authenticateToken, async (req, res) => {
           }
         }
       }
-      
+
       console.log(`   📍 NLC ${nlcCode}: ${locationForNlc}`)
       console.log(`      E.Activă: ${sumaActiva?.toFixed(2) || 'N/A'} RON (${consumActiv?.toFixed(0) || 'N/A'} kWh)`)
       console.log(`      E.Reactivă: ${sumaReactiva?.toFixed(2) || '0'} RON (${consumReactiv?.toFixed(0) || '0'} kVArh)`)
@@ -4422,7 +4379,7 @@ router.post('/save-electric-nlc', authenticateToken, async (req, res) => {
         WHERE nlc_code = $1 AND numar_factura = $2
         LIMIT 1
       `, [nlcCode, numarFactura])
-      
+
       if (existing.rows.length > 0 && numarFactura) {
         console.log(`   ⚠️ NLC ${nlcCode} deja există pentru factura ${numarFactura} - skip duplicat`)
         duplicates++
@@ -4430,7 +4387,7 @@ router.post('/save-electric-nlc', authenticateToken, async (req, res) => {
       }
 
       // Extrage suma totală a facturii (extrasă direct din factură, nu calculată din NLC-uri)
-      const invoiceTotalAmount = extractedData.suma_totala 
+      const invoiceTotalAmount = extractedData.suma_totala
         ? (typeof extractedData.suma_totala === 'string' ? parseFloat(extractedData.suma_totala) : extractedData.suma_totala)
         : null
 
@@ -4490,22 +4447,22 @@ router.post('/save-electric-nlc', authenticateToken, async (req, res) => {
       ])
 
       if (result.rows.length > 0) {
-        savedNlcs.push({ 
-          nlc_code: nlcCode, 
+        savedNlcs.push({
+          nlc_code: nlcCode,
           location: locationForNlc,
           suma: sumaTotala,
           sumaActiva: sumaActiva,
           sumaReactiva: sumaReactiva,
           consum: consumActiv,
           consumReactiv: consumReactiv,
-          id: result.rows[0].id 
+          id: result.rows[0].id
         })
-        
+
         // Actualizează și tabelul locations cu NLC code
         if (locationForNlc && locationForNlc !== 'N/A') {
           try {
             const normalizedLocation = normalizeLocationName(locationForNlc)
-            
+
             // Caută locația în tabel (case insensitive)
             const locationResult = await pool.query(`
               SELECT id, name, nlc_code 
@@ -4513,10 +4470,10 @@ router.post('/save-electric-nlc', authenticateToken, async (req, res) => {
               WHERE LOWER(name) LIKE LOWER($1)
               LIMIT 1
             `, [`%${normalizedLocation}%`])
-            
+
             if (locationResult.rows.length > 0) {
               const loc = locationResult.rows[0]
-              
+
               // Actualizează nlc_code doar dacă nu există deja sau e diferit
               if (!loc.nlc_code || loc.nlc_code !== nlcCode) {
                 // Dacă există deja un NLC, adaugă-l la listă (separate by comma)
@@ -4526,13 +4483,13 @@ router.post('/save-electric-nlc', authenticateToken, async (req, res) => {
                 } else if (loc.nlc_code) {
                   newNlcCode = loc.nlc_code // Nu schimba dacă deja există
                 }
-                
+
                 await pool.query(`
                   UPDATE locations 
                   SET nlc_code = $1, updated_at = CURRENT_TIMESTAMP 
                   WHERE id = $2
                 `, [newNlcCode, loc.id])
-                
+
                 console.log(`   📍 Actualizat locația "${loc.name}" cu NLC: ${newNlcCode}`)
               }
             } else {
@@ -4669,7 +4626,7 @@ router.get('/electric-nlc-centralizer', authenticateToken, async (req, res) => {
         // Adaugă ID-ul în lista de ID-uri
         aggregatedByNlc[nlc].ids.push(row.id)
       }
-      
+
       aggregatedByNlc[nlc].invoice_count++
       aggregatedByNlc[nlc].total_suma += parseFloat(row.suma_totala) || 0
       aggregatedByNlc[nlc].total_consum += parseFloat(row.consum_kwh) || 0
@@ -4680,7 +4637,7 @@ router.get('/electric-nlc-centralizer', authenticateToken, async (req, res) => {
         consum: row.consum_kwh,
         data: row.data_emiterii
       })
-      
+
       // Track first and last invoice date
       const invoiceDate = row.data_emiterii ? new Date(row.data_emiterii) : null
       if (invoiceDate) {
@@ -4692,7 +4649,7 @@ router.get('/electric-nlc-centralizer', authenticateToken, async (req, res) => {
         }
       }
     }
-    
+
     const aggregatedData = Object.values(aggregatedByNlc).sort((a, b) => b.total_suma - a.total_suma)
 
     // Calculează statistici
@@ -4702,7 +4659,7 @@ router.get('/electric-nlc-centralizer', authenticateToken, async (req, res) => {
         .map(r => r.numar_factura)
         .filter(nr => nr && nr !== 'N/A' && nr.trim() !== '')
     )]
-    
+
     const stats = {
       total_records: result.rows.length,
       unique_nlc_codes: aggregatedData.length,
@@ -4750,7 +4707,7 @@ router.get('/electric-invoice-pdf/:invoiceNumber', authenticateToken, async (req
     }
 
     const { pdf_file, pdf_filename } = result.rows[0]
-    
+
     res.json({
       success: true,
       pdfData: pdf_file,
@@ -4800,7 +4757,7 @@ router.get('/electric-invoices-by-month/:monthKey', authenticateToken, async (re
       has_pdf: !!row.pdf_file,
       pdf_filename: row.pdf_filename
     }))
-    
+
     res.json({
       success: true,
       monthKey,
@@ -4835,7 +4792,7 @@ router.post('/delete-electric-nlcs', authenticateToken, async (req, res) => {
 
     // Convertim totul la string pentru a trata uniform
     const idsAsStrings = nlc_ids.map(id => String(id))
-    
+
     // NLC code-urile au 10 cifre și încep cu 700
     // ID-urile din DB sunt numere mici (sub 10000)
     const nlcCodes = idsAsStrings.filter(id => id.length === 10 && id.startsWith('700'))
@@ -4894,7 +4851,7 @@ router.post('/verify-electric-invoices', authenticateToken, async (req, res) => 
     }
 
     const { invoices } = req.body // Array de facturi: [{ cod, data, factura, suma, status }]
-    
+
     if (!invoices || !Array.isArray(invoices) || invoices.length === 0) {
       return res.status(400).json({ success: false, error: 'Lista de facturi este necesară' })
     }
@@ -4929,9 +4886,9 @@ router.post('/verify-electric-invoices', authenticateToken, async (req, res) => 
 
       // Normalizează numărul facturii (elimină spații, convertește la uppercase)
       const normalizedInvoiceNumber = invoiceNumber.trim().toUpperCase()
-      
+
       console.log(`   🔍 Căutare factură: "${normalizedInvoiceNumber}" (suma: ${expectedAmount}, NLC: ${nlcCode || 'N/A'})`)
-      
+
       // Caută factura în sistem - mai întâi exact, apoi cu LIKE pentru flexibilitate
       let invoiceResult = await pool.query(`
         SELECT 
@@ -4973,7 +4930,7 @@ router.post('/verify-electric-invoices', authenticateToken, async (req, res) => 
       if (invoiceResult.rows.length === 0 && nlcCode) {
         const nlcNormalized = String(nlcCode).trim()
         const amountTolerance = expectedAmount * 0.05 // 5% toleranță pentru sumă
-        
+
         console.log(`      → Căutare după NLC "${nlcNormalized}" + suma ${expectedAmount} (±${amountTolerance.toFixed(2)})`)
         invoiceResult = await pool.query(`
           SELECT 
@@ -5201,7 +5158,7 @@ router.get('/check-invoice-details/:invoiceNumber', authenticateToken, async (re
     }
 
     const invoiceNumber = decodeURIComponent(req.params.invoiceNumber).trim().toUpperCase()
-    
+
     // Găsește toate înregistrările pentru această factură
     const result = await pool.query(`
       SELECT 
@@ -5226,10 +5183,10 @@ router.get('/check-invoice-details/:invoiceNumber', authenticateToken, async (re
     // Calculează sumele
     const totalSumaCalculata = result.rows.reduce((sum, r) => sum + (parseFloat(r.suma_totala) || 0), 0)
     const totalConsum = result.rows.reduce((sum, r) => sum + (parseFloat(r.consum_kwh) || 0), 0)
-    
+
     // Găsește suma totală extrasă din factură (dacă există)
     const invoiceTotalAmount = result.rows.find(r => r.invoice_total_amount)?.invoice_total_amount || null
-    
+
     // Detectează duplicate (aceeași perioadă + locație + NLC + sumă)
     const duplicateGroups = {}
     result.rows.forEach(row => {
@@ -5241,7 +5198,7 @@ router.get('/check-invoice-details/:invoiceNumber', authenticateToken, async (re
     })
 
     const duplicates = Object.values(duplicateGroups).filter(group => group.length > 1)
-    
+
     // Verifică dacă există un NLC cu suma prea mare (probabil are suma totală a facturii)
     const suspiciousNlcs = result.rows.filter(r => {
       const sumaNlc = parseFloat(r.suma_totala) || 0
@@ -5344,12 +5301,12 @@ router.delete('/delete-nlc/:nlc_code', async (req, res) => {
     const pool = req.app.get('pool')
     const { nlc_code } = req.params
     console.log(`🗑️ DELETE NLC direct: ${nlc_code}`)
-    
+
     const result = await pool.query(
       'DELETE FROM electric_invoices_nlc WHERE nlc_code = $1 RETURNING id, nlc_code',
       [nlc_code]
     )
-    
+
     res.json({
       success: true,
       deleted_count: result.rowCount,
@@ -5398,49 +5355,49 @@ router.post('/save-electric-invoice', authenticateToken, async (req, res) => {
       // FOLOSIM sumaTotala (activă + reactivă) în loc de suma (doar activă)
       // nlc.suma = energie activă, nlc.sumaTotala = total (activă + reactivă)
       const sumaDeUtilizat = nlc.sumaTotala || nlc.suma || 0
-      
+
       if (!sumaDeUtilizat || sumaDeUtilizat <= 0) {
         console.log(`   ⏭️ Skip NLC ${nlc.nlc} - suma ${sumaDeUtilizat} RON (suma: ${nlc.suma}, sumaTotala: ${nlc.sumaTotala})`)
         continue
       }
-      
+
       console.log(`   📊 NLC ${nlc.nlc}: folosim sumaTotala=${nlc.sumaTotala?.toFixed(2)}, suma_activa=${nlc.suma?.toFixed(2)}, suma_reactiva=${nlc.sumaReactiva?.toFixed(2)}`)
 
       const locationName = nlc.location || 'N/A'
       const normalizedLocation = normalizeLocationName(locationName)
-      
+
       // Parsează perioada pentru a determina lunile și ÎMPĂRȚIREA PROPORȚIONALĂ
       let luniAcoperite = []
-      
+
       // Funcție pentru a calcula zilele dintr-o lună acoperite de o perioadă
       const calculeazaZileInLuna = (startDate, endDate, luna, an) => {
         const primaDinLuna = new Date(an, luna - 1, 1)
         const ultimaDinLuna = new Date(an, luna, 0) // Ultima zi a lunii
-        
+
         const inceputEfectiv = startDate > primaDinLuna ? startDate : primaDinLuna
         const sfarsitEfectiv = endDate < ultimaDinLuna ? endDate : ultimaDinLuna
-        
+
         if (inceputEfectiv > sfarsitEfectiv) return 0
-        
+
         // +1 pentru că includem și ziua de start
         return Math.floor((sfarsitEfectiv - inceputEfectiv) / (1000 * 60 * 60 * 24)) + 1
       }
-      
+
       // FOLOSIM ÎNTOTDEAUNA perioada_facturare GENERALĂ din antetul facturii
       // nlc.period poate fi extras greșit din secțiunea individuală a fiecărui NLC
       const perioadaDeUtilizat = extractedData.perioada_facturare || nlc.period
       console.log(`      📅 Perioadă pentru NLC: folosim "${perioadaDeUtilizat}" (general: ${extractedData.perioada_facturare}, nlc: ${nlc.period})`)
-      
+
       // Extragem perioada și calculăm proporții pe zile
       if (perioadaDeUtilizat) {
         const periodMatch = perioadaDeUtilizat.match(/(\d{2})\.(\d{2})\.(\d{4})\s*-\s*(\d{2})\.(\d{2})\.(\d{4})/)
         if (periodMatch) {
           const startDate = new Date(parseInt(periodMatch[3]), parseInt(periodMatch[2]) - 1, parseInt(periodMatch[1]))
           const endDate = new Date(parseInt(periodMatch[6]), parseInt(periodMatch[5]) - 1, parseInt(periodMatch[4]))
-          
+
           // Calculăm zilele totale
           const zileTotale = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1
-          
+
           // Pentru fiecare lună din perioadă
           let current = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
           while (current <= endDate) {
@@ -5448,7 +5405,7 @@ router.post('/save-electric-invoice', authenticateToken, async (req, res) => {
             const an = current.getFullYear()
             const zileInLuna = calculeazaZileInLuna(startDate, endDate, luna, an)
             const proportie = zileTotale > 0 ? zileInLuna / zileTotale : 1
-            
+
             luniAcoperite.push({
               luna: luna,
               an: an,
@@ -5456,10 +5413,10 @@ router.post('/save-electric-invoice', authenticateToken, async (req, res) => {
               zile: zileInLuna,
               proportie: proportie
             })
-            
+
             current.setMonth(current.getMonth() + 1)
           }
-          
+
           console.log(`      📆 Perioadă: ${perioadaDeUtilizat} (${zileTotale} zile total)`)
         }
       }
@@ -5473,14 +5430,14 @@ router.post('/save-electric-invoice', authenticateToken, async (req, res) => {
           const startDate = new Date(parseInt(perioadaBackupMatch[3]), parseInt(perioadaBackupMatch[2]) - 1, parseInt(perioadaBackupMatch[1]))
           const endDate = new Date(parseInt(perioadaBackupMatch[6]), parseInt(perioadaBackupMatch[5]) - 1, parseInt(perioadaBackupMatch[4]))
           const zileTotale = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1
-          
+
           let current = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
           while (current <= endDate) {
             const luna = current.getMonth() + 1
             const an = current.getFullYear()
             const zileInLuna = calculeazaZileInLuna(startDate, endDate, luna, an)
             const proportie = zileTotale > 0 ? zileInLuna / zileTotale : 1
-            
+
             luniAcoperite.push({
               luna: luna,
               an: an,
@@ -5515,7 +5472,7 @@ router.post('/save-electric-invoice', authenticateToken, async (req, res) => {
           // FOLOSIM sumaDeUtilizat (total) în loc de nlc.suma (doar activă)
           const sumaPerLuna = sumaDeUtilizat * lunaInfo.proportie
           const consumPerLuna = (nlc.consum || 0) * lunaInfo.proportie
-          
+
           // Obține numărul de sloturi pentru această locație și lună
           let slotsCount = 0
           let costPerSlot = null
@@ -5671,7 +5628,7 @@ router.post('/transfer-electric-to-expenditures', authenticateToken, async (req,
     const userId = req.user?.userId || req.user?.id
 
     console.log('\n🔄 TRANSFER FACTURI ELECTRICE DIN CENTRALIZATOR ÎN CHELTUIELI')
-    
+
     // Obține toate facturile din centralizator care NU au fost salvate în cheltuieli
     const unsavedInvoices = await pool.query(`
       SELECT * FROM electric_invoices_nlc
@@ -5712,7 +5669,7 @@ router.post('/transfer-electric-to-expenditures', authenticateToken, async (req,
       try {
         // Construim extractedData din facturile din centralizator
         const firstInvoice = invoices[0]
-        
+
         // Parsează perioada de facturare
         const perioadaMatch = firstInvoice.perioada_facturare?.match(/(\d{2})\.(\d{2})\.(\d{4})\s*-\s*(\d{2})\.(\d{2})\.(\d{4})/)
         if (!perioadaMatch) {
@@ -5722,8 +5679,8 @@ router.post('/transfer-electric-to-expenditures', authenticateToken, async (req,
         }
 
         // Extrage invoice_total_amount (suma extrasă direct din factură)
-        const invoiceTotalAmount = firstInvoice.invoice_total_amount 
-          ? parseFloat(firstInvoice.invoice_total_amount) 
+        const invoiceTotalAmount = firstInvoice.invoice_total_amount
+          ? parseFloat(firstInvoice.invoice_total_amount)
           : null
 
         const extractedData = {
@@ -5747,13 +5704,13 @@ router.post('/transfer-electric-to-expenditures', authenticateToken, async (req,
 
         // Folosim aceeași logică ca în save-electric-invoice
         const nlcData = extractedData.nlc_data || []
-        
+
         // IMPORTANT: Folosim invoice_total_amount (suma extrasă direct din factură) dacă există
         // Altfel, calculăm din sumele NLC-urilor (pentru facturile vechi)
         const totalSumaFactura = invoiceTotalAmount && invoiceTotalAmount > 0
           ? invoiceTotalAmount
           : nlcData.reduce((sum, nlc) => sum + (parseFloat(nlc.sumaTotala || nlc.suma || 0)), 0)
-        
+
         // Calculează consumul total pentru distribuția proporțională
         const totalConsumFactura = nlcData.reduce((sum, nlc) => sum + (parseFloat(nlc.consum || 0)), 0)
         const normalizedLocation = (locationName) => {
@@ -5765,7 +5722,7 @@ router.post('/transfer-electric-to-expenditures', authenticateToken, async (req,
 
         for (const nlc of nlcData) {
           const consumKwh = parseFloat(nlc.consum || 0)
-          
+
           // Distribuie suma facturii proporțional pe baza consumului
           let sumaDeUtilizat = 0
           if (totalConsumFactura > 0 && consumKwh > 0) {
@@ -5778,27 +5735,27 @@ router.post('/transfer-electric-to-expenditures', authenticateToken, async (req,
             // Fallback: folosește suma individuală a NLC-ului
             sumaDeUtilizat = parseFloat(nlc.sumaTotala || nlc.suma || 0)
           }
-          
+
           if (!sumaDeUtilizat || sumaDeUtilizat <= 0) {
             continue
           }
 
           const locationName = nlc.location || 'N/A'
           const normalizedLoc = normalizedLocation(locationName)
-          
+
           // Parsează perioada pentru a determina lunile
           const periodMatch = extractedData.perioada_facturare?.match(/(\d{2})\.(\d{2})\.(\d{4})\s*-\s*(\d{2})\.(\d{2})\.(\d{4})/)
           if (!periodMatch) continue
 
           const startDate = new Date(parseInt(periodMatch[3]), parseInt(periodMatch[2]) - 1, parseInt(periodMatch[1]))
           const endDate = new Date(parseInt(periodMatch[6]), parseInt(periodMatch[5]) - 1, parseInt(periodMatch[4]))
-          
+
           const zileTotale = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1
-          
+
           // Calculează luni acoperite
           const luniAcoperite = []
           let current = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
-          
+
           while (current <= endDate) {
             const luna = current.getMonth() + 1
             const an = current.getFullYear()
@@ -5806,11 +5763,11 @@ router.post('/transfer-electric-to-expenditures', authenticateToken, async (req,
             const ultimaDinLuna = new Date(an, luna, 0)
             const inceputEfectiv = startDate > primaDinLuna ? startDate : primaDinLuna
             const sfarsitEfectiv = endDate < ultimaDinLuna ? endDate : ultimaDinLuna
-            
+
             if (inceputEfectiv <= sfarsitEfectiv) {
               const zileInLuna = Math.floor((sfarsitEfectiv - inceputEfectiv) / (1000 * 60 * 60 * 24)) + 1
               const proportie = zileTotale > 0 ? zileInLuna / zileTotale : 1
-              
+
               luniAcoperite.push({
                 luna: luna,
                 an: an,
@@ -5819,7 +5776,7 @@ router.post('/transfer-electric-to-expenditures', authenticateToken, async (req,
                 proportie: proportie
               })
             }
-            
+
             current.setMonth(current.getMonth() + 1)
           }
 
@@ -5946,11 +5903,11 @@ router.post('/export-electric-to-sheet', authenticateToken, async (req, res) => 
     const consumKwh = parseFloat(extractedData.consum_kwh || extractedData.consum || 0)
     const numarFactura = extractedData.numar_factura || extractedData.factura || ''
     const perioadaFacturare = extractedData.perioada_facturare || extractedData.perioada || ''
-    
+
     // Extrage anul și luna din perioada_facturare sau data_emiterii
     let year = null
     let month = null
-    
+
     if (perioadaFacturare) {
       // Format: "01.11.2024 - 30.11.2024" sau "01/11/2024 - 30/11/2024"
       const dateMatch = perioadaFacturare.match(/(\d{1,2})[./](\d{1,2})[./](\d{4})/)
@@ -5959,7 +5916,7 @@ router.post('/export-electric-to-sheet', authenticateToken, async (req, res) => 
         year = parseInt(dateMatch[3])
       }
     }
-    
+
     if (!year || !month) {
       // Încearcă din data_emiterii
       const dataEmiterii = extractedData.data_emiterii || extractedData.data || ''
@@ -5971,7 +5928,7 @@ router.post('/export-electric-to-sheet', authenticateToken, async (req, res) => 
         }
       }
     }
-    
+
     // Dacă încă nu avem an/lună, folosim data curentă
     if (!year || !month) {
       const now = new Date()
@@ -5982,7 +5939,7 @@ router.post('/export-electric-to-sheet', authenticateToken, async (req, res) => 
     // Calculează kWh/slot din slots_monthly
     let kwhPerSlot = null
     let slotsCount = null
-    
+
     if (locationName && year && month) {
       try {
         // Query pentru slots_count din slots_monthly
@@ -5995,7 +5952,7 @@ router.post('/export-electric-to-sheet', authenticateToken, async (req, res) => 
             AND slots_count > 0
           LIMIT 1
         `, [locationName, year, month])
-        
+
         if (result.rows.length > 0) {
           slotsCount = parseInt(result.rows[0].slots_count) || 0
           if (slotsCount > 0 && consumKwh > 0) {
@@ -6022,7 +5979,7 @@ router.post('/export-electric-to-sheet', authenticateToken, async (req, res) => 
 
     // Creează workbook Excel
     const workbook = XLSX.utils.book_new()
-    
+
     // FOAIE 1: Rezumat factură
     const summaryData = [
       ['REZUMAT FACTURĂ ELECTRICĂ'],
@@ -6044,21 +6001,21 @@ router.post('/export-electric-to-sheet', authenticateToken, async (req, res) => 
       ['kWh/slot', kwhPerSlot || 'N/A'],
       ['Cost/slot', slotsCount && extractedData.suma_totala ? `${(parseFloat(extractedData.suma_totala) / slotsCount).toFixed(2)} RON` : 'N/A']
     ]
-    
+
     const summarySheet = XLSX.utils.aoa_to_sheet(summaryData)
     summarySheet['!cols'] = [{ wch: 25 }, { wch: 40 }]
     XLSX.utils.book_append_sheet(workbook, summarySheet, 'Rezumat')
-    
+
     // FOAIE 2: Detalii NLC-uri
     const nlcData = extractedData.nlc_data || []
     if (nlcData.length > 0) {
       const nlcSheetData = [
         ['NLC', 'Locație', 'Sumă (RON)', 'Consum (kWh)', 'Preț/kWh', 'Perioadă', 'Verificare Preț']
       ]
-      
+
       let totalSum = 0
       let totalConsum = 0
-      
+
       for (const nlc of nlcData) {
         try {
           const suma = parseFloat(nlc.suma) || 0
@@ -6069,14 +6026,14 @@ router.post('/export-electric-to-sheet', authenticateToken, async (req, res) => 
           } else if (consum > 0 && suma > 0) {
             pret = (suma / consum).toFixed(4)
           }
-          
+
           let verificare = '-'
           if (nlc.pretVerificare && typeof nlc.pretVerificare === 'object') {
-            verificare = nlc.pretVerificare.esteCorect 
+            verificare = nlc.pretVerificare.esteCorect
               ? `OK (${nlc.pretVerificare.diferentaPercent || '0'}%)`
               : `Dif ${nlc.pretVerificare.diferentaPercent || '?'}%`
           }
-          
+
           nlcSheetData.push([
             String(nlc.nlc || 'N/A'),
             String(nlc.location || 'N/A'),
@@ -6086,18 +6043,18 @@ router.post('/export-electric-to-sheet', authenticateToken, async (req, res) => 
             String(nlc.period || 'N/A'),
             String(verificare)
           ])
-          
+
           totalSum += suma
           totalConsum += consum
         } catch (nlcError) {
           console.error('Error processing NLC:', nlc, nlcError)
         }
       }
-      
+
       // Rând TOTAL
       nlcSheetData.push([])
       nlcSheetData.push(['TOTAL', '', totalSum.toFixed(2), totalConsum.toFixed(2), '', '', ''])
-      
+
       const nlcSheet = XLSX.utils.aoa_to_sheet(nlcSheetData)
       nlcSheet['!cols'] = [
         { wch: 15 }, // NLC
@@ -6110,27 +6067,27 @@ router.post('/export-electric-to-sheet', authenticateToken, async (req, res) => 
       ]
       XLSX.utils.book_append_sheet(workbook, nlcSheet, 'NLC-uri')
     }
-    
+
     // FOAIE 3: Explanation (pentru import în alte sisteme)
     const explanationSheet = XLSX.utils.aoa_to_sheet([
       ['Explanation'],
       [explanation]
     ])
     XLSX.utils.book_append_sheet(workbook, explanationSheet, 'Explanation')
-    
+
     console.log('📊 Creating Excel buffer...')
     // Generează buffer Excel
-    const excelBuffer = XLSX.write(workbook, { 
-      type: 'buffer', 
-      bookType: 'xlsx' 
+    const excelBuffer = XLSX.write(workbook, {
+      type: 'buffer',
+      bookType: 'xlsx'
     })
-    
+
     console.log(`✅ Excel buffer created, size: ${excelBuffer.length} bytes`)
 
     // Setează headers pentru download Excel
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     res.setHeader('Content-Disposition', `attachment; filename="Factura_Electrica_${new Date().toISOString().split('T')[0]}.xlsx"`)
-    
+
     console.log('📤 Sending Excel file...')
     res.send(excelBuffer)
     console.log('✅ Export complete!')
@@ -6164,29 +6121,29 @@ const loadLocationsData = async (pool) => {
       WHERE name IS NOT NULL 
       ORDER BY name
     `)
-    
+
     if (result.rows.length > 0) {
       return result.rows.map(row => ({
         id: row.id,
         name: row.name
       }))
     }
-    
+
     // Fallback: încarcă din JSON (dacă există)
     const fs = await import('fs')
     const path = await import('path')
     const { fileURLToPath } = await import('url')
     const { dirname } = await import('path')
-    
+
     const __filename = fileURLToPath(import.meta.url)
     const __dirname = dirname(__filename)
     const filePath = path.join(__dirname, '..', 'cyber-data', 'locations.json')
-    
+
     if (fs.existsSync(filePath)) {
       const data = JSON.parse(fs.readFileSync(filePath, 'utf8'))
       return data
     }
-    
+
     return []
   } catch (error) {
     console.error('Error loading locations:', error)
@@ -6283,7 +6240,7 @@ router.get('/slots-monthly/summary', authenticateToken, async (req, res) => {
       WHERE year >= 2024
       ORDER BY year ASC
     `)
-    
+
     const availableYears = yearsResult.rows.map(row => row.year)
     if (availableYears.length === 0) {
       availableYears.push(2024, 2025) // Default years
@@ -6301,7 +6258,7 @@ router.get('/slots-monthly/summary', authenticateToken, async (req, res) => {
         }
       }
     })
-    
+
     // Obține toate locațiile unice (normalizate)
     const allLocationNames = new Set()
     locationMap.forEach((name) => {
@@ -6314,11 +6271,11 @@ router.get('/slots-monthly/summary', authenticateToken, async (req, res) => {
     // Construiește structura de date: an -> lună -> locație -> count
     // Folosește datele din slots_monthly (care includ și modificările manuale)
     const allData = {}
-    
+
     for (const year of availableYears) {
       // Inițializează structura pentru acest an
       allData[year] = {}
-      
+
       // Obține datele din slots_monthly pentru acest an (inclusiv cele editate manual)
       const slotsMonthlyResult = await pool.query(`
         SELECT 
@@ -6332,12 +6289,12 @@ router.get('/slots-monthly/summary', authenticateToken, async (req, res) => {
           AND LOWER(location_name) != 'depozit'
         ORDER BY month, location_name
       `, [year])
-      
+
       // Populează cu datele din slots_monthly (care includ modificările)
       slotsMonthlyResult.rows.forEach(row => {
         const month = row.month
         const locationName = row.location_name
-        
+
         if (month && locationName && locationName.toLowerCase() !== 'depozit') {
           if (!allData[year][month]) {
             allData[year][month] = {}
@@ -6345,7 +6302,7 @@ router.get('/slots-monthly/summary', authenticateToken, async (req, res) => {
           allData[year][month][locationName] = Number(row.slots_count || 0)
         }
       })
-      
+
       // Dacă nu există date în slots_monthly pentru acest an, folosește incasari_daily ca fallback
       if (Object.keys(allData[year]).length === 0) {
         const startDate = `${year}-01-01`
@@ -6366,13 +6323,13 @@ router.get('/slots-monthly/summary', authenticateToken, async (req, res) => {
         `
 
         const result = await pool.query(sql, [startDate, endDate])
-        
+
         // Populează cu datele din incasari_daily (fallback)
         result.rows.forEach(row => {
           const month = row.month
           const locationId = String(row.location_id || '')
           const locationName = locationMap.get(locationId)
-          
+
           if (month && locationName && locationName.toLowerCase() !== 'depozit') {
             if (!allData[year][month]) {
               allData[year][month] = {}
@@ -6412,9 +6369,9 @@ router.get('/slots-monthly/years', authenticateToken, async (req, res) => {
       WHERE year >= 2024
       ORDER BY year ASC
     `)
-    
+
     const years = result.rows.map(row => row.year)
-    
+
     // Dacă nu există date, returnează anii default
     if (years.length === 0) {
       const currentYear = new Date().getFullYear()
@@ -6466,7 +6423,7 @@ router.post('/slots-monthly/sync-from-incasari', authenticateToken, async (req, 
 
     const result = await pool.query(sql)
     console.log(`📊 [slots-monthly/sync] Găsite ${result.rows.length} rânduri în incasari_daily`)
-    
+
     // Folosește locations.json pentru mapping (EXACT ca în incasari.js)
     const locationsData = loadExportedData('locations.json')
     const locationMap = new Map()
@@ -6479,7 +6436,7 @@ router.post('/slots-monthly/sync-from-incasari', authenticateToken, async (req, 
         }
       }
     })
-    
+
     // Debug: verifică dacă există date pentru Craiova
     const craiovaLocationIds = []
     locationMap.forEach((name, id) => {
@@ -6488,7 +6445,7 @@ router.post('/slots-monthly/sync-from-incasari', authenticateToken, async (req, 
       }
     })
     console.log(`🔍 [slots-monthly/sync] Location IDs pentru Craiova:`, craiovaLocationIds)
-    
+
     const craiovaRows = result.rows.filter(r => craiovaLocationIds.includes(String(r.location_id)))
     console.log(`🔍 [slots-monthly/sync] Rânduri pentru Craiova (după mapping): ${craiovaRows.length}`)
     if (craiovaRows.length > 0) {
@@ -6497,7 +6454,7 @@ router.post('/slots-monthly/sync-from-incasari', authenticateToken, async (req, 
       // Verifică ce locații sunt găsite
       const uniqueLocationIds = [...new Set(result.rows.map(r => String(r.location_id)))]
       console.log(`🔍 [slots-monthly/sync] Location IDs găsite:`, uniqueLocationIds.slice(0, 10))
-      
+
       // Verifică dacă există date în incasari_daily pentru locații care conțin "craiova"
       const debugQuery = `
         SELECT DISTINCT l.id, l.name, COUNT(DISTINCT id.serial_number) as slots_count
@@ -6512,13 +6469,13 @@ router.post('/slots-monthly/sync-from-incasari', authenticateToken, async (req, 
       const debugResult = await pool.query(debugQuery)
       console.log(`🔍 [slots-monthly/sync] Debug - Locații cu "craiova" în nume:`, debugResult.rows)
     }
-    
+
     // Procesează rândurile și normalizează numele locațiilor
     const processedRows = []
     result.rows.forEach(row => {
       const locationId = String(row.location_id || '')
       const locationName = locationMap.get(locationId)
-      
+
       if (locationName && locationName.toLowerCase() !== 'depozit') {
         processedRows.push({
           year: row.year,
@@ -6528,7 +6485,7 @@ router.post('/slots-monthly/sync-from-incasari', authenticateToken, async (req, 
         })
       }
     })
-    
+
     console.log(`📊 [slots-monthly/sync] După procesare: ${processedRows.length} rânduri`)
 
     let inserted = 0
@@ -6548,7 +6505,7 @@ router.post('/slots-monthly/sync-from-incasari', authenticateToken, async (req, 
 
         if (existing.rows.length > 0) {
           const existingRecord = existing.rows[0]
-          
+
           // Dacă onlyNew = true, actualizează doar dacă:
           // 1. slots_count este 0 (date lipsă)
           // 2. slots_count este diferit (date greșite)
@@ -6558,7 +6515,7 @@ router.post('/slots-monthly/sync-from-incasari', authenticateToken, async (req, 
               skipped++
               continue
             }
-            
+
             if (existingRecord.slots_count === 0 || existingRecord.slots_count !== slots_count) {
               await pool.query(
                 `UPDATE slots_monthly 

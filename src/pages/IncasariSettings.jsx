@@ -22,20 +22,13 @@ const LOCAL_LABELS_KEY = 'incasari_column_labels'
 
 const IncasariSettings = () => {
   const { user } = useAuth()
+  const { visibleLocations, setVisibleLocations } = useData()
   const navigate = useNavigate()
 
   const [loading, setLoading] = useState(false)
   const [columns, setColumns] = useState([])
   const [syncing, setSyncing] = useState(false)
   const [locations, setLocations] = useState([])
-  const [visibleLocations, setVisibleLocations] = useState(() => {
-    try {
-      const saved = localStorage.getItem('incasari_visible_locations')
-      return saved ? JSON.parse(saved) : []
-    } catch {
-      return []
-    }
-  })
   const [visibleColumns, setVisibleColumns] = useState(() => {
     try {
       const saved = localStorage.getItem(LOCAL_VISIBLE_KEY)
@@ -157,7 +150,7 @@ const IncasariSettings = () => {
   const handleSync = async (forceCurrentMonth = false) => {
     try {
       setSyncing(true)
-      
+
       // Verifică mai întâi dacă există deja o sincronizare în curs
       try {
         const statusResp = await axios.get('/api/incasari/sync-status')
@@ -170,7 +163,7 @@ const IncasariSettings = () => {
         // Ignoră eroarea de status, continuă cu sync-ul
         console.log('Nu s-a putut verifica statusul sincronizării, continuăm...')
       }
-      
+
       const response = await axios.post('/api/incasari/sync', {
         forceCurrentMonth: forceCurrentMonth
       })
@@ -197,13 +190,6 @@ const IncasariSettings = () => {
       const next = prev.includes(location)
         ? prev.filter((l) => l !== location)
         : [...prev, location]
-      try {
-        localStorage.setItem('incasari_visible_locations', JSON.stringify(next))
-      } catch {
-        // ignore
-      }
-      // Notificăm restul paginilor (Încasări, Tabel Cyber) că s-a schimbat lista de locații vizibile
-      window.dispatchEvent(new Event('incasari-visible-locations-changed'))
       return next
     })
   }
@@ -357,12 +343,6 @@ const IncasariSettings = () => {
                   type="button"
                   onClick={() => {
                     setVisibleLocations(locations)
-                    try {
-                      localStorage.setItem('incasari_visible_locations', JSON.stringify(locations))
-                    } catch {
-                      // ignore
-                    }
-                    window.dispatchEvent(new Event('incasari-visible-locations-changed'))
                   }}
                   className="px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600"
                 >
@@ -372,12 +352,6 @@ const IncasariSettings = () => {
                   type="button"
                   onClick={() => {
                     setVisibleLocations([])
-                    try {
-                      localStorage.setItem('incasari_visible_locations', JSON.stringify([]))
-                    } catch {
-                      // ignore
-                    }
-                    window.dispatchEvent(new Event('incasari-visible-locations-changed'))
                   }}
                   className="px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600"
                 >
@@ -399,11 +373,10 @@ const IncasariSettings = () => {
                       key={loc}
                       type="button"
                       onClick={() => toggleLocation(loc)}
-                      className={`px-3 py-1.5 rounded-2xl text-xs font-semibold border ${
-                        active
+                      className={`px-3 py-1.5 rounded-2xl text-xs font-semibold border ${active
                           ? 'bg-emerald-500/10 border-emerald-500 text-emerald-300'
                           : 'bg-slate-900/40 border-slate-600 text-slate-200'
-                      }`}
+                        }`}
                     >
                       {loc}
                     </button>
@@ -493,14 +466,12 @@ const IncasariSettings = () => {
                   // ignore
                 }
               }}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                refreshEnabled ? 'bg-emerald-500' : 'bg-slate-400'
-              }`}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${refreshEnabled ? 'bg-emerald-500' : 'bg-slate-400'
+                }`}
             >
               <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  refreshEnabled ? 'translate-x-6' : 'translate-x-1'
-                }`}
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${refreshEnabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
               />
             </button>
           </div>
@@ -538,11 +509,10 @@ const IncasariSettings = () => {
                           // ignore
                         }
                       }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                        isSelected
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${isSelected
                           ? 'bg-emerald-500 text-white'
                           : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
-                      }`}
+                        }`}
                     >
                       {day.label}
                     </button>

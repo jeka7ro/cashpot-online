@@ -7,140 +7,30 @@
     @apply border-slate-200;
   }
   
+  /* Body Background - Premium Aurora Gradient */
   body {
-    @apply bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 font-sans antialiased;
+    @apply bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-slate-950 dark:via-indigo-950/30 dark:to-slate-950 font-sans antialiased min-h-screen selection:bg-indigo-500 selection:text-white;
+    background-attachment: fixed;
   }
 
-  html {
-    scroll-behavior: smooth;
-  }
-
-  /* Force system fonts for all inputs, selects, and form elements */
-  input, select, textarea, button {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-  }
-
-  /* Specifically target date and datetime inputs */
-  input[type="date"], 
-  input[type="datetime-local"], 
-  input[type="time"], 
-  input[type="month"], 
-  input[type="week"] {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-  }
-
-  /* Force system fonts for table elements */
-  table, th, td, tr {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-  }
-
-  /* Force system fonts for all text elements */
-  p, span, div, label, h1, h2, h3, h4, h5, h6 {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-  }
-
-  /* Override any potential custom fonts - NUCLEAR LEVEL */
-  *, *::before, *::after {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-  }
-
-  /* FORCE system fonts on ALL elements - no exceptions */
-  html, body, div, span, applet, object, iframe,
-  h1, h2, h3, h4, h5, h6, p, blockquote, pre,
-  a, abbr, acronym, address, big, cite, code,
-  del, dfn, em, img, ins, kbd, q, s, samp,
-  small, strike, strong, sub, sup, tt, var,
-  b, u, i, center,
-  dl, dt, dd, ol, ul, li,
-  fieldset, form, label, legend,
-  table, caption, tbody, tfoot, thead, tr, th, td,
-  article, aside, canvas, details, embed, 
-  figure, figcaption, footer, header, hgroup, 
-  menu, nav, output, ruby, section, summary,
-  time, mark, audio, video, input, select, textarea, button {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-  }
-
-  /* NUCLEAR OVERRIDE - Force system font on EVERYTHING */
-  [class*="font-"], [style*="font-family"], [style*="font"] {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-  }
-
-  /* Override browser default fonts for specific elements */
-  code, pre, kbd, samp, tt {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-  }
-}
-
-@layer utilities {
-  /* ULTIMATE FONT OVERRIDE - Highest priority */
-  .font-sans, .font-serif, .font-mono {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-  }
-}
-
-@layer components {
+  /* Enhanced Glassmorphism */
   .glass {
-    @apply bg-white/80 backdrop-blur-xl border border-white/30;
+    @apply bg-white/60 backdrop-blur-2xl border border-white/50 shadow-xl shadow-indigo-500/5;
   }
   
   .glass-dark {
-    @apply bg-slate-900/80 backdrop-blur-xl border border-slate-700/30;
+    @apply bg-slate-900/60 backdrop-blur-2xl border border-white/5 shadow-xl shadow-black/40;
   }
   
-  .gradient-primary {
-    @apply bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600;
-  }
-  
-  .gradient-success {
-    @apply bg-gradient-to-r from-green-500 to-emerald-500;
-  }
-  
-  .gradient-warning {
-    @apply bg-gradient-to-r from-yellow-500 to-orange-500;
-  }
-  
-  .gradient-error {
-    @apply bg-gradient-to-r from-red-500 to-pink-500;
-  }
-  
-  .btn-primary {
-    @apply px-6 py-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-blue-500/25 transition-all duration-200 hover:scale-105 active:scale-95;
-  }
-  
-  .btn-secondary {
-    @apply px-6 py-3 bg-gradient-to-r from-slate-100 to-gray-100 text-slate-700 rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95;
-  }
-
-  .dark .btn-secondary {
-    background: rgb(71 85 105) !important;
-    color: rgb(241 245 249) !important;
-    border: none !important;
-  }
-
-  .dark .btn-secondary:hover {
-    background: rgb(51 65 85) !important;
-  }
-  
-  .btn-success {
-    @apply px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl font-semibold shadow-lg hover:shadow-green-500/25 transition-all duration-200 hover:scale-105 active:scale-95;
-  }
-  
-  .btn-warning {
-    @apply px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-2xl font-semibold shadow-lg hover:shadow-yellow-500/25 transition-all duration-200 hover:scale-105 active:scale-95;
-  }
-  
-  .btn-error {
-    @apply px-6 py-3 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-2xl font-semibold shadow-lg hover:shadow-red-500/25 transition-all duration-200 hover:scale-105 active:scale-95;
-  }
-  
-  .input-field {
-    @apply w-full border-2 border-slate-200 rounded-2xl px-4 py-3 bg-white/80 backdrop-blur-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all duration-200 shadow-lg;
-  }
-  
+  /* Premium Card Style */
   .card {
-    @apply bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-slate-500/10 border border-white/30;
+    @apply bg-white/70 backdrop-blur-xl rounded-[2rem] shadow-2xl shadow-slate-200/50 border border-white/60 transition-all duration-300 hover:shadow-indigo-500/10 hover:border-indigo-500/20 hover:-translate-y-1;
   }
+  
+  .dark .card {
+    @apply bg-slate-900/70 border-slate-700/50 shadow-black/20 hover:shadow-indigo-500/10 hover:border-indigo-500/30 text-white;
+  }
+
   
   .table-header {
     @apply bg-gradient-to-r from-slate-50 via-blue-50 to-indigo-50 border-b border-slate-200/50;

@@ -42,10 +42,31 @@ export const DataProvider = ({ children }) => {
   const [messages, setMessages] = useState([])
   const [notifications, setNotifications] = useState([])
   const [loading, setLoading] = useState(false)
-  
+
+  // Centralizat state for visible locations (source of truth for Incasari & P&L)
+  const [visibleLocations, setVisibleLocations] = useState(() => {
+    try {
+      const saved = localStorage.getItem('incasari_visible_locations')
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+
+  // Persistence for visible locations
+  useEffect(() => {
+    try {
+      localStorage.setItem('incasari_visible_locations', JSON.stringify(visibleLocations))
+      // Notificăm și în mod manual pentru componente legacy care ascultă event-uri
+      window.dispatchEvent(new Event('incasari-visible-locations-changed'))
+    } catch (e) {
+      console.error('Error saving visible locations to cache:', e)
+    }
+  }, [visibleLocations])
+
   // Prevenire încărcare multiplă simultană
   const isFetching = React.useRef(false)
-  
+
   // CIRCUIT BREAKER pentru DataContext (împiedică cascada de erori!)
   const dataFetchFailures = React.useRef(0)
   const lastDataFetchFailureTime = React.useRef(0)
@@ -85,16 +106,16 @@ export const DataProvider = ({ children }) => {
       console.log('⏸️ Data fetch already in progress, skipping...')
       return
     }
-    
+
     console.log('🚀 Starting OPTIMIZED data fetch...')
     isFetching.current = true
     setLoading(true)
-    
+
     // Check cache first - dar verificăm că conține TOATE entitățile esențiale
     const cacheKey = 'dataCache_v1'
     const cacheTime = sessionStorage.getItem('dataCacheTime')
     const now = Date.now()
-    
+
     // Use cache if less than 5 minutes old AND contains ALL essential data
     if (cacheTime && (now - parseInt(cacheTime)) < 300000) {
       console.log('⚡ Checking cached data...')
@@ -108,7 +129,7 @@ export const DataProvider = ({ children }) => {
             const cachedData = parsedCache[entity]
             return Array.isArray(cachedData) && cachedData.length >= 0 // Acceptăm și array-uri goale dacă există
           })
-          
+
           if (hasAllEssentialData) {
             console.log('⚡ Using cached data (fresh)')
             Object.keys(parsedCache).forEach(key => {
@@ -129,9 +150,9 @@ export const DataProvider = ({ children }) => {
         }
       }
     }
-    
+
     console.log('📡 Fetching fresh data from AWS server...')
-    
+
     try {
       // Check if we have a token before trying to fetch data
       const token = sessionStorage.getItem('authToken')
@@ -140,13 +161,13 @@ export const DataProvider = ({ children }) => {
         setLoading(false)
         return
       }
-      
+
       const entities = Object.keys(entityConfig)
-      
+
       // OPTIMIZED: Load only essential data initially
       const essentialEntities = ['companies', 'locations', 'providers', 'cabinets', 'gameMixes', 'slots']
       const backgroundEntities = entities.filter(e => !essentialEntities.includes(e))
-      
+
       // Funcție FĂRĂ retry (maxRetries = 0!) + CIRCUIT BREAKER
       const fetchWithRetry = async (entity, maxRetries = 0) => {
         // CIRCUIT BREAKER: Verificăm dacă backend-ul e down
@@ -174,18 +195,18 @@ export const DataProvider = ({ children }) => {
             if (error.response?.status === 401 || error.response?.status === 403) {
               throw error
             }
-            
+
             // Incrementăm failures counter
             dataFetchFailures.current++
             lastDataFetchFailureTime.current = Date.now()
-            
+
             // 503 = backend down - activează circuit breaker IMEDIAT
             if (error.response?.status === 503) {
               console.error(`🔴 503 pentru ${entity} - Backend CĂZUT! Circuit breaker ACTIV!`)
               dataFetchFailures.current = DATA_CIRCUIT_BREAKER_THRESHOLD
               return { data: [] }
             }
-            
+
             if (attempt === maxRetries) {
               console.warn(`⚠️ Failed to fetch ${entity} after ${attempt + 1} attempts`)
               return { data: [] }
@@ -198,39 +219,39 @@ export const DataProvider = ({ children }) => {
 
       // Fetch ESSENTIAL entities (reduced from priority)
       const essentialRequests = essentialEntities.map(entity => fetchWithRetry(entity, 0)) // NO retries for speed
-      
+
       console.log(`📡 Loading ${essentialRequests.length} essential entities...`)
       const essentialResponses = await Promise.all(essentialRequests)
-      
+
       essentialResponses.forEach((response, index) => {
         const entity = essentialEntities[index]
         const data = Array.isArray(response.data) ? response.data : []
         entityConfig[entity].setState(data)
       })
-      
+
       console.log('⚡ Essential data loaded!')
-      
+
       // REMOVED: Slots already loaded in essentialEntities above
       // No more separate loadSlots() - faster!
-      
+
       // Load background entities ASYNC (don't block UI!)
       setTimeout(async () => {
         console.log(`📡 Loading ${backgroundEntities.length} background entities...`)
-        
-        const backgroundRequests = backgroundEntities.map(entity => 
+
+        const backgroundRequests = backgroundEntities.map(entity =>
           fetchWithRetry(entity, 0) // NO retries for speed
         )
-        
+
         const backgroundResponses = await Promise.all(backgroundRequests)
-        
+
         // Build cache data with FRESH data (not old state)
         const cacheData = {}
-        
+
         // Add essential entities (already loaded)
         essentialEntities.forEach(entity => {
           cacheData[entity] = entityConfig[entity].state
         })
-        
+
         // Add background entities with FRESH data
         backgroundResponses.forEach((response, index) => {
           const entity = backgroundEntities[index]
@@ -238,9 +259,9 @@ export const DataProvider = ({ children }) => {
           entityConfig[entity].setState(data)
           cacheData[entity] = data // Use FRESH data, not old state!
         })
-        
+
         console.log('⚡ Background data loaded!')
-        
+
         // Save to cache - INCLUDE TOATE entitățile, inclusiv cele mari
         try {
           sessionStorage.setItem(cacheKey, JSON.stringify(cacheData))
@@ -250,11 +271,11 @@ export const DataProvider = ({ children }) => {
           console.warn('⚠️ Cache save failed, continuing without cache')
         }
       }, 100) // Load in background after 100ms
-      
+
       console.log('✅ Essential data loaded! (Background loading...)')
     } catch (error) {
       console.error('Error fetching data:', error)
-      
+
       // CIRCUIT BREAKER: NU mai afișăm toast-uri repetate!
       // Afișăm doar UN toast când backend-ul e down
       if (dataFetchFailures.current >= DATA_CIRCUIT_BREAKER_THRESHOLD) {
@@ -293,23 +314,23 @@ export const DataProvider = ({ children }) => {
     // Get current date
     const today = new Date()
     const startDate = new Date().toISOString().split('T')[0]
-    
+
     // Create 5 weekly dates starting from next Monday
     const nextMonday = new Date(today)
     nextMonday.setDate(today.getDate() + (8 - today.getDay()) % 7) // Next Monday
-    
+
     const prizeDates = []
     for (let i = 0; i < 5; i++) {
       const date = new Date(nextMonday)
       date.setDate(nextMonday.getDate() + (i * 7)) // Add weeks
       prizeDates.push(date.toISOString().split('T')[0])
     }
-    
+
     // End date is 1 week after last prize
     const lastPrizeDate = new Date(prizeDates[4])
     lastPrizeDate.setDate(lastPrizeDate.getDate() + 7)
     const endDate = lastPrizeDate.toISOString().split('T')[0]
-    
+
     // Create prizes array - 10,000 RON each week
     const prizes = prizeDates.map((date, index) => ({
       amount: '10000',
@@ -317,7 +338,7 @@ export const DataProvider = ({ children }) => {
       date: date,
       winner: ''
     }))
-    
+
     // Create tombola data
     const tombolaData = {
       name: 'Tombola Craiova - Premii Săptămânale',
@@ -330,7 +351,7 @@ export const DataProvider = ({ children }) => {
       status: 'Active',
       notes: 'Creat automat pentru testare'
     }
-    
+
     // Create the promotion
     return createItem('promotions', tombolaData)
   }
@@ -339,12 +360,12 @@ export const DataProvider = ({ children }) => {
   const createItem = async (entity, data) => {
     try {
       console.log(`🚀 Creating ${entity} with data:`, data)
-      
+
       // SPECIAL CASE FOR SLOTS IMPORT-MARINA - OFFLINE MODE
       if (entity === 'slots' && data.items && Array.isArray(data.items) && data.items.length > 0) {
         try {
           console.log('🔥 USING OFFLINE MODE FOR SLOTS IMPORT-MARINA')
-          
+
           // Process the slots data directly in the frontend
           const importedSlots = data.items.map(slot => ({
             ...slot,
@@ -354,7 +375,7 @@ export const DataProvider = ({ children }) => {
             imported_by: 'Offline Import',
             import_source: 'Marina (Offline)'
           }))
-          
+
           // Add to state directly
           setSlots(prev => [...importedSlots, ...prev])
           toast.success(`${importedSlots.length} sloturi importate cu succes! (Mod offline)`)
@@ -364,12 +385,12 @@ export const DataProvider = ({ children }) => {
           // Fall through to regular endpoint
         }
       }
-      
+
       // SPECIAL CASE FOR PROMOTIONS - DIRECT ENDPOINT
       if (entity === 'promotions') {
         try {
           console.log('🔥 USING DIRECT ENDPOINT FOR PROMOTIONS')
-          
+
           // Create a test promotion directly in the database
           const testPromotion = {
             name: data.name || 'Test Promotion',
@@ -383,10 +404,10 @@ export const DataProvider = ({ children }) => {
             created_by: 'Direct API',
             created_at: new Date().toISOString()
           }
-          
+
           // Add to state directly
           setPromotions(prev => [...prev, testPromotion])
-          
+
           // Salvare directă în AWS - singura opțiune validă
           try {
             // Trimite direct către AWS backend - DOAR AWS, FĂRĂ LOCAL STORAGE
@@ -396,7 +417,7 @@ export const DataProvider = ({ children }) => {
               })
               .catch(err => {
                 console.error('❌ AWS save error:', err)
-                
+
                 // Retry cu un delay dacă eșuează
                 setTimeout(() => {
                   console.log('🔄 Retrying AWS save...')
@@ -406,7 +427,7 @@ export const DataProvider = ({ children }) => {
                     })
                     .catch(retryErr => {
                       console.error('❌ AWS retry failed:', retryErr)
-                      
+
                       // Ultimă încercare cu alt endpoint
                       setTimeout(() => {
                         console.log('🔄 Final AWS save attempt...')
@@ -421,7 +442,7 @@ export const DataProvider = ({ children }) => {
           } catch (awsError) {
             console.error('❌ AWS save attempt error:', awsError)
           }
-          
+
           toast.success('Promoție adăugată cu succes!')
           return { success: true, data: testPromotion }
         } catch (directError) {
@@ -429,18 +450,18 @@ export const DataProvider = ({ children }) => {
           // Fall through to regular endpoint
         }
       }
-      
+
       const response = await axios.post(`/api/${entity}`, data)
       if (response.data) {
         const newItem = response.data
-        
+
         // Verifică dacă există informații de comprimare PDF
         if (newItem.compression) {
           const { originalSize, compressedSize, compressionRatio, savedBytes } = newItem.compression
           const originalMB = (originalSize / 1024 / 1024).toFixed(2)
           const compressedMB = (compressedSize / 1024 / 1024).toFixed(2)
           const savedKB = (savedBytes / 1024).toFixed(2)
-          
+
           toast.success(
             `Adăugat cu succes! PDF comprimat: ${originalMB}MB → ${compressedMB}MB (${compressionRatio}% reducere, ${savedKB}KB economisite)`,
             { duration: 6000 }
@@ -448,13 +469,13 @@ export const DataProvider = ({ children }) => {
         } else {
           toast.success('Adăugat cu succes!')
         }
-        
+
         entityConfig[entity].setState(prev => [newItem, ...prev])
         return { success: true, data: newItem }
       }
     } catch (error) {
       console.error(`Error creating ${entity}:`, error)
-      
+
       // SPECIAL CASE FOR SLOTS IMPORT - OFFLINE FALLBACK
       if (entity === 'slots' && data.items && Array.isArray(data.items)) {
         console.log('🔄 FALLBACK: Creating offline slots import')
@@ -466,13 +487,13 @@ export const DataProvider = ({ children }) => {
           imported_by: 'Offline Import Fallback',
           import_source: 'Marina (Offline Fallback)'
         }))
-        
+
         // Add to state directly
         setSlots(prev => [...importedSlots, ...prev])
         toast.success(`${importedSlots.length} sloturi importate în mod offline! Se vor sincroniza când serverul este disponibil.`)
         return { success: true, data: { imported: importedSlots.length, slots: importedSlots } }
       }
-      
+
       // SPECIAL CASE FOR PROMOTIONS - OFFLINE FALLBACK
       if (entity === 'promotions') {
         console.log('🔄 FALLBACK: Creating offline promotion')
@@ -489,10 +510,10 @@ export const DataProvider = ({ children }) => {
           created_by: 'Offline Mode',
           created_at: new Date().toISOString()
         }
-        
+
         // Add to state directly
         setPromotions(prev => [...prev, offlinePromotion])
-        
+
         // SALVARE EXCLUSIV ÎN AWS - FĂRĂ LOCAL STORAGE
         try {
           // Trimite direct către AWS backend - DOAR AWS
@@ -503,7 +524,7 @@ export const DataProvider = ({ children }) => {
             })
             .catch(err => {
               console.error('❌ AWS save error:', err)
-              
+
               // Retry cu un delay dacă eșuează
               setTimeout(() => {
                 console.log('🔄 Retrying AWS save...')
@@ -513,14 +534,14 @@ export const DataProvider = ({ children }) => {
                   })
                   .catch(retryErr => {
                     console.error('❌ AWS retry failed:', retryErr)
-                    
+
                     // Ultimă încercare cu alt endpoint
                     setTimeout(() => {
                       console.log('🔄 Final AWS save attempt...')
                       axios.post('https://cashpot-backend.onrender.com/api/promotions/direct', offlinePromotion)
                         .catch(finalErr => {
                           console.error('❌ All AWS save attempts failed:', finalErr)
-                          
+
                           // Încercare cu POST la alt serviciu AWS
                           axios.post('https://cashpot-backend-working.onrender.com/api/promotions', offlinePromotion)
                             .then(altResponse => {
@@ -537,11 +558,11 @@ export const DataProvider = ({ children }) => {
         } catch (awsError) {
           console.error('❌ AWS save attempt error:', awsError)
         }
-        
+
         toast.success('Promoție adăugată cu succes! Se sincronizează cu AWS...')
         return { success: true, data: offlinePromotion }
       }
-      
+
       toast.error('Eroare la adăugare!')
       return { success: false, error: error.message }
     }
@@ -553,14 +574,14 @@ export const DataProvider = ({ children }) => {
       const response = await axios.put(`/api/${entity}/${id}`, data)
       if (response.data) {
         const updatedItem = response.data
-        
+
         // Verifică dacă există informații de comprimare PDF
         if (updatedItem.compression) {
           const { originalSize, compressedSize, compressionRatio, savedBytes } = updatedItem.compression
           const originalMB = (originalSize / 1024 / 1024).toFixed(2)
           const compressedMB = (compressedSize / 1024 / 1024).toFixed(2)
           const savedKB = (savedBytes / 1024).toFixed(2)
-          
+
           toast.success(
             `Actualizat cu succes! PDF comprimat: ${originalMB}MB → ${compressedMB}MB (${compressionRatio}% reducere, ${savedKB}KB economisite)`,
             { duration: 6000 }
@@ -568,14 +589,14 @@ export const DataProvider = ({ children }) => {
         } else {
           toast.success('Actualizat cu succes!')
         }
-        
+
         // Update state for this specific entity (don't reload, prevents "zero peste tot")
         entityConfig[entity].setState(prev =>
           (prev || []).map(item => (item.id === id ? { ...item, ...updatedItem } : item))
         )
-        
+
         console.log('✅ Updated', entity, 'item', id)
-        
+
         return { success: true, data: updatedItem }
       }
     } catch (error) {
@@ -607,7 +628,7 @@ export const DataProvider = ({ children }) => {
   const exportToExcel = (entity) => {
     const data = entityConfig[entity].state
     const headers = data.length > 0 ? Object.keys(data[0] || {}) : []
-    
+
     // Create Excel XML (SpreadsheetML) format
     let xml = '<?xml version="1.0"?>\n'
     xml += '<?mso-application progid="Excel.Sheet"?>\n'
@@ -618,34 +639,34 @@ export const DataProvider = ({ children }) => {
     xml += ' xmlns:html="http://www.w3.org/TR/REC-html40">\n'
     xml += '<Worksheet ss:Name="Sheet1">\n'
     xml += '<Table>\n'
-    
+
     // Add headers
     xml += '<Row>\n'
-    (headers || []).forEach(header => {
-      xml += `<Cell><Data ss:Type="String">${escapeXml(header)}</Data></Cell>\n`
-    })
-    xml += '</Row>\n'
-    
-    // Add data rows
-    (data || []).forEach(row => {
-      xml += '<Row>\n'
       (headers || []).forEach(header => {
-        const value = row[header]
-        if (value === null || value === undefined) {
-          xml += '<Cell><Data ss:Type="String"></Data></Cell>\n'
-        } else if (typeof value === 'number') {
-          xml += `<Cell><Data ss:Type="Number">${value}</Data></Cell>\n`
-        } else {
-          xml += `<Cell><Data ss:Type="String">${escapeXml(String(value))}</Data></Cell>\n`
-        }
+        xml += `<Cell><Data ss:Type="String">${escapeXml(header)}</Data></Cell>\n`
       })
-      xml += '</Row>\n'
-    })
-    
+    xml += '</Row>\n'
+
+      // Add data rows
+      (data || []).forEach(row => {
+        xml += '<Row>\n'
+          (headers || []).forEach(header => {
+            const value = row[header]
+            if (value === null || value === undefined) {
+              xml += '<Cell><Data ss:Type="String"></Data></Cell>\n'
+            } else if (typeof value === 'number') {
+              xml += `<Cell><Data ss:Type="Number">${value}</Data></Cell>\n`
+            } else {
+              xml += `<Cell><Data ss:Type="String">${escapeXml(String(value))}</Data></Cell>\n`
+            }
+          })
+        xml += '</Row>\n'
+      })
+
     xml += '</Table>\n'
     xml += '</Worksheet>\n'
     xml += '</Workbook>'
-    
+
     const blob = new Blob([xml], { type: 'application/vnd.ms-excel' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -655,7 +676,7 @@ export const DataProvider = ({ children }) => {
     URL.revokeObjectURL(url)
     toast.success('Exportat în Excel cu succes!')
   }
-  
+
   // Helper function to escape XML
   const escapeXml = (str) => {
     return String(str)
@@ -670,7 +691,7 @@ export const DataProvider = ({ children }) => {
   const exportToPDF = (entity) => {
     const data = entityConfig[entity].state
     const headers = data.length > 0 ? Object.keys(data[0] || {}) : []
-    
+
     // Create HTML table
     let html = `
       <!DOCTYPE html>
@@ -698,19 +719,19 @@ export const DataProvider = ({ children }) => {
           </thead>
           <tbody>
     `
-    
-    (data || []).forEach(row => {
-      html += '<tr>'
-      (headers || []).forEach(header => {
-        const value = row[header]
-        const displayValue = value === null || value === undefined ? '' : 
-                           typeof value === 'object' ? JSON.stringify(value) : 
-                           String(value)
-        html += `<td>${displayValue}</td>`
+
+      (data || []).forEach(row => {
+        html += '<tr>'
+          (headers || []).forEach(header => {
+            const value = row[header]
+            const displayValue = value === null || value === undefined ? '' :
+              typeof value === 'object' ? JSON.stringify(value) :
+                String(value)
+            html += `<td>${displayValue}</td>`
+          })
+        html += '</tr>'
       })
-      html += '</tr>'
-    })
-    
+
     html += `
           </tbody>
         </table>
@@ -720,12 +741,12 @@ export const DataProvider = ({ children }) => {
       </body>
       </html>
     `
-    
+
     // Open in new window for printing
     const printWindow = window.open('', '', 'width=1200,height=800')
     printWindow.document.write(html)
     printWindow.document.close()
-    
+
     // Wait for content to load, then print
     setTimeout(() => {
       printWindow.print()
@@ -762,7 +783,7 @@ export const DataProvider = ({ children }) => {
   const value = {
     // Test functions
     createTestWeeklyTombola,
-    
+
     // Data entities
     companies,
     locations,
@@ -786,6 +807,8 @@ export const DataProvider = ({ children }) => {
     tasks,
     messages,
     notifications,
+    visibleLocations,
+    setVisibleLocations,
     loading,
     statistics,
     createItem,
