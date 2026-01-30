@@ -77,7 +77,188 @@ const Incasari = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const { locations, visibleLocations, setVisibleLocations } = useData()
+  const { locations } = useData()
+
+  const [dateRange, setDateRange] = useState(() => {
+    const today = new Date()
+    const start = new Date(today.getFullYear(), today.getMonth(), 1)
+    const end = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+    const formatDateLocal = (date) => {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+    return {
+      startDate: formatDateLocal(start),
+      endDate: formatDateLocal(end)
+    }
+  })
+
+  const [summary, setSummary] = useState({
+    totalIn: 0,
+    totalOut: 0,
+    totalProfit: 0,
+    totalBet: 0,
+    totalWin: 0,
+    winBetPercent: 0,
+    daysCount: 0,
+    slotsCount: 0,
+    averageDrop: 0
+  })
+  const [dailyStats, setDailyStats] = useState([])
+  const [locationDailyData, setLocationDailyData] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [avgInByLocation, setAvgInByLocation] = useState([])
+  const [prevMonthByLocation, setPrevMonthByLocation] = useState([]) // Pentru dinamica Bonus Cost
+  const [avgInByCabinet, setAvgInByCabinet] = useState([])
+  const [locationExpenditures, setLocationExpenditures] = useState([])
+  const [slotsByMonthLocation, setSlotsByMonthLocation] = useState(() => {
+    try {
+      const saved = localStorage.getItem('incasari_slots_by_month_location_cache')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        // Verifică dacă cache-ul este pentru anul curent
+        const currentYear = new Date().getFullYear()
+        if (parsed.year === currentYear) {
+          return parsed
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return {
+      year: new Date().getFullYear(),
+      locations: [],
+      monthData: {}
+    }
+  })
+  const [ggrByMonthLocation, setGgrByMonthLocation] = useState(() => {
+    try {
+      const saved = localStorage.getItem('incasari_ggr_by_month_location_cache')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        // Verifică dacă cache-ul este pentru anul curent
+        const currentYear = new Date().getFullYear()
+        if (parsed.year === currentYear) {
+          return parsed
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return {
+      year: new Date().getFullYear(),
+      locations: [],
+      monthData: {}
+    }
+  })
+  const [overview, setOverview] = useState(() => {
+    try {
+      const saved = localStorage.getItem('incasari_overview_cache')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        // Asigură-te că câmpurile dinamice sunt încărcate corect
+        try {
+          const todaySaved = localStorage.getItem('incasari_overview_today')
+          const currentMonthSaved = localStorage.getItem('incasari_overview_currentMonth')
+          const currentYearSaved = localStorage.getItem('incasari_overview_currentYear')
+          if (todaySaved) parsed.today = JSON.parse(todaySaved)
+          if (currentMonthSaved) parsed.currentMonth = JSON.parse(currentMonthSaved)
+          if (currentYearSaved) parsed.currentYear = JSON.parse(currentYearSaved)
+        } catch {
+          // ignore
+        }
+        return parsed
+      }
+    } catch {
+      // ignore
+    }
+    return {
+      today: {},
+      yesterday: {},
+      currentMonth: {},
+      lastMonth: {},
+      currentYear: {},
+      dayBeforeYesterday: {},
+      previousMonth: {},
+      lastYear: {},
+      sameDaysLastMonth: {}
+    }
+  })
+  const [dynamics, setDynamics] = useState({
+    currentMonthDays: { in: 0, profit: 0 },
+    lastMonthSameDays: { in: 0, profit: 0 },
+    inChange: 0,
+    profitChange: 0
+  })
+  const [estimatedProfit, setEstimatedProfit] = useState({ estimatedProfit: 0, daysUsed: 0 })
+  const [posData, setPosData] = useState([])
+  const [currentMonthData, setCurrentMonthData] = useState([])
+  const [lastMonthSameDaysData, setLastMonthSameDaysData] = useState([])
+  const [filtersMeta, setFiltersMeta] = useState({
+    locations: [],
+    providers: [],
+    cabinets: [],
+    gameMixes: []
+  })
+  const [locationFilter, setLocationFilter] = useState(() => {
+    try {
+      const saved = localStorage.getItem('incasari_location_filter')
+      return saved || 'all'
+    } catch {
+      return 'all'
+    }
+  })
+  const [providerFilter, setProviderFilter] = useState(() => {
+    try {
+      const saved = localStorage.getItem('incasari_provider_filter')
+      return saved || 'all'
+    } catch {
+      return 'all'
+    }
+  })
+  const [cabinetFilter, setCabinetFilter] = useState(() => {
+    try {
+      const saved = localStorage.getItem('incasari_cabinet_filter')
+      return saved || 'all'
+    } catch {
+      return 'all'
+    }
+  })
+  const [gameMixFilter, setGameMixFilter] = useState(() => {
+    try {
+      const saved = localStorage.getItem('incasari_gameMix_filter')
+      return saved || 'all'
+    } catch {
+      return 'all'
+    }
+  })
+
+  // Salvare filtre în localStorage când se schimbă
+  useEffect(() => {
+    localStorage.setItem('incasari_location_filter', locationFilter)
+  }, [locationFilter])
+  
+  useEffect(() => {
+    localStorage.setItem('incasari_provider_filter', providerFilter)
+  }, [providerFilter])
+  
+  useEffect(() => {
+    localStorage.setItem('incasari_cabinet_filter', cabinetFilter)
+  }, [cabinetFilter])
+  
+  useEffect(() => {
+    localStorage.setItem('incasari_gameMix_filter', gameMixFilter)
+  }, [gameMixFilter])
+  const [visibleLocations, setVisibleLocations] = useState(() => {
+    try {
+      const saved = localStorage.getItem('incasari_visible_locations')
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
   const [syncModalOpen, setSyncModalOpen] = useState(false)
   const [syncStatus, setSyncStatus] = useState({
     running: false,
@@ -119,7 +300,7 @@ const Incasari = () => {
     }
   })
   const autoRefreshIntervalRef = useRef(null)
-
+  
   // Format date local - funcție globală
   const formatDateLocal = (date) => {
     const year = date.getFullYear()
@@ -127,13 +308,13 @@ const Incasari = () => {
     const day = String(date.getDate()).padStart(2, '0')
     return `${year}-${month}-${day}`
   }
-
+  
   // Quick date filter
   const applyQuickDateFilter = (filterId) => {
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     let startDate, endDate
-
+    
     switch (filterId) {
       case 'azi':
         startDate = endDate = formatDateLocal(today)
@@ -167,7 +348,7 @@ const Incasari = () => {
       default:
         return
     }
-
+    
     setDateRange({ startDate, endDate })
     setSelectedDateFilter(filterId)
   }
@@ -189,7 +370,7 @@ const Incasari = () => {
         const savedEnabled = localStorage.getItem('incasari_refresh_enabled')
         const savedDays = localStorage.getItem('incasari_refresh_days')
         const savedPeriod = localStorage.getItem('incasari_refresh_period')
-
+        
         if (savedEnabled !== null) {
           setRefreshEnabled(savedEnabled === 'true')
         }
@@ -210,7 +391,21 @@ const Incasari = () => {
     }
   }, [])
 
-  // Ascultă schimbările setărilor de refresh din setări
+  // Ascultă schimbările listelor de locații vizibile din pagina de setări Încasări
+  useEffect(() => {
+    const handleVisibleLocationsChanged = () => {
+      try {
+        const saved = localStorage.getItem('incasari_visible_locations')
+        setVisibleLocations(saved ? JSON.parse(saved) : [])
+      } catch {
+        // ignore
+      }
+    }
+
+    window.addEventListener('incasari-visible-locations-changed', handleVisibleLocationsChanged)
+    return () =>
+      window.removeEventListener('incasari-visible-locations-changed', handleVisibleLocationsChanged)
+  }, [])
 
   // Poll sync status while modal este deschis
   useEffect(() => {
@@ -245,7 +440,7 @@ const Incasari = () => {
   // Load meta-date pentru filtre (locații / provideri / cabinete / game-mix)
   useEffect(() => {
     const abortController = new AbortController()
-
+    
     const normalizeLocationName = (name) => {
       if (!name) return ''
       let n = name.toString().trim()
@@ -280,7 +475,7 @@ const Incasari = () => {
       }
     }
     loadFilters()
-
+    
     return () => {
       abortController.abort()
     }
@@ -288,7 +483,7 @@ const Incasari = () => {
 
   useEffect(() => {
     const abortController = new AbortController()
-
+    
     const fetchSummary = async () => {
       try {
         const { startDate, endDate } = dateRange
@@ -307,7 +502,7 @@ const Incasari = () => {
               : undefined
         }
 
-        const response = await axios.get('/api/incasari/summary', {
+        const response = await axios.get('/api/incasari/summary', { 
           params,
           signal: abortController.signal
         })
@@ -335,7 +530,7 @@ const Incasari = () => {
     }
 
     fetchSummary()
-
+    
     return () => {
       abortController.abort()
     }
@@ -344,7 +539,7 @@ const Incasari = () => {
   // Fetch cheltuieli pe locații pentru P&L (perioada selectată, respectând locațiile vizibile)
   useEffect(() => {
     const abortController = new AbortController()
-
+    
     const fetchLocationExpenditures = async () => {
       try {
         const { startDate, endDate } = dateRange
@@ -373,7 +568,7 @@ const Incasari = () => {
     }
 
     fetchLocationExpenditures()
-
+    
     return () => {
       abortController.abort()
     }
@@ -381,7 +576,7 @@ const Incasari = () => {
 
   useEffect(() => {
     const abortController = new AbortController()
-
+    
     const fetchDailyStats = async () => {
       try {
         const { startDate, endDate } = dateRange
@@ -425,7 +620,7 @@ const Incasari = () => {
               : undefined
         }
 
-        const resp = await axios.get('/api/incasari/daily-stats', {
+        const resp = await axios.get('/api/incasari/daily-stats', { 
           params,
           signal: abortController.signal
         })
@@ -445,7 +640,7 @@ const Incasari = () => {
     }
 
     fetchDailyStats()
-
+    
     return () => {
       abortController.abort()
     }
@@ -454,7 +649,7 @@ const Incasari = () => {
   // Fetch location-daily pentru tabelul centralizator
   useEffect(() => {
     const abortController = new AbortController()
-
+    
     const fetchLocationDaily = async () => {
       try {
         const { startDate, endDate } = dateRange
@@ -483,7 +678,7 @@ const Incasari = () => {
     }
 
     fetchLocationDaily()
-
+    
     return () => {
       abortController.abort()
     }
@@ -491,7 +686,7 @@ const Incasari = () => {
 
   useEffect(() => {
     const abortController = new AbortController()
-
+    
     const fetchPieData = async () => {
       try {
         const { startDate, endDate } = dateRange
@@ -546,15 +741,15 @@ const Incasari = () => {
         }
 
         const [locResp, cabResp, prevLocResp] = await Promise.all([
-          axios.get('/api/incasari/avg-in-by-location', {
+          axios.get('/api/incasari/avg-in-by-location', { 
             params: commonParams,
             signal: abortController.signal
           }),
-          axios.get('/api/incasari/avg-in-by-cabinet', {
+          axios.get('/api/incasari/avg-in-by-cabinet', { 
             params: commonParams,
             signal: abortController.signal
           }),
-          axios.get('/api/incasari/avg-in-by-location', {
+          axios.get('/api/incasari/avg-in-by-location', { 
             params: prevMonthParams,
             signal: abortController.signal
           })
@@ -577,7 +772,7 @@ const Incasari = () => {
     }
 
     fetchPieData()
-
+    
     return () => {
       abortController.abort()
     }
@@ -593,7 +788,7 @@ const Incasari = () => {
           console.log('⏳ Sincronizare deja în curs, așteptăm finalizarea...')
           return // Nu pornim o nouă sincronizare
         }
-
+        
         // Dacă nu rulează nimic, pornim sincronizarea
         console.log('🔄 Pornire auto-sync cu Cyber...')
         const resp = await axios.post('/api/incasari/sync')
@@ -610,221 +805,221 @@ const Incasari = () => {
         }
       }
     }
-
+    
     // Verifică și pornește sync-ul după 2 secunde (să se încarce pagina)
     const timeoutId = setTimeout(checkAndSync, 2000)
-
+    
     return () => clearTimeout(timeoutId)
   }, []) // Array gol - rulează doar o dată
 
   // Ref pentru AbortController pentru fetchOverview
   const overviewAbortControllerRef = useRef(null)
-
+  
   // Funcția de fetch overview - o definim în afara useEffect pentru a o putea folosi și manual
   const fetchOverview = async (showRefreshIndicator = false, forceRefresh = false) => {
-    // Anulează request-ul anterior dacă există
-    if (overviewAbortControllerRef.current) {
-      overviewAbortControllerRef.current.abort()
-    }
-
-    // Creează un nou AbortController
-    overviewAbortControllerRef.current = new AbortController()
-    const abortController = overviewAbortControllerRef.current
-
-    try {
-      if (showRefreshIndicator) {
-        setIsRefreshing(true)
+      // Anulează request-ul anterior dacă există
+      if (overviewAbortControllerRef.current) {
+        overviewAbortControllerRef.current.abort()
       }
-
-      // Verifică cache-ul dacă nu forțăm refresh
-      if (!forceRefresh) {
-        const cacheKey = 'incasari_overview_cache_timestamp'
-        const lastFetch = localStorage.getItem(cacheKey)
-        const now = Date.now()
-        const fiveMinutes = 5 * 60 * 1000
-
-        if (lastFetch && (now - parseInt(lastFetch)) < fiveMinutes) {
-          console.log('📦 Folosim cache pentru overview (mai puțin de 5 minute)')
-          if (showRefreshIndicator) {
-            setTimeout(() => setIsRefreshing(false), 500)
-          }
-          return
+      
+      // Creează un nou AbortController
+      overviewAbortControllerRef.current = new AbortController()
+      const abortController = overviewAbortControllerRef.current
+      
+      try {
+        if (showRefreshIndicator) {
+          setIsRefreshing(true)
         }
-      }
-
-      const response = await axios.get('/api/incasari/overview', {
-        params: {
-          includeLocations:
-            visibleLocations && visibleLocations.length > 0
-              ? visibleLocations.join(',')
-              : undefined
-        },
-        signal: abortController.signal
-      })
-      if (response.data?.success) {
-        const newOverview = response.data
-        console.log('📊 Date primite din backend:', {
-          today: newOverview.today,
-          yesterday: newOverview.yesterday,
-          currentMonth: newOverview.currentMonth
-        })
-
-        setOverview((prev) => {
-          // IMPORTANT: Datele dinamice (today, currentMonth, currentYear) se salvează EXACT așa cum vin din backend
-          // NU le modificăm, NU le păstrăm pe cele vechi - le folosim EXACT așa cum sunt
-          // Acestea sunt perioade dinamice care se schimbă zilnic și trebuie să reflecte datele reale din Cyber
-          const finalOverview = {
-            success: true,
-            // Date dinamice - folosim EXACT ce vine din backend, fără modificări
-            today: newOverview.today || {},
-            currentMonth: newOverview.currentMonth || {},
-            currentYear: newOverview.currentYear || {},
-            // Date statice - păstrăm pe cele vechi dacă cele noi sunt zero sau goale
-            yesterday: (newOverview.yesterday && hasNonZeroRow(newOverview.yesterday)) ? newOverview.yesterday : (prev?.yesterday || {}),
-            lastMonth: (newOverview.lastMonth && hasNonZeroRow(newOverview.lastMonth)) ? newOverview.lastMonth : (prev?.lastMonth || {}),
-            dayBeforeYesterday: newOverview.dayBeforeYesterday || prev?.dayBeforeYesterday || {},
-            previousMonth: newOverview.previousMonth || prev?.previousMonth || {},
-            lastYear: newOverview.lastYear || prev?.lastYear || {},
-            sameDaysLastMonth: newOverview.sameDaysLastMonth || prev?.sameDaysLastMonth || {}
+        
+        // Verifică cache-ul dacă nu forțăm refresh
+        if (!forceRefresh) {
+          const cacheKey = 'incasari_overview_cache_timestamp'
+          const lastFetch = localStorage.getItem(cacheKey)
+          const now = Date.now()
+          const fiveMinutes = 5 * 60 * 1000
+          
+          if (lastFetch && (now - parseInt(lastFetch)) < fiveMinutes) {
+            console.log('📦 Folosim cache pentru overview (mai puțin de 5 minute)')
+            if (showRefreshIndicator) {
+              setTimeout(() => setIsRefreshing(false), 500)
+            }
+            return
           }
-
-          console.log('📊 Date finale care vor fi afișate:', {
-            today: finalOverview.today,
-            yesterday: finalOverview.yesterday,
-            currentMonth: finalOverview.currentMonth
+        }
+        
+        const response = await axios.get('/api/incasari/overview', {
+          params: {
+            includeLocations:
+              visibleLocations && visibleLocations.length > 0
+                ? visibleLocations.join(',')
+                : undefined
+          },
+          signal: abortController.signal
+        })
+        if (response.data?.success) {
+          const newOverview = response.data
+          console.log('📊 Date primite din backend:', {
+            today: newOverview.today,
+            yesterday: newOverview.yesterday,
+            currentMonth: newOverview.currentMonth
           })
-
-          try {
-            localStorage.setItem('incasari_overview_cache', JSON.stringify(finalOverview))
-            localStorage.setItem('incasari_overview_cache_timestamp', Date.now().toString())
-
-            // Salvează și câmpurile dinamice (azi, luna curentă, anul curent) separat pentru a nu se pierde
-            // Salvează ÎNTOTDEAUNA câmpurile dinamice (chiar dacă nu e forceRefresh) pentru că se schimbă zilnic
-            if (finalOverview.today) {
-              localStorage.setItem('incasari_overview_today', JSON.stringify(finalOverview.today))
+          
+          setOverview((prev) => {
+            // IMPORTANT: Datele dinamice (today, currentMonth, currentYear) se salvează EXACT așa cum vin din backend
+            // NU le modificăm, NU le păstrăm pe cele vechi - le folosim EXACT așa cum sunt
+            // Acestea sunt perioade dinamice care se schimbă zilnic și trebuie să reflecte datele reale din Cyber
+            const finalOverview = {
+              success: true,
+              // Date dinamice - folosim EXACT ce vine din backend, fără modificări
+              today: newOverview.today || {},
+              currentMonth: newOverview.currentMonth || {},
+              currentYear: newOverview.currentYear || {},
+              // Date statice - păstrăm pe cele vechi dacă cele noi sunt zero sau goale
+              yesterday: (newOverview.yesterday && hasNonZeroRow(newOverview.yesterday)) ? newOverview.yesterday : (prev?.yesterday || {}),
+              lastMonth: (newOverview.lastMonth && hasNonZeroRow(newOverview.lastMonth)) ? newOverview.lastMonth : (prev?.lastMonth || {}),
+              dayBeforeYesterday: newOverview.dayBeforeYesterday || prev?.dayBeforeYesterday || {},
+              previousMonth: newOverview.previousMonth || prev?.previousMonth || {},
+              lastYear: newOverview.lastYear || prev?.lastYear || {},
+              sameDaysLastMonth: newOverview.sameDaysLastMonth || prev?.sameDaysLastMonth || {}
             }
-            if (finalOverview.currentMonth) {
-              localStorage.setItem('incasari_overview_currentMonth', JSON.stringify(finalOverview.currentMonth))
+            
+            console.log('📊 Date finale care vor fi afișate:', {
+              today: finalOverview.today,
+              yesterday: finalOverview.yesterday,
+              currentMonth: finalOverview.currentMonth
+            })
+            
+            try {
+              localStorage.setItem('incasari_overview_cache', JSON.stringify(finalOverview))
+              localStorage.setItem('incasari_overview_cache_timestamp', Date.now().toString())
+              
+              // Salvează și câmpurile dinamice (azi, luna curentă, anul curent) separat pentru a nu se pierde
+              // Salvează ÎNTOTDEAUNA câmpurile dinamice (chiar dacă nu e forceRefresh) pentru că se schimbă zilnic
+              if (finalOverview.today) {
+                localStorage.setItem('incasari_overview_today', JSON.stringify(finalOverview.today))
+              }
+              if (finalOverview.currentMonth) {
+                localStorage.setItem('incasari_overview_currentMonth', JSON.stringify(finalOverview.currentMonth))
+              }
+              if (finalOverview.currentYear) {
+                localStorage.setItem('incasari_overview_currentYear', JSON.stringify(finalOverview.currentYear))
+              }
+            } catch {
+              // ignore
             }
-            if (finalOverview.currentYear) {
-              localStorage.setItem('incasari_overview_currentYear', JSON.stringify(finalOverview.currentYear))
-            }
-          } catch {
-            // ignore
-          }
-          return finalOverview
-        })
-
-        // Dacă se face refresh, actualizează automat și tabelul centralizator și P&L pentru luna curentă
-        if (forceRefresh) {
-          // Forțează refresh-ul pentru tabelul centralizator pentru a actualiza luna curentă
-          const currentYear = new Date().getFullYear()
-          const cacheKey = `incasari_ggr_by_month_location_cache_timestamp_${currentYear}`
-
-          // Resetează timestamp-ul pentru a forța refresh-ul
-          try {
-            localStorage.setItem(cacheKey, (Date.now() - 31 * 60 * 1000).toString())
-
-            // Re-fetch datele pentru tabelul centralizator (doar pentru luna curentă)
-            setTimeout(() => {
-              axios.get('/api/incasari/ggr-by-month-location', {
-                params: { year: currentYear }
-              }).then(response => {
-                if (response.data?.success && response.data.locations && response.data.locations.length > 0) {
-                  setGgrByMonthLocation((prev) => {
-                    if (!prev || prev.year !== currentYear) {
-                      return {
-                        year: response.data.year,
-                        locations: response.data.locations,
-                        monthData: response.data.monthData || {}
+            return finalOverview
+          })
+          
+          // Dacă se face refresh, actualizează automat și tabelul centralizator și P&L pentru luna curentă
+          if (forceRefresh) {
+            // Forțează refresh-ul pentru tabelul centralizator pentru a actualiza luna curentă
+            const currentYear = new Date().getFullYear()
+            const cacheKey = `incasari_ggr_by_month_location_cache_timestamp_${currentYear}`
+            
+            // Resetează timestamp-ul pentru a forța refresh-ul
+            try {
+              localStorage.setItem(cacheKey, (Date.now() - 31 * 60 * 1000).toString())
+              
+              // Re-fetch datele pentru tabelul centralizator (doar pentru luna curentă)
+              setTimeout(() => {
+                axios.get('/api/incasari/ggr-by-month-location', {
+                  params: { year: currentYear }
+                }).then(response => {
+                  if (response.data?.success && response.data.locations && response.data.locations.length > 0) {
+                    setGgrByMonthLocation((prev) => {
+                      if (!prev || prev.year !== currentYear) {
+                        return {
+                          year: response.data.year,
+                          locations: response.data.locations,
+                          monthData: response.data.monthData || {}
+                        }
                       }
-                    }
-
-                    // Actualizează doar luna curentă
-                    const currentMonth = new Date().getMonth() + 1
-                    const updatedMonthData = { ...prev.monthData }
-                    updatedMonthData[currentMonth] = response.data.monthData[currentMonth] || {}
-
-                    // Actualizează cache-ul
-                    try {
-                      const newData = {
-                        year: response.data.year,
-                        locations: response.data.locations,
+                      
+                      // Actualizează doar luna curentă
+                      const currentMonth = new Date().getMonth() + 1
+                      const updatedMonthData = { ...prev.monthData }
+                      updatedMonthData[currentMonth] = response.data.monthData[currentMonth] || {}
+                      
+                      // Actualizează cache-ul
+                      try {
+                        const newData = {
+                          year: response.data.year,
+                          locations: response.data.locations,
+                          monthData: updatedMonthData
+                        }
+                        localStorage.setItem('incasari_ggr_by_month_location_cache', JSON.stringify(newData))
+                        localStorage.setItem(cacheKey, Date.now().toString())
+                      } catch (e) {
+                        // ignore
+                      }
+                      
+                      return {
+                        ...prev,
                         monthData: updatedMonthData
                       }
-                      localStorage.setItem('incasari_ggr_by_month_location_cache', JSON.stringify(newData))
-                      localStorage.setItem(cacheKey, Date.now().toString())
-                    } catch (e) {
-                      // ignore
-                    }
-
-                    return {
-                      ...prev,
-                      monthData: updatedMonthData
-                    }
-                  })
+                    })
+                  }
+                }).catch(error => {
+                  console.error('❌ Eroare la actualizarea tabelului centralizator:', error)
+                })
+              }, 500) // Așteaptă puțin după ce overview s-a actualizat
+              
+              // Re-fetch datele pentru tabelul P&L (avg-in-by-location) pentru a actualiza luna curentă
+              // Folosește aceiași parametri ca și overview (visibleLocations)
+              setTimeout(() => {
+                const currentDate = new Date()
+                const currentMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+                const currentMonthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
+                const formatDateLocal = (date) => {
+                  const year = date.getFullYear()
+                  const month = String(date.getMonth() + 1).padStart(2, '0')
+                  const day = String(date.getDate()).padStart(2, '0')
+                  return `${year}-${month}-${day}`
                 }
-              }).catch(error => {
-                console.error('❌ Eroare la actualizarea tabelului centralizator:', error)
-              })
-            }, 500) // Așteaptă puțin după ce overview s-a actualizat
-
-            // Re-fetch datele pentru tabelul P&L (avg-in-by-location) pentru a actualiza luna curentă
-            // Folosește aceiași parametri ca și overview (visibleLocations)
-            setTimeout(() => {
-              const currentDate = new Date()
-              const currentMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
-              const currentMonthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)
-              const formatDateLocal = (date) => {
-                const year = date.getFullYear()
-                const month = String(date.getMonth() + 1).padStart(2, '0')
-                const day = String(date.getDate()).padStart(2, '0')
-                return `${year}-${month}-${day}`
-              }
-
-              const commonParams = {
-                startDate: formatDateLocal(currentMonthStart),
-                endDate: formatDateLocal(currentMonthEnd),
-                includeLocations:
-                  visibleLocations && visibleLocations.length > 0
-                    ? visibleLocations.join(',')
-                    : undefined
-              }
-
-              axios.get('/api/incasari/avg-in-by-location', {
-                params: commonParams
-              }).then(response => {
-                if (response.data?.success && response.data.rows) {
-                  // Înlocuiește complet datele pentru perioada selectată
-                  setAvgInByLocation(response.data.rows || [])
-                  console.log('✅ Tabelul P&L actualizat')
+                
+                const commonParams = {
+                  startDate: formatDateLocal(currentMonthStart),
+                  endDate: formatDateLocal(currentMonthEnd),
+                  includeLocations:
+                    visibleLocations && visibleLocations.length > 0
+                      ? visibleLocations.join(',')
+                      : undefined
                 }
-              }).catch(error => {
-                console.error('❌ Eroare la actualizarea tabelului P&L:', error)
-              })
-            }, 600) // Așteaptă puțin mai mult după ce centralizator s-a actualizat
-          } catch (e) {
-            // ignore
+                
+                axios.get('/api/incasari/avg-in-by-location', {
+                  params: commonParams
+                }).then(response => {
+                  if (response.data?.success && response.data.rows) {
+                    // Înlocuiește complet datele pentru perioada selectată
+                    setAvgInByLocation(response.data.rows || [])
+                    console.log('✅ Tabelul P&L actualizat')
+                  }
+                }).catch(error => {
+                  console.error('❌ Eroare la actualizarea tabelului P&L:', error)
+                })
+              }, 600) // Așteaptă puțin mai mult după ce centralizator s-a actualizat
+            } catch (e) {
+              // ignore
+            }
           }
         }
-      }
-    } catch (error) {
-      if (error.name !== 'CanceledError' && error.code !== 'ECONNABORTED') {
-        console.error('❌ Eroare la încărcarea overview-ului:', error)
-      }
-    } finally {
-      if (showRefreshIndicator) {
-        // Așteaptă puțin ca să se vadă că s-a făcut refresh
-        setTimeout(() => setIsRefreshing(false), 1000)
+      } catch (error) {
+        if (error.name !== 'CanceledError' && error.code !== 'ECONNABORTED') {
+          console.error('❌ Eroare la încărcarea overview-ului:', error)
+        }
+      } finally {
+        if (showRefreshIndicator) {
+          // Așteaptă puțin ca să se vadă că s-a făcut refresh
+          setTimeout(() => setIsRefreshing(false), 1000)
+        }
       }
     }
-  }
 
   // useEffect pentru fetchOverview și auto-refresh
   useEffect(() => {
     // Prima încărcare
     fetchOverview()
-
+    
     // Calculează timpul până la următoarea oră :05 (ex: 8:05, 9:05, etc.)
     const calculateTimeUntilNextRefresh = () => {
       const now = new Date()
@@ -832,34 +1027,34 @@ const Incasari = () => {
       const minutes = now.getMinutes()
       const seconds = now.getSeconds()
       const milliseconds = now.getMilliseconds()
-
+      
       // Dacă suntem exact la ora 8:05, facem refresh pentru ambele (Azi și Ieri)
       const isEarlyMorning = hours === 8 && minutes < 5
-
+      
       // Calculează minutele rămase până la :05
       let minutesUntilRefresh = 5 - (minutes % 60)
       if (minutesUntilRefresh <= 0) {
         minutesUntilRefresh += 60
       }
-
+      
       // Convertește în milisecunde și scade secundele/milisecundele curente
       const msUntilRefresh = (minutesUntilRefresh * 60 * 1000) - (seconds * 1000) - milliseconds
-
+      
       return { msUntilRefresh, shouldRefreshYesterday: isEarlyMorning }
     }
-
+    
     // Setează primul refresh la :05
     const { msUntilRefresh, shouldRefreshYesterday } = calculateTimeUntilNextRefresh()
-
+    
     const timeoutId = setTimeout(() => {
       // La ora 8:05 facem refresh complet (inclusiv "Ieri" se actualizează)
       const now = new Date()
       const isAfter8AM = now.getHours() === 8 && now.getMinutes() === 5
-
+      
       if (isAfter8AM) {
         console.log('🌅 Ora 8:05 - Actualizare completă (Azi devine Ieri)')
       }
-
+      
       // Sincronizare automată cu Cyber la fiecare oră
       const syncCyber = async () => {
         try {
@@ -870,7 +1065,7 @@ const Incasari = () => {
             fetchOverview(true, true) // Arată indicator de refresh și forțează refresh
             return
           }
-
+          
           console.log(`🔄 Auto-refresh la ora ${new Date().toLocaleTimeString('ro-RO')}`)
           const resp = await axios.post('/api/incasari/sync')
           if (resp.data?.success) {
@@ -889,26 +1084,26 @@ const Incasari = () => {
           fetchOverview(true) // Arată indicator de refresh
         }
       }
-
+      
       // Rulează sync-ul imediat
       syncCyber()
-
+      
       // După primul refresh, setează interval la fiecare oră
       const intervalId = setInterval(() => {
         const currentTime = new Date()
         const isHourly8AM = currentTime.getHours() === 8 && currentTime.getMinutes() === 5
-
+        
         if (isHourly8AM) {
           console.log('🌅 Ora 8:05 - Actualizare completă zilnică')
         }
-
+        
         syncCyber()
       }, 60 * 60 * 1000) // 60 minute
-
+      
       // Salvează intervalId pentru cleanup
       return () => clearInterval(intervalId)
     }, msUntilRefresh)
-
+    
     // Cleanup
     return () => clearTimeout(timeoutId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -940,11 +1135,11 @@ const Incasari = () => {
     // Verifică dacă este în perioada setată
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-
+    
     if (refreshPeriod.startDate && refreshPeriod.endDate) {
       const startDate = new Date(refreshPeriod.startDate)
       const endDate = new Date(refreshPeriod.endDate)
-
+      
       if (today < startDate || today > endDate) {
         console.log('⏸️ Auto-refresh: nu suntem în perioada setată')
         return
@@ -960,16 +1155,16 @@ const Incasari = () => {
 
     // Refresh la fiecare 5 minute (300 secunde) - interval fix
     const intervalMs = 5 * 60 * 1000
-
+    
     console.log(`⏰ Auto-refresh activat: zile ${refreshDays.join(',')}, perioadă ${refreshPeriod.startDate || 'fără limită'} - ${refreshPeriod.endDate || 'fără limită'}`)
-
+    
     // Pornește auto-refresh-ul - folosește EXACT același cod ca butonul de refresh
     autoRefreshIntervalRef.current = setInterval(() => {
       // Verifică din nou dacă este în perioadă și ziua corectă
       const checkNow = new Date()
       const checkToday = new Date(checkNow.getFullYear(), checkNow.getMonth(), checkNow.getDate())
       const checkDay = checkNow.getDay() === 0 ? 7 : checkNow.getDay()
-
+      
       if (refreshPeriod.startDate && refreshPeriod.endDate) {
         const startDate = new Date(refreshPeriod.startDate)
         const endDate = new Date(refreshPeriod.endDate)
@@ -977,7 +1172,7 @@ const Incasari = () => {
           return
         }
       }
-
+      
       if (!refreshDays.includes(checkDay)) {
         return
       }
@@ -986,7 +1181,7 @@ const Incasari = () => {
       // EXACT același cod ca butonul: fetchOverview(true, true) // Manual refresh cu indicator și forțează refresh
       fetchOverview(true, true)
     }, intervalMs)
-
+    
     return () => {
       if (autoRefreshIntervalRef.current) {
         clearInterval(autoRefreshIntervalRef.current)
@@ -998,12 +1193,12 @@ const Incasari = () => {
   // Fetch dynamics data (luna curentă vs aceleași zile luna trecută)
   useEffect(() => {
     const abortController = new AbortController()
-
+    
     const fetchDynamics = async () => {
       try {
         const { startDate, endDate } = dateRange
         if (!startDate || !endDate) return
-
+        
         const response = await axios.get('/api/incasari/dynamics', {
           params: {
             startDate,
@@ -1025,7 +1220,7 @@ const Incasari = () => {
       }
     }
     fetchDynamics()
-
+    
     return () => {
       abortController.abort()
     }
@@ -1034,7 +1229,7 @@ const Incasari = () => {
   // Fetch estimated profit
   useEffect(() => {
     const abortController = new AbortController()
-
+    
     const fetchEstimatedProfit = async () => {
       try {
         const response = await axios.get('/api/incasari/estimated-profit', {
@@ -1056,7 +1251,7 @@ const Incasari = () => {
       }
     }
     fetchEstimatedProfit()
-
+    
     return () => {
       abortController.abort()
     }
@@ -1065,7 +1260,7 @@ const Incasari = () => {
   // Fetch slots by month and location pentru anul curent
   useEffect(() => {
     const abortController = new AbortController()
-
+    
     const fetchSlotsByMonthLocation = async () => {
       try {
         // Construiește parametrii pentru filtre
@@ -1091,7 +1286,7 @@ const Incasari = () => {
             locations: response.data.locations,
             monthData: response.data.monthData || {}
           }
-
+          
           // Salvează în cache înainte de a actualiza state-ul
           try {
             localStorage.setItem('incasari_slots_by_month_location_cache', JSON.stringify(newData))
@@ -1099,7 +1294,7 @@ const Incasari = () => {
           } catch (e) {
             console.error('Eroare la salvare cache:', e)
           }
-
+          
           // Actualizează state-ul doar după ce totul este salvat
           setSlotsByMonthLocation(newData)
         }
@@ -1114,10 +1309,10 @@ const Incasari = () => {
     const lastFetch = localStorage.getItem(cacheKey)
     const now = Date.now()
     const oneHour = 60 * 60 * 1000
-
+    
     // Nu mai folosim cache când se schimbă filtrele - reîncarcă mereu
     fetchSlotsByMonthLocation()
-
+    
     return () => {
       abortController.abort()
     }
@@ -1126,14 +1321,14 @@ const Incasari = () => {
   // Fetch GGR by month and location pentru anul selectat
   useEffect(() => {
     const abortController = new AbortController()
-
+    
     const fetchGgrByMonthLocation = async () => {
       try {
         // Determină anul din dateRange sau folosește anul curent
-        const selectedYear = dateRange?.startDate
+        const selectedYear = dateRange?.startDate 
           ? new Date(dateRange.startDate).getFullYear()
           : new Date().getFullYear()
-
+        
         const response = await axios.get('/api/incasari/ggr-by-month-location', {
           params: { year: selectedYear },
           signal: abortController.signal
@@ -1145,7 +1340,7 @@ const Incasari = () => {
             locations: response.data.locations,
             monthData: response.data.monthData || {}
           }
-
+          
           // Salvează în cache înainte de a actualiza state-ul
           try {
             localStorage.setItem('incasari_ggr_by_month_location_cache', JSON.stringify(newData))
@@ -1154,7 +1349,7 @@ const Incasari = () => {
           } catch (e) {
             console.error('Eroare la salvare cache:', e)
           }
-
+          
           // Actualizează state-ul doar după ce totul este salvat
           setGgrByMonthLocation(newData)
         }
@@ -1162,17 +1357,17 @@ const Incasari = () => {
         console.error('❌ Eroare la încărcarea GGR pe lună și locație:', error)
       }
     }
-
+    
     // Verifică dacă avem cache recent (mai puțin de 30 minute) pentru același an
-    const selectedYear = dateRange?.startDate
+    const selectedYear = dateRange?.startDate 
       ? new Date(dateRange.startDate).getFullYear()
       : new Date().getFullYear()
-
+    
     const cacheKey = `incasari_ggr_by_month_location_cache_timestamp_${selectedYear}`
     const lastFetch = localStorage.getItem(cacheKey)
     const now = Date.now()
     const thirtyMinutes = 30 * 60 * 1000
-
+    
     // Verifică dacă cache-ul există și este pentru același an
     try {
       const cached = localStorage.getItem('incasari_ggr_by_month_location_cache')
@@ -1186,14 +1381,14 @@ const Incasari = () => {
     } catch (e) {
       // ignore
     }
-
+    
     fetchGgrByMonthLocation()
   }, [dateRange])
 
   // Fetch POS data
   useEffect(() => {
     const abortController = new AbortController()
-
+    
     const fetchPosData = async () => {
       try {
         const { startDate, endDate } = dateRange
@@ -1223,7 +1418,7 @@ const Incasari = () => {
       }
     }
     fetchPosData()
-
+    
     return () => {
       abortController.abort()
     }
@@ -1234,7 +1429,7 @@ const Incasari = () => {
   //  - dacă este mai mare (ex: Anul curent) → agregăm pe LUNI (anul selectat vs anul anterior)
   useEffect(() => {
     const abortController = new AbortController()
-
+    
     const fetchComparisonData = async () => {
       try {
         const formatDateLocal = (date) => {
@@ -1379,7 +1574,7 @@ const Incasari = () => {
       }
     }
     fetchComparisonData()
-
+    
     return () => {
       abortController.abort()
     }
@@ -1394,7 +1589,7 @@ const Incasari = () => {
     if (value === null || value === undefined) return '0'
     const num = Number(value)
     if (Number.isNaN(num)) return '0'
-    return Math.round(num).toLocaleString('ro-RO', {
+    return Math.round(num).toLocaleString('ro-RO', { 
       maximumFractionDigits: 0,
       minimumFractionDigits: 0
     })
@@ -1447,22 +1642,23 @@ const Incasari = () => {
         node.level === 0
           ? 'font-bold'
           : node.level === 1
-            ? 'pl-4 font-semibold'
-            : node.level === 2
-              ? 'pl-8'
-              : 'pl-12'
+          ? 'pl-4 font-semibold'
+          : node.level === 2
+          ? 'pl-8'
+          : 'pl-12'
       const bgClass =
         node.level === 0
           ? 'bg-slate-100 dark:bg-slate-800'
           : node.level === 1
-            ? 'bg-slate-50 dark:bg-slate-900/40'
-            : ''
+          ? 'bg-slate-50 dark:bg-slate-900/40'
+          : ''
 
       allRows.push(
         <tr
           key={node.id}
-          className={`${bgClass} hover:bg-slate-100 dark:hover:bg-slate-700/40 transition-colors ${hasChildren ? 'cursor-pointer' : ''
-            }`}
+          className={`${bgClass} hover:bg-slate-100 dark:hover:bg-slate-700/40 transition-colors ${
+            hasChildren ? 'cursor-pointer' : ''
+          }`}
           onClick={() => hasChildren && toggleCentralizerNode(node.id)}
         >
           <td
@@ -1477,10 +1673,11 @@ const Incasari = () => {
           {locations.map((loc) => (
             <td
               key={loc}
-              className={`px-3 py-2 text-right text-sm ${node.level === 0 || node.level === 1
-                ? 'font-semibold text-emerald-600 dark:text-emerald-400'
-                : 'text-slate-700 dark:text-slate-300'
-                }`}
+              className={`px-3 py-2 text-right text-sm ${
+                node.level === 0 || node.level === 1
+                  ? 'font-semibold text-emerald-600 dark:text-emerald-400'
+                  : 'text-slate-700 dark:text-slate-300'
+              }`}
             >
               {formatNumber(node.data[loc] || 0)}
             </td>
@@ -1561,11 +1758,11 @@ const Incasari = () => {
         toast.error('Nu există date de exportat')
         return
       }
-
+      
       const rows = [
         ['Data', 'IN', 'OUT', 'GGR', 'Sloturi']
       ]
-
+      
       chartData.forEach((row) => {
         rows.push([
           row.label || row.date,
@@ -1575,7 +1772,7 @@ const Incasari = () => {
           row.slotsCount || 0
         ])
       })
-
+      
       const ws = XLSX.utils.aoa_to_sheet(rows)
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Centralizator zilnic')
@@ -1612,14 +1809,14 @@ const Incasari = () => {
         const getValue = (location) => {
           const value = Number(monthData[location] || 0)
           const key = `slots_${slotsByMonthLocation.year}_${month}_${location}`
-
+          
           if (value !== null && value !== undefined && !isNaN(value)) {
             try {
               localStorage.setItem(key, value.toString())
-            } catch (e) { }
+            } catch (e) {}
             return value
           }
-
+          
           try {
             const saved = localStorage.getItem(key)
             if (saved !== null && saved !== undefined) {
@@ -1628,8 +1825,8 @@ const Incasari = () => {
                 return savedValue
               }
             }
-          } catch (e) { }
-
+          } catch (e) {}
+          
           return 0
         }
 
@@ -1652,7 +1849,7 @@ const Incasari = () => {
           const monthData = slotsByMonthLocation.monthData[month] || {}
           const key = `slots_${slotsByMonthLocation.year}_${month}_${location}`
           const value = Number(monthData[location] || 0)
-
+          
           if (value !== null && value !== undefined && !isNaN(value)) {
             locationTotal += value
           } else {
@@ -1664,7 +1861,7 @@ const Incasari = () => {
                   locationTotal += savedValue
                 }
               }
-            } catch (e) { }
+            } catch (e) {}
           }
         })
         totalRow.push(locationTotal)
@@ -1690,11 +1887,11 @@ const Incasari = () => {
         toast.error('Nu există date de exportat')
         return
       }
-
+      
       const rows = [
         ['Locație', 'IN', 'BET', 'GGR', 'Marketing', 'Bonus cost (%)', 'Win/Bet %', 'Cheltuieli', 'P&L', 'Profit %']
       ]
-
+      
       plByLocation.forEach((row) => {
         rows.push([
           row.locationName || '',
@@ -1709,7 +1906,7 @@ const Incasari = () => {
           row.profitPercent || 0
         ])
       })
-
+      
       // Adaugă rândul cu totaluri
       rows.push([
         'TOTAL',
@@ -1723,7 +1920,7 @@ const Incasari = () => {
         plTotals.pl || 0,
         '' // Nu calculăm profit % pentru total
       ])
-
+      
       const ws = XLSX.utils.aoa_to_sheet(rows)
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'P&L pe locații')
@@ -1747,7 +1944,7 @@ const Incasari = () => {
     // Folosește întotdeauna datele curente pentru a asigura consistența
     // Nu folosim cache aici pentru a evita inconsistențele
     const statsToUse = dailyStats || []
-
+    
     if (statsToUse.length === 0) return []
 
     // Verifică dacă este luna curentă și dacă avem date din overview
@@ -1775,11 +1972,11 @@ const Incasari = () => {
       overview.lastMonth.ggr || overview.lastMonth.profit || overview.lastMonth.in
     )
 
-    let baseData
+      let baseData
 
-    // Dacă este selectată o singură lună → păstrăm datele ZILNICE (fără sloturi)
-    if (isSingleMonthRange) {
-      baseData = statsToUse.map((d) => {
+      // Dacă este selectată o singură lună → păstrăm datele ZILNICE (fără sloturi)
+      if (isSingleMonthRange) {
+        baseData = statsToUse.map((d) => {
         return {
           date: d.date,
           label: formatDateLabel(d.date),
@@ -1789,13 +1986,13 @@ const Incasari = () => {
           slotsCount: 0 // Nu afișăm sloturi pentru o singură lună
         }
       })
-
+      
       // Pentru luna curentă SAU luna trecută, ajustăm datele pentru a se potrivi cu totalul din overview
       if ((isCurrentMonth && hasCurrentMonthData) || (isLastMonth && hasLastMonthData)) {
         const overviewData = isCurrentMonth ? overview.currentMonth : overview.lastMonth
         const overviewGgr = Number(overviewData.ggr || overviewData.profit || 0)
         const statsGgr = baseData.reduce((sum, d) => sum + (d.totalGgr || 0), 0)
-
+        
         // Dacă există diferență, ajustăm proporțional datele zilnice
         if (statsGgr > 0 && Math.abs(overviewGgr - statsGgr) > 0.01) {
           const ratio = overviewGgr / statsGgr
@@ -1854,18 +2051,18 @@ const Incasari = () => {
         .map((bucket) => {
           // Folosim numărul maxim de sloturi distincte din luna respectivă
           // (nu medie, ci numărul real de sloturi distincte care au avut activitate)
-          const maxSlots = bucket.slotsCountSum > 0
+          const maxSlots = bucket.slotsCountSum > 0 
             ? Math.max(...statsToUse
-              .filter(d => {
-                const dDate = new Date(d.date)
-                return dDate.getFullYear() === bucket.dateObj.getFullYear() &&
-                  dDate.getMonth() === bucket.dateObj.getMonth()
-              })
-              .map(d => Number(d.slots_count || d.slotsCount || 0))
-              .filter(v => v > 0)
-            ) || 0
+                .filter(d => {
+                  const dDate = new Date(d.date)
+                  return dDate.getFullYear() === bucket.dateObj.getFullYear() &&
+                         dDate.getMonth() === bucket.dateObj.getMonth()
+                })
+                .map(d => Number(d.slots_count || d.slotsCount || 0))
+                .filter(v => v > 0)
+              ) || 0
             : 0
-
+          
           return {
             date: bucket.dateObj.toISOString().split('T')[0],
             // Label simplu cu luna; sloturile sunt afișate ca linie separată
@@ -1980,7 +2177,7 @@ const Incasari = () => {
       const month = start.getMonth()
       const daysInMonth = new Date(year, month + 1, 0).getDate()
       const result = []
-
+      
       // Determină ultima zi operațională (08:00–08:00) pentru a exclude zilele viitoare din grafic
       const now = new Date()
       const isCurrentMonth = year === now.getFullYear() && month === now.getMonth()
@@ -1995,40 +2192,40 @@ const Incasari = () => {
         todayOperational = new Date(year, month + 1, 0)
         todayOperational.setHours(23, 59, 59, 999)
       }
-
+      
       // Creăm map-uri pentru acces rapid la date
       const currentDataMap = new Map()
       const lastDataMap = new Map()
-
+      
       currentMonthData.forEach(row => {
         const d = new Date(row.date)
         if (!Number.isNaN(d.getTime())) {
           currentDataMap.set(d.getDate(), row)
         }
       })
-
+      
       lastMonthSameDaysData.forEach(row => {
         const d = new Date(row.date)
         if (!Number.isNaN(d.getTime())) {
           lastDataMap.set(d.getDate(), row)
         }
       })
-
+      
       // Generăm date pentru TOATE zilele lunii (1-30/31)
       // Pentru zilele viitoare, folosim datele de pe ACELEAȘI ZILE din luna trecută (nu medie!)
       for (let day = 1; day <= daysInMonth; day++) {
         const currentDate = new Date(year, month, day)
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-
+        
         // Pentru zilele viitoare (luna curentă), folosim datele de pe aceeași zi din luna trecută
         const isFutureDay = isCurrentMonth && currentDate > todayOperational
-
+        
         const current = isFutureDay ? {} : (currentDataMap.get(day) || {})
         const last = lastDataMap.get(day) || {}
-
+        
         // Pentru zilele viitoare, folosim datele de pe aceeași zi din luna trecută (identic pe zile!)
         const estimatedCurrentIn = isFutureDay ? Number(last.total_in || last.totalIn || 0) : 0
-
+        
         result.push({
           day,
           label: String(day),
@@ -2142,7 +2339,7 @@ const Incasari = () => {
   const locationPieData = useMemo(() => {
     // Folosește întotdeauna datele curente pentru a asigura consistența
     const dataToUse = avgInByLocation || []
-
+    
     if (dataToUse.length === 0) return []
     // Sortează după GGR (totalProfit) în loc de averageIn
     const sorted = [...dataToUse].sort((a, b) => (b.totalProfit || 0) - (a.totalProfit || 0))
@@ -2169,23 +2366,23 @@ const Incasari = () => {
   const plByLocation = useMemo(() => {
     // Folosește întotdeauna datele curente pentru a asigura consistența
     const dataToUse = avgInByLocation || []
-
+    
     if (dataToUse.length === 0) return []
 
     // Creează map pentru datele din luna anterioară (pentru Dinamica Bonus Cost)
     const prevMonthMap = new Map()
-      ; (prevMonthByLocation || []).forEach((row) => {
-        const locName = row.locationName || 'Nespecificat'
-        const bet = Number(row.totalBet || row.total_bet || 0)
-        const marketing =
-          Number(row.totalJackpot || row.total_jackpot || 0) +
-          Number(row.totalHh || row.total_hh || 0) +
-          Number(row.totalCbReal || row.total_cb_real || 0) +
-          Number(row.totalCbBirthday || row.total_cb_birthday || 0) +
-          Number(row.totalCbRaffle || row.total_cb_raffle || 0)
-        const bonusCost = bet > 0 ? (marketing / bet) * 100 : 0
-        prevMonthMap.set(locName, bonusCost)
-      })
+    ;(prevMonthByLocation || []).forEach((row) => {
+      const locName = row.locationName || 'Nespecificat'
+      const bet = Number(row.totalBet || row.total_bet || 0)
+      const marketing =
+        Number(row.totalJackpot || row.total_jackpot || 0) +
+        Number(row.totalHh || row.total_hh || 0) +
+        Number(row.totalCbReal || row.total_cb_real || 0) +
+        Number(row.totalCbBirthday || row.total_cb_birthday || 0) +
+        Number(row.totalCbRaffle || row.total_cb_raffle || 0)
+      const bonusCost = bet > 0 ? (marketing / bet) * 100 : 0
+      prevMonthMap.set(locName, bonusCost)
+    })
 
     // Verifică dacă este luna curentă sau luna trecută și dacă avem date din overview
     const currentDate = new Date()
@@ -2235,15 +2432,15 @@ const Incasari = () => {
       const bonusCost = bet > 0 ? (marketing / bet) * 100 : 0
       const winBetPercent = bet > 0 ? (win / bet) * 100 : 0
       const profitPercent = totalIn > 0 ? (pl / totalIn) * 100 : 0
-
+      
       // Dinamica Bonus Cost - comparație cu luna anterioară
       const prevBonusCost = prevMonthMap.get(locationName) || 0
       const bonusCostDynamics = prevBonusCost > 0 ? bonusCost - prevBonusCost : null
-
+      
       const hh = Number(row.totalHh || row.total_hh || 0)
       const cashback = Number(row.totalCbReal || row.total_cb_real || 0)
       const tombola = Number(row.totalCbRaffle || row.total_cb_raffle || 0)
-
+      
       return {
         locationName,
         totalIn,
@@ -2263,28 +2460,28 @@ const Incasari = () => {
         profitPercent
       }
     })
-
+    
     // Pentru luna curentă, ajustăm datele pentru a se potrivi cu totalul din overview.currentMonth
     if (isCurrentMonth && hasCurrentMonthData) {
       const overviewGgr = Number(overview.currentMonth.ggr || overview.currentMonth.profit || 0)
       const overviewIn = Number(overview.currentMonth.in || 0)
       const overviewBet = Number(overview.currentMonth.bet || 0)
-
+      
       const statsGgr = plData.reduce((sum, d) => sum + (d.ggr || 0), 0)
       const statsIn = plData.reduce((sum, d) => sum + (d.totalIn || 0), 0)
       const statsBet = plData.reduce((sum, d) => sum + (d.bet || 0), 0)
-
+      
       // Dacă există diferență, ajustăm proporțional datele pe locații
       if (statsGgr > 0 && Math.abs(overviewGgr - statsGgr) > 0.01) {
         const ggrRatio = overviewGgr / statsGgr
         const inRatio = statsIn > 0 && overviewIn > 0 ? overviewIn / statsIn : ggrRatio
         const betRatio = statsBet > 0 && overviewBet > 0 ? overviewBet / statsBet : ggrRatio
-
+        
         // Calculăm și winRatio pentru a păstra Win/Bet corect
         const statsWin = plData.reduce((sum, d) => sum + (d.win || 0), 0)
         const overviewWin = Number(overview.currentMonth.win || 0)
         const winRatio = statsWin > 0 && overviewWin > 0 ? overviewWin / statsWin : betRatio
-
+        
         plData = plData.map((d) => {
           const adjustedGgr = d.ggr * ggrRatio
           const adjustedIn = d.totalIn * inRatio
@@ -2313,13 +2510,13 @@ const Incasari = () => {
         })
       }
     }
-
+    
     // Pentru luna trecută, verificăm dacă datele se potrivesc cu overview
     if (isLastMonth && hasLastMonthData) {
       const overviewGgr = Number(overview.lastMonth.ggr || overview.lastMonth.profit || 0)
       const statsGgr = plData.reduce((sum, d) => sum + (d.ggr || 0), 0)
       const diff = Math.abs(overviewGgr - statsGgr)
-
+      
       // Dacă diferența este mai mare de 0.01, logăm pentru debugging
       if (diff > 0.01) {
         console.log('🔍 Verificare consistență Luna trecută:', {
@@ -2382,7 +2579,7 @@ const Incasari = () => {
     totals.bonusCost = totals.bet > 0 ? (totals.marketing / totals.bet) * 100 : 0
     // Calculează Win/Bet % din sumele totale
     totals.winBetPercent = totals.bet > 0 ? (totals.win / totals.bet) * 100 : 0
-
+    
     // Calculează bonus cost total pentru luna anterioară
     const prevTotals = (prevMonthByLocation || []).reduce((acc, row) => {
       acc.bet += Number(row.totalBet || row.total_bet || 0)
@@ -2393,7 +2590,7 @@ const Incasari = () => {
         Number(row.totalCbRaffle || row.total_cb_raffle || 0)
       return acc
     }, { bet: 0, marketing: 0 })
-
+    
     const prevBonusCost = prevTotals.bet > 0 ? (prevTotals.marketing / prevTotals.bet) * 100 : 0
     totals.bonusCostDynamics = prevBonusCost > 0 ? totals.bonusCost - prevBonusCost : null
 
@@ -2403,7 +2600,7 @@ const Incasari = () => {
   // Filtrare locationDailyData după searchText
   const filteredLocationDailyData = useMemo(() => {
     if (!searchText || !searchText.trim()) return locationDailyData
-
+    
     const searchLower = searchText.toLowerCase().trim()
     return locationDailyData.filter(item => {
       const loc = (item.location_name || item.location || '').toLowerCase()
@@ -2545,23 +2742,23 @@ const Incasari = () => {
   const cabinetPieData = useMemo(() => {
     // Folosește întotdeauna datele curente pentru a asigura consistența
     const dataToUse = avgInByCabinet || []
-
+    
     if (dataToUse.length === 0) return []
-
+    
     // Calculează numărul de zile din perioada selectată
     const start = new Date(dateRange.startDate)
     const end = new Date(dateRange.endDate)
     const diffTime = Math.abs(end - start)
     const daysCount = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
-
+    
     // Calculează averageDrop pentru fiecare cabinet (totalIn / zile / slotsCount) - FORMULA CORECTĂ!
     const withAverageDrop = dataToUse.map(item => ({
       ...item,
-      averageDrop: (item.slotsCount && item.slotsCount > 0 && daysCount > 0)
-        ? (item.totalIn || 0) / daysCount / item.slotsCount
+      averageDrop: (item.slotsCount && item.slotsCount > 0 && daysCount > 0) 
+        ? (item.totalIn || 0) / daysCount / item.slotsCount 
         : 0
     }))
-
+    
     // Sortează după Average Drop în loc de averageIn
     const sorted = [...withAverageDrop].sort((a, b) => (b.averageDrop || 0) - (a.averageDrop || 0))
     if (sorted.length <= MAX_PIE_SEGMENTS) return sorted
@@ -2586,93 +2783,93 @@ const Incasari = () => {
   const calculateOverviewDynamics = useMemo(() => {
     const dynamics = {}
     const bonusCostDynamics = {}
-
+    
     const calcBonusCost = (data) => {
       if (!data) return 0
       const bet = Number(data.bet || 0)
       const marketing = Number(data.marketing || 0)
       return bet > 0 ? (marketing / bet) * 100 : 0
     }
-
+    
     // Azi: compara cu Ieri
     if (overview.today && overview.yesterday) {
       const todayGgr = Number(overview.today.ggr || overview.today.profit || 0)
       const yesterdayGgr = Number(overview.yesterday.ggr || overview.yesterday.profit || 0)
       dynamics.today = yesterdayGgr > 0 ? ((todayGgr - yesterdayGgr) / yesterdayGgr) * 100 : 0
-
+      
       const todayBonusCost = calcBonusCost(overview.today)
       const yesterdayBonusCost = calcBonusCost(overview.yesterday)
       bonusCostDynamics.today = yesterdayBonusCost > 0 ? todayBonusCost - yesterdayBonusCost : null
     }
-
+    
     // Ieri: compara cu alaltăieri
     if (overview.yesterday && overview.dayBeforeYesterday) {
       const yesterdayGgr = Number(overview.yesterday.ggr || overview.yesterday.profit || 0)
       const dayBeforeYesterdayGgr = Number(overview.dayBeforeYesterday.ggr || overview.dayBeforeYesterday.profit || 0)
       dynamics.yesterday = dayBeforeYesterdayGgr > 0 ? ((yesterdayGgr - dayBeforeYesterdayGgr) / dayBeforeYesterdayGgr) * 100 : 0
-
+      
       const yesterdayBonusCost = calcBonusCost(overview.yesterday)
       const dayBeforeYesterdayBonusCost = calcBonusCost(overview.dayBeforeYesterday)
       bonusCostDynamics.yesterday = dayBeforeYesterdayBonusCost > 0 ? yesterdayBonusCost - dayBeforeYesterdayBonusCost : null
     }
-
+    
     // Luna curentă: compara cu aceleași zile din luna trecută
     if (overview.currentMonth && overview.sameDaysLastMonth) {
       const currentMonthGgr = Number(overview.currentMonth.ggr || overview.currentMonth.profit || 0)
       const sameDaysLastMonthGgr = Number(overview.sameDaysLastMonth.ggr || overview.sameDaysLastMonth.profit || 0)
       dynamics.currentMonth = sameDaysLastMonthGgr > 0 ? ((currentMonthGgr - sameDaysLastMonthGgr) / sameDaysLastMonthGgr) * 100 : 0
-
+      
       const currentMonthBonusCost = calcBonusCost(overview.currentMonth)
       const sameDaysLastMonthBonusCost = calcBonusCost(overview.sameDaysLastMonth)
       bonusCostDynamics.currentMonth = sameDaysLastMonthBonusCost > 0 ? currentMonthBonusCost - sameDaysLastMonthBonusCost : null
     }
-
+    
     // Luna trecută: compara cu luna precedentă
     if (overview.lastMonth && overview.previousMonth) {
       const lastMonthGgr = Number(overview.lastMonth.ggr || overview.lastMonth.profit || 0)
       const previousMonthGgr = Number(overview.previousMonth.ggr || overview.previousMonth.profit || 0)
       dynamics.lastMonth = previousMonthGgr > 0 ? ((lastMonthGgr - previousMonthGgr) / previousMonthGgr) * 100 : 0
-
+      
       const lastMonthBonusCost = calcBonusCost(overview.lastMonth)
       const previousMonthBonusCost = calcBonusCost(overview.previousMonth)
       bonusCostDynamics.lastMonth = previousMonthBonusCost > 0 ? lastMonthBonusCost - previousMonthBonusCost : null
     }
-
+    
     // Anul curent: compara cu aceeași perioadă din anul trecut
     if (overview.currentYear && overview.lastYear) {
       const currentYearGgr = Number(overview.currentYear.ggr || overview.currentYear.profit || 0)
       const lastYearGgr = Number(overview.lastYear.ggr || overview.lastYear.profit || 0)
       dynamics.currentYear = lastYearGgr > 0 ? ((currentYearGgr - lastYearGgr) / lastYearGgr) * 100 : 0
-
+      
       const currentYearBonusCost = calcBonusCost(overview.currentYear)
       const lastYearBonusCost = calcBonusCost(overview.lastYear)
       bonusCostDynamics.currentYear = lastYearBonusCost > 0 ? currentYearBonusCost - lastYearBonusCost : null
     }
-
+    
     return { ggr: dynamics, bonusCost: bonusCostDynamics }
   }, [overview])
 
   // Calculează slotsCount pentru luna curentă din slotsByMonthLocation
   const getCurrentMonthSlotsCount = () => {
     if (!slotsByMonthLocation || !slotsByMonthLocation.monthData) return null
-
+    
     const now = new Date()
     const currentYear = now.getFullYear()
     const currentMonth = now.getMonth() + 1
-
+    
     if (slotsByMonthLocation.year === currentYear && slotsByMonthLocation.monthData[currentMonth]) {
       const monthData = slotsByMonthLocation.monthData[currentMonth]
       const getValue = (location) => {
         const value = Number(monthData[location] || 0)
         const key = `slots_${slotsByMonthLocation.year}_${currentMonth}_${location}`
-
+        
         if (value !== null && value !== undefined && !isNaN(value)) {
           try {
             localStorage.setItem(key, value.toString())
-          } catch (e) { }
+          } catch (e) {}
           return value
         }
-
+        
         try {
           const saved = localStorage.getItem(key)
           if (saved !== null && saved !== undefined) {
@@ -2681,11 +2878,11 @@ const Incasari = () => {
               return savedValue
             }
           }
-        } catch (e) { }
-
+        } catch (e) {}
+        
         return 0
       }
-
+      
       return slotsByMonthLocation.locations.reduce((sum, location) => {
         return sum + getValue(location)
       }, 0)
@@ -2696,25 +2893,25 @@ const Incasari = () => {
   // Calculează slotsCount pentru luna trecută din slotsByMonthLocation
   const getLastMonthSlotsCount = () => {
     if (!slotsByMonthLocation || !slotsByMonthLocation.monthData) return null
-
+    
     const now = new Date()
     const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
     const lastYear = lastMonthDate.getFullYear()
     const lastMonth = lastMonthDate.getMonth() + 1
-
+    
     if (slotsByMonthLocation.year === lastYear && slotsByMonthLocation.monthData[lastMonth]) {
       const monthData = slotsByMonthLocation.monthData[lastMonth]
       const getValue = (location) => {
         const value = Number(monthData[location] || 0)
         const key = `slots_${slotsByMonthLocation.year}_${lastMonth}_${location}`
-
+        
         if (value !== null && value !== undefined && !isNaN(value)) {
           try {
             localStorage.setItem(key, value.toString())
-          } catch (e) { }
+          } catch (e) {}
           return value
         }
-
+        
         try {
           const saved = localStorage.getItem(key)
           if (saved !== null && saved !== undefined) {
@@ -2723,11 +2920,11 @@ const Incasari = () => {
               return savedValue
             }
           }
-        } catch (e) { }
-
+        } catch (e) {}
+        
         return 0
       }
-
+      
       return slotsByMonthLocation.locations.reduce((sum, location) => {
         return sum + getValue(location)
       }, 0)
@@ -2740,7 +2937,7 @@ const Incasari = () => {
     const today = new Date()
     const currentYear = today.getFullYear()
     const currentMonth = today.getMonth() + 1
-
+    
     // Dacă avem date în slotsByMonthLocation pentru luna curentă, folosim-le
     // (pentru că sloturile sunt aceleași pe toată luna)
     if (slotsByMonthLocation && slotsByMonthLocation.year === currentYear && slotsByMonthLocation.monthData && slotsByMonthLocation.monthData[currentMonth]) {
@@ -2750,7 +2947,7 @@ const Incasari = () => {
         return sum + (isNaN(value) ? 0 : value)
       }, 0)
     }
-
+    
     // Fallback la datele din overview
     return null
   }
@@ -2761,7 +2958,7 @@ const Incasari = () => {
     yesterday.setDate(yesterday.getDate() - 1)
     const yesterdayYear = yesterday.getFullYear()
     const yesterdayMonth = yesterday.getMonth() + 1
-
+    
     // Dacă avem date în slotsByMonthLocation pentru luna ieri, folosim-le
     if (slotsByMonthLocation && slotsByMonthLocation.year === yesterdayYear && slotsByMonthLocation.monthData && slotsByMonthLocation.monthData[yesterdayMonth]) {
       const monthData = slotsByMonthLocation.monthData[yesterdayMonth]
@@ -2770,7 +2967,7 @@ const Incasari = () => {
         return sum + (isNaN(value) ? 0 : value)
       }, 0)
     }
-
+    
     // Fallback la datele din overview
     return null
   }
@@ -2781,47 +2978,47 @@ const Incasari = () => {
   const yesterdaySlotsCount = getYesterdaySlotsCount()
 
   const overviewRowConfigs = [
-    {
-      label: 'Azi',
+    { 
+      label: 'Azi', 
       data: {
         ...overview.today,
         slotsCount: todaySlotsCount !== null ? todaySlotsCount : (overview.today?.slotsCount || overview.today?.slots || 0)
-      },
-      dynamics: calculateOverviewDynamics.ggr.today,
-      bonusCostDynamics: calculateOverviewDynamics.bonusCost.today
+      }, 
+      dynamics: calculateOverviewDynamics.ggr.today, 
+      bonusCostDynamics: calculateOverviewDynamics.bonusCost.today 
     },
-    {
-      label: 'Ieri',
+    { 
+      label: 'Ieri', 
       data: {
         ...overview.yesterday,
         slotsCount: yesterdaySlotsCount !== null ? yesterdaySlotsCount : (overview.yesterday?.slotsCount || overview.yesterday?.slots || 0)
-      },
-      dynamics: calculateOverviewDynamics.ggr.yesterday,
-      bonusCostDynamics: calculateOverviewDynamics.bonusCost.yesterday
+      }, 
+      dynamics: calculateOverviewDynamics.ggr.yesterday, 
+      bonusCostDynamics: calculateOverviewDynamics.bonusCost.yesterday 
     },
-    {
-      label: 'Luna curentă',
+    { 
+      label: 'Luna curentă', 
       data: {
         ...overview.currentMonth,
         slotsCount: currentMonthSlotsCount !== null ? currentMonthSlotsCount : (overview.currentMonth?.slotsCount || overview.currentMonth?.slots || 0)
-      },
-      dynamics: calculateOverviewDynamics.ggr.currentMonth,
-      bonusCostDynamics: calculateOverviewDynamics.bonusCost.currentMonth
+      }, 
+      dynamics: calculateOverviewDynamics.ggr.currentMonth, 
+      bonusCostDynamics: calculateOverviewDynamics.bonusCost.currentMonth 
     },
-    {
-      label: 'Luna trecută',
+    { 
+      label: 'Luna trecută', 
       data: {
         ...overview.lastMonth,
         slotsCount: lastMonthSlotsCount !== null ? lastMonthSlotsCount : (overview.lastMonth?.slotsCount || overview.lastMonth?.slots || 0)
-      },
-      dynamics: calculateOverviewDynamics.ggr.lastMonth,
-      bonusCostDynamics: calculateOverviewDynamics.bonusCost.lastMonth
+      }, 
+      dynamics: calculateOverviewDynamics.ggr.lastMonth, 
+      bonusCostDynamics: calculateOverviewDynamics.bonusCost.lastMonth 
     },
-    {
-      label: 'Anul curent',
-      data: overview.currentYear,
-      dynamics: calculateOverviewDynamics.ggr.currentYear,
-      bonusCostDynamics: calculateOverviewDynamics.bonusCost.currentYear
+    { 
+      label: 'Anul curent', 
+      data: overview.currentYear, 
+      dynamics: calculateOverviewDynamics.ggr.currentYear, 
+      bonusCostDynamics: calculateOverviewDynamics.bonusCost.currentYear 
     }
   ]
 
@@ -2835,7 +3032,7 @@ const Incasari = () => {
               Încasări
             </h1>
           </div>
-
+          
           {/* Meniu Hamburger */}
           <div className="relative ml-auto">
             <button
@@ -2850,11 +3047,11 @@ const Incasari = () => {
             {showMenu && (
               <>
                 {/* Backdrop */}
-                <div
-                  className="fixed inset-0 z-40"
+                <div 
+                  className="fixed inset-0 z-40" 
                   onClick={() => setShowMenu(false)}
                 />
-
+                
                 {/* Menu List */}
                 <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-800 rounded-xl border-2 border-slate-200 dark:border-slate-700 shadow-xl z-50 py-2">
                   <button
@@ -3078,7 +3275,7 @@ const Incasari = () => {
               </div>
             </div>
           </div>
-
+          
           {/* Rând 2: Date Picker Clasic și Comod */}
           <div className="mb-4">
             {/* Input-uri de date + Butoane Rapide - Pe același rând */}
@@ -3101,7 +3298,7 @@ const Incasari = () => {
                     style={{ minWidth: '160px' }}
                   />
                 </div>
-
+                
                 <div className="flex items-center gap-2">
                   <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
                     Până la:
@@ -3121,35 +3318,36 @@ const Incasari = () => {
 
               {/* Butoane Rapide cu Iconițe și Text - Distribuite uniform */}
               <div className="flex items-center gap-2 flex-1 justify-between min-w-0">
-                {[
-                  { id: 'azi', label: 'Azi', icon: Clock },
-                  { id: 'saptamana-curenta', label: 'Săpt', icon: CalendarDays },
-                  { id: 'luna-curenta', label: 'Luna curentă', icon: Calendar },
-                  { id: 'luna-anterioara', label: 'Luna trecută', icon: CalendarRange },
-                  { id: 'anul-curent', label: 'Anul curent', icon: Calendar },
-                  { id: 'anul-trecut', label: 'Anul trecut', icon: Calendar },
-                  { id: 'toate', label: 'Toate', icon: Calendar }
-                ].map((btn) => {
-                  const IconComponent = btn.icon
-                  const isActive = selectedDateFilter === btn.id
-                  return (
-                    <button
-                      key={btn.id}
-                      onClick={() => applyQuickDateFilter(btn.id)}
-                      className={`relative flex-1 min-w-0 inline-flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-lg transition-all hover:scale-105 active:scale-95 text-xs sm:text-sm font-medium ${isActive
+              {[
+                { id: 'azi', label: 'Azi', icon: Clock },
+                { id: 'saptamana-curenta', label: 'Săpt', icon: CalendarDays },
+                { id: 'luna-curenta', label: 'Luna curentă', icon: Calendar },
+                { id: 'luna-anterioara', label: 'Luna trecută', icon: CalendarRange },
+                { id: 'anul-curent', label: 'Anul curent', icon: Calendar },
+                { id: 'anul-trecut', label: 'Anul trecut', icon: Calendar },
+                { id: 'toate', label: 'Toate', icon: Calendar }
+              ].map((btn) => {
+                const IconComponent = btn.icon
+                const isActive = selectedDateFilter === btn.id
+                return (
+                  <button
+                    key={btn.id}
+                    onClick={() => applyQuickDateFilter(btn.id)}
+                    className={`relative flex-1 min-w-0 inline-flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-lg transition-all hover:scale-105 active:scale-95 text-xs sm:text-sm font-medium ${
+                      isActive
                         ? 'bg-emerald-500 text-white shadow-md'
                         : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
-                        }`}
-                      title={btn.label}
-                    >
-                      <IconComponent className="w-4 h-4 flex-shrink-0" />
-                      <span className="hidden sm:inline truncate">{btn.label}</span>
-                    </button>
-                  )
-                })}
-              </div>
+                    }`}
+                    title={btn.label}
+                  >
+                    <IconComponent className="w-4 h-4 flex-shrink-0" />
+                    <span className="hidden sm:inline truncate">{btn.label}</span>
+                  </button>
+                )
+              })}
             </div>
           </div>
+        </div>
         </div>
 
         {/* Carduri KPI principale - mutate aici, imediat după filtre */}
@@ -3161,13 +3359,13 @@ const Incasari = () => {
           const currentMonthStartStr = `${currentMonthStart.getFullYear()}-${String(currentMonthStart.getMonth() + 1).padStart(2, '0')}-${String(currentMonthStart.getDate()).padStart(2, '0')}`
           const currentMonthEndStr = `${currentMonthEnd.getFullYear()}-${String(currentMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(currentMonthEnd.getDate()).padStart(2, '0')}`
           const isCurrentMonth = dateRange.startDate === currentMonthStartStr && dateRange.endDate === currentMonthEndStr
-
+          
           // Folosește datele din overview.currentMonth dacă este luna curentă, altfel folosește summary
           // IMPORTANT: Verifică dacă overview.currentMonth există și are date, altfel folosește summary
           const hasCurrentMonthData = overview?.currentMonth && (
-            overview.currentMonth.in ||
-            overview.currentMonth.bet ||
-            overview.currentMonth.ggr ||
+            overview.currentMonth.in || 
+            overview.currentMonth.bet || 
+            overview.currentMonth.ggr || 
             overview.currentMonth.profit ||
             overview.currentMonth.slots
           )
@@ -3176,7 +3374,7 @@ const Incasari = () => {
           const end = new Date(dateRange.endDate)
           const diffTime = Math.abs(end - start)
           const daysCountInRange = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
-
+          
           // Calculează numărul de sloturi distincte
           // Dacă perioada selectată este o lună completă, folosește datele din slotsByMonthLocation
           const startYear = start.getFullYear()
@@ -3186,9 +3384,9 @@ const Incasari = () => {
           const isStartOfMonth = start.getDate() === 1
           const isEndOfMonth = end.getDate() === new Date(endYear, endMonth, 0).getDate()
           const isFullMonth = isStartOfMonth && isEndOfMonth && startYear === endYear && startMonth === endMonth
-
+          
           let calculatedSlotsCount = 0
-
+          
           // Dacă este o lună completă și avem date în slotsByMonthLocation pentru acel an și lună, folosește-le
           if (isFullMonth && slotsByMonthLocation && slotsByMonthLocation.year === startYear && slotsByMonthLocation.monthData && slotsByMonthLocation.monthData[startMonth]) {
             const monthData = slotsByMonthLocation.monthData[startMonth]
@@ -3196,14 +3394,14 @@ const Incasari = () => {
             const getValue = (location) => {
               const value = Number(monthData[location] || 0)
               const key = `slots_${slotsByMonthLocation.year}_${startMonth}_${location}`
-
+              
               if (value !== null && value !== undefined && !isNaN(value)) {
                 try {
                   localStorage.setItem(key, value.toString())
-                } catch (e) { }
+                } catch (e) {}
                 return value
               }
-
+              
               try {
                 const saved = localStorage.getItem(key)
                 if (saved !== null && saved !== undefined) {
@@ -3212,11 +3410,11 @@ const Incasari = () => {
                     return savedValue
                   }
                 }
-              } catch (e) { }
-
+              } catch (e) {}
+              
               return 0
             }
-
+            
             // Suma tuturor sloturilor pentru toate locațiile din această lună (la fel ca în tabel)
             calculatedSlotsCount = slotsByMonthLocation.locations.reduce((sum, location) => {
               return sum + getValue(location)
@@ -3231,15 +3429,15 @@ const Incasari = () => {
             })
             calculatedSlotsCount = slotsSet.size || summary.slotsCount || 0
           }
-
+          
           // Calculează averageDrop corect: sum of IN / count of slots / count of days
-          const totalInForPeriod = isCurrentMonth && hasCurrentMonthData
+          const totalInForPeriod = isCurrentMonth && hasCurrentMonthData 
             ? (overview.currentMonth.in || 0)
             : (summary.totalIn || 0)
           const calculatedAverageDrop = calculatedSlotsCount > 0 && daysCountInRange > 0
             ? totalInForPeriod / calculatedSlotsCount / daysCountInRange
             : 0
-
+          
           const displayData = isCurrentMonth && hasCurrentMonthData ? {
             totalIn: overview.currentMonth.in || 0,
             totalBet: overview.currentMonth.bet || 0,
@@ -3256,7 +3454,7 @@ const Incasari = () => {
             daysCount: daysCountInRange,
             averageDrop: calculatedAverageDrop
           }
-
+          
           return (
             <div className="grid grid-cols-1 md:grid-cols-9 gap-4 mb-6">
               <div className="bg-white/30 dark:bg-slate-800/30 backdrop-blur-3xl border border-white/70 dark:border-slate-600/60 rounded-xl p-4 shadow-2xl shadow-black/20 dark:shadow-black/40 relative overflow-hidden">
@@ -3349,7 +3547,7 @@ const Incasari = () => {
                   </div>
                 </div>
               </div>
-              <div className="bg-white/40 dark:bg-slate-800/40 backdrop-blur-2xl border border-white/60 dark:border-slate-600/50 rounded-xl p-4 shadow-xl shadow-black/10 dark:shadow-black/30 relative overflow-hidden">
+          <div className="bg-white/40 dark:bg-slate-800/40 backdrop-blur-2xl border border-white/60 dark:border-slate-600/50 rounded-xl p-4 shadow-xl shadow-black/10 dark:shadow-black/30 relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-white/10 dark:from-white/5 dark:via-transparent dark:to-white/5 rounded-xl"></div>
                 <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/30 to-transparent dark:from-white/10 dark:to-transparent rounded-t-xl"></div>
                 <div className="relative z-10 flex flex-col h-full">
@@ -3360,8 +3558,9 @@ const Incasari = () => {
                   <div className="flex-1 flex flex-col justify-center">
                     <div className="mt-2 flex items-center justify-center gap-2">
                       <p
-                        className={`text-2xl font-bold drop-shadow-sm ${dynamics.inChange >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
-                          }`}
+                        className={`text-2xl font-bold drop-shadow-sm ${
+                          dynamics.inChange >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+                        }`}
                       >
                         {dynamics.inChange >= 0 ? '+' : ''}
                         {Math.round(dynamics.inChange).toLocaleString('ro-RO', {
@@ -3371,10 +3570,11 @@ const Incasari = () => {
                         %
                       </p>
                       <div
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center ${dynamics.inChange >= 0
-                          ? 'bg-emerald-500/20 dark:bg-emerald-500/30 text-emerald-500 dark:text-emerald-400'
-                          : 'bg-red-500/20 dark:bg-red-500/30 text-red-500 dark:text-red-400'
-                          }`}
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                          dynamics.inChange >= 0
+                            ? 'bg-emerald-500/20 dark:bg-emerald-500/30 text-emerald-500 dark:text-emerald-400'
+                            : 'bg-red-500/20 dark:bg-red-500/30 text-red-500 dark:text-red-400'
+                        }`}
                       >
                         {dynamics.inChange >= 0 ? (
                           <TrendingUp className="w-5 h-5" />
@@ -3400,8 +3600,9 @@ const Incasari = () => {
                   <div className="flex-1 flex flex-col justify-center">
                     <div className="mt-2 flex items-center justify-center gap-2">
                       <p
-                        className={`text-2xl font-bold drop-shadow-sm ${dynamics.profitChange >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
-                          }`}
+                        className={`text-2xl font-bold drop-shadow-sm ${
+                          dynamics.profitChange >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+                        }`}
                       >
                         {dynamics.profitChange >= 0 ? '+' : ''}
                         {Math.round(dynamics.profitChange).toLocaleString('ro-RO', {
@@ -3411,10 +3612,11 @@ const Incasari = () => {
                         %
                       </p>
                       <div
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center ${dynamics.profitChange >= 0
-                          ? 'bg-emerald-500/20 dark:bg-emerald-500/30 text-emerald-500 dark:text-emerald-400'
-                          : 'bg-red-500/20 dark:bg-red-500/30 text-red-500 dark:text-red-400'
-                          }`}
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                          dynamics.profitChange >= 0
+                            ? 'bg-emerald-500/20 dark:bg-emerald-500/30 text-emerald-500 dark:text-emerald-400'
+                            : 'bg-red-500/20 dark:bg-red-500/30 text-red-500 dark:text-red-400'
+                        }`}
                       >
                         {dynamics.profitChange >= 0 ? (
                           <TrendingUp className="w-5 h-5" />
@@ -3441,9 +3643,9 @@ const Incasari = () => {
                     <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white drop-shadow-sm">
                       {displayData.winBetPercent
                         ? `${Number(displayData.winBetPercent).toLocaleString('ro-RO', {
-                          maximumFractionDigits: 2,
-                          minimumFractionDigits: 2
-                        })}%`
+                            maximumFractionDigits: 2,
+                            minimumFractionDigits: 2
+                          })}%`
                         : '0,00%'}
                     </p>
                   </div>
@@ -3554,15 +3756,15 @@ const Incasari = () => {
                     idx === overviewRowConfigs.length - 1
                       ? ''
                       : 'border-b border-slate-100 dark:border-slate-800'
-
+                  
                   // Calculează dinamica pentru GGR
                   const ggrDynamics = dynamics !== undefined && dynamics !== null ? dynamics : null
                   const isPositive = ggrDynamics !== null && ggrDynamics >= 0
-
+                  
                   // Calculează dinamica pentru Bonus Cost
                   const bonusDynamics = bonusCostDynamics !== undefined && bonusCostDynamics !== null ? bonusCostDynamics : null
                   const isBonusPositive = bonusDynamics !== null && bonusDynamics >= 0
-
+                  
                   return (
                     <tr key={label} className={rowClass}>
                       <td className="py-2 px-3 font-medium">{label}</td>
@@ -3620,8 +3822,8 @@ const Incasari = () => {
           </div>
         </div>
 
-        {/* Prezentare pe locații pentru perioada selectată */}
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg p-6">
+      {/* Prezentare pe locații pentru perioada selectată */}
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
@@ -3667,118 +3869,118 @@ const Incasari = () => {
                       // Găsește ID-ul locației pentru navigare
                       const location = locations.find(loc => loc.name === row.locationName)
                       const locationId = location?.id
-
+                      
                       return (
-                        <tr
-                          key={row.locationName}
-                          className="border-b border-slate-200 dark:border-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-800/40 transition-colors"
+                      <tr
+                        key={row.locationName}
+                        className="border-b border-slate-200 dark:border-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-800/40 transition-colors"
+                      >
+                      <td className="py-2 px-3 font-medium text-slate-900 dark:text-slate-100">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            // Navighează la pagina P&L separată pentru locație
+                            navigate(`/incasari/location-pl/${encodeURIComponent(row.locationName)}?dateRange=${dateRange.startDate}_${dateRange.endDate}`)
+                          }}
+                          className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-semibold hover:underline transition-colors text-left"
                         >
-                          <td className="py-2 px-3 font-medium text-slate-900 dark:text-slate-100">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                // Navighează la pagina P&L separată pentru locație
-                                navigate(`/incasari/location-pl/${encodeURIComponent(row.locationName)}?dateRange=${dateRange.startDate}_${dateRange.endDate}`)
-                              }}
-                              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-semibold hover:underline transition-colors text-left"
-                            >
-                              {row.locationName}
-                            </button>
-                          </td>
-                          <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                            {formatNumber(row.totalIn)} RON
-                          </td>
-                          <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                            {formatNumber(row.bet)} RON
-                          </td>
-                          <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                            {formatNumber(row.win)} RON
-                          </td>
-                          <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                            {formatNumber(row.ggr)} RON
-                          </td>
-                          <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                            {formatNumber(row.marketing)} RON
-                          </td>
-                          <td className="py-2 px-3 text-right">
-                            <div className="flex items-center justify-end gap-2 text-sm">
-                              <span className="text-slate-700 dark:text-slate-300">{formatPercent(row.bonusCost)}</span>
-                              {row.bonusCostDynamics !== null && (
-                                <span className="inline-flex items-center gap-1">
-                                  {row.bonusCostDynamics < 0 ? (
-                                    <TrendingDown className="w-3.5 h-3.5 text-emerald-500" />
-                                  ) : row.bonusCostDynamics > 0 ? (
-                                    <TrendingUp className="w-3.5 h-3.5 text-red-500" />
-                                  ) : null}
-                                  <span className={row.bonusCostDynamics < 0 ? 'text-emerald-500' : row.bonusCostDynamics > 0 ? 'text-red-500' : 'text-slate-400'}>
-                                    {row.bonusCostDynamics > 0 ? '+' : ''}{row.bonusCostDynamics.toFixed(2)}%
-                                  </span>
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                            {formatPercent(row.winBetPercent)}
-                          </td>
-                          <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                            {formatNumber(row.hh || 0)} RON
-                          </td>
-                          <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                            {formatNumber(row.cashback || 0)} RON
-                          </td>
-                          <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                            {formatNumber(row.tombola || 0)} RON
-                          </td>
-                        </tr>
-                      )
-                    })}
-                    {/* Rând cu totaluri */}
-                    <tr className="border-t-2 border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/60 font-semibold">
-                      <td className="py-3 px-3 text-slate-900 dark:text-slate-100">TOTAL</td>
-                      <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                        {formatNumber(plTotals.totalIn)} RON
+                          {row.locationName}
+                        </button>
                       </td>
-                      <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                        {formatNumber(plTotals.bet)} RON
+                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                        {formatNumber(row.totalIn)} RON
                       </td>
-                      <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                        {formatNumber(plTotals.win)} RON
+                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                        {formatNumber(row.bet)} RON
                       </td>
-                      <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                        {formatNumber(plTotals.ggr)} RON
+                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                        {formatNumber(row.win)} RON
                       </td>
-                      <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                        {formatNumber(plTotals.marketing)} RON
+                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                        {formatNumber(row.ggr)} RON
                       </td>
-                      <td className="py-3 px-3 text-right">
+                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                        {formatNumber(row.marketing)} RON
+                      </td>
+                      <td className="py-2 px-3 text-right">
                         <div className="flex items-center justify-end gap-2 text-sm">
-                          <span className="text-slate-900 dark:text-slate-100">{formatPercent(plTotals.bonusCost)}</span>
-                          {plTotals.bonusCostDynamics !== null && (
+                          <span className="text-slate-700 dark:text-slate-300">{formatPercent(row.bonusCost)}</span>
+                          {row.bonusCostDynamics !== null && (
                             <span className="inline-flex items-center gap-1">
-                              {plTotals.bonusCostDynamics < 0 ? (
+                              {row.bonusCostDynamics < 0 ? (
                                 <TrendingDown className="w-3.5 h-3.5 text-emerald-500" />
-                              ) : plTotals.bonusCostDynamics > 0 ? (
+                              ) : row.bonusCostDynamics > 0 ? (
                                 <TrendingUp className="w-3.5 h-3.5 text-red-500" />
                               ) : null}
-                              <span className={plTotals.bonusCostDynamics < 0 ? 'text-emerald-500' : plTotals.bonusCostDynamics > 0 ? 'text-red-500' : 'text-slate-400'}>
-                                {plTotals.bonusCostDynamics > 0 ? '+' : ''}{plTotals.bonusCostDynamics.toFixed(2)}%
+                              <span className={row.bonusCostDynamics < 0 ? 'text-emerald-500' : row.bonusCostDynamics > 0 ? 'text-red-500' : 'text-slate-400'}>
+                                {row.bonusCostDynamics > 0 ? '+' : ''}{row.bonusCostDynamics.toFixed(2)}%
                               </span>
                             </span>
                           )}
                         </div>
                       </td>
-                      <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                        {formatPercent(plTotals.winBetPercent)}
+                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                        {formatPercent(row.winBetPercent)}
                       </td>
-                      <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                        {formatNumber(plTotals.hh || 0)} RON
+                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                        {formatNumber(row.hh || 0)} RON
                       </td>
-                      <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                        {formatNumber(plTotals.cashback || 0)} RON
+                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                        {formatNumber(row.cashback || 0)} RON
                       </td>
-                      <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                        {formatNumber(plTotals.tombola || 0)} RON
+                      <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                        {formatNumber(row.tombola || 0)} RON
                       </td>
+                    </tr>
+                    )
+                    })}
+                  {/* Rând cu totaluri */}
+                  <tr className="border-t-2 border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/60 font-semibold">
+                    <td className="py-3 px-3 text-slate-900 dark:text-slate-100">TOTAL</td>
+                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
+                      {formatNumber(plTotals.totalIn)} RON
+                    </td>
+                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
+                      {formatNumber(plTotals.bet)} RON
+                    </td>
+                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
+                      {formatNumber(plTotals.win)} RON
+                    </td>
+                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
+                      {formatNumber(plTotals.ggr)} RON
+                    </td>
+                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
+                      {formatNumber(plTotals.marketing)} RON
+                    </td>
+                    <td className="py-3 px-3 text-right">
+                      <div className="flex items-center justify-end gap-2 text-sm">
+                        <span className="text-slate-900 dark:text-slate-100">{formatPercent(plTotals.bonusCost)}</span>
+                        {plTotals.bonusCostDynamics !== null && (
+                          <span className="inline-flex items-center gap-1">
+                            {plTotals.bonusCostDynamics < 0 ? (
+                              <TrendingDown className="w-3.5 h-3.5 text-emerald-500" />
+                            ) : plTotals.bonusCostDynamics > 0 ? (
+                              <TrendingUp className="w-3.5 h-3.5 text-red-500" />
+                            ) : null}
+                            <span className={plTotals.bonusCostDynamics < 0 ? 'text-emerald-500' : plTotals.bonusCostDynamics > 0 ? 'text-red-500' : 'text-slate-400'}>
+                              {plTotals.bonusCostDynamics > 0 ? '+' : ''}{plTotals.bonusCostDynamics.toFixed(2)}%
+                            </span>
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
+                      {formatPercent(plTotals.winBetPercent)}
+                    </td>
+                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
+                      {formatNumber(plTotals.hh || 0)} RON
+                    </td>
+                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
+                      {formatNumber(plTotals.cashback || 0)} RON
+                    </td>
+                    <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
+                      {formatNumber(plTotals.tombola || 0)} RON
+                    </td>
                     </tr>
                   </>
                 )}
@@ -3860,8 +4062,8 @@ const Incasari = () => {
                     {syncStatus.endTime
                       ? new Date(syncStatus.endTime).toLocaleString('ro-RO')
                       : syncStatus.running
-                        ? 'în curs...'
-                        : '-'}
+                      ? 'în curs...'
+                      : '-'}
                   </span>
                 </p>
               </div>
@@ -3913,125 +4115,124 @@ const Incasari = () => {
             ) : (
               <ResponsiveContainer width="100%" height={200}>
                 <ComposedChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
-                  <XAxis
-                    dataKey="label"
-                    stroke="#64748b"
-                    style={{ fontSize: '12px' }}
-                  />
-                  <YAxis
-                    yAxisId="left"
-                    stroke="#64748b"
-                    style={{ fontSize: '12px' }}
-                    tickFormatter={(value) => formatNumber(value)}
-                    domain={['dataMin - 50000', 'dataMax + 50000']}
-                  />
-                  <YAxis
-                    yAxisId="right"
-                    orientation="right"
-                    stroke="#64748b"
-                    style={{ fontSize: '12px' }}
-                    tickFormatter={(v) => v.toLocaleString('ro-RO')}
-                  />
-                  <Tooltip
-                    content={({ active, payload, label }) => {
-                      if (!active || !payload || payload.length === 0) return null;
-
-                      return (
-                        <div
-                          style={{
-                            backgroundColor: '#1e293b',
-                            padding: '12px 16px',
-                            borderRadius: '12px',
-                            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
-                            border: 'none'
-                          }}
-                        >
-                          <p style={{ color: '#fff', fontWeight: 'bold', marginBottom: '8px' }}>
-                            Data: {label}
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
+                <XAxis 
+                  dataKey="label" 
+                  stroke="#64748b" 
+                  style={{ fontSize: '12px' }}
+                />
+                <YAxis 
+                  yAxisId="left"
+                  stroke="#64748b" 
+                  style={{ fontSize: '12px' }}
+                  tickFormatter={(value) => formatNumber(value)}
+                  domain={['dataMin - 50000', 'dataMax + 50000']}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  stroke="#64748b"
+                  style={{ fontSize: '12px' }}
+                  tickFormatter={(v) => v.toLocaleString('ro-RO')}
+                />
+                <Tooltip 
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload || payload.length === 0) return null;
+                    
+                    return (
+                      <div
+                        style={{
+                          backgroundColor: '#1e293b',
+                          padding: '12px 16px',
+                          borderRadius: '12px',
+                          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
+                          border: 'none'
+                        }}
+                      >
+                        <p style={{ color: '#fff', fontWeight: 'bold', marginBottom: '8px' }}>
+                          Data: {label}
+                        </p>
+                        {payload.map((entry, index) => (
+                          <p key={index} style={{ color: entry.color, margin: '4px 0' }}>
+                            {entry.name}: {
+                              entry.name === 'Sloturi active' 
+                                ? entry.value.toLocaleString('ro-RO')
+                                : formatNumber(entry.value)
+                            }
                           </p>
-                          {payload.map((entry, index) => (
-                            <p key={index} style={{ color: entry.color, margin: '4px 0' }}>
-                              {entry.name}: {
-                                entry.name === 'Sloturi active'
-                                  ? entry.value.toLocaleString('ro-RO')
-                                  : formatNumber(entry.value)
-                              }
-                            </p>
-                          ))}
-                        </div>
-                      );
-                    }}
-                    cursor={false}
-                    wrapperStyle={{
-                      backgroundColor: 'transparent',
-                      background: 'transparent',
-                      border: 'none',
-                      boxShadow: 'none',
-                      padding: 0,
-                      margin: 0
-                    }}
-                    contentStyle={{
-                      backgroundColor: 'transparent',
-                      background: 'transparent',
-                      border: 'none',
-                      boxShadow: 'none',
-                      padding: 0,
-                      margin: 0
-                    }}
-                  />
-                  {!isSingleMonthRange && (
-                    <Bar
-                      yAxisId="right"
-                      dataKey="slotsCount"
-                      name="Sloturi active"
-                      fill="#38bdf8"
-                      radius={[4, 4, 0, 0]}
-                    >
-                      <LabelList
-                        dataKey="slotsCount"
-                        position="inside"
-                        formatter={(value) => value.toLocaleString('ro-RO')}
-                        style={{ fontSize: '11px', fontWeight: 'bold', fill: '#fff' }}
-                      />
-                    </Bar>
-                  )}
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="totalGgr"
-                    name="GGR"
-                    stroke="#22c55e"
-                    strokeWidth={4}
-                    dot={{ fill: '#22c55e', r: 4 }}
-                    activeDot={{ r: 6 }}
+                        ))}
+                      </div>
+                    );
+                  }}
+                  cursor={false}
+                  wrapperStyle={{ 
+                    backgroundColor: 'transparent',
+                    background: 'transparent',
+                    border: 'none',
+                    boxShadow: 'none',
+                    padding: 0,
+                    margin: 0
+                  }}
+                  contentStyle={{ 
+                    backgroundColor: 'transparent',
+                    background: 'transparent',
+                    border: 'none',
+                    boxShadow: 'none',
+                    padding: 0,
+                    margin: 0
+                  }}
+                />
+                {!isSingleMonthRange && (
+                  <Bar
+                    yAxisId="right"
+                    dataKey="slotsCount"
+                    name="Sloturi active"
+                    fill="#38bdf8"
+                    radius={[4, 4, 0, 0]}
                   >
                     <LabelList
-                      dataKey="totalGgr"
-                      position="top"
-                      offset={15}
-                      formatter={(value) => formatNumber(value)}
-                      style={{
-                        fontSize: '16px',
-                        fontWeight: '900',
-                        fill: '#ffffff',
-                        stroke: '#000000',
-                        strokeWidth: '3px',
-                        paintOrder: 'stroke fill'
-                      }}
-                      className="drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]"
+                      dataKey="slotsCount"
+                      position="inside"
+                      formatter={(value) => value.toLocaleString('ro-RO')}
+                      style={{ fontSize: '11px', fontWeight: 'bold', fill: '#fff' }}
                     />
-                  </Line>
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="trendGgr"
-                    name="Trend GGR (AI)"
-                    stroke="#a855f7"
-                    strokeWidth={1.5}
-                    strokeDasharray="4 4"
-                    dot={false}
+                  </Bar>
+                )}
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="totalGgr"
+                  name="GGR"
+                  stroke="#22c55e"
+                  strokeWidth={4}
+                  dot={{ fill: '#22c55e', r: 4 }}
+                  activeDot={{ r: 6 }}
+                >
+                  <LabelList
+                    dataKey="totalGgr"
+                    position="top"
+                    offset={15}
+                    formatter={(value) => formatNumber(value)}
+                    style={{ 
+                      fontSize: '14px', 
+                      fontWeight: 'bold', 
+                      fill: '#065f46',
+                      textShadow: '0 0 3px rgba(255, 255, 255, 0.9), 0 1px 2px rgba(0, 0, 0, 0.2)',
+                      paintOrder: 'stroke fill'
+                    }}
+                    className="dark:fill-green-300 dark:drop-shadow-[0_0_3px_rgba(0,0,0,0.8)]"
                   />
+                </Line>
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="trendGgr"
+                  name="Trend GGR (AI)"
+                  stroke="#a855f7"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 4"
+                  dot={false}
+                />
                 </ComposedChart>
               </ResponsiveContainer>
             )}
@@ -4056,21 +4257,21 @@ const Incasari = () => {
               <ResponsiveContainer width="100%" height={200}>
                 <ComposedChart data={comparisonChartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
-                  <XAxis
-                    dataKey="label"
-                    stroke="#64748b"
+                  <XAxis 
+                    dataKey="label" 
+                    stroke="#64748b" 
                     style={{ fontSize: '12px' }}
                   />
-                  <YAxis
+                  <YAxis 
                     yAxisId="left"
-                    stroke="#64748b"
+                    stroke="#64748b" 
                     style={{ fontSize: '12px' }}
                     tickFormatter={(v) => formatNumber(v)}
                   />
                   <Tooltip
                     content={({ active, payload, label }) => {
                       if (!active || !payload || payload.length === 0) return null;
-
+                      
                       const currentEntry = payload.find(p => p.dataKey === 'currentIn')
                       const lastEntry = payload.find(p => p.dataKey === 'lastIn')
                       const currentValue = currentEntry?.value || 0
@@ -4078,7 +4279,7 @@ const Incasari = () => {
                       const difference = currentValue - lastValue
                       const percentChange = lastValue > 0 ? ((difference / lastValue) * 100).toFixed(1) : 0
                       const isEstimated = currentEntry?.payload?.isEstimated
-
+                      
                       return (
                         <div
                           style={{
@@ -4118,7 +4319,7 @@ const Incasari = () => {
                       );
                     }}
                     cursor={false}
-                    wrapperStyle={{
+                    wrapperStyle={{ 
                       backgroundColor: 'transparent',
                       background: 'transparent',
                       border: 'none',
@@ -4126,7 +4327,7 @@ const Incasari = () => {
                       padding: 0,
                       margin: 0
                     }}
-                    contentStyle={{
+                    contentStyle={{ 
                       backgroundColor: 'transparent',
                       background: 'transparent',
                       border: 'none',
@@ -4149,8 +4350,8 @@ const Incasari = () => {
                       style={{ fontSize: '10px', fontWeight: 'bold', fill: '#22c55e' }}
                     />
                     {comparisonChartData.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
+                      <Cell 
+                        key={`cell-${index}`} 
                         fill={entry.isEstimated ? "#86efac" : "#22c55e"}
                         fillOpacity={entry.isEstimated ? 0.6 : 1}
                       />
@@ -4187,23 +4388,23 @@ const Incasari = () => {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={locationPieData} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
-                    <XAxis
-                      type="number"
+                    <XAxis 
+                      type="number" 
                       stroke="#64748b"
                       style={{ fontSize: '12px' }}
-                      tickFormatter={(v) => formatNumber(v)}
+                      tickFormatter={(v) => formatNumber(v)} 
                     />
-                    <YAxis
-                      dataKey="locationName"
-                      type="category"
+                    <YAxis 
+                      dataKey="locationName" 
+                      type="category" 
                       stroke="#64748b"
                       style={{ fontSize: '12px' }}
-                      width={120}
+                      width={120} 
                     />
                     <Tooltip
                       content={({ active, payload, label }) => {
                         if (!active || !payload || payload.length === 0) return null;
-
+                        
                         return (
                           <div
                             style={{
@@ -4224,7 +4425,7 @@ const Incasari = () => {
                         );
                       }}
                       cursor={false}
-                      wrapperStyle={{
+                      wrapperStyle={{ 
                         backgroundColor: 'transparent',
                         background: 'transparent',
                         border: 'none',
@@ -4232,7 +4433,7 @@ const Incasari = () => {
                         padding: 0,
                         margin: 0
                       }}
-                      contentStyle={{
+                      contentStyle={{ 
                         backgroundColor: 'transparent',
                         background: 'transparent',
                         border: 'none',
@@ -4270,23 +4471,23 @@ const Incasari = () => {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={cabinetPieData} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
-                    <XAxis
-                      type="number"
+                    <XAxis 
+                      type="number" 
                       stroke="#64748b"
                       style={{ fontSize: '12px' }}
-                      tickFormatter={(v) => formatNumber(v)}
+                      tickFormatter={(v) => formatNumber(v)} 
                     />
-                    <YAxis
-                      dataKey="cabinetName"
-                      type="category"
+                    <YAxis 
+                      dataKey="cabinetName" 
+                      type="category" 
                       stroke="#64748b"
                       style={{ fontSize: '12px' }}
-                      width={120}
+                      width={120} 
                     />
                     <Tooltip
                       content={({ active, payload, label }) => {
                         if (!active || !payload || payload.length === 0) return null;
-
+                        
                         return (
                           <div
                             style={{
@@ -4307,7 +4508,7 @@ const Incasari = () => {
                         );
                       }}
                       cursor={false}
-                      wrapperStyle={{
+                      wrapperStyle={{ 
                         backgroundColor: 'transparent',
                         background: 'transparent',
                         border: 'none',
@@ -4315,7 +4516,7 @@ const Incasari = () => {
                         padding: 0,
                         margin: 0
                       }}
-                      contentStyle={{
+                      contentStyle={{ 
                         backgroundColor: 'transparent',
                         background: 'transparent',
                         border: 'none',
@@ -4399,25 +4600,25 @@ const Incasari = () => {
                     'Decembrie'
                   ]
                   const monthData = slotsByMonthLocation.monthData[month] || {}
-
+                  
                   // Calculează totalul pentru această lună (suma tuturor locațiilor)
                   const monthTotal = slotsByMonthLocation.locations.reduce((sum, location) => {
                     return sum + (Number(monthData[location] || 0))
                   }, 0)
-
+                  
                   // Folosește datele salvate local sau datele curente - AFIȘEAZĂ MEREU ULTIMELE DATE
                   const getValue = (location) => {
                     const value = Number(monthData[location] || 0)
                     const key = `slots_${slotsByMonthLocation.year}_${month}_${location}`
-
+                    
                     // Dacă există valoare nouă (chiar dacă e zero), salvează-o și o folosește
                     if (value !== null && value !== undefined && !isNaN(value)) {
                       try {
                         localStorage.setItem(key, value.toString())
-                      } catch (e) { }
+                      } catch (e) {}
                       return value
                     }
-
+                    
                     // Dacă nu există valoare nouă, încarcă ultima valoare salvată
                     try {
                       const saved = localStorage.getItem(key)
@@ -4427,16 +4628,16 @@ const Incasari = () => {
                           return savedValue
                         }
                       }
-                    } catch (e) { }
-
+                    } catch (e) {}
+                    
                     // Dacă nu există nimic salvat, returnează 0 (dar va fi afișat)
                     return 0
                   }
-
+                  
                   const savedTotal = slotsByMonthLocation.locations.reduce((sum, location) => {
                     return sum + getValue(location)
                   }, 0)
-
+                  
                   return (
                     <tr
                       key={month}
@@ -4481,16 +4682,16 @@ const Incasari = () => {
                     const rows = [
                       ['Lună', ...ggrByMonthLocation.locations, 'Total']
                     ]
-
+                    
                     const monthNames = [
                       'Ianuarie', 'Februarie', 'Martie', 'Aprilie', 'Mai', 'Iunie',
                       'Iulie', 'August', 'Septembrie', 'Octombrie', 'Noiembrie', 'Decembrie'
                     ]
-
+                    
                     Array.from({ length: 12 }, (_, i) => i + 1).forEach((month) => {
                       const monthData = ggrByMonthLocation.monthData[month] || {}
                       const row = [monthNames[month - 1]]
-
+                      
                       let monthTotal = 0
                       ggrByMonthLocation.locations.forEach((location) => {
                         const value = Number(monthData[location] || 0)
@@ -4500,7 +4701,7 @@ const Incasari = () => {
                       row.push(monthTotal)
                       rows.push(row)
                     })
-
+                    
                     // Adaugă rândul Total pentru anul în curs
                     const totalRow = ['Total']
                     let grandTotal = 0
@@ -4515,7 +4716,7 @@ const Incasari = () => {
                     })
                     totalRow.push(grandTotal)
                     rows.push(totalRow)
-
+                    
                     const ws = XLSX.utils.aoa_to_sheet(rows)
                     const wb = XLSX.utils.book_new()
                     XLSX.utils.book_append_sheet(wb, ws, 'GGR pe lună și locație')
@@ -4582,7 +4783,7 @@ const Incasari = () => {
                   const currentMonth = new Date().getMonth() + 1
                   const currentYear = new Date().getFullYear()
                   const isCurrentMonth = month === currentMonth && ggrByMonthLocation.year === currentYear
-
+                  
                   // Pentru luna curentă, folosim totalul din overview.currentMonth pentru consistență
                   // Pentru celelalte luni, calculăm din datele tabelului
                   let monthTotal
@@ -4595,20 +4796,20 @@ const Incasari = () => {
                       return sum + (Number(monthData[location] || 0))
                     }, 0)
                   }
-
+                  
                   // Folosește datele salvate local sau datele curente - AFIȘEAZĂ MEREU ULTIMELE DATE
                   const getValue = (location) => {
                     const value = Number(monthData[location] || 0)
                     const key = `ggr_${ggrByMonthLocation.year}_${month}_${location}`
-
+                    
                     // Dacă există valoare nouă (chiar dacă e zero), salvează-o și o folosește
                     if (value !== null && value !== undefined && !isNaN(value)) {
                       try {
                         localStorage.setItem(key, value.toString())
-                      } catch (e) { }
+                      } catch (e) {}
                       return value
                     }
-
+                    
                     // Dacă nu există valoare nouă, încarcă ultima valoare salvată
                     try {
                       const saved = localStorage.getItem(key)
@@ -4618,20 +4819,20 @@ const Incasari = () => {
                           return savedValue
                         }
                       }
-                    } catch (e) { }
-
+                    } catch (e) {}
+                    
                     // Dacă nu există nimic salvat, returnează 0 (dar va fi afișat)
                     return 0
                   }
-
+                  
                   // Pentru luna curentă, folosim totalul din overview (este corect)
                   // Pentru celelalte luni, calculăm din valorile per locație
-                  const savedTotal = isCurrentMonth && overview?.currentMonth
-                    ? monthTotal
+                  const savedTotal = isCurrentMonth && overview?.currentMonth 
+                    ? monthTotal 
                     : ggrByMonthLocation.locations.reduce((sum, location) => {
-                      return sum + getValue(location)
-                    }, 0)
-
+                        return sum + getValue(location)
+                      }, 0)
+                  
                   return (
                     <tr
                       key={month}
@@ -4667,7 +4868,7 @@ const Incasari = () => {
                       const monthData = ggrByMonthLocation.monthData[month] || {}
                       const value = Number(monthData[location] || 0)
                       const key = `ggr_${ggrByMonthLocation.year}_${month}_${location}`
-
+                      
                       // Dacă există valoare nouă, o folosește
                       if (value !== null && value !== undefined && !isNaN(value)) {
                         total += value
@@ -4681,16 +4882,16 @@ const Incasari = () => {
                               total += savedValue
                             }
                           }
-                        } catch (e) { }
+                        } catch (e) {}
                       }
                     }
                     acc[location] = total
                     return acc
                   }, {})
-
+                  
                   // Calculează totalul general (suma tuturor locațiilor pentru toate lunile)
                   const grandTotal = Object.values(yearTotals).reduce((sum, val) => sum + val, 0)
-
+                  
                   return (
                     <tr className="border-t-2 border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800/80 font-bold">
                       <td className="px-3 py-2 font-bold text-slate-900 dark:text-slate-100 sticky left-0 bg-slate-100 dark:bg-slate-800/80 z-10">
