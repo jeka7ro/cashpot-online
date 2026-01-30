@@ -849,80 +849,70 @@ const PL = () => {
     const fetchMonthlyPL = async () => {
       setLoadingMonthlyPL(true)
       try {
-        const now = new Date()
-        const currentYear = now.getFullYear()
-        const currentMonth = now.getMonth() + 1 // 1-12
-        const startYear = 2024
-        const startMonth = 1
-        
-        // Generează toate lunile de la ianuarie 2024 până în prezent
-        const months = []
-        for (let year = startYear; year <= currentYear; year++) {
-          const monthStart = year === startYear ? startMonth : 1
-          const monthEnd = year === currentYear ? currentMonth : 12
-          for (let month = monthStart; month <= monthEnd; month++) {
-            const monthStartDate = new Date(year, month - 1, 1)
-            const monthEndDate = new Date(year, month, 0)
-            const formatDate = (d) => {
-              const y = d.getFullYear()
-              const m = String(d.getMonth() + 1).padStart(2, '0')
-              const day = String(d.getDate()).padStart(2, '0')
-              return `${y}-${m}-${day}`
-            }
-            // Formatare lună completă (ex: "ianuarie" fără an)
-            const monthNames = [
-              'ianuarie', 'februarie', 'martie', 'aprilie', 'mai', 'iunie',
-              'iulie', 'august', 'septembrie', 'octombrie', 'noiembrie', 'decembrie'
-            ]
-            const monthName = monthNames[month - 1]
-            months.push({
+        // UN SINGUR REQUEST – monthly-by-location returnează toate lunile și locațiile dintr-o dată
+        const params = {}
+        if (visibleLocations && visibleLocations.length > 0) {
+          params.includeLocations = visibleLocations.join(',')
+        }
+        const resp = await axios.get('/api/incasari/monthly-by-location', {
+          params,
+          signal: abortController.signal,
+          timeout: 120000
+        })
+        if (!resp.data?.success || !Array.isArray(resp.data.rows)) {
+          setPlMonthlyByLocation([])
+          setLoadingMonthlyPL(false)
+          return
+        }
+        const rows = resp.data.rows
+        const monthNames = [
+          'ianuarie', 'februarie', 'martie', 'aprilie', 'mai', 'iunie',
+          'iulie', 'august', 'septembrie', 'octombrie', 'noiembrie', 'decembrie'
+        ]
+        const formatDate = (y, m, day) => {
+          const d = new Date(y, m - 1, day)
+          const mm = String(d.getMonth() + 1).padStart(2, '0')
+          const dd = String(d.getDate()).padStart(2, '0')
+          return `${y}-${mm}-${dd}`
+        }
+        const byMonth = new Map()
+        rows.forEach((row) => {
+          const locName = (row.locationName || '').trim()
+          if (!locName || locName.toLowerCase() === 'depozit') return
+          const year = parseInt(row.year) || 0
+          const month = parseInt(row.month) || 0
+          if (!year || !month) return
+          const key = `${year}-${month}`
+          if (!byMonth.has(key)) {
+            byMonth.set(key, {
               year,
               month,
-              startDate: formatDate(monthStartDate),
-              endDate: formatDate(monthEndDate),
-              label: monthName // Doar numele lunii, fără an
+              label: monthNames[month - 1] || '',
+              startDate: formatDate(year, month, 1),
+              endDate: formatDate(year, month, new Date(year, month, 0).getDate()),
+              plByLoc: []
             })
           }
-        }
-
-        // Fetch date pentru fiecare lună
-        const monthlyData = await Promise.all(
-          months.map(async ({ year, month, startDate, endDate, label }) => {
-            try {
-              const params = {
-                startDate,
-                endDate,
-                includeLocations:
-                  visibleLocations && visibleLocations.length > 0
-                    ? visibleLocations.join(',')
-                    : undefined
-              }
-
-              const [locResp, expResp] = await Promise.all([
-                axios.get('/api/incasari/avg-in-by-location', { 
-                  params,
-                  signal: abortController.signal
-                }),
-                // Folosim același endpoint ca în pagina de detalii pentru consistență
-                axios.get('/api/expenditures/sql-table', {
-                  params: {
-                    startDate,
-                    endDate,
-                    department: 'all',
-                    type: 'all',
-                    location: 'all',
-                    dataSource: 'all',
-                    sortBy: 'operational_date',
-                    order: 'asc',
-                    page: 1,
-                    pageSize: 10000
-                  },
-                  signal: abortController.signal
-                })
-              ])
-
-              const locationData = locResp.data?.success ? (locResp.data.rows || []) : []
-              const expendituresData = expResp.data?.success ? (expResp.data.data || []) : []
+          const ggr = Number(row.totalGgr || 0)
+          const expenses = Number(row.totalExpenditures || 0)
+          const marketing =
+            Number(row.totalJackpot || 0) + Number(row.totalHh || 0) +
+            Number(row.totalCbReal || 0) + Number(row.totalCbBirthday || 0) + Number(row.totalCbRaffle || 0)
+          byMonth.get(key).plByLoc.push({
+            locationName: locName,
+            totalIn: Number(row.totalIn || 0),
+            bet: Number(row.totalBet || 0),
+            win: Number(row.totalWin || 0),
+            ggr,
+            marketing,
+            expenses,
+            pl: ggr - expenses
+          })
+        })
+        const monthlyData = Array.from(byMonth.values()).sort((a, b) =>
+          a.year !== b.year ? a.year - b.year : a.month - b.month
+        )
+        setPlMonthlyByLocation(monthlyData)
               
               // Verifică dacă există mai multe pagini
               const totalRecords = expResp.data?.pagination?.total || 0
@@ -3269,16 +3259,6 @@ const PL = () => {
             hierarchy.set(nodeData.id, deserializeNode(nodeData))
           })
           
-          // Expandare automată (doar dacă nu există deja)
-          const expandedSet = new Set()
-          hierarchy.forEach((yearNode) => {
-            expandedSet.add(yearNode.id)
-            yearNode.children.forEach((quarterNode) => {
-              expandedSet.add(quarterNode.id)
-            })
-          })
-          setPlTableExpanded((prev) => prev.size === 0 ? expandedSet : prev)
-          
           // Reconstruiește totalsByLocation din cache
           const totalsByLocation = parsed.totalsByLocation 
             ? new Map(Object.entries(parsed.totalsByLocation))
@@ -3620,34 +3600,6 @@ const PL = () => {
       }
     })
 
-    // Expandare automată până la nivelul de lună
-    const expandedSet = new Set()
-    filteredHierarchy.forEach((yearNode) => {
-      expandedSet.add(yearNode.id) // Expandă anul
-      yearNode.children.forEach((quarterNode) => {
-        expandedSet.add(quarterNode.id) // Expandă trimestrul
-        // Nu expandăm luna (nu e nevoie, sunt deja vizibile când trimestrul e expandat)
-      })
-    })
-
-    // Salvează expandarea în localStorage
-    try {
-      localStorage.setItem('pl_table_expanded', JSON.stringify(Array.from(expandedSet)))
-    } catch (error) {
-      console.error('Eroare la salvarea expandării în localStorage:', error)
-    }
-
-    // Actualizează expandarea dacă s-a schimbat (doar dacă nu există deja)
-    if (expandedSet.size > 0) {
-      setPlTableExpanded((prev) => {
-        // Nu suprascrie dacă există deja expandare
-        if (prev.size === 0) {
-          return expandedSet
-        }
-        return prev
-      })
-    }
-
     // Calculează totalurile pentru fiecare locație (din toate anii) - TREBUIE SĂ FIE ÎNAINTE DE SERIALIZARE
     const totalsByLocation = new Map()
     filteredHierarchy.forEach((yearNode) => {
@@ -3721,7 +3673,32 @@ const PL = () => {
       totalsByLocation
     }
   }, [plMonthlyByLocation])
-  
+
+  // Expandare implicită a ierarhiei (An + Trimestru) când datele sunt gata – side effect în useEffect, nu în useMemo
+  useEffect(() => {
+    const hierarchy = plMonthlyTableData?.hierarchy
+    if (!hierarchy || hierarchy.size === 0) return
+    const expandedSet = new Set()
+    hierarchy.forEach((yearNode) => {
+      expandedSet.add(yearNode.id)
+      ;(yearNode.children || []).forEach((quarterNode) => {
+        expandedSet.add(quarterNode.id)
+      })
+    })
+    if (expandedSet.size === 0) return
+    setPlTableExpanded((prev) => {
+      if (prev.size === 0) {
+        try {
+          localStorage.setItem('pl_table_expanded', JSON.stringify(Array.from(expandedSet)))
+        } catch (error) {
+          console.error('Eroare la salvarea expandării în localStorage:', error)
+        }
+        return expandedSet
+      }
+      return prev
+    })
+  }, [plMonthlyTableData])
+
   // Funcție pentru toggle expand/collapse
   const togglePlTableExpand = (nodeId) => {
     setPlTableExpanded((prev) => {
