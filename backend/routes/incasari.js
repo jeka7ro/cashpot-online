@@ -2530,7 +2530,7 @@ router.get('/location-expenditures', authenticateToken, async (req, res) => {
     }
 
     const { startDate, endDate, includeLocations } = req.query
-    const userId = req.user?.id
+    const userId = req.user?.userId || req.user?.id
 
     if (!startDate || !endDate) {
       return res.status(400).json({
@@ -2563,8 +2563,18 @@ router.get('/location-expenditures', authenticateToken, async (req, res) => {
         .filter(Boolean)
     }
 
-    // EXCLUDE departamentele care nu trebuie să apară în P&L (hardcodate)
-    const excludedDepartments = ['POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli', 'Nespecificat']
+    // Calculează cheltuielile folosind filtrele din setări
+
+    // Normalizare text (IDENTICĂ cu cea din expenditures.js)
+    const normalizeText = (text) => {
+      if (!text) return ''
+      return String(text).trim()
+        .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
+        .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+    }
 
     let sql = `
       SELECT
@@ -2572,8 +2582,7 @@ router.get('/location-expenditures', authenticateToken, async (req, res) => {
         COALESCE(SUM(amount), 0) AS total_expenditures
       FROM expenditures_sync
       WHERE DATE(operational_date) BETWEEN DATE($1::text) AND DATE($2::text)
-        AND (department_name IS NOT NULL AND department_name NOT IN ('POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli', 'Nespecificat'))
-        AND (LOWER(TRIM(COALESCE(department_name, ''))) NOT IN ('unknown', 'null', ''))
+        AND (normalized_department_name NOT IN ('unknown', 'null', ''))
     `
 
     const params = [startDate, endDate]
@@ -2581,72 +2590,33 @@ router.get('/location-expenditures', authenticateToken, async (req, res) => {
 
     // APLICĂ FILTRELE DIN SETĂRI: Doar departamentele incluse
     if (includedFilters.departments && includedFilters.departments.length > 0) {
-      // IMPORTANT: Normalizează diacriticele pentru matching (ț/ţ, ș/ş devin aceleași)
-      const normalizedDepartments = includedFilters.departments.map(d => {
-        if (!d) return ''
-        return String(d).trim()
-          .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
-          .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
-          .toLowerCase()
-      }).filter(Boolean)
-
-      sql += ` AND LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(department_name, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = ANY($${paramIndex}::text[])`
+      const normalizedDepartments = includedFilters.departments.map(normalizeText).filter(Boolean)
+      sql += ` AND normalized_department_name = ANY($${paramIndex}::text[])`
       params.push(normalizedDepartments)
       paramIndex++
     }
 
     // APLICĂ FILTRELE DIN SETĂRI: Doar tipurile incluse
     if (includedFilters.types && includedFilters.types.length > 0) {
-      // IMPORTANT: Normalizează diacriticele pentru matching (ț/ţ, ș/ş devin aceleași)
-      const normalizedTypes = includedFilters.types.map(t => {
-        if (!t) return ''
-        return String(t).trim()
-          .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
-          .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
-          .toLowerCase()
-      }).filter(Boolean)
-
-      sql += ` AND LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(expenditure_type, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = ANY($${paramIndex}::text[])`
+      const normalizedTypes = includedFilters.types.map(normalizeText).filter(Boolean)
+      // Excepție Salarii
+      sql += ` AND (normalized_department_name = 'salarii' OR normalized_expenditure_type = ANY($${paramIndex}::text[]))`
       params.push(normalizedTypes)
       paramIndex++
     }
 
     // APLICĂ FILTRELE DIN SETĂRI: Doar locațiile incluse (dacă nu sunt specificate explicit în includeLocations)
     if (!locationsArray && includedFilters.locations && includedFilters.locations.length > 0) {
-      // IMPORTANT: Normalizează diacriticele pentru matching (ț/ţ, ș/ş devin aceleași)
-      const normalizedLocations = includedFilters.locations.map(l => {
-        if (!l) return ''
-        return String(l).trim()
-          .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
-          .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
-          .toLowerCase()
-      }).filter(Boolean)
-
-      sql += ` AND LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(location_name, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = ANY($${paramIndex}::text[])`
+      const normalizedLocations = includedFilters.locations.map(normalizeText).filter(Boolean)
+      sql += ` AND normalized_location_name = ANY($${paramIndex}::text[])`
       params.push(normalizedLocations)
       paramIndex++
     }
 
     // Dacă sunt specificate locații explicit în includeLocations, folosim doar pe acelea
     if (locationsArray && locationsArray.length > 0) {
-      // IMPORTANT: Normalizează diacriticele pentru matching (ț/ţ, ș/ş devin aceleași)
-      const normalizedLocationsArray = locationsArray.map(l => {
-        if (!l) return ''
-        return String(l).trim()
-          .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
-          .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
-          .toLowerCase()
-      }).filter(Boolean)
-
-      sql += ` AND LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(location_name, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = ANY($${paramIndex}::text[])`
+      const normalizedLocationsArray = locationsArray.map(normalizeText).filter(Boolean)
+      sql += ` AND normalized_location_name = ANY($${paramIndex}::text[])`
       params.push(normalizedLocationsArray)
       paramIndex++
     }
@@ -2687,6 +2657,7 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
     }
 
     const { location, provider, cabinet, gameMix, includeLocations } = req.query
+    const userId = req.user?.userId || req.user?.id
 
     const locationsArray =
       typeof includeLocations === 'string' && includeLocations.length > 0
@@ -2779,6 +2750,7 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
 
     // --- CACHE LOGIC START ---
     const cacheParams = {
+      userId,
       location, provider, cabinet, gameMix, includeLocations,
       startYear // cache depends on start year
     }
@@ -2828,7 +2800,6 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
     })
 
     // Obține filtrele din setări pentru a aplica filtrele corecte
-    const userId = req.user?.id
     const includedFilters = await getIncludedFiltersForUser(pool, userId)
 
     console.log(`🔍 [monthly-by-location] User ID: ${userId}`)
@@ -2844,8 +2815,18 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
       console.log(`🔍 [monthly-by-location] Primele 5 tipuri:`, includedFilters.types.slice(0, 5))
     }
 
-    // Obține cheltuielile din expenditures_sync grupate pe an, lună și locație (OPTIMIZAT - ultimii 2 ani)
-    // APLICĂ FILTRELE DIN SETĂRI (departamente și tipuri incluse)
+    // Normalizare text (IDENTICĂ cu cea din expenditures.js)
+    const normalizeText = (text) => {
+      if (!text) return ''
+      return String(text).trim()
+        .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
+        .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+    }
+
+    // Obține cheltuielile din expenditures_sync grupate pe an, lună și locație
     const expendituresStartTime = Date.now()
     let expendituresSql = `
       SELECT
@@ -2858,46 +2839,35 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
         AND operational_date >= $1::date
         AND location_name IS NOT NULL
         AND location_name != ''
-        AND location_name != 'Depozit'
-        AND (department_name IS NOT NULL AND department_name NOT IN ('POS', 'Registru de Casă', 'Bancă', 'Alte Cheltuieli', 'Nespecificat'))
-        AND (LOWER(TRIM(COALESCE(department_name, ''))) NOT IN ('unknown', 'null', ''))
+        AND (normalized_department_name NOT IN ('unknown', 'null', ''))
     `
 
     const expendituresParams = [`${startYear}-01-01`]
     let expendituresParamIndex = 2
 
+    // APLICĂ FILTRELE DIN SETĂRI: Doar locațiile incluse (ZIDUL FINAL - lipsea filtrarea pe locații!)
+    // Dacă avem includeLocations în query, filtrăm după ele. Dacă nu, filtrăm după cele din setări.
+    const targetLocations = locationsArray || (includedFilters.locations && includedFilters.locations.length > 0 ? includedFilters.locations : null)
+    if (targetLocations && targetLocations.length > 0) {
+      const normalizedTargetLocations = targetLocations.map(normalizeText).filter(Boolean)
+      expendituresSql += ` AND normalized_location_name = ANY($${expendituresParamIndex}::text[])`
+      expendituresParams.push(normalizedTargetLocations)
+      expendituresParamIndex++
+    }
+
     // APLICĂ FILTRELE DIN SETĂRI: Doar departamentele incluse
     if (includedFilters.departments && includedFilters.departments.length > 0) {
-      // IMPORTANT: Normalizează diacriticele pentru matching (ț/ţ, ș/ş devin aceleași)
-      const normalizedDepartments = includedFilters.departments.map(d => {
-        if (!d) return ''
-        return String(d).trim()
-          .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
-          .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
-          .toLowerCase()
-      }).filter(Boolean)
-
-      expendituresSql += ` AND LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(department_name, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = ANY($${expendituresParamIndex}::text[])`
+      const normalizedDepartments = includedFilters.departments.map(normalizeText).filter(Boolean)
+      expendituresSql += ` AND normalized_department_name = ANY($${expendituresParamIndex}::text[])`
       expendituresParams.push(normalizedDepartments)
       expendituresParamIndex++
     }
 
     // APLICĂ FILTRELE DIN SETĂRI: Doar tipurile incluse
     if (includedFilters.types && includedFilters.types.length > 0) {
-      // IMPORTANT: Normalizează diacriticele pentru matching (ț/ţ, ș/ş devin aceleași)
-      const normalizedTypes = includedFilters.types.map(t => {
-        if (!t) return ''
-        return String(t).trim()
-          .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
-          .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '') // Remove all diacritics
-          .toLowerCase()
-      }).filter(Boolean)
-
-      expendituresSql += ` AND LOWER(REGEXP_REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(expenditure_type, 'ţ', 'ț'), 'ş', 'ș'), 'Ţ', 'Ț'), 'Ş', 'Ș'), '[\\u0300-\\u036f]', '', 'g')) = ANY($${expendituresParamIndex}::text[])`
+      const normalizedTypes = includedFilters.types.map(normalizeText).filter(Boolean)
+      // Excepție Salarii
+      expendituresSql += ` AND (normalized_department_name = 'salarii' OR normalized_expenditure_type = ANY($${expendituresParamIndex}::text[]))`
       expendituresParams.push(normalizedTypes)
       expendituresParamIndex++
     }

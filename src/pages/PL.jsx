@@ -91,7 +91,7 @@ const PLDashboard = () => {
 
                 response.data.rows.forEach((row) => {
                     const locName = (row.locationName || '').trim()
-                    if (!locName || locName.toLowerCase() === 'depozit') return
+                    if (!locName) return
 
                     const year = parseInt(row.year) || 0
                     const month = parseInt(row.month) || 0
