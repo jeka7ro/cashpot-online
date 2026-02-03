@@ -54,11 +54,11 @@ const ProfitHeatmap = ({ data, onCellClick }) => {
     }
 
     return (
-        <div className="relative overflow-hidden rounded-3xl bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl border border-white/60 dark:border-slate-600/50 p-4 md:p-6 shadow-2xl">
+        <div className="relative overflow-hidden rounded-3xl bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-4 md:p-6 shadow-sm">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-8 gap-4">
                 <div>
                     <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-1">
-                        Mapă de Căldură Profitabilitate
+                        Grafic Profitabilitate
                     </h3>
                     <p className="text-[11px] text-slate-500 font-bold opacity-70 uppercase tracking-wider">Distribuție lunară per punct de lucru</p>
                 </div>

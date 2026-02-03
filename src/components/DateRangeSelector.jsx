@@ -14,16 +14,16 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
   const [selectedYears, setSelectedYears] = useState([]) // Pentru multi-select ani
   const [selectedDays, setSelectedDays] = useState([]) // Pentru multi-select zile
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
-  
+
   const start = new Date(startDate)
   const end = new Date(endDate)
-  
+
   const months = ['Ian', 'Feb', 'Mar', 'Apr', 'Mai', 'Iun', 'Iul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  
+
   // Generate available years: ultimii 5 ani până la anul curent (NU viitori!)
   const currentYear = new Date().getFullYear()
   const yearsToShow = availableYears || Array.from({ length: 5 }, (_, i) => currentYear - 4 + i)
-  
+
   // FIX TIMEZONE BUG! Format date fără timezone issues
   const formatDateLocal = (date) => {
     const year = date.getFullYear()
@@ -31,17 +31,17 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
     const day = String(date.getDate()).padStart(2, '0')
     return `${year}-${month}-${day}`
   }
-  
+
   const formatRange = () => {
     return `${start.toLocaleDateString('ro-RO')} - ${end.toLocaleDateString('ro-RO')}`
   }
 
   // Număr zile în luna curentă (fallback pentru "Zile disponibile" când nu primim zile din sistem)
   const daysInCurrentMonth = new Date(end.getFullYear(), end.getMonth() + 1, 0).getDate()
-  
+
   const handlePrevPeriod = () => {
     let newStart, newEnd
-    
+
     switch (granularity) {
       case 'Y': // Ani - mergi cu 1 an înapoi
         newStart = new Date(start.getFullYear() - 1, 0, 1)
@@ -65,16 +65,16 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
       default:
         return
     }
-    
+
     onChange({
       startDate: formatDateLocal(newStart),
       endDate: formatDateLocal(newEnd)
     })
   }
-  
+
   const handleNextPeriod = () => {
     let newStart, newEnd
-    
+
     switch (granularity) {
       case 'Y': // Ani - mergi cu 1 an înainte
         newStart = new Date(start.getFullYear() + 1, 0, 1)
@@ -98,18 +98,18 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
       default:
         return
     }
-    
+
     onChange({
       startDate: formatDateLocal(newStart),
       endDate: formatDateLocal(newEnd)
     })
   }
-  
+
   // QUICK ACTIONS
   const handleQuickAction = (action) => {
     const now = new Date()
     let newStart, newEnd
-    
+
     switch (action) {
       case 'today':
         newStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -144,118 +144,118 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
       default:
         return
     }
-    
+
     onChange({
       startDate: formatDateLocal(newStart),
       endDate: formatDateLocal(newEnd)
     })
     setIsOpen(false)
   }
-  
+
   // MONTH MULTI-SELECT (CHECKBOX MODE!)
   const toggleMonth = (monthIndex) => {
     const newSelected = [...selectedMonths]
     const idx = newSelected.indexOf(monthIndex)
-    
+
     if (idx > -1) {
       newSelected.splice(idx, 1) // Remove
     } else {
       newSelected.push(monthIndex) // Add
     }
-    
+
     setSelectedMonths(newSelected.sort((a, b) => a - b))
-    
+
     // Update date range
     if (newSelected.length > 0) {
       const firstMonth = Math.min(...newSelected)
       const lastMonth = Math.max(...newSelected)
-      
+
       // PRIMA ZI a primei luni selectate
       const newStart = new Date(selectedYear, firstMonth, 1)
-      
+
       // ULTIMA ZI a ultimei luni selectate (nu ziua 0 a lunii următoare!)
       // Pentru iulie (month=6): new Date(2025, 6+1, 0) = 31 iulie
       const tempDate = new Date(selectedYear, lastMonth + 1, 1) // Prima zi a lunii următoare
       tempDate.setDate(tempDate.getDate() - 1) // Minus 1 zi = ultima zi a lunii curente
       const newEnd = tempDate
-      
+
       console.log(`📅 SELECTARE LUNĂ: ${firstMonth} (${months[firstMonth]}) → ${lastMonth} (${months[lastMonth]})`)
       console.log(`   Start: ${formatDateLocal(newStart)}`)
       console.log(`   End: ${formatDateLocal(newEnd)}`)
-      
+
       onChange({
         startDate: formatDateLocal(newStart),
         endDate: formatDateLocal(newEnd)
       })
     }
   }
-  
+
   // QUARTER MULTI-SELECT
   const toggleQuarter = (quarterIndex) => {
     const newSelected = [...selectedQuarters]
     const idx = newSelected.indexOf(quarterIndex)
-    
+
     if (idx > -1) {
       newSelected.splice(idx, 1) // Remove
     } else {
       newSelected.push(quarterIndex) // Add
     }
-    
+
     setSelectedQuarters(newSelected.sort((a, b) => a - b))
-    
+
     // Update date range
     if (newSelected.length > 0) {
       const firstQuarter = Math.min(...newSelected)
       const lastQuarter = Math.max(...newSelected)
-      
+
       const newStart = new Date(selectedYear, firstQuarter * 3, 1)
       const newEnd = new Date(selectedYear, lastQuarter * 3 + 3, 0)
-    
+
       console.log(`📅 MULTI-SELECT TRIMESTRE: Q${firstQuarter + 1} - Q${lastQuarter + 1}`)
-    console.log(`   Start: ${formatDateLocal(newStart)}`)
-    console.log(`   End: ${formatDateLocal(newEnd)}`)
-    
-    onChange({
-      startDate: formatDateLocal(newStart),
-      endDate: formatDateLocal(newEnd)
-    })
+      console.log(`   Start: ${formatDateLocal(newStart)}`)
+      console.log(`   End: ${formatDateLocal(newEnd)}`)
+
+      onChange({
+        startDate: formatDateLocal(newStart),
+        endDate: formatDateLocal(newEnd)
+      })
     }
   }
-  
+
   // YEAR MULTI-SELECT
   const toggleYear = (year) => {
     const newSelected = [...selectedYears]
     const idx = newSelected.indexOf(year)
-    
+
     if (idx > -1) {
       newSelected.splice(idx, 1) // Remove
     } else {
       newSelected.push(year) // Add
     }
-    
+
     setSelectedYears(newSelected.sort((a, b) => a - b))
-    
+
     // Update date range
     if (newSelected.length > 0) {
       const firstYear = Math.min(...newSelected)
       const lastYear = Math.max(...newSelected)
-      
+
       const newStart = new Date(firstYear, 0, 1)
       const newEnd = new Date(lastYear, 11, 31)
-      
+
       console.log(`📅 MULTI-SELECT ANI: ${firstYear} - ${lastYear}`)
       console.log(`   Start: ${formatDateLocal(newStart)}`)
       console.log(`   End: ${formatDateLocal(newEnd)}`)
-      
-    onChange({
-      startDate: formatDateLocal(newStart),
-      endDate: formatDateLocal(newEnd)
-    })
+
+      onChange({
+        startDate: formatDateLocal(newStart),
+        endDate: formatDateLocal(newEnd)
+      })
     }
   }
-  
+
   // No positioning calculation needed - using absolute positioning
-  
+
   return (
     <div className="relative">
       {/* Trigger Button */}
@@ -264,7 +264,7 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
           onClick={() => setIsOpen(!isOpen)}
           className="flex items-center space-x-2 px-4 py-2 text-white rounded-xl font-semibold text-sm transition-all shadow-md hover:shadow-lg"
           style={{
-            background: isDark 
+            background: isDark
               ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
               : 'linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)',
             boxShadow: isDark
@@ -275,7 +275,7 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
           <Calendar className="w-4 h-4" />
           <span>{formatRange()}</span>
         </button>
-        
+
         <button
           onClick={handlePrevPeriod}
           className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
@@ -289,18 +289,18 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
           <ChevronRight className="w-5 h-5" />
         </button>
       </div>
-      
+
       {/* Backdrop Overlay */}
       {isOpen && (
-        <div 
-          className="fixed inset-0 z-[100]" 
+        <div
+          className="fixed inset-0 z-[100]"
           onClick={() => setIsOpen(false)}
         />
       )}
-      
+
       {/* DROPDOWN - ABSOLUTE, direct sub buton */}
       {isOpen && (
-        <div 
+        <div
           ref={dropdownRef}
           className="absolute left-0 top-full mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4 z-[101] w-[480px]"
         >
@@ -318,18 +318,17 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
                   <button
                     key={g.id}
                     onClick={() => setGranularity(g.id)}
-                    className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
-                      granularity === g.id
+                    className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${granularity === g.id
                         ? 'bg-blue-600 text-white shadow-md'
                         : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
-                    }`}
+                      }`}
                   >
                     {g.label}
                   </button>
                 ))}
               </div>
             </div>
-            
+
             <button
               onClick={() => setIsOpen(false)}
               className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-semibold"
@@ -337,11 +336,11 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
               Închide
             </button>
           </div>
-          
-          
+
+
           {/* Content */}
           <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
-            
+
             {/* YEAR MODE - MULTI-SELECT */}
             {granularity === 'Y' && (
               <div className="space-y-3">
@@ -350,24 +349,23 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
                   {yearsToShow.map(year => {
                     const isSelected = selectedYears.includes(year)
                     return (
-                    <button
-                      key={year}
+                      <button
+                        key={year}
                         onClick={() => toggleYear(year)}
-                        className={`p-4 rounded-xl font-bold transition-all border-2 ${
-                          isSelected
+                        className={`p-4 rounded-xl font-bold transition-all border-2 ${isSelected
                             ? 'bg-blue-600 text-white border-blue-600 shadow-lg'
                             : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700'
-                      }`}
-                    >
+                          }`}
+                      >
                         <div className="flex items-center justify-between">
                           <span>{year}</span>
                           {isSelected && <span className="text-xl">✓</span>}
                         </div>
-                    </button>
+                      </button>
                     )
                   })}
                 </div>
-                
+
                 {selectedYears.length > 0 && (
                   <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                     <p className="text-sm text-blue-700 dark:text-blue-300 font-semibold">
@@ -377,7 +375,7 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
                 )}
               </div>
             )}
-            
+
             {/* QUARTER MODE - MULTI-SELECT */}
             {granularity === 'Q' && (
               <div className="space-y-3">
@@ -389,7 +387,7 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
-                    <select 
+                    <select
                       value={selectedYear}
                       onChange={(e) => setSelectedYear(parseInt(e.target.value))}
                       className="text-lg font-bold text-slate-900 dark:text-slate-100 bg-transparent border-none focus:ring-0 cursor-pointer px-2"
@@ -407,32 +405,31 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
                   </div>
                   <span className="text-xs text-slate-500">Click sau dropdown pentru an</span>
                 </div>
-                
+
                 <div className="grid grid-cols-4 gap-2">
                   {['Q1', 'Q2', 'Q3', 'Q4'].map((q, idx) => {
                     const isSelected = selectedQuarters.includes(idx)
                     return (
-                    <button
-                      key={q}
+                      <button
+                        key={q}
                         onClick={() => toggleQuarter(idx)}
-                        className={`p-3 rounded-lg font-bold text-sm transition-all border-2 ${
-                          isSelected
+                        className={`p-3 rounded-lg font-bold text-sm transition-all border-2 ${isSelected
                             ? 'bg-blue-600 text-white border-blue-600 shadow-lg'
                             : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700'
-                        }`}
-                    >
+                          }`}
+                      >
                         <div className="flex items-center justify-between mb-1">
                           <span>{q}</span>
                           {isSelected && <span className="text-lg">✓</span>}
                         </div>
-                      <div className="text-xs mt-1 opacity-70">
-                        {months[idx * 3]} - {months[idx * 3 + 2]}
-                      </div>
-                    </button>
+                        <div className="text-xs mt-1 opacity-70">
+                          {months[idx * 3]} - {months[idx * 3 + 2]}
+                        </div>
+                      </button>
                     )
                   })}
                 </div>
-                
+
                 {selectedQuarters.length > 0 && (
                   <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                     <p className="text-sm text-blue-700 dark:text-blue-300 font-semibold">
@@ -442,7 +439,7 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
                 )}
               </div>
             )}
-            
+
             {/* MONTH MODE - MULTI-SELECT CHECKBOXES! */}
             {granularity === 'M' && (
               <div className="space-y-3">
@@ -455,7 +452,7 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
-                    <select 
+                    <select
                       value={selectedYear}
                       onChange={(e) => setSelectedYear(parseInt(e.target.value))}
                       className="text-lg font-bold text-slate-900 dark:text-slate-100 bg-transparent border-none focus:ring-0 cursor-pointer px-2"
@@ -473,7 +470,7 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
                   </div>
                   <span className="text-xs text-slate-500">Click sau dropdown pentru an</span>
                 </div>
-                
+
                 <div className="grid grid-cols-4 gap-2">
                   {months.map((month, idx) => {
                     const isSelected = selectedMonths.includes(idx)
@@ -481,11 +478,10 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
                       <button
                         key={idx}
                         onClick={() => toggleMonth(idx)}
-                        className={`p-2 rounded-lg font-semibold text-sm transition-all border-2 ${
-                          isSelected
+                        className={`p-2 rounded-lg font-semibold text-sm transition-all border-2 ${isSelected
                             ? 'bg-blue-600 text-white border-blue-600 shadow-lg'
                             : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center justify-between">
                           <span>{month}</span>
@@ -495,7 +491,7 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
                     )
                   })}
                 </div>
-                
+
                 {selectedMonths.length > 0 && (
                   <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                     <p className="text-sm text-blue-700 dark:text-blue-300 font-semibold">
@@ -505,7 +501,7 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
                 )}
               </div>
             )}
-            
+
             {/* DAY MODE - RANGE PICKER */}
             {granularity === 'D' && (
               <div className="space-y-4">
@@ -529,7 +525,7 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
                     </button>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -560,42 +556,41 @@ const DateRangeSelector = ({ startDate, endDate, onChange, availableYears, avail
                   (Array.isArray(availableDays) && availableDays.length > 0) ||
                   daysInCurrentMonth > 0
                 ) && (
-                  <div className="mt-3">
-                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2">
-                      Zile disponibile
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {(Array.isArray(availableDays) && availableDays.length > 0
-                        ? availableDays
-                        : Array.from({ length: daysInCurrentMonth }).map((_, idx) =>
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2">
+                        Zile disponibile
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {(Array.isArray(availableDays) && availableDays.length > 0
+                          ? availableDays
+                          : Array.from({ length: daysInCurrentMonth }).map((_, idx) =>
                             formatDateLocal(new Date(end.getFullYear(), end.getMonth(), idx + 1))
                           )
-                      ).map((value) => {
-                        const d = new Date(value)
-                        const label = String(d.getDate()).padStart(2, '0')
-                        const isActive = startDate === value && endDate === value
-                        return (
-                          <button
-                            key={value}
-                            onClick={() =>
-                              onChange({ startDate: value, endDate: value })
-                            }
-                            className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border transition-all ${
-                              isActive
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-blue-50 hover:border-blue-300'
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        )
-                      })}
+                        ).map((value) => {
+                          const d = new Date(value)
+                          const label = String(d.getDate()).padStart(2, '0')
+                          const isActive = startDate === value && endDate === value
+                          return (
+                            <button
+                              key={value}
+                              onClick={() =>
+                                onChange({ startDate: value, endDate: value })
+                              }
+                              className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border transition-all ${isActive
+                                  ? 'bg-blue-600 text-white border-blue-600'
+                                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-blue-50 hover:border-blue-300'
+                                }`}
+                            >
+                              {label}
+                            </button>
+                          )
+                        })}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
             )}
-            
+
           </div>
         </div>
       )}
@@ -611,7 +606,7 @@ export const QuickDateButtons = ({ onChange }) => {
     const day = String(date.getDate()).padStart(2, '0')
     return `${year}-${month}-${day}`
   }
-  
+
   const quickActions = [
     { id: 'today', label: 'Azi', icon: <CalendarDays className="w-4 h-4" /> },
     { id: 'thisWeek', label: 'Săpt', icon: <Clock className="w-4 h-4" /> },
@@ -621,11 +616,11 @@ export const QuickDateButtons = ({ onChange }) => {
     { id: 'lastYear', label: 'Anul trecut', icon: <Calendar className="w-4 h-4" /> },
     { id: 'all', label: 'Toate', icon: <Calendar className="w-4 h-4" /> }
   ]
-  
+
   const handleQuickAction = (action) => {
     const now = new Date()
     let newStart, newEnd
-    
+
     switch (action) {
       case 'today':
         newStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -666,23 +661,23 @@ export const QuickDateButtons = ({ onChange }) => {
       default:
         return
     }
-    
+
     onChange({
       startDate: formatDateLocal(newStart),
       endDate: formatDateLocal(newEnd)
     })
   }
-  
+
   return (
     <div className="flex items-center space-x-2">
       {quickActions.map(({ id, label, icon }) => (
         <button
           key={id}
           onClick={() => handleQuickAction(id)}
-          className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-2xl bg-slate-900/60 text-slate-100 text-xs border border-slate-700 hover:bg-slate-800/80 hover:border-slate-500 transition-all h-[38px]"
+          className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-medium transition-all h-[38px] border bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-sm dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800/80 dark:hover:border-slate-500"
           title={label}
         >
-          <span className="text-blue-500">{icon}</span>
+          <span className="text-blue-600 dark:text-blue-500">{icon}</span>
           <span>{label}</span>
         </button>
       ))}

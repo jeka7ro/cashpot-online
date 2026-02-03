@@ -7,10 +7,10 @@ const KPICard = ({ title, value, change, changeLabel, icon: Icon, trend, healthS
     const trendColor = getValueColor(change)
 
     return (
-        <div className="relative overflow-hidden rounded-2xl bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl border border-white/60 dark:border-slate-600/50 p-6 shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-[1.02]">
-            {/* Gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-white/10 to-transparent dark:from-white/10 dark:via-white/5 dark:to-transparent" />
-            <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/40 to-transparent dark:from-white/15 dark:to-transparent" />
+        <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm hover:shadow-md transition-all duration-300 hover:scale-[1.02]">
+            {/* Gradient overlay - Dark mode only */}
+            <div className="absolute inset-0 hidden dark:block bg-gradient-to-br from-white/5 via-transparent to-transparent" />
+            <div className="absolute top-0 left-0 w-full h-1/2 hidden dark:block bg-gradient-to-b from-white/10 to-transparent" />
 
             <div className="relative z-10">
                 {/* Header */}

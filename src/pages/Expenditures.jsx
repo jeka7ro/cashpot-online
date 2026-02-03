@@ -1180,16 +1180,32 @@ const Expenditures = () => {
       // Creează workbook
       const wb = XLSX.utils.book_new()
 
-      // Pregătește datele pentru export
+      // Pregătește datele pentru export - EXACT ca tabelul
       const exportData = []
 
-      // Header row
-      const header = ['Departament / Categorie', ...locations, 'TOTAL']
+      // Header row: Departament, Categorie, apoi fiecare locație, apoi TOTAL
+      const header = ['Departament', 'Categorie', ...locations, 'TOTAL']
       exportData.push(header)
+
+      // Pentru fiecare rând din matrix, trebuie să găsim departamentul
+      // Căutăm în filteredDataForTable pentru a găsi departamentul pentru fiecare categorie
+      const categoryToDepartment = {}
+      if (filteredDataForTable) {
+        filteredDataForTable.forEach(item => {
+          const category = item.expenditure_type
+          const dept = item.department_name
+          if (category && dept && !categoryToDepartment[category]) {
+            categoryToDepartment[category] = dept
+          }
+        })
+      }
 
       // Date rows
       matrix.forEach(row => {
-        const rowData = [row.expenditure_type]
+        const category = row.expenditure_type
+        const department = categoryToDepartment[category] || 'Nespecificat'
+
+        const rowData = [department, category]
         locations.forEach(loc => {
           rowData.push(row[loc] || 0)
         })
@@ -1199,7 +1215,7 @@ const Expenditures = () => {
 
       // Total row
       if (totalsRow) {
-        const totalRow = ['TOTAL']
+        const totalRow = ['', 'TOTAL']
         locations.forEach(loc => {
           totalRow.push(totalsRow[loc] || 0)
         })
@@ -1212,7 +1228,8 @@ const Expenditures = () => {
 
       // Setează lățimea coloanelor
       const colWidths = [
-        { wch: 30 }, // Departament / Categorie
+        { wch: 20 }, // Departament
+        { wch: 30 }, // Categorie
         ...locations.map(() => ({ wch: 15 })), // Locații
         { wch: 15 } // TOTAL
       ]

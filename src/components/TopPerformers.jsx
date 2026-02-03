@@ -8,7 +8,7 @@ const TopPerformers = ({ topLocations, bottomLocations }) => {
         const iconColor = rank === 1 ? 'text-yellow-500' : rank === 2 ? 'text-slate-400' : 'text-amber-600'
 
         return (
-            <div className="flex items-center gap-4 p-4 rounded-xl bg-white/30 dark:bg-slate-700/30 hover:bg-white/50 dark:hover:bg-slate-700/50 transition-all duration-200">
+            <div className="flex items-center gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-700/30 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-all duration-200 border border-slate-100 dark:border-transparent">
                 {/* Rank badge */}
                 <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${rank === 1 ? 'bg-yellow-500/20' : rank === 2 ? 'bg-slate-400/20' : 'bg-amber-600/20'
                     }`}>
@@ -39,8 +39,8 @@ const TopPerformers = ({ topLocations, bottomLocations }) => {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Top Performers */}
-            <div className="relative overflow-hidden rounded-2xl bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl border border-white/60 dark:border-slate-600/50 p-6 shadow-2xl">
-                <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-white/10 to-transparent dark:from-white/10 dark:via-white/5 dark:to-transparent" />
+            <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+                <div className="absolute inset-0 hidden dark:block bg-gradient-to-br from-white/10 via-white/5 to-transparent" />
 
                 <div className="relative z-10">
                     <div className="flex items-center gap-3 mb-6">
@@ -66,8 +66,8 @@ const TopPerformers = ({ topLocations, bottomLocations }) => {
             </div>
 
             {/* Bottom Performers */}
-            <div className="relative overflow-hidden rounded-2xl bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl border border-white/60 dark:border-slate-600/50 p-6 shadow-2xl">
-                <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-white/10 to-transparent dark:from-white/10 dark:via-white/5 dark:to-transparent" />
+            <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+                <div className="absolute inset-0 hidden dark:block bg-gradient-to-br from-white/10 via-white/5 to-transparent" />
 
                 <div className="relative z-10">
                     <div className="flex items-center gap-3 mb-6">

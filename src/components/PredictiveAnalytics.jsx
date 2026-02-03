@@ -51,8 +51,8 @@ const PredictiveAnalytics = ({ historicalData, predictions }) => {
     }
 
     return (
-        <div className="relative overflow-hidden rounded-2xl bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl border border-white/60 dark:border-slate-600/50 p-6 shadow-2xl">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-white/10 to-transparent dark:from-white/10 dark:via-white/5 dark:to-transparent" />
+        <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+            <div className="absolute inset-0 hidden dark:block bg-gradient-to-br from-white/10 via-white/5 to-transparent" />
 
             <div className="relative z-10">
                 {/* Header */}

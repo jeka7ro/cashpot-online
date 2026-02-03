@@ -248,14 +248,14 @@ const buildSqlTableWhereClause = (query, includedFilters) => {
 
   // Type: folosim coloana pre-calculată normalized_expenditure_type
   if (type && type !== 'all') {
-    filters.push(`normalized_expenditure_type = $${paramIndex++}`)
+    filters.push(`(normalized_expenditure_type = $${paramIndex++} OR data_source = 'auto_discount')`)
     values.push(normalizeText(type))
   } else if (types && types.length > 0) {
     const normalizedTypes = types.map(normalizeText).filter(Boolean)
     const normalizedArrayParam = paramIndex++
     values.push(normalizedTypes)
-    filters.push(`normalized_expenditure_type = ANY($${normalizedArrayParam}::text[])`)
-    console.log(`🔍 [Optimized Filter] Types: ${normalizedTypes.length} included`)
+    filters.push(`(normalized_expenditure_type = ANY($${normalizedArrayParam}::text[]) OR data_source = 'auto_discount')`)
+    console.log(`🔍 [Optimized Filter] Types: ${normalizedTypes.length} included (plus auto_discounts)`)
   }
 
   // Location: folosim coloana pre-calculată normalized_location_name
@@ -325,6 +325,16 @@ const attachUserNames = async (pool, rows) => {
     created_by_name: row.created_by ? usersMap[row.created_by] || `User ${row.created_by}` : null,
     updated_by_name: row.updated_by ? usersMap[row.updated_by] || `User ${row.updated_by}` : null
   }))
+}
+
+// Helper invalidare cache P&L
+const invalidatePLCache = async (pool) => {
+  try {
+    await pool.query('DELETE FROM incasari_monthly_cache')
+    console.log('🧹 [CACHE] P&L Cache invalidated')
+  } catch (e) {
+    console.error('⚠️ Failed to invalidate P&L cache:', e.message)
+  }
 }
 
 // External DB connection pool (for expenditures)
@@ -779,6 +789,9 @@ router.post('/upload', async (req, res) => {
 
     const finalCountResult = await localPool.query('SELECT COUNT(*) as total FROM expenditures_sync')
     const finalCount = parseInt(finalCountResult.rows[0].total) || 0
+
+    // Invalidate P&L Cache
+    await invalidatePLCache(localPool)
 
     console.log(`✅ Import complet: ${inserted} noi, ${updated} actualizate, ${skipped} erori`)
     console.log(`📊 Total înregistrări în DB: ${finalCount} (înainte: ${totalCount})`)
@@ -1235,6 +1248,42 @@ router.post('/sync', async (req, res) => {
             'bat_sync'
           ])
           inserted++
+
+          // --- AUTO LIMITARE: DISCOUNT PEPSI (Bar) ---
+          // Dacă este Pepsi din Bar, inserăm automat și discount-ul de 30%
+          const isBar = (row.department_name || '').trim() === 'Bar'
+          const type = (row.expenditure_type || '').toLowerCase()
+          const isPepsi = type.includes('pepsi')
+
+          if (isBar && isPepsi && normalizedAmount > 0) {
+            try {
+              const discountAmount = -Math.round((normalizedAmount * 0.30) * 100) / 100
+              const discountDesc = `Discount 30% Pepsi - ${row.expenditure_type}`
+
+              await localPool.query(`
+                INSERT INTO expenditures_sync (
+                  location_name, department_name, expenditure_type, amount, 
+                  operational_date, description, synced_at, mapped_location_id, data_source
+                ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, $7, 'auto_discount')
+                ON CONFLICT (operational_date, amount, location_name, department_name, expenditure_type) 
+                DO NOTHING
+              `, [
+                normalizedLocationName,
+                'Bar',
+                'Discount Pepsi',
+
+
+                discountAmount,
+                row.operational_date,
+                discountDesc,
+                mappedLocationId
+              ])
+              console.log(`✨ Auto-generated Pepsi discount: ${discountAmount} RON`)
+            } catch (discountErr) {
+              console.error('Error generating auto-discount:', discountErr)
+            }
+          }
+          // -------------------------------------------
         } catch (insertError) {
           errors++
           console.error(`❌ Error inserting record ${i + batch.indexOf(row) + 1}:`, insertError.message)
@@ -1335,6 +1384,90 @@ router.get('/import-all-status', authenticateToken, async (req, res) => {
       error: error.message,
       status: 'error'
     })
+  }
+})
+
+/**
+ * POST /api/expenditures/fix-pepsi-retroactive
+ * Aplică regulă discount 30% retroactiv pentru înregistrările existente
+ */
+router.post('/fix-pepsi-retroactive', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    console.log('🔄 Starting retroactive Pepsi discount fix...')
+
+    // 1. Găsește tranzacțiile Bar/Pepsi pozitive
+    const findQuery = `
+      SELECT id, location_name, department_name, expenditure_type, amount, operational_date, description, mapped_location_id
+      FROM expenditures_sync
+      WHERE department_name = 'Bar'
+      AND (expenditure_type ILIKE '%Pepsi%' OR description ILIKE '%Pepsi%')
+      AND amount > 0
+    `
+    const { rows: originals } = await pool.query(findQuery)
+    console.log(`📊 Found ${originals.length} potential Pepsi transactions`)
+
+    let added = 0
+    let skipped = 0
+
+    for (const item of originals) {
+      // Setează suma discount
+      const discountAmount = -Math.round((item.amount * 0.30) * 100) / 100
+      const discountDesc = `Discount 30% Pepsi - ${item.expenditure_type}`
+
+      // Verifică dacă există deja 
+      const checkQuery = `
+         SELECT id FROM expenditures_sync
+         WHERE department_name = 'Bar'
+         AND operational_date = $1
+         AND location_name = $2
+         AND amount = $3
+         AND description = $4
+       `
+      const { rows: existing } = await pool.query(checkQuery, [
+        item.operational_date,
+        item.location_name,
+        discountAmount,
+        discountDesc
+      ])
+
+      if (existing.length === 0) {
+        // Normalizare simplă pentru fix
+        const normLoc = String(item.location_name || '').trim().toLowerCase().replace(/[\u0300-\u036f]/g, '')
+
+        await pool.query(`
+           INSERT INTO expenditures_sync (
+             location_name, department_name, expenditure_type, amount, 
+             operational_date, description, synced_at, mapped_location_id, data_source,
+             normalized_location_name, normalized_department_name, normalized_expenditure_type
+           ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, $7, 'auto_discount', $8, 'bar', 'discount pepsi')
+           ON CONFLICT (operational_date, amount, location_name, department_name, expenditure_type) 
+           DO NOTHING
+         `, [
+          item.location_name,
+          'Bar',
+          'Discount Pepsi',
+          discountAmount,
+          item.operational_date,
+          discountDesc,
+          item.mapped_location_id,
+          normLoc
+        ])
+        added++
+      } else {
+        skipped++
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Fix complet! Adăugate: ${added}, Existente (Skipped): ${skipped}`,
+      stats: { added, skipped }
+    })
+
+  } catch (error) {
+    console.error('Error in fix-pepsi-retroactive:', error)
+    res.status(500).json({ success: false, error: error.message })
   }
 })
 
@@ -1922,6 +2055,9 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
       _importAllProgress.totalRecords = totalRecords // Asigură-te că totalRecords este setat pentru UI
 
       console.log(`📊 Final database count: ${totalRecords} records`)
+
+      // Invalidate P&L Cache
+      await invalidatePLCache(localPool)
       console.log(`📊 Import summary: ${imported} new, ${skipped} duplicate, ${errors} errors`)
 
       // Clear progress after 5 seconds
@@ -3072,6 +3208,11 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
           }
         }
 
+        // Helper normalizare
+        const normalize = (str) => String(str || '').trim().toLowerCase()
+          .replace(/ţ/g, 'ț').replace(/ş/g, 'ș').replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+
         // Insert into DB
         await pool.query(`
           INSERT INTO expenditures_sync (
@@ -3083,17 +3224,23 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
             description, 
             data_source,
             created_by,
-            synced_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+            synced_at,
+            normalized_location_name,
+            normalized_department_name,
+            normalized_expenditure_type
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9, $10, $11)
         `, [
           operationalDate,
           amount,
-          normalizedLocation,
+          normalizedLocation, // Display Name
           normalizedDepartment,
           normalizedType,
           explanation,
           'google_sheets',
-          createdBy
+          createdBy, // Use createdBy from CSV
+          normalize(normalizedLocation),
+          normalize(normalizedDepartment),
+          normalize(normalizedType)
         ])
 
         imported++
@@ -3150,6 +3297,12 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
         }
       }
     }
+
+    // Invalidate P&L Cache before closing pool
+    try {
+      await pool.query('DELETE FROM incasari_monthly_cache')
+      console.log('🧹 [CACHE] P&L Cache invalidated (Google Sheets Import)')
+    } catch (e) { console.error('Cache invalidation failed', e.message) }
 
     await pool.end()
 
@@ -3653,6 +3806,9 @@ router.put('/sql-table/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ success: false, error: 'Record not found' })
     }
 
+    // Invalidate P&L Cache
+    await invalidatePLCache(pool)
+
     res.json({ success: true, record: updateResult.rows[0] })
   } catch (error) {
     console.error('Error updating expenditure row:', error)
@@ -3688,6 +3844,9 @@ router.delete('/sql-table/:id', authenticateToken, async (req, res) => {
     if (deleteResult.rowCount === 0) {
       return res.status(404).json({ success: false, error: 'Record not found' })
     }
+
+    // Invalidate P&L Cache
+    await invalidatePLCache(pool)
 
     res.json({ success: true, deleted: deleteResult.rows })
   } catch (error) {
@@ -6233,18 +6392,28 @@ router.get('/slots-monthly/summary', authenticateToken, async (req, res) => {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
 
-    // Obține toți anii disponibili din slots_monthly (minim 2024)
+    // Obține toți anii disponibili din slots_monthly ȘI incasari_daily (minim 2024)
     const yearsResult = await pool.query(`
-      SELECT DISTINCT year
-      FROM slots_monthly
-      WHERE year >= 2024
+      SELECT DISTINCT year FROM (
+        SELECT year FROM slots_monthly WHERE year >= 2024
+        UNION
+        SELECT EXTRACT(YEAR FROM audit_date)::INTEGER as year FROM incasari_daily WHERE audit_date >= '2024-01-01'
+      ) as combined_years
       ORDER BY year ASC
     `)
 
-    const availableYears = yearsResult.rows.map(row => row.year)
+    let availableYears = yearsResult.rows.map(row => row.year)
     if (availableYears.length === 0) {
-      availableYears.push(2024, 2025) // Default years
+      availableYears = [2024, 2025, 2026] // Fallback
     }
+
+    // Ensure 2026 is present if current date suggests it
+    const currentYear = new Date().getFullYear()
+    if (!availableYears.includes(currentYear)) availableYears.push(currentYear)
+    if (!availableYears.includes(currentYear + 1)) availableYears.push(currentYear + 1)
+
+    // De-duplicate and sort
+    availableYears = [...new Set(availableYears)].sort((a, b) => a - b)
 
     // Folosește locations.json pentru mapping (EXACT ca în incasari.js)
     const locationsData = loadExportedData('locations.json')
@@ -6277,6 +6446,41 @@ router.get('/slots-monthly/summary', authenticateToken, async (req, res) => {
       allData[year] = {}
 
       // Obține datele din slots_monthly pentru acest an (inclusiv cele editate manual)
+      // 1. Întotdeauna calculăm mai întâi din incasari_daily (date automate)
+      const startDate = `${year}-01-01`
+      const endDate = `${year}-12-31`
+
+      const sql = `
+        SELECT 
+          EXTRACT(MONTH FROM audit_date)::INTEGER AS month,
+          location_id,
+          COUNT(DISTINCT serial_number) AS slots_count
+        FROM incasari_daily
+        WHERE audit_date BETWEEN $1 AND $2
+          AND location_id IS NOT NULL
+          AND serial_number IS NOT NULL
+          AND serial_number != ''
+        GROUP BY EXTRACT(MONTH FROM audit_date), location_id
+        ORDER BY month, location_id
+      `
+
+      const calculatedResult = await pool.query(sql, [startDate, endDate])
+
+      // Populează cu datele calculate automat
+      calculatedResult.rows.forEach(row => {
+        const month = row.month
+        const locationId = String(row.location_id || '')
+        const locationName = locationMap.get(locationId)
+
+        if (month && locationName && locationName.toLowerCase() !== 'depozit') {
+          if (!allData[year][month]) {
+            allData[year][month] = {}
+          }
+          allData[year][month][locationName] = Number(row.slots_count || 0)
+        }
+      })
+
+      // 2. Suprapunem datele din slots_monthly (modificări manuale sau salvate explicit)
       const slotsMonthlyResult = await pool.query(`
         SELECT 
           month,
@@ -6290,7 +6494,6 @@ router.get('/slots-monthly/summary', authenticateToken, async (req, res) => {
         ORDER BY month, location_name
       `, [year])
 
-      // Populează cu datele din slots_monthly (care includ modificările)
       slotsMonthlyResult.rows.forEach(row => {
         const month = row.month
         const locationName = row.location_name
@@ -6299,47 +6502,10 @@ router.get('/slots-monthly/summary', authenticateToken, async (req, res) => {
           if (!allData[year][month]) {
             allData[year][month] = {}
           }
+          // Aici SUPRA-SCRIEM valoarea cu cea din slots_monthly, deoarece este considerată "corecție manuală" sau "sursă de adevăr"
           allData[year][month][locationName] = Number(row.slots_count || 0)
         }
       })
-
-      // Dacă nu există date în slots_monthly pentru acest an, folosește incasari_daily ca fallback
-      if (Object.keys(allData[year]).length === 0) {
-        const startDate = `${year}-01-01`
-        const endDate = `${year}-12-31`
-
-        const sql = `
-          SELECT 
-            EXTRACT(MONTH FROM audit_date)::INTEGER AS month,
-            location_id,
-            COUNT(DISTINCT serial_number) AS slots_count
-          FROM incasari_daily
-          WHERE audit_date BETWEEN $1 AND $2
-            AND location_id IS NOT NULL
-            AND serial_number IS NOT NULL
-            AND serial_number != ''
-          GROUP BY EXTRACT(MONTH FROM audit_date), location_id
-          ORDER BY month, location_id
-        `
-
-        const result = await pool.query(sql, [startDate, endDate])
-
-        // Populează cu datele din incasari_daily (fallback)
-        result.rows.forEach(row => {
-          const month = row.month
-          const locationId = String(row.location_id || '')
-          const locationName = locationMap.get(locationId)
-
-          if (month && locationName && locationName.toLowerCase() !== 'depozit') {
-            if (!allData[year][month]) {
-              allData[year][month] = {}
-            }
-            const currentCount = allData[year][month][locationName] || 0
-            const newCount = Number(row.slots_count || 0)
-            allData[year][month][locationName] = Math.max(currentCount, newCount)
-          }
-        })
-      }
     }
 
     res.json({

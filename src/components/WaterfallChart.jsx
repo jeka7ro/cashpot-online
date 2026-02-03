@@ -34,8 +34,8 @@ const WaterfallChart = ({ data }) => {
     }
 
     return (
-        <div className="relative overflow-hidden rounded-2xl bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl border border-white/60 dark:border-slate-600/50 p-6 shadow-2xl">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-white/10 to-transparent dark:from-white/10 dark:via-white/5 dark:to-transparent" />
+        <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+            <div className="absolute inset-0 hidden dark:block bg-gradient-to-br from-white/10 via-white/5 to-transparent" />
 
             <div className="relative z-10">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">
@@ -68,9 +68,11 @@ const WaterfallChart = ({ data }) => {
                                     fill={
                                         entry.isTotal
                                             ? '#6366f1' // indigo for total
-                                            : entry.value >= 0
-                                                ? '#22c55e' // green for positive
-                                                : '#ef4444' // red for negative
+                                            : entry.name === 'Marketing'
+                                                ? '#f59e0b' // amber for marketing
+                                                : entry.value >= 0
+                                                    ? '#22c55e' // green for positive
+                                                    : '#ef4444' // red for negative
                                     }
                                 />
                             ))}
@@ -90,18 +92,22 @@ const WaterfallChart = ({ data }) => {
                 </ResponsiveContainer>
 
                 {/* Legend */}
-                <div className="mt-4 flex items-center justify-center gap-6">
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-4 md:gap-6">
                     <div className="flex items-center gap-2">
                         <div className="w-4 h-4 rounded bg-emerald-500" />
                         <span className="text-xs text-slate-600 dark:text-slate-400">Venit</span>
                     </div>
                     <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded bg-amber-500" />
+                        <span className="text-xs text-slate-600 dark:text-slate-400">Marketing</span>
+                    </div>
+                    <div className="flex items-center gap-2">
                         <div className="w-4 h-4 rounded bg-red-500" />
-                        <span className="text-xs text-slate-600 dark:text-slate-400">Cheltuieli</span>
+                        <span className="text-xs text-slate-600 dark:text-slate-400">OpEx</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <div className="w-4 h-4 rounded bg-indigo-500" />
-                        <span className="text-xs text-slate-600 dark:text-slate-400">Total</span>
+                        <span className="text-xs text-slate-600 dark:text-slate-400">Profit Net</span>
                     </div>
                 </div>
             </div>

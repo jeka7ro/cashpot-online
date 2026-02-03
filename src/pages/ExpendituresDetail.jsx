@@ -51,7 +51,7 @@ const ExpendituresDetail = () => {
   const applyQuickDateFilter = (filterType) => {
     const today = new Date()
     let startDate, endDate
-    
+
     switch (filterType) {
       case 'azi':
         startDate = formatDateLocal(today)
@@ -92,7 +92,7 @@ const ExpendituresDetail = () => {
       default:
         return
     }
-    
+
     setDateRange({ startDate, endDate })
   }
 
@@ -105,12 +105,12 @@ const ExpendituresDetail = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(25)
   const [slotsData, setSlotsData] = useState({}) // Date despre sloturi: { '2025-01': { total: 150, locations: {...} } }
-  
+
   // Selectare multiplă și ștergere multiplă
   const [selectedItems, setSelectedItems] = useState(new Set())
   const [showBulkActions, setShowBulkActions] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
-  
+
   // Căutare duplicate SMART
   const [showDuplicates, setShowDuplicates] = useState(false)
   const [duplicates, setDuplicates] = useState([])
@@ -125,7 +125,7 @@ const ExpendituresDetail = () => {
     try {
       setLoading(true)
       // Cache busting: adaugă timestamp pentru a forța reîncărcarea
-      const url = forceRefresh 
+      const url = forceRefresh
         ? `/api/expenditures/data?_t=${Date.now()}`
         : '/api/expenditures/data'
       const response = await axios.get(url)
@@ -154,10 +154,10 @@ const ExpendituresDetail = () => {
         const startMonth = startDate.getMonth() + 1 // 1-12
         const endYear = endDate.getFullYear()
         const endMonth = endDate.getMonth() + 1 // 1-12
-        
+
         // Obține datele despre sloturi pentru toți anii din perioada selectată
         const slotsMap = {}
-        
+
         try {
           const response = await axios.get(`/api/expenditures/slots-monthly/summary`)
           if (response.data?.success && response.data?.data) {
@@ -168,7 +168,7 @@ const ExpendituresDetail = () => {
                 // Parcurge toate lunile din an (1-12)
                 for (let monthNum = 1; monthNum <= 12; monthNum++) {
                   const monthKey = `${year}-${String(monthNum).padStart(2, '0')}`
-                  
+
                   // Verifică dacă luna este în perioada selectată
                   let shouldInclude = false
                   if (year === startYear && year === endYear) {
@@ -184,13 +184,13 @@ const ExpendituresDetail = () => {
                     // An întreg între startYear și endYear - include toate lunile
                     shouldInclude = true
                   }
-                  
+
                   if (shouldInclude) {
                     // Calculează totalul de sloturi pentru toate locațiile din această lună
                     const locationsData = yearData[String(monthNum)] // Folosește string pentru key
                     let totalSlots = 0
                     const locationsBreakdown = {}
-                    
+
                     if (locationsData) {
                       Object.keys(locationsData).forEach(locationName => {
                         const slotsCount = parseInt(locationsData[locationName] || 0)
@@ -198,7 +198,7 @@ const ExpendituresDetail = () => {
                         locationsBreakdown[locationName] = slotsCount
                       })
                     }
-                    
+
                     slotsMap[monthKey] = {
                       total: totalSlots,
                       locations: locationsBreakdown
@@ -211,7 +211,7 @@ const ExpendituresDetail = () => {
         } catch (error) {
           console.error('Error loading slots data:', error)
         }
-        
+
         console.log('📊 Slots data loaded:', slotsMap)
         console.log('📊 Slots keys:', Object.keys(slotsMap).sort())
         setSlotsData(slotsMap)
@@ -219,7 +219,7 @@ const ExpendituresDetail = () => {
         console.error('Error loading slots data:', error)
       }
     }
-    
+
     loadSlotsData()
   }, [dateRange])
 
@@ -241,12 +241,12 @@ const ExpendituresDetail = () => {
     if (categoryFilter && categoryFilter !== 'all') {
       data = data.filter((item) => (item.expenditure_type || '') === categoryFilter)
     }
-    
+
     // Filtru de locație
     if (locationFilter && locationFilter !== 'all') {
       data = data.filter((item) => (item.location_name || '') === locationFilter)
     }
-    
+
     // Filtru de sursă (data_source)
     if (sourceFilter && sourceFilter !== 'all') {
       data = data.filter((item) => {
@@ -276,7 +276,7 @@ const ExpendituresDetail = () => {
     })
     return Array.from(set).sort()
   }, [filteredData])
-  
+
   // Locații unice pentru filtru - din datele ORIGINALE (nefiltrate), nu din filteredData!
   const uniqueLocations = useMemo(() => {
     const set = new Set()
@@ -293,12 +293,12 @@ const ExpendituresDetail = () => {
     })
     return Array.from(set).sort()
   }, [expendituresData, department, dateRange])
-  
+
   // Update showBulkActions based on selectedItems
   useEffect(() => {
     setShowBulkActions(selectedItems.size > 0)
   }, [selectedItems])
-  
+
   // Selectare multiplă
   const handleSelectAll = (checked) => {
     if (checked) {
@@ -308,7 +308,7 @@ const ExpendituresDetail = () => {
       setSelectedItems(new Set())
     }
   }
-  
+
   const handleSelectItem = (id, checked) => {
     const newSelected = new Set(selectedItems)
     if (checked) {
@@ -318,18 +318,18 @@ const ExpendituresDetail = () => {
     }
     setSelectedItems(newSelected)
   }
-  
+
   // Ștergere multiplă
   const handleBulkDelete = async () => {
     if (selectedItems.size === 0) return
-    
+
     if (!window.confirm(`Ești sigur că vrei să ștergi ${selectedItems.size} înregistrări?`)) return
-    
+
     setBulkDeleting(true)
     try {
       let deleted = 0
       let errors = 0
-      
+
       for (const id of selectedItems) {
         try {
           await axios.delete(`/api/expenditures/sql-table/${id}`, {
@@ -341,14 +341,14 @@ const ExpendituresDetail = () => {
           errors++
         }
       }
-      
+
       if (deleted > 0) {
         toast.success(`${deleted} înregistrări șterse cu succes`)
       }
       if (errors > 0) {
         toast.error(`${errors} erori la ștergere`)
       }
-      
+
       setSelectedItems(new Set())
       loadExpendituresData()
     } catch (error) {
@@ -358,41 +358,41 @@ const ExpendituresDetail = () => {
       setBulkDeleting(false)
     }
   }
-  
+
   // Căutare duplicate SMART - caută după: suma, locație, LUNA (nu ziua!), departament, tip
   const handleSearchDuplicates = () => {
     setSearchingDuplicates(true)
     setDuplicateGroups([])
     setShowDuplicatesModal(false)
     setSelectedDuplicatesToKeep(new Map())
-    
+
     try {
       // Găsește duplicatele bazate pe: LUNA + suma + locație + departament + tip
       const duplicatesMap = new Map()
-      
+
       filteredData.forEach((row) => {
         // Normalizează valorile pentru comparație
         const amount = parseFloat(row.amount || 0).toFixed(2)
         const location = (row.location_name || '').trim().toLowerCase()
         const department = (row.department_name || '').trim().toLowerCase()
         const expenditureType = (row.expenditure_type || '').trim().toLowerCase()
-        
+
         // Extrage LUNA și ANUL (nu ziua!)
         let monthYear = ''
         if (row.operational_date) {
           const date = new Date(row.operational_date)
           monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}` // YYYY-MM
         }
-        
+
         // Cheie: LUNA + suma + locație + departament + tip
         const key = `${monthYear}_${amount}_${location}_${department}_${expenditureType}`
-        
+
         if (!duplicatesMap.has(key)) {
           duplicatesMap.set(key, [])
         }
         duplicatesMap.get(key).push(row)
       })
-      
+
       // Filtrează doar grupurile cu mai mult de 1 înregistrare
       const groups = Array.from(duplicatesMap.values())
         .filter(group => group.length > 1)
@@ -402,9 +402,9 @@ const ExpendituresDetail = () => {
           // Prioritar: cel din BAT (data_source = 'bat_sync')
           priorityItem: group.find(item => item.data_source === 'bat_sync') || group[0]
         }))
-      
+
       setDuplicateGroups(groups)
-      
+
       // Selectează automat prioritar (cel din BAT sau primul)
       const initialSelection = new Map()
       groups.forEach(group => {
@@ -412,7 +412,7 @@ const ExpendituresDetail = () => {
         initialSelection.set(group.id, new Set([keepId]))
       })
       setSelectedDuplicatesToKeep(initialSelection)
-      
+
       if (groups.length > 0) {
         setShowDuplicatesModal(true)
         toast.success(`Găsite ${groups.length} grupuri de duplicate (${groups.reduce((sum, g) => sum + g.items.length, 0)} înregistrări)`)
@@ -426,20 +426,20 @@ const ExpendituresDetail = () => {
       setSearchingDuplicates(false)
     }
   }
-  
+
   // Toggle selecție pentru o înregistrare dintr-un grup
   const toggleDuplicateSelection = (groupId, itemId) => {
     setSelectedDuplicatesToKeep(prev => {
       const newMap = new Map(prev)
       const groupSelection = newMap.get(groupId) || new Set()
       const newSelection = new Set(groupSelection)
-      
+
       if (newSelection.has(itemId)) {
         newSelection.delete(itemId)
       } else {
         newSelection.add(itemId)
       }
-      
+
       // Asigură-te că cel puțin unul este selectat
       if (newSelection.size === 0) {
         const group = duplicateGroups.find(g => g.id === groupId)
@@ -447,16 +447,16 @@ const ExpendituresDetail = () => {
           newSelection.add(group.priorityItem.id)
         }
       }
-      
+
       newMap.set(groupId, newSelection)
       return newMap
     })
   }
-  
+
   // Șterge duplicatele (păstrează doar cele selectate)
   const handleDeleteDuplicates = async () => {
     if (duplicateGroups.length === 0) return
-    
+
     const idsToDelete = []
     duplicateGroups.forEach(group => {
       const keepIds = selectedDuplicatesToKeep.get(group.id) || new Set()
@@ -466,21 +466,21 @@ const ExpendituresDetail = () => {
         }
       })
     })
-    
+
     if (idsToDelete.length === 0) {
       toast.info('Nu sunt duplicate de șters (toate sunt selectate să fie păstrate)')
       return
     }
-    
+
     const confirm = window.confirm(
       `Ești sigur că vrei să ștergi ${idsToDelete.length} duplicate?\nSe vor păstra ${duplicateGroups.reduce((sum, g) => sum + (selectedDuplicatesToKeep.get(g.id)?.size || 0), 0)} înregistrări.`
     )
     if (!confirm) return
-    
+
     setDeletingDuplicates(true)
     try {
       toast.loading(`Se șterg ${idsToDelete.length} duplicate...`, { id: 'delete-duplicates' })
-      await axios.post('/api/expenditures/sql-table/bulk-delete', { 
+      await axios.post('/api/expenditures/sql-table/bulk-delete', {
         ids: idsToDelete,
         confirmDelete: true
       })
@@ -496,7 +496,7 @@ const ExpendituresDetail = () => {
       setDeletingDuplicates(false)
     }
   }
-  
+
   // Export Excel
   const handleExportExcel = () => {
     try {
@@ -506,14 +506,14 @@ const ExpendituresDetail = () => {
       }
 
       const wb = XLSX.utils.book_new()
-      
+
       // Pregătește datele pentru export
       const exportData = []
-      
+
       // Header row
       const header = ['Data', 'Locație', 'Tip', 'Descriere', 'Sursă', 'Sumă (RON)']
       exportData.push(header)
-      
+
       // Date rows
       paginatedData.forEach(row => {
         exportData.push([
@@ -525,10 +525,10 @@ const ExpendituresDetail = () => {
           row.amount || 0
         ])
       })
-      
+
       // Creează worksheet
       const ws = XLSX.utils.aoa_to_sheet(exportData)
-      
+
       // Setează lățimea coloanelor
       const colWidths = [
         { wch: 12 }, // Data
@@ -539,20 +539,120 @@ const ExpendituresDetail = () => {
         { wch: 15 }  // Sumă
       ]
       ws['!cols'] = colWidths
-      
+
       // Adaugă worksheet la workbook
       XLSX.utils.book_append_sheet(wb, ws, 'Cheltuieli')
-      
+
       // Generează nume fișier
       const fileName = `Cheltuieli_${department}_${dateRange.startDate}_${dateRange.endDate}.xlsx`
-      
+
       // Exportă
       XLSX.writeFile(wb, fileName)
-      
+
       toast.success('✅ Excel exportat cu succes!')
     } catch (error) {
       console.error('Error exporting to Excel:', error)
       toast.error('Eroare la export Excel')
+    }
+  }
+
+  // Export Excel Sumar Locații
+  const handleExportLocationSummaryExcel = () => {
+    try {
+      if (!locationSummary || locationSummary.length === 0) {
+        toast.error('Nu există date pe locații de exportat')
+        return
+      }
+
+      const wb = XLSX.utils.book_new()
+      const exportData = []
+
+      // Header
+      const header = [
+        summaryGranularity === 'day' ? 'Data' :
+          summaryGranularity === 'month' ? 'Lună' :
+            summaryGranularity === 'quarter' ? 'Trimestru' : 'An',
+        ...locationSummary.map(l => l.location),
+        'Total'
+      ]
+      exportData.push(header)
+
+      // Data Processing
+      const byPeriod = {}
+      filteredData.forEach((item) => {
+        if (!item.operational_date) return
+
+        const dateObj = new Date(item.operational_date)
+        let periodKey = ''
+        let periodLabel = ''
+
+        switch (summaryGranularity) {
+          case 'day':
+            periodKey = item.operational_date.split('T')[0]
+            periodLabel = dateObj.toLocaleDateString('ro-RO', { day: '2-digit', month: 'short', year: 'numeric' })
+            break
+          case 'month':
+            periodKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`
+            periodLabel = dateObj.toLocaleDateString('ro-RO', { month: 'long', year: 'numeric' })
+            break
+          case 'quarter':
+            const quarter = Math.floor(dateObj.getMonth() / 3) + 1
+            periodKey = `${dateObj.getFullYear()}-Q${quarter}`
+            periodLabel = `T${quarter} ${dateObj.getFullYear()}`
+            break
+          case 'year':
+            periodKey = String(dateObj.getFullYear())
+            periodLabel = String(dateObj.getFullYear())
+            break
+          default:
+            periodKey = item.operational_date.split('T')[0]
+            periodLabel = dateObj.toLocaleDateString('ro-RO')
+        }
+
+        const loc = item.location_name || 'Fără locație'
+        if (!byPeriod[periodKey]) {
+          byPeriod[periodKey] = {
+            label: periodLabel,
+            locations: {}
+          }
+        }
+        if (!byPeriod[periodKey].locations[loc]) {
+          byPeriod[periodKey].locations[loc] = 0
+        }
+        byPeriod[periodKey].locations[loc] += parseFloat(item.amount || 0)
+      })
+
+      const periods = Object.keys(byPeriod).sort()
+
+      periods.forEach(periodKey => {
+        const period = byPeriod[periodKey]
+        const row = [period.label]
+        let rowTotal = 0
+
+        locationSummary.forEach(loc => {
+          const val = period.locations[loc.location] || 0
+          row.push(val)
+          rowTotal += val
+        })
+        row.push(rowTotal)
+        exportData.push(row)
+      })
+
+      // Footer Row (Totals)
+      const totalRow = ['TOTAL']
+      locationSummary.forEach(loc => {
+        totalRow.push(loc.total)
+      })
+      totalRow.push(locationSummary.reduce((s, l) => s + l.total, 0))
+      exportData.push(totalRow)
+
+      const ws = XLSX.utils.aoa_to_sheet(exportData)
+      XLSX.utils.book_append_sheet(wb, ws, 'Sumar Locatii')
+      XLSX.writeFile(wb, `Sumar_Locatii_${department}_${summaryGranularity}.xlsx`)
+      toast.success('✅ Excel exportat cu succes!')
+    } catch (error) {
+      console.error('Export error:', error)
+      toast.error('Eroare la export')
     }
   }
 
@@ -640,7 +740,7 @@ const ExpendituresDetail = () => {
       monthMap[monthKey] += parseFloat(item.amount || 0)
     })
 
-        return Object.entries(monthMap)
+    return Object.entries(monthMap)
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([key, value]) => {
         const [year, month] = key.split('-')
@@ -699,27 +799,27 @@ const ExpendituresDetail = () => {
   // Calculează facturi unice pentru Electricitate
   const electricInvoiceStats = useMemo(() => {
     if (department !== 'Electricitate') return null
-    
-    const electricInvoices = filteredData.filter(item => 
-      item.data_source === 'electric_invoice' || 
+
+    const electricInvoices = filteredData.filter(item =>
+      item.data_source === 'electric_invoice' ||
       (item.description && item.description.includes('Factură'))
     )
-    
+
     if (electricInvoices.length === 0) return null
-    
+
     // Extrage numerele de facturi din description
     const invoiceNumbers = new Set()
     electricInvoices.forEach(item => {
       if (item.description) {
         // Caută pattern-uri: "Factură EFI/123" sau "Factură 123" sau "EFI/123"
-        const match = item.description.match(/Factură\s+(?:EFI\/)?([A-Z0-9\/\-]+)/i) || 
-                     item.description.match(/EFI\/([A-Z0-9\/\-]+)/i)
+        const match = item.description.match(/Factură\s+(?:EFI\/)?([A-Z0-9\/\-]+)/i) ||
+          item.description.match(/EFI\/([A-Z0-9\/\-]+)/i)
         if (match) {
           invoiceNumbers.add(match[1].trim())
         }
       }
     })
-    
+
     return {
       totalRows: electricInvoices.length,
       uniqueInvoices: invoiceNumbers.size,
@@ -757,8 +857,8 @@ const ExpendituresDetail = () => {
           locationSummary.length === 0
             ? 'Nu există suficiente date pe locații.'
             : `Cea mai mare parte a sumei vine din ${locationSummary[0].location} (${formatCurrency(
-                locationSummary[0].total
-              )} RON).`,
+              locationSummary[0].total
+            )} RON).`,
         recommendation: ''
       }
     ]
@@ -837,7 +937,7 @@ const ExpendituresDetail = () => {
                     style={{ minWidth: '160px' }}
                   />
                 </div>
-                
+
                 <div className="flex items-center gap-2">
                   <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
                     Până la:
@@ -859,10 +959,10 @@ const ExpendituresDetail = () => {
                     const start = new Date(dateRange.startDate)
                     const end = new Date(dateRange.endDate)
                     const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24))
-                    
+
                     start.setDate(start.getDate() - diffDays - 1)
                     end.setDate(end.getDate() - diffDays - 1)
-                    
+
                     setDateRange({
                       startDate: formatDateLocal(start),
                       endDate: formatDateLocal(end)
@@ -878,10 +978,10 @@ const ExpendituresDetail = () => {
                     const start = new Date(dateRange.startDate)
                     const end = new Date(dateRange.endDate)
                     const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24))
-                    
+
                     start.setDate(start.getDate() + diffDays + 1)
                     end.setDate(end.getDate() + diffDays + 1)
-                    
+
                     setDateRange({
                       startDate: formatDateLocal(start),
                       endDate: formatDateLocal(end)
@@ -954,7 +1054,7 @@ const ExpendituresDetail = () => {
                 </select>
               </div>
             )}
-            
+
             {uniqueLocations.length > 0 && (
               <div className="flex-1 min-w-[200px]">
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center">
@@ -975,7 +1075,7 @@ const ExpendituresDetail = () => {
                 </select>
               </div>
             )}
-            
+
             {/* Filtru Sursă */}
             <div className="flex-1 min-w-[200px]">
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center">
@@ -1057,7 +1157,7 @@ const ExpendituresDetail = () => {
                     return [value, name]
                   }}
                 />
-                <Legend 
+                <Legend
                   formatter={(value) => {
                     if (value === 'value') return 'Cheltuieli'
                     if (value === 'slots') return 'Număr sloturi'
@@ -1165,8 +1265,19 @@ const ExpendituresDetail = () => {
             <h2 className="text-lg font-bold text-slate-900 dark:text-white">
               Sumar pe locații ({locationSummary.length})
             </h2>
-            {/* Selector granularitate */}
-            <div className="flex items-center gap-2">
+            {/* Selector granularitate și Export */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleExportLocationSummaryExcel}
+                className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg text-white text-xs font-bold border transition-all hover:scale-105 active:scale-95 bg-emerald-500 hover:bg-emerald-600 border-emerald-400 shadow-sm"
+                title="Exportă tabelul în Excel"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Export</span>
+              </button>
+
+              <div className="h-6 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
+
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Grupare:</label>
               <select
                 value={summaryGranularity}
@@ -1185,9 +1296,9 @@ const ExpendituresDetail = () => {
               <thead className="bg-slate-100 dark:bg-slate-800">
                 <tr>
                   <th className="px-3 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">
-                    {summaryGranularity === 'day' ? 'Data' : 
-                     summaryGranularity === 'month' ? 'Lună' : 
-                     summaryGranularity === 'quarter' ? 'Trimestru' : 'An'}
+                    {summaryGranularity === 'day' ? 'Data' :
+                      summaryGranularity === 'month' ? 'Lună' :
+                        summaryGranularity === 'quarter' ? 'Trimestru' : 'An'}
                   </th>
                   {locationSummary.map((loc) => (
                     <th
@@ -1204,14 +1315,14 @@ const ExpendituresDetail = () => {
                 {(() => {
                   // Grupăm datele pe zi/lună/trimestru/an și locații în funcție de granularitate
                   const byPeriod = {}
-                  
+
                   filteredData.forEach((item) => {
                     if (!item.operational_date) return
-                    
+
                     const dateObj = new Date(item.operational_date)
                     let periodKey = ''
                     let periodLabel = ''
-                    
+
                     switch (summaryGranularity) {
                       case 'day':
                         periodKey = item.operational_date.split('T')[0]
@@ -1234,7 +1345,7 @@ const ExpendituresDetail = () => {
                         periodKey = item.operational_date.split('T')[0]
                         periodLabel = dateObj.toLocaleDateString('ro-RO')
                     }
-                    
+
                     const loc = item.location_name || 'Fără locație'
                     if (!byPeriod[periodKey]) {
                       byPeriod[periodKey] = {
@@ -1329,14 +1440,13 @@ const ExpendituresDetail = () => {
                 )}
                 <span>{loading ? 'Se reîncarcă...' : 'Reîncarcă'}</span>
               </button>
-              
+
               {/* Buton Căutare Duplicate SMART */}
               <button
                 onClick={handleSearchDuplicates}
                 disabled={searchingDuplicates}
-                className={`inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-sm font-semibold border transition-all hover:scale-105 active:scale-95 ${
-                  showDuplicatesModal ? 'bg-orange-500 border-orange-400 shadow-lg' : 'bg-blue-500 border-blue-400 shadow-lg'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                className={`inline-flex items-center space-x-2 px-4 py-2 rounded-2xl text-white text-sm font-semibold border transition-all hover:scale-105 active:scale-95 ${showDuplicatesModal ? 'bg-orange-500 border-orange-400 shadow-lg' : 'bg-blue-500 border-blue-400 shadow-lg'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 {searchingDuplicates ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -1345,7 +1455,7 @@ const ExpendituresDetail = () => {
                 )}
                 <span>{searchingDuplicates ? 'Se caută...' : 'Caută Duplicate'}</span>
               </button>
-              
+
               {/* Buton Export Excel */}
               <button
                 onClick={handleExportExcel}
@@ -1354,7 +1464,7 @@ const ExpendituresDetail = () => {
                 <FileSpreadsheet className="w-4 h-4" />
                 <span>Export Excel</span>
               </button>
-              
+
               {/* Buton Ștergere Multiplă */}
               {showBulkActions && (
                 <button
@@ -1366,11 +1476,11 @@ const ExpendituresDetail = () => {
                   <span>{bulkDeleting ? 'Se șterg...' : `Șterge ${selectedItems.size}`}</span>
                 </button>
               )}
-              
+
               <div className="flex items-center space-x-2">
                 <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap">Rânduri per pagină:</span>
-                <select 
-                  value={rowsPerPage} 
+                <select
+                  value={rowsPerPage}
                   onChange={(e) => {
                     const newValue = e.target.value === 'all' ? 'all' : Number(e.target.value)
                     handleRowsPerPageChange(newValue)
@@ -1391,13 +1501,13 @@ const ExpendituresDetail = () => {
               <thead className="bg-slate-100 dark:bg-slate-800">
                 <tr>
                   <th className="px-3 py-2 text-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedItems.size === filteredData.length && filteredData.length > 0}
-                        onChange={(e) => handleSelectAll(e.target.checked)}
-                        className="form-checkbox h-4 w-4 text-blue-600 rounded"
-                        title={selectedItems.size === filteredData.length ? 'Deselectează toate' : `Selectează toate ${filteredData.length} înregistrări`}
-                      />
+                    <input
+                      type="checkbox"
+                      checked={selectedItems.size === filteredData.length && filteredData.length > 0}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                      title={selectedItems.size === filteredData.length ? 'Deselectează toate' : `Selectează toate ${filteredData.length} înregistrări`}
+                    />
                   </th>
                   <th className="px-3 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">Data</th>
                   <th className="px-3 py-2 text-left font-semibold text-slate-700 dark:text-slate-300">Locație</th>
@@ -1411,9 +1521,8 @@ const ExpendituresDetail = () => {
                 {paginatedData.map((item) => (
                   <tr
                     key={item.id}
-                    className={`border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 ${
-                      showDuplicates && duplicates.some(d => d.id === item.id) ? 'bg-orange-50 dark:bg-orange-900/20' : ''
-                    }`}
+                    className={`border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 ${showDuplicates && duplicates.some(d => d.id === item.id) ? 'bg-orange-50 dark:bg-orange-900/20' : ''
+                      }`}
                   >
                     <td className="px-3 py-2 text-center">
                       <input
@@ -1438,20 +1547,19 @@ const ExpendituresDetail = () => {
                       {item.description || <span className="text-slate-400 dark:text-slate-500">N/A</span>}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
-                        item.data_source === 'google_sheets'
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${item.data_source === 'google_sheets'
                           ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
                           : item.data_source === 'api_sync'
-                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                          : 'bg-slate-100 text-slate-700 dark:bg-slate-800/30 dark:text-slate-300'
-                      }`}>
-                        {item.data_source === 'google_sheets' 
-                          ? 'Google Sheets' 
+                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                            : 'bg-slate-100 text-slate-700 dark:bg-slate-800/30 dark:text-slate-300'
+                        }`}>
+                        {item.data_source === 'google_sheets'
+                          ? 'Google Sheets'
                           : item.data_source === 'api_sync'
-                          ? 'API Extern'
-                          : item.data_source === 'bat_sync'
-                          ? 'BAT Sync'
-                          : 'Baza de date'}
+                            ? 'API Extern'
+                            : item.data_source === 'bat_sync'
+                              ? 'BAT Sync'
+                              : 'Baza de date'}
                       </span>
                     </td>
                     <td className="px-3 py-2 text-right font-semibold text-slate-900 dark:text-slate-100">
@@ -1462,7 +1570,7 @@ const ExpendituresDetail = () => {
               </tbody>
             </table>
           </div>
-          
+
           {/* Pagination Controls */}
           {rowsPerPage !== 'all' && totalPages > 1 && (
             <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -1472,9 +1580,9 @@ const ExpendituresDetail = () => {
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} 
-                  disabled={currentPage === 1} 
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
                   className="px-4 py-2 border-2 border-slate-200 dark:border-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl text-slate-700 dark:text-slate-200"
                 >
                   Înapoi
@@ -1484,9 +1592,9 @@ const ExpendituresDetail = () => {
                     Pag {currentPage}/{totalPages}
                   </span>
                 </div>
-                <button 
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} 
-                  disabled={currentPage === totalPages} 
+                <button
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
                   className="px-4 py-2 border-2 border-slate-200 dark:border-slate-600 rounded-2xl text-sm font-bold hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl text-slate-700 dark:text-slate-200"
                 >
                   Înainte
@@ -1503,7 +1611,7 @@ const ExpendituresDetail = () => {
           )}
         </div>
       </div>
-      
+
       {/* Modal pentru Duplicate SMART */}
       {showDuplicatesModal && (
         <div className="fixed inset-0 bg-black/50 dark:bg-black/70 z-50 flex items-center justify-center p-4">
@@ -1530,14 +1638,14 @@ const ExpendituresDetail = () => {
                 <X className="w-5 h-5 text-slate-600 dark:text-slate-400" />
               </button>
             </div>
-            
+
             {/* Content - Scrollable */}
             <div className="flex-1 overflow-y-auto p-6">
               <div className="space-y-6">
                 {duplicateGroups.map((group, groupIndex) => {
                   const keepIds = selectedDuplicatesToKeep.get(group.id) || new Set()
                   const totalAmount = group.items.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
-                  
+
                   const formatCurrency = (value) => {
                     if (value === null || value === undefined) return '0,00'
                     return new Intl.NumberFormat('ro-RO', {
@@ -1546,7 +1654,7 @@ const ExpendituresDetail = () => {
                       maximumFractionDigits: 2
                     }).format(Number(value) || 0)
                   }
-                  
+
                   const formatDate = (dateString) => {
                     if (!dateString) return '-'
                     try {
@@ -1555,7 +1663,7 @@ const ExpendituresDetail = () => {
                       return dateString
                     }
                   }
-                  
+
                   return (
                     <div
                       key={group.id}
@@ -1566,28 +1674,27 @@ const ExpendituresDetail = () => {
                           Grup {groupIndex + 1} - {group.items.length} duplicate
                         </h3>
                         <div className="text-sm text-slate-600 dark:text-slate-400">
-                          <span className="font-semibold">Suma:</span> {formatCurrency(totalAmount)} RON • 
-                          <span className="font-semibold ml-2">Locație:</span> {group.items[0]?.location_name || 'N/A'} • 
+                          <span className="font-semibold">Suma:</span> {formatCurrency(totalAmount)} RON •
+                          <span className="font-semibold ml-2">Locație:</span> {group.items[0]?.location_name || 'N/A'} •
                           <span className="font-semibold ml-2">Luna:</span> {group.items[0]?.operational_date ? new Date(group.items[0].operational_date).toLocaleDateString('ro-RO', { month: 'long', year: 'numeric' }) : 'N/A'}
                         </div>
                       </div>
-                      
+
                       <div className="space-y-2">
                         {group.items.map((item) => {
                           const isSelected = keepIds.has(item.id)
                           const isBAT = item.data_source === 'bat_sync'
                           const isPriority = item.id === group.priorityItem.id
-                          
+
                           return (
                             <div
                               key={item.id}
-                              className={`flex items-start space-x-3 p-3 rounded-lg border-2 transition-all ${
-                                isSelected
+                              className={`flex items-start space-x-3 p-3 rounded-lg border-2 transition-all ${isSelected
                                   ? isBAT || isPriority
                                     ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700'
                                     : 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700'
                                   : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'
-                              }`}
+                                }`}
                             >
                               <div className="flex items-center pt-1">
                                 <input
@@ -1597,7 +1704,7 @@ const ExpendituresDetail = () => {
                                   className="w-5 h-5 text-green-600 border-slate-300 rounded focus:ring-green-500 cursor-pointer"
                                 />
                               </div>
-                              
+
                               <div className="flex-1 grid grid-cols-6 gap-3 text-sm">
                                 <div>
                                   <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">ID</p>
@@ -1617,13 +1724,12 @@ const ExpendituresDetail = () => {
                                 </div>
                                 <div>
                                   <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Sursă</p>
-                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
-                                    isBAT
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${isBAT
                                       ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
                                       : item.data_source === 'google_sheets'
-                                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                                      : 'bg-slate-100 text-slate-700 dark:bg-slate-800/30 dark:text-slate-300'
-                                  }`}>
+                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                                        : 'bg-slate-100 text-slate-700 dark:bg-slate-800/30 dark:text-slate-300'
+                                    }`}>
                                     {isBAT ? '🟢 BAT (Prioritar)' : item.data_source === 'google_sheets' ? 'Google Sheets' : item.data_source === 'api_sync' ? 'API Extern' : 'Altă sursă'}
                                   </span>
                                 </div>
@@ -1632,7 +1738,7 @@ const ExpendituresDetail = () => {
                                   <p className="text-slate-900 dark:text-slate-100">{formatDate(item.operational_date)}</p>
                                 </div>
                               </div>
-                              
+
                               {isPriority && (
                                 <div className="flex items-center text-green-600 dark:text-green-400">
                                   <CheckSquare className="w-5 h-5" title="Prioritar - va fi păstrat" />
@@ -1642,7 +1748,7 @@ const ExpendituresDetail = () => {
                           )
                         })}
                       </div>
-                      
+
                       <div className="mt-3 text-xs text-slate-500 dark:text-slate-400">
                         {keepIds.size > 0 ? (
                           <span className="text-green-600 dark:text-green-400 font-semibold">
@@ -1659,7 +1765,7 @@ const ExpendituresDetail = () => {
                 })}
               </div>
             </div>
-            
+
             {/* Footer - Butoane */}
             <div className="flex items-center justify-between p-6 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
               <div className="text-sm text-slate-600 dark:text-slate-400">
@@ -1680,7 +1786,7 @@ const ExpendituresDetail = () => {
                   </span> înregistrări
                 </p>
               </div>
-              
+
               <div className="flex items-center space-x-3">
                 <button
                   onClick={() => {

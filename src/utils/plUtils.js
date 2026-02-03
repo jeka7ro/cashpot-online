@@ -150,12 +150,15 @@ export const calculateWaterfallData = (data) => {
     const totalGgr = data.reduce((sum, m) => sum + (m.ggr || 0), 0)
     const totalMarketing = data.reduce((sum, m) => sum + (m.marketing || 0), 0)
     const totalExpenses = data.reduce((sum, m) => sum + (m.expenses || 0), 0)
-    const netProfit = totalGgr - totalExpenses
+
+    // Adjusted Net Profit (GGR - Marketing - OpEx)
+    // Note: If PL was calculated differently elsewhere, this might show a different profit than KPI cards
+    const netProfit = totalGgr - totalMarketing - totalExpenses
 
     return [
         { name: 'GGR', value: totalGgr, cumulative: totalGgr },
         { name: 'Marketing', value: -totalMarketing, cumulative: totalGgr - totalMarketing },
-        { name: 'Alte Cheltuieli', value: -(totalExpenses - totalMarketing), cumulative: netProfit },
+        { name: 'Cheltuieli Op.', value: -totalExpenses, cumulative: netProfit },
         { name: 'Profit Net', value: netProfit, cumulative: netProfit, isTotal: true }
     ]
 }

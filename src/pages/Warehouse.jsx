@@ -49,22 +49,22 @@ const Warehouse = () => {
   const confirmBulkDelete = async () => {
     // Închide modal-ul imediat
     setShowBulkDeleteModal(false)
-    
+
     const totalItems = selectedItems.length
     let successCount = 0
     let errorCount = 0
-    
+
     try {
       // Pornește loading toast
       const loadingToast = toast.loading(`Șterg ${totalItems} elemente...`, {
         duration: Infinity
       })
-      
+
       // Șterge în batch-uri pentru performanță mai bună
       const batchSize = 10
       for (let i = 0; i < selectedItems.length; i += batchSize) {
         const batch = selectedItems.slice(i, i + batchSize)
-        
+
         // Procesează batch-ul în paralel
         const promises = batch.map(async (id) => {
           try {
@@ -74,19 +74,19 @@ const Warehouse = () => {
             errorCount++
           }
         })
-        
+
         await Promise.all(promises)
-        
+
         // Update progress
         const processed = Math.min(i + batchSize, totalItems)
         toast.loading(`Șterg ${totalItems} elemente... (${processed}/${totalItems})`, {
           id: loadingToast
         })
       }
-      
+
       // Clear loading toast
       toast.dismiss(loadingToast)
-      
+
       // Afișează rezultatul final
       if (errorCount === 0) {
         toast.success(`✅ ${successCount} elemente șterse cu succes!`, {
@@ -101,11 +101,11 @@ const Warehouse = () => {
           duration: 5000
         })
       }
-      
+
       // Cleanup
       setSelectedItems([])
       setShowBulkActions(false)
-      
+
     } catch (error) {
       console.error('Error bulk deleting:', error)
       toast.error('Eroare la ștergerea elementelor!')
@@ -118,6 +118,7 @@ const Warehouse = () => {
     console.log('Bulk edit for:', selectedItems)
   }
   const [showModal, setShowModal] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
 
   const filteredWarehouse = warehouse.filter(item =>
@@ -192,7 +193,7 @@ const Warehouse = () => {
           const currentStatus = item.status?.toLowerCase() || ''
           const isCurrentlyActive = currentStatus === 'activ' || currentStatus === 'active'
           const newStatus = isCurrentlyActive ? 'Inactive' : 'Active'
-          
+
           try {
             if (newStatus === 'Active') {
               // Move slot back to slots table
@@ -214,7 +215,7 @@ const Warehouse = () => {
                 status: 'Active',
                 notes: `Mutat automat din depozit când a devenit activ`
               })
-              
+
               // Delete from warehouse table
               await deleteItem('warehouse', item.id)
               toast.success('Slot mutat înapoi în sloturi')
@@ -228,27 +229,24 @@ const Warehouse = () => {
             console.error('Error updating warehouse slot status:', error)
           }
         }
-        
+
         const status = item.status?.toLowerCase() || ''
         const isActive = status === 'activ' || status === 'active'
-        
+
         return (
           <div className="flex items-center space-x-2">
             <button
               onClick={handleStatusToggle}
-              className={`relative inline-flex h-8 w-16 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
-                isActive ? 'bg-green-500' : 'bg-gray-300'
-              }`}
+              className={`relative inline-flex h-8 w-16 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${isActive ? 'bg-green-500' : 'bg-gray-300'
+                }`}
             >
               <span
-                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                  isActive ? 'translate-x-9' : 'translate-x-1'
-                }`}
+                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${isActive ? 'translate-x-9' : 'translate-x-1'
+                  }`}
               />
             </button>
-            <span className={`text-xs font-bold ${
-              isActive ? 'text-green-600' : 'text-gray-600'
-            }`}>
+            <span className={`text-xs font-bold ${isActive ? 'text-green-600' : 'text-gray-600'
+              }`}>
               {isActive ? 'ON' : 'OFF'}
             </span>
           </div>
@@ -368,7 +366,7 @@ const Warehouse = () => {
                 <FileSpreadsheet className="w-4 h-4" />
                 <span>Inventar Centralizator</span>
               </button>
-              <ExportButtons 
+              <ExportButtons
                 onExportExcel={handleExportExcel}
                 onExportPDF={handleExportPDF}
                 entity="warehouse"
@@ -427,7 +425,7 @@ const Warehouse = () => {
                 className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
               />
             </div>
-            <button 
+            <button
               onClick={() => setShowImportModal(true)}
               className="btn-secondary flex items-center space-x-2"
             >
@@ -459,7 +457,7 @@ const Warehouse = () => {
               selectedItems={selectedItems}
               onSelectAll={handleSelectAll}
               onSelectItem={handleSelectItem}
-          moduleColor="blue"
+              moduleColor="blue"
             />
           )}
         </div>
@@ -472,7 +470,7 @@ const Warehouse = () => {
             onSave={handleSave}
           />
         )}
-        
+
         {/* Import Products Modal */}
         {showImportModal && (
           <ImportProductsModal

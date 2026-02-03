@@ -5,7 +5,7 @@ const PLTable = ({ months, locations }) => {
     if (!months || months.length === 0) return null
 
     return (
-        <div className="relative overflow-hidden rounded-2xl bg-white/40 dark:bg-slate-800/40 backdrop-blur-xl border border-white/60 dark:border-slate-600/50 p-6 shadow-2xl">
+        <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">
                 Tabel detaliat P&L
             </h3>

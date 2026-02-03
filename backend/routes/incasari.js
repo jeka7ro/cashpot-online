@@ -127,6 +127,92 @@ const getActiveMachineIdsForCounts = ({ includeLocations } = {}) => {
     .filter((id) => Number.isFinite(id))
 }
 
+// --- NEW ENDPOINT: EXPENSES ANALYSIS (Breakdown by Dept/Type) ---
+// Uses user's expenditure_filter_settings to show ONLY real operational expenses
+router.get('/expenses-analysis', authenticateToken, async (req, res) => {
+  const { startDate, endDate } = req.query
+  const pool = req.app.get('pool')
+  const userId = req.user?.id
+
+  if (!pool) {
+    return res.status(500).json({
+      success: false,
+      error: 'Database pool not available for expenses-analysis'
+    })
+  }
+
+  try {
+    // Get user's included filters from settings table
+    const includedFilters = await getIncludedFiltersForUser(pool, userId)
+
+    console.log('🔍 [expenses-analysis] User ID:', userId)
+    console.log('🔍 [expenses-analysis] Included Filters:', {
+      departments: includedFilters.departments?.slice(0, 10) || 'NONE',
+      types: includedFilters.types?.slice(0, 10) || 'NONE'
+    })
+
+    // Normalizare text
+    const normalizeText = (text) => {
+      if (!text) return ''
+      return String(text).trim()
+        .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
+        .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+    }
+
+    // Query expenses using ONLY user's included departments
+    let sql = `
+      SELECT
+        normalized_department_name as department,
+        SUM(amount) as total
+      FROM expenditures_sync
+      WHERE operational_date BETWEEN $1 AND $2
+      AND normalized_location_name IS NOT NULL
+      AND normalized_department_name IS NOT NULL
+    `
+
+    const params = [startDate, endDate]
+    let paramIdx = 3
+
+    // CRITICAL: Apply user's department filters (only show what they checked)
+    if (includedFilters.departments && includedFilters.departments.length > 0) {
+      const normalizedDepartments = includedFilters.departments.map(normalizeText).filter(Boolean)
+      console.log('✅ [expenses-analysis] Applying department filter:', normalizedDepartments.slice(0, 10))
+      sql += ` AND (data_source = 'auto_discount' OR normalized_department_name = ANY($${paramIdx}::text[]))`
+      params.push(normalizedDepartments)
+      paramIdx++
+    } else {
+      console.log('⚠️ [expenses-analysis] NO department filters - showing ALL departments!')
+    }
+
+    // Apply type filters if they exist
+    if (includedFilters.types && includedFilters.types.length > 0) {
+      const normalizedTypes = includedFilters.types.map(normalizeText).filter(Boolean)
+      sql += ` AND (data_source = 'auto_discount' OR normalized_department_name = 'salarii' OR normalized_expenditure_type = ANY($${paramIdx}::text[]))`
+      params.push(normalizedTypes)
+      paramIdx++
+    }
+
+    sql += `
+      GROUP BY normalized_department_name
+      ORDER BY total DESC
+    `
+
+    const result = await pool.query(sql, params)
+
+    res.json({
+      success: true,
+      data: result.rows
+    })
+
+  } catch (err) {
+    console.error('Error in expenses-analysis:', err)
+    res.status(500).json({ success: false, error: 'Database error' })
+  }
+})
+
 // Helper function to format game mix: remove everything before "-" if "-" exists
 const formatGameMix = (gameMix) => {
   if (!gameMix) return gameMix
@@ -2748,6 +2834,12 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
       params = fallbackParams
     }
 
+    // Prevent caching logic conflicts
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+    res.set('Pragma', 'no-cache')
+    res.set('Expires', '0')
+    res.set('Surrogate-Control', 'no-store')
+
     // --- CACHE LOGIC START ---
     const cacheParams = {
       userId,
@@ -2839,7 +2931,8 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
         AND operational_date >= $1::date
         AND location_name IS NOT NULL
         AND location_name != ''
-        AND (normalized_department_name NOT IN ('unknown', 'null', ''))
+        -- INCLUDE ALL DEPARTMENTS (even unknown) to match Expenditures page
+        -- AND (normalized_department_name NOT IN ('unknown', 'null', ''))
     `
 
     const expendituresParams = [`${startYear}-01-01`]
@@ -2858,7 +2951,8 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
     // APLICĂ FILTRELE DIN SETĂRI: Doar departamentele incluse
     if (includedFilters.departments && includedFilters.departments.length > 0) {
       const normalizedDepartments = includedFilters.departments.map(normalizeText).filter(Boolean)
-      expendituresSql += ` AND normalized_department_name = ANY($${expendituresParamIndex}::text[])`
+      // Force include auto_discount ONLY (Google Sheets respects filters now that normalization is fixed)
+      expendituresSql += ` AND (data_source = 'auto_discount' OR normalized_department_name = ANY($${expendituresParamIndex}::text[]))`
       expendituresParams.push(normalizedDepartments)
       expendituresParamIndex++
     }
@@ -2866,8 +2960,8 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
     // APLICĂ FILTRELE DIN SETĂRI: Doar tipurile incluse
     if (includedFilters.types && includedFilters.types.length > 0) {
       const normalizedTypes = includedFilters.types.map(normalizeText).filter(Boolean)
-      // Excepție Salarii
-      expendituresSql += ` AND (normalized_department_name = 'salarii' OR normalized_expenditure_type = ANY($${expendituresParamIndex}::text[]))`
+      // Excepție Salarii ȘI Auto-Discounts (Pepsi)
+      expendituresSql += ` AND (data_source = 'auto_discount' OR normalized_department_name = 'salarii' OR normalized_expenditure_type = ANY($${expendituresParamIndex}::text[]))`
       expendituresParams.push(normalizedTypes)
       expendituresParamIndex++
     }

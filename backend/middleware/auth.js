@@ -5,11 +5,14 @@ export const authenticateToken = (req, res, next) => {
   const token = authHeader && authHeader.split(' ')[1] // Bearer TOKEN
 
   if (!token) {
-    return res.status(401).json({ 
-      success: false, 
-      error: 'Token de acces lipsă' 
+    return res.status(401).json({
+      success: false,
+      error: 'Token de acces lipsă'
     })
   }
+
+
+
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key')
@@ -17,9 +20,9 @@ export const authenticateToken = (req, res, next) => {
     next()
   } catch (error) {
     console.error('❌ Token verification failed:', error.message)
-    return res.status(403).json({ 
-      success: false, 
-      error: 'Token invalid' 
+    return res.status(403).json({
+      success: false,
+      error: 'Token invalid'
     })
   }
 }

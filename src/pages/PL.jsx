@@ -2,12 +2,17 @@ import React, { useState, useEffect, useMemo } from 'react'
 import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
-import { Download, RefreshCw, Loader2, DollarSign, TrendingUp, Activity, Target } from 'lucide-react'
+import { Download, RefreshCw, Loader2, DollarSign, TrendingUp, Activity, Target, Menu, FileSpreadsheet, LayoutDashboard, Table2, BrainCircuit } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import axios from 'axios'
 import * as XLSX from 'xlsx'
 
-// Import new components
+// Import new smart tools
+import NarrativeInsights from '../components/NarrativeInsights'
+import CostAnalysis from '../components/CostAnalysis'
+import SlotOptimizer from '../components/SlotOptimizer'
+
+// Import existing components
 import KPICard from '../components/KPICard'
 import ProfitHeatmap from '../components/ProfitHeatmap'
 import WaterfallChart from '../components/WaterfallChart'
@@ -15,8 +20,7 @@ import ComparisonCharts from '../components/ComparisonCharts'
 import PredictiveAnalytics from '../components/PredictiveAnalytics'
 import TopPerformers from '../components/TopPerformers'
 import PLTable from '../components/PLTable'
-import DateRangeSelector from '../components/DateRangeSelector'
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
+import DateRangeSelector, { QuickDateButtons } from '../components/DateRangeSelector'
 
 // Import utilities
 import {
@@ -37,6 +41,8 @@ const PLDashboard = () => {
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
     const [monthlyData, setMonthlyData] = useState([])
+    const [showMenu, setShowMenu] = useState(false)
+    const [activeTab, setActiveTab] = useState('data') // Default to "Date Detaliate"
 
     // Date range state (default to current year)
     const [dateRange, setDateRange] = useState({
@@ -76,7 +82,10 @@ const PLDashboard = () => {
             }
 
             const response = await axios.get('/api/incasari/monthly-by-location', {
-                params,
+                params: {
+                    ...params,
+                    _t: Date.now() // Prevent browser caching
+                },
                 timeout: 60000
             })
 
@@ -109,6 +118,7 @@ const PLDashboard = () => {
 
                     const ggr = Number(row.totalGgr || 0)
                     const expenses = Number(row.totalExpenditures || 0)
+                    // Marketing is usually jackpot + hh + etc.
                     const marketing =
                         Number(row.totalJackpot || 0) + Number(row.totalHh || 0) +
                         Number(row.totalCbReal || 0) + Number(row.totalCbBirthday || 0) + Number(row.totalCbRaffle || 0)
@@ -122,7 +132,8 @@ const PLDashboard = () => {
                         marketing,
                         expenses,
                         pl: ggr - expenses,
-                        profitMargin: ggr > 0 ? ((ggr - expenses) / ggr) * 100 : 0
+                        profitMargin: ggr > 0 ? ((ggr - expenses) / ggr) * 100 : 0,
+                        slotsCount: Number(row.slotsCount || 0)
                     })
                 })
 
@@ -144,6 +155,39 @@ const PLDashboard = () => {
     useEffect(() => {
         fetchMonthlyData()
     }, [visibleLocations, dateRange.startDate, dateRange.endDate])
+
+    // Prepare data for Slot Optimizer (aggregated latest state)
+    const optimizerData = useMemo(() => {
+        if (!monthlyData || monthlyData.length === 0) return []
+
+        const locMap = new Map()
+
+        // Use most recent month for Slot Count, but Average GGR over the year
+        monthlyData.forEach(m => {
+            m.plByLoc.forEach(l => {
+                if (!locMap.has(l.locationName)) {
+                    locMap.set(l.locationName, {
+                        locationName: l.locationName,
+                        totalGgr: 0,
+                        months: 0,
+                        lastSlotsCount: l.slotsCount
+                    })
+                }
+                const record = locMap.get(l.locationName)
+                record.totalGgr += l.ggr
+                record.months += 1
+                if (l.slotsCount > 0) record.lastSlotsCount = l.slotsCount
+            })
+        })
+
+        return Array.from(locMap.values()).map(l => ({
+            locationName: l.locationName,
+            slotsCount: l.lastSlotsCount,
+            avgGgrPerSlot: l.months > 0 && l.lastSlotsCount > 0
+                ? (l.totalGgr / l.months) / l.lastSlotsCount
+                : 0
+        }))
+    }, [monthlyData])
 
     // Calculate aggregated metrics
     const metrics = useMemo(() => {
@@ -245,12 +289,25 @@ const PLDashboard = () => {
         const bottomPerformers = getTopPerformers(locationsArray, 'pl', 5, true)
 
         // Predictions
-        const monthlyProfits = metrics.currentYearData.map(m => ({
-            label: m.label,
-            pl: m.plByLoc.reduce((sum, loc) => sum + loc.pl, 0),
-            ggr: m.plByLoc.reduce((sum, loc) => sum + loc.ggr, 0)
-        }))
-        const predictions = predictNextMonths(monthlyProfits, 3)
+        // Predictions (use longer history for better accuracy)
+        const historicalForPredictions = [
+            ...metrics.previousYearData.map(m => ({
+                label: m.label,
+                pl: m.plByLoc.reduce((sum, loc) => sum + loc.pl, 0),
+                ggr: m.plByLoc.reduce((sum, loc) => sum + loc.ggr, 0)
+            })),
+            ...metrics.currentYearData.map(m => ({
+                label: m.label,
+                pl: m.plByLoc.reduce((sum, loc) => sum + loc.pl, 0),
+                ggr: m.plByLoc.reduce((sum, loc) => sum + loc.ggr, 0)
+            }))
+        ].sort((a, b) => {
+            // Simple sort by year/month if labels are standard, but they are localized strings
+            // Since we construct the array from sorted source data (previous then current), it should be fine chronologically
+            return 0
+        })
+
+        const predictions = predictNextMonths(historicalForPredictions, 3)
 
         return {
             heatmapData,
@@ -259,7 +316,7 @@ const PLDashboard = () => {
             topPerformers,
             bottomPerformers,
             predictions,
-            monthlyProfits
+            monthlyProfits: historicalForPredictions // Show full history in chart
         }
     }, [monthlyData, metrics])
 
@@ -344,46 +401,82 @@ const PLDashboard = () => {
 
     return (
         <Layout>
-            <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+            <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
                 <div className="max-w-[1800px] mx-auto p-6 space-y-6">
                     {/* Header */}
                     <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
-                                P&L Dashboard
+                                P&L Smart Command Center
                             </h1>
                             <div className="flex items-center gap-4 text-slate-600 dark:text-slate-400">
-                                <p className="text-sm font-medium">Analiză profitabilitate</p>
-
                                 {/* Advanced Date Selector */}
-                                <DateRangeSelector
-                                    startDate={dateRange.startDate}
-                                    endDate={dateRange.endDate}
-                                    onChange={setDateRange}
-                                />
+                                <div className="flex items-center gap-2">
+                                    <QuickDateButtons onChange={setDateRange} />
+                                    <div className="h-6 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
+                                    <DateRangeSelector
+                                        startDate={dateRange.startDate}
+                                        endDate={dateRange.endDate}
+                                        onChange={setDateRange}
+                                    />
+                                </div>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="relative ml-auto">
                             <button
-                                onClick={handleRefresh}
-                                disabled={refreshing}
-                                className="px-4 py-2 rounded-xl bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl border border-white/60 dark:border-slate-600/50 hover:bg-white/80 dark:hover:bg-slate-800/80 transition-all shadow-lg disabled:opacity-50"
+                                onClick={() => setShowMenu(!showMenu)}
+                                className="inline-flex items-center justify-center p-2.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-2 border-slate-300 dark:border-slate-600 transition-all hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 shadow-sm"
                             >
-                                <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+                                <Menu className="w-5 h-5" />
                             </button>
 
-                            <button
-                                onClick={exportToExcel}
-                                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-lg flex items-center gap-2"
-                            >
-                                <Download className="w-5 h-5" />
-                                <span>Export Excel</span>
-                            </button>
+                            {/* Dropdown Menu */}
+                            {showMenu && (
+                                <>
+                                    <div
+                                        className="fixed inset-0 z-40"
+                                        onClick={() => setShowMenu(false)}
+                                    />
+                                    <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-800 rounded-xl border-2 border-slate-200 dark:border-slate-700 shadow-xl z-50 py-2">
+                                        <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700 mb-2">
+                                            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                                Acțiuni
+                                            </p>
+                                        </div>
+
+                                        <button
+                                            onClick={() => {
+                                                handleRefresh()
+                                                setShowMenu(false)
+                                            }}
+                                            className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center space-x-3 transition-colors"
+                                        >
+                                            <RefreshCw className={`w-4 h-4 text-blue-500 ${refreshing ? 'animate-spin' : ''}`} />
+                                            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                                                Actualizare date
+                                            </span>
+                                        </button>
+
+                                        <button
+                                            onClick={() => {
+                                                exportToExcel()
+                                                setShowMenu(false)
+                                            }}
+                                            className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center space-x-3 transition-colors"
+                                        >
+                                            <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+                                            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                                                Export Excel
+                                            </span>
+                                        </button>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
 
-                    {/* KPI Cards */}
+                    {/* KPI Cards Strip (Always Visible) */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <KPICard
                             title={`Profit Net ${currentSelectionYear}`}
@@ -420,46 +513,109 @@ const PLDashboard = () => {
                         />
                     </div>
 
-                    {/* Detailed P&L Table */}
-                    <PLTable
-                        months={visualizationData.tableData}
-                        locations={Array.from(new Set(monthlyData.flatMap(m => m.plByLoc.map(l => l.locationName))))}
-                    />
-
-                    {/* Heatmap */}
-                    <ProfitHeatmap
-                        data={visualizationData.heatmapData}
-                        onCellClick={(location, month, data) => {
-                            console.log('Clicked:', location, month, data)
-                        }}
-                    />
-
-                    {/* Waterfall and Predictions */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <WaterfallChart data={visualizationData.waterfallData} />
-                        <PredictiveAnalytics
-                            historicalData={visualizationData.monthlyProfits}
-                            predictions={visualizationData.predictions}
-                        />
+                    {/* TAB NAVIGATION */}
+                    <div className="flex gap-2 mb-6 bg-slate-100 dark:bg-slate-800/50 p-2 rounded-xl">
+                        <button
+                            onClick={() => setActiveTab('data')}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${activeTab === 'data'
+                                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                }`}
+                        >
+                            <Table2 className="w-4 h-4" />
+                            Date Detaliate
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('comparison')}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${activeTab === 'comparison'
+                                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                }`}
+                        >
+                            <TrendingUp className="w-4 h-4" />
+                            Analiză Comparativă
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('insights')}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${activeTab === 'insights'
+                                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                }`}
+                        >
+                            <BrainCircuit className="w-4 h-4" />
+                            Smart Insights
+                        </button>
                     </div>
 
-                    {/* Comparison Charts */}
-                    <ComparisonCharts
-                        currentYearData={metrics.currentYearData.map(m => ({
-                            ...m,
-                            pl: m.plByLoc.reduce((sum, loc) => sum + loc.pl, 0)
-                        }))}
-                        previousYearData={metrics.previousYearData.map(m => ({
-                            ...m,
-                            pl: m.plByLoc.reduce((sum, loc) => sum + loc.pl, 0)
-                        }))}
-                    />
+                    {/* TAB CONTENT */}
 
-                    {/* Top Performers */}
-                    <TopPerformers
-                        topLocations={visualizationData.topPerformers}
-                        bottomLocations={visualizationData.bottomPerformers}
-                    />
+                    {/* 1. INSIGHTS TAB */}
+                    {activeTab === 'insights' && (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+                            {/* Narrative AI */}
+                            <NarrativeInsights
+                                metrics={metrics}
+                                topPerformers={visualizationData.topPerformers}
+                                bottomPerformers={visualizationData.bottomPerformers}
+                            />
+
+                            {/* COST ANALYSIS (NON-TAX) */}
+                            <CostAnalysis
+                                dateRange={dateRange}
+                                locations={visibleLocations}
+                            />
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <WaterfallChart data={visualizationData.waterfallData} />
+                                <PredictiveAnalytics
+                                    historicalData={visualizationData.monthlyProfits}
+                                    predictions={visualizationData.predictions}
+                                />
+                            </div>
+
+                            <TopPerformers
+                                topLocations={visualizationData.topPerformers}
+                                bottomLocations={visualizationData.bottomPerformers}
+                            />
+                        </div>
+                    )}
+
+                    {/* 2. DATA TAB */}
+                    {activeTab === 'data' && (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <PLTable
+                                months={visualizationData.tableData}
+                                locations={Array.from(new Set(monthlyData.flatMap(m => m.plByLoc.map(l => l.locationName))))}
+                            />
+                            <ProfitHeatmap
+                                data={visualizationData.heatmapData}
+                                onCellClick={(location, month, data) => {
+                                    console.log('Clicked:', location, month, data)
+                                }}
+                            />
+                        </div>
+                    )}
+
+                    {/* 3. COMPARISON TAB */}
+                    {activeTab === 'comparison' && (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <ComparisonCharts
+                                currentYearData={metrics.currentYearData.map(m => ({
+                                    ...m,
+                                    pl: m.plByLoc.reduce((sum, loc) => sum + loc.pl, 0)
+                                }))}
+                                previousYearData={metrics.previousYearData.map(m => ({
+                                    ...m,
+                                    pl: m.plByLoc.reduce((sum, loc) => sum + loc.pl, 0)
+                                }))}
+                            />
+
+                            {/* SLOT OPTIMIZER */}
+                            <SlotOptimizer locationData={optimizerData} />
+                        </div>
+                    )}
+
                 </div>
             </div>
         </Layout>
