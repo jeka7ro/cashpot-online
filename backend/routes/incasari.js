@@ -127,6 +127,192 @@ const getActiveMachineIdsForCounts = ({ includeLocations } = {}) => {
     .filter((id) => Number.isFinite(id))
 }
 
+// --- NEW ENDPOINT: DASHBOARD SUMMARY ---
+// Returns aggregated data for P&L, Expenses, and Revenue
+router.get('/dashboard/summary', authenticateToken, async (req, res) => {
+  const { startDate, endDate, includeLocations } = req.query // Add includeLocations param
+  const pool = req.app.get('pool')
+  const userId = req.user?.id
+
+  if (!pool) {
+    return res.status(500).json({
+      success: false,
+      error: 'Database pool not available'
+    })
+  }
+
+  try {
+    // Get user's included filters from settings
+    const includedFilters = await getIncludedFiltersForUser(pool, userId)
+
+    // Normalizare text pentru filtre
+    const normalizeText = (text) => {
+      if (!text) return ''
+      return String(text).trim()
+        .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
+        .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+    }
+
+    // Parse includeLocations from query (EXACT SAME AS /monthly-by-location)
+    const locationsArray =
+      typeof includeLocations === 'string' && includeLocations.length > 0
+        ? includeLocations.split(',').map((s) => normalizeLocationName(s)).filter(Boolean)
+        : undefined
+
+    // Get total revenue from incasari_daily (using profit = in_amount - out_amount)
+    const revenueQuery = await pool.query(
+      `SELECT 
+        COALESCE(SUM(profit), 0) as total,
+        COUNT(DISTINCT location_id) as locations
+      FROM incasari_daily
+      WHERE audit_date BETWEEN $1 AND $2`,
+      [startDate, endDate]
+    )
+
+    // Build expenses query with user's filters (EXACT SAME LOGIC AS /monthly-by-location)
+    let expensesSql = `
+      SELECT 
+        COALESCE(SUM(amount), 0) as total,
+        COUNT(*) as count
+      FROM expenditures_sync
+      WHERE operational_date BETWEEN $1 AND $2
+      AND operational_date IS NOT NULL
+      AND location_name IS NOT NULL
+      AND location_name != ''
+    `
+
+    const expensesParams = [startDate, endDate]
+    let paramIdx = 3
+
+    // APPLY LOCATION FILTERS (EXACT SAME AS /monthly-by-location)
+    const targetLocations = locationsArray || (includedFilters.locations && includedFilters.locations.length > 0 ? includedFilters.locations : null)
+    if (targetLocations && targetLocations.length > 0) {
+      const normalizedTargetLocations = targetLocations.map(normalizeText).filter(Boolean)
+      expensesSql += ` AND normalized_location_name = ANY($${paramIdx}::text[])`
+      expensesParams.push(normalizedTargetLocations)
+      paramIdx++
+    }
+
+    // Apply department filters ONLY if user has them configured (same logic as /monthly-by-location)
+    if (includedFilters.departments && includedFilters.departments.length > 0) {
+      const normalizedDepartments = includedFilters.departments.map(normalizeText).filter(Boolean)
+      expensesSql += ` AND (data_source = 'auto_discount' OR normalized_department_name = ANY($${paramIdx}::text[]))`
+      expensesParams.push(normalizedDepartments)
+      paramIdx++
+    }
+
+    // Apply type filters ONLY if user has them configured (same logic as /monthly-by-location)
+    if (includedFilters.types && includedFilters.types.length > 0) {
+      const normalizedTypes = includedFilters.types.map(normalizeText).filter(Boolean)
+      expensesSql += ` AND (data_source = 'auto_discount' OR normalized_department_name = 'salarii' OR normalized_expenditure_type = ANY($${paramIdx}::text[]))`
+      expensesParams.push(normalizedTypes)
+      paramIdx++
+    }
+
+    const expensesQuery = await pool.query(expensesSql, expensesParams)
+
+
+
+    // Get previous period for comparison (same duration)
+    const daysDiff = Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24))
+    const prevStartDate = new Date(startDate)
+    prevStartDate.setDate(prevStartDate.getDate() - daysDiff)
+    const prevEndDate = new Date(endDate)
+    prevEndDate.setDate(prevEndDate.getDate() - daysDiff)
+
+    const prevRevenueQuery = await pool.query(
+      `SELECT COALESCE(SUM(profit), 0) as total
+      FROM incasari_daily
+      WHERE audit_date BETWEEN $1 AND $2`,
+      [prevStartDate.toISOString().split('T')[0], prevEndDate.toISOString().split('T')[0]]
+    )
+
+    // Build previous expenses query with same filters (EXACT SAME LOGIC AS /monthly-by-location)
+    let prevExpensesSql = `
+      SELECT COALESCE(SUM(amount), 0) as total
+      FROM expenditures_sync
+      WHERE operational_date BETWEEN $1 AND $2
+      AND operational_date IS NOT NULL
+      AND location_name IS NOT NULL
+      AND location_name != ''
+    `
+
+    const prevExpensesParams = [prevStartDate.toISOString().split('T')[0], prevEndDate.toISOString().split('T')[0]]
+    let prevParamIdx = 3
+
+    // Apply same location filters for previous period
+    if (targetLocations && targetLocations.length > 0) {
+      const normalizedTargetLocations = targetLocations.map(normalizeText).filter(Boolean)
+      prevExpensesSql += ` AND normalized_location_name = ANY($${prevParamIdx}::text[])`
+      prevExpensesParams.push(normalizedTargetLocations)
+      prevParamIdx++
+    }
+
+    // Apply same department filters for previous period
+    if (includedFilters.departments && includedFilters.departments.length > 0) {
+      const normalizedDepartments = includedFilters.departments.map(normalizeText).filter(Boolean)
+      prevExpensesSql += ` AND (data_source = 'auto_discount' OR normalized_department_name = ANY($${prevParamIdx}::text[]))`
+      prevExpensesParams.push(normalizedDepartments)
+      prevParamIdx++
+    }
+
+    // Apply same type filters for previous period
+    if (includedFilters.types && includedFilters.types.length > 0) {
+      const normalizedTypes = includedFilters.types.map(normalizeText).filter(Boolean)
+      prevExpensesSql += ` AND (data_source = 'auto_discount' OR normalized_department_name = 'salarii' OR normalized_expenditure_type = ANY($${prevParamIdx}::text[]))`
+      prevExpensesParams.push(normalizedTypes)
+      prevParamIdx++
+    }
+
+    const prevExpensesQuery = await pool.query(prevExpensesSql, prevExpensesParams)
+
+
+
+    // Calculate current period metrics
+    const revenue = parseFloat(revenueQuery.rows[0].total)
+    const expenses = parseFloat(expensesQuery.rows[0].total)
+    const profit = revenue - expenses
+    const margin = revenue > 0 ? (profit / revenue) * 100 : 0
+
+    // Calculate previous period metrics
+    const prevRevenue = parseFloat(prevRevenueQuery.rows[0].total)
+    const prevExpenses = parseFloat(prevExpensesQuery.rows[0].total)
+    const prevProfit = prevRevenue - prevExpenses
+
+    // Calculate trends
+    const revenueTrend = prevRevenue > 0 ? ((revenue - prevRevenue) / prevRevenue) * 100 : 0
+    const expensesTrend = prevExpenses > 0 ? ((expenses - prevExpenses) / prevExpenses) * 100 : 0
+    const profitTrend = prevProfit !== 0 ? ((profit - prevProfit) / Math.abs(prevProfit)) * 100 : 0
+
+    res.json({
+      success: true,
+      pl: {
+        profit,
+        margin,
+        trend: profitTrend
+      },
+      expenses: {
+        total: expenses,
+        count: parseInt(expensesQuery.rows[0].count),
+        trend: expensesTrend
+      },
+      revenue: {
+        total: revenue,
+        locations: parseInt(revenueQuery.rows[0].locations),
+        trend: revenueTrend
+      }
+    })
+
+  } catch (err) {
+    console.error('Error in dashboard/summary:', err)
+    res.status(500).json({ success: false, error: 'Database error', details: err.message })
+  }
+})
+
+
 // --- NEW ENDPOINT: EXPENSES ANALYSIS (Breakdown by Dept/Type) ---
 // Uses user's expenditure_filter_settings to show ONLY real operational expenses
 router.get('/expenses-analysis', authenticateToken, async (req, res) => {

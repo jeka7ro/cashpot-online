@@ -1,14 +1,90 @@
 import React from 'react'
 import { formatCompactNumber } from '../utils/plUtils'
+import { FileSpreadsheet } from 'lucide-react'
+import * as XLSX from 'xlsx'
 
 const PLTable = ({ months, locations }) => {
     if (!months || months.length === 0) return null
 
+    const exportToExcel = () => {
+        try {
+            // First header row: Main Categories
+            const header1 = ['Lună']
+            locations.forEach(loc => {
+                header1.push(loc, '', '')
+            })
+            header1.push('Total Rețea', '', '')
+
+            // Second header row: Sub-metrics
+            const header2 = ['']
+            locations.forEach(() => {
+                header2.push('GGR', 'Chelt', 'Profit')
+            })
+            header2.push('GGR', 'Chelt', 'Profit')
+
+            // Data rows
+            const dataRows = months.map(m => {
+                const row = [m.label]
+                let monthTotalGgr = 0
+                let monthTotalExp = 0
+                let monthTotalPl = 0
+
+                locations.forEach(locName => {
+                    const locData = m.locations[locName]
+                    const ggr = locData?.ggr || 0
+                    const exp = locData?.expenses || 0
+                    const profit = locData?.profit || 0
+
+                    monthTotalGgr += ggr
+                    monthTotalExp += exp
+                    monthTotalPl += profit
+
+                    row.push(ggr, exp, profit)
+                })
+
+                row.push(monthTotalGgr, monthTotalExp, monthTotalPl)
+                return row
+            })
+
+            // Total footer row
+            const footerRow = ['Total Perioadă']
+            locations.forEach(locName => {
+                const totalGgr = months.reduce((sum, m) => sum + (m.locations[locName]?.ggr || 0), 0)
+                const totalExp = months.reduce((sum, m) => sum + (m.locations[locName]?.expenses || 0), 0)
+                const totalPl = totalGgr - totalExp
+                footerRow.push(totalGgr, totalExp, totalPl)
+            })
+
+            const grandGgr = months.reduce((s, m) => s + Object.values(m.locations).reduce((ss, l) => ss + (l.ggr || 0), 0), 0)
+            const grandExp = months.reduce((s, m) => s + Object.values(m.locations).reduce((ss, l) => ss + (l.expenses || 0), 0), 0)
+            const grandPl = grandGgr - grandExp
+            footerRow.push(grandGgr, grandExp, grandPl)
+
+            const aoa = [header1, header2, ...dataRows, footerRow]
+            const ws = XLSX.utils.aoa_to_sheet(aoa)
+            const wb = XLSX.utils.book_new()
+            XLSX.utils.book_append_sheet(wb, ws, 'P&L Detaliat')
+
+            XLSX.writeFile(wb, `PL_Detaliat_${new Date().toISOString().split('T')[0]}.xlsx`)
+        } catch (error) {
+            console.error('Error exporting P&L Table to Excel:', error)
+        }
+    }
+
     return (
         <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">
-                Tabel detaliat P&L
-            </h3>
+            <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                    Tabel detaliat P&L
+                </h3>
+                <button
+                    onClick={exportToExcel}
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/30 dark:text-emerald-400 rounded-lg transition-all border border-emerald-200 dark:border-emerald-800/50"
+                >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    Export Excel
+                </button>
+            </div>
 
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
@@ -127,3 +203,4 @@ const PLTable = ({ months, locations }) => {
 }
 
 export default PLTable
+

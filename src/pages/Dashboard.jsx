@@ -1,1350 +1,400 @@
 import React, { useState, useEffect } from 'react'
-import { useData } from '../contexts/DataContext'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useData } from '../contexts/DataContext' // Import DataContext for visibleLocations
 import axios from 'axios'
 import { toast } from 'react-hot-toast'
 import Layout from '../components/Layout'
-import StatCard from '../components/StatCard'
-import QuickActions from '../components/QuickActions'
-import RecentActivity from '../components/RecentActivity'
-import SystemHealth from '../components/SystemHealth'
-import ONJNCalendar from '../components/ONJNCalendar'
-import DatabaseBackup from '../components/DatabaseBackup'
-import PromotionsWidget from '../components/PromotionsWidget'
-import PromotionsCalendarWidget from '../components/PromotionsCalendarWidget'
-import PromotionsAIWidget from '../components/PromotionsAIWidget'
-import ONJNCurrencyRate from '../components/ONJNCurrencyRate'
-import GamesLibraryWidget from '../components/GamesLibraryWidget'
-import TasksWidget from '../components/TasksWidget'
-import { getVersion, getBuild, getBuildDate } from '../utils/version'
 import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core'
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
-import {
-  useSortable,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { 
-  Building2, 
-  MapPin, 
-  Users, 
-  Gamepad2, 
-  Package, 
-  Settings, 
-  Trophy, 
-  FileText, 
-  Shield, 
-  BarChart3,
   TrendingUp,
-  Activity,
-  GripVertical,
-  Eye,
-  EyeOff,
-  Save,
-  RotateCcw,
+  TrendingDown,
+  DollarSign,
+  Receipt,
+  PieChart,
+  ArrowRight,
+  Calendar,
   RefreshCw
 } from 'lucide-react'
 
-// Sortable Card Component
-const SortableCard = ({ cardConfig, cardData, cardSize, sizeClass, onToggleVisibility, onToggleSelection, onSizeChange, isSelected, isEditing }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: cardConfig.id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
-
-  return (
-    <div ref={setNodeRef} style={style} className={`${sizeClass} ${isEditing ? 'cursor-move' : ''}`}>
-      <StatCard
-        title={cardData.title}
-        value={cardData.value}
-        icon={cardData.icon}
-        change={cardData.change}
-        changeType={cardData.changeType}
-        trend={cardData.trend}
-        trendData={cardData.trendData}
-        isEditing={isEditing}
-        isVisible={cardConfig.visible}
-        onToggleVisibility={() => onToggleVisibility(cardConfig.id)}
-        onToggleSelection={() => onToggleSelection(cardConfig.id)}
-        onSizeChange={onSizeChange}
-        isSelected={isSelected}
-        dragHandleProps={isEditing ? { ...attributes, ...listeners } : {}}
-      />
-    </div>
-  )
-}
-
 const Dashboard = () => {
-  const { statistics, loading, loadAllData } = useData()
-  const { user } = useAuth()
-  const [isEditing, setIsEditing] = useState(false)
-  const [dashboardConfig, setDashboardConfig] = useState(null)
-  
-  // Load all data when Dashboard mounts (after login) - non-blocking
-  useEffect(() => {
-    loadAllData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-  const [selectedCards, setSelectedCards] = useState([])
-  const [selectedWidgets, setSelectedWidgets] = useState([])
-  const [showUpdateTime, setShowUpdateTime] = useState(true)
-  const [isFadingOut, setIsFadingOut] = useState(false)
-  const [showWelcome, setShowWelcome] = useState(true)
-  const [isWelcomeFadingOut, setIsWelcomeFadingOut] = useState(false)
-
-  // IMPORTANT: Declare cardSizes and widgetSizes BEFORE any functions that use them
-  const [cardSizes, setCardSizes] = useState(() => {
-    // localStorage REMOVED - using server only
-    const saved = null
-    return saved ? JSON.parse(saved) : {
-      companies: 'medium',
-      locations: 'medium',
-      providers: 'medium',
-      cabinets: 'medium',
-      gameMixes: 'medium',
-      slots: 'medium',
-      games: 'medium',
-      warehouse: 'medium',
-      metrology: 'medium',
-      jackpots: 'medium',
-      invoices: 'medium',
-      onjnReports: 'medium',
-      legalDocuments: 'medium',
-      users: 'medium'
-    }
+  const { user, token } = useAuth()
+  const { visibleLocations } = useData() // Get visibleLocations from DataContext
+  const navigate = useNavigate()
+  const [loading, setLoading] = useState(true)
+  const [dashboardData, setDashboardData] = useState(null)
+  const [activeFilter, setActiveFilter] = useState('currentYear') // Track active filter
+  const [dateRange, setDateRange] = useState({
+    startDate: new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0], // Start of year
+    endDate: new Date().toISOString().split('T')[0] // Today
   })
 
-  const [widgetSizes, setWidgetSizes] = useState(() => {
-    // localStorage REMOVED - using server only
-    const saved = null
-    return saved ? JSON.parse(saved) : {
-      quickActions: 'medium',
-      recentActivity: 'medium',
-      databaseBackup: 'medium',
-      currencyRate: 'small',
-      onjnCalendar: 'large',
-      systemHealth: 'large',
-      gamesLibrary: 'large',
-      performanceCharts: 'extra-large'
-    }
-  })
+  // Load dashboard summary data
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true)
 
-  // Drag and drop sensors - MOVED AFTER cardSizes/widgetSizes declarations
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  )
+      // Build params with visibleLocations filter (EXACT SAME AS P&L PAGE)
+      const params = {
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate
+      }
 
-  // Handle drag end for cards - MOVED AFTER cardSizes/widgetSizes declarations
-  const handleDragEnd = (event) => {
-    const { active, over } = event
+      if (visibleLocations && visibleLocations.length > 0) {
+        params.includeLocations = visibleLocations.join(',')
+      }
 
-    if (active.id !== over?.id) {
-      setDashboardConfig(prev => {
-        const oldIndex = prev.statCards.findIndex(card => card.id === active.id)
-        const newIndex = prev.statCards.findIndex(card => card.id === over.id)
-        
-        const newCards = arrayMove(prev.statCards, oldIndex, newIndex)
-        // Update order numbers
-        newCards.forEach((card, index) => {
-          card.order = index + 1
-        })
-        
-        const newConfig = { ...prev, statCards: newCards }
-        return newConfig
+      const response = await axios.get('/api/incasari/dashboard/summary', {
+        params,
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
       })
+      setDashboardData(response.data)
+    } catch (error) {
+      console.error('Error loading dashboard data:', error)
+      toast.error('Eroare la încărcarea datelor dashboard')
+    } finally {
+      setLoading(false)
     }
   }
 
-  // Configurația implicită pentru dashboard - cardurile sunt OFF by default
-  const defaultDashboardConfig = {
-    statCards: [
-      { id: 'companies', title: 'Companii', visible: false, order: 1 },
-      { id: 'locations', title: 'Locații', visible: false, order: 2 },
-      { id: 'providers', title: 'Furnizori', visible: false, order: 3 },
-      { id: 'cabinets', title: 'Cabinete', visible: false, order: 4 },
-      { id: 'gameMixes', title: 'Game Mixes', visible: false, order: 5 },
-      { id: 'slots', title: 'Sloturi', visible: false, order: 6 },
-      { id: 'games', title: 'Librărie Jocuri', visible: false, order: 7 },
-      { id: 'warehouse', title: 'Depozit', visible: false, order: 8 },
-      { id: 'metrology', title: 'Metrologie', visible: false, order: 9 },
-      { id: 'jackpots', title: 'Jackpots', visible: false, order: 10 },
-      { id: 'invoices', title: 'Facturi', visible: false, order: 11 },
-      { id: 'onjnReports', title: 'Rapoarte ONJN', visible: false, order: 12 },
-      { id: 'legalDocuments', title: 'Documente Legale', visible: false, order: 13 },
-      { id: 'users', title: 'Utilizatori', visible: false, order: 14 }
-    ],
-    widgets: [
-      { id: 'quickActions', title: 'Acțiuni Rapide', visible: true, order: 1 },
-      { id: 'recentActivity', title: 'Activitate Recentă', visible: true, order: 2 },
-      { id: 'databaseBackup', title: 'Backup Bază de Date', visible: true, order: 3 },
-      { id: 'currencyRate', title: 'Curs Valutar ONJN', visible: true, order: 4 },
-      { id: 'onjnCalendar', title: 'Calendar ONJN', visible: true, order: 5 },
-      { id: 'systemHealth', title: 'Sănătate Sistem', visible: true, order: 6 },
-      { id: 'gamesLibrary', title: 'Jocuri din Librărie', visible: true, order: 7 },
-      { id: 'tasksWidget', title: '✅ Sarcini', visible: true, order: 8 },
-      { id: 'promotionsActive', title: '🎯 Promoții Active', visible: true, order: 9 },
-      { id: 'promotionsCalendar', title: '📅 Calendar Promoții', visible: true, order: 10 },
-      { id: 'promotionsAI', title: '🤖 Analiză AI Marketing', visible: true, order: 11 },
-      { id: 'performanceCharts', title: 'Grafice Performanță', visible: true, order: 12 }
-    ]
-  }
-
-  // Auto-hide welcome popup after 3 seconds
   useEffect(() => {
-    const welcomeTimer = setTimeout(() => {
-      setIsWelcomeFadingOut(true)
-      setTimeout(() => {
-        setShowWelcome(false)
-      }, 500) // Wait for fade-out animation
-    }, 3000)
+    loadDashboardData()
+  }, [dateRange, visibleLocations]) // Re-fetch when visibleLocations change
 
-    return () => clearTimeout(welcomeTimer)
-  }, [])
 
-  // Auto-hide update time popup after 3 seconds
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsFadingOut(true)
-      setTimeout(() => {
-        setShowUpdateTime(false)
-      }, 500) // Wait for fade-out animation
-    }, 3000)
+  // Format currency
+  const formatCurrency = (amount) => {
+    if (!amount) return '0'
+    return new Intl.NumberFormat('ro-RO', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount)
+  }
 
-    return () => clearTimeout(timer)
-  }, [])
+  // Format percentage
+  const formatPercent = (value) => {
+    if (!value) return '0%'
+    const sign = value > 0 ? '+' : ''
+    return `${sign}${value.toFixed(1)}%`
+  }
 
-  // Încarcă preferințele de pe server sau folosește // localStorage REMOVED - using server only
-  useEffect(() => {
-    const loadPreferences = async () => {
-      console.log('🔄 Loading dashboard preferences...', { userId: user?.id, user })
-      
-      // Încearcă mai întâi de pe server (pentru sincronizare cross-device)
-      if (user?.id) {
-        try {
-          const response = await axios.get(`/api/users/${user.id}`, { timeout: 10000 })
-          const userData = response.data
-          const preferences = userData.preferences || {}
-          
-          console.log('📊 Server preferences:', preferences)
-          
-          if (preferences.dashboard) {
-            console.log('✅ Loaded dashboard preferences from server:', preferences.dashboard)
-            setDashboardConfig(preferences.dashboard)
-            
-            // Load cardSizes and widgetSizes from server
-            if (preferences.cardSizes) {
-              console.log('✅ Loaded card sizes from server:', preferences.cardSizes)
-              setCardSizes(preferences.cardSizes)
-            }
-            if (preferences.widgetSizes) {
-              console.log('✅ Loaded widget sizes from server:', preferences.widgetSizes)
-              setWidgetSizes(preferences.widgetSizes)
-            }
-            return // Ieși din funcție dacă s-au încărcat datele de pe server
-          }
-        } catch (error) {
-          console.error('❌ Error loading preferences from server:', error)
-        }
-      }
-      
-      // Fallback la sessionStorage dacă serverul nu funcționează sau nu există preferințe pe server
-      const localConfig = sessionStorage.getItem('dashboardConfig')
-      if (localConfig) {
-        try {
-          const config = JSON.parse(localConfig)
-          console.log('📱 Loaded dashboard preferences from sessionStorage:', config)
-          setDashboardConfig(config)
-          // cardSizes and widgetSizes are managed locally, not saved in sessionStorage
-          return
-        } catch (e) {
-          console.error('Error parsing sessionStorage config:', e)
-        }
-      }
-      
-      // Final fallback: use default config only if nothing else is available
-      console.log('🆕 Using default dashboard configuration')
-      setDashboardConfig(defaultDashboardConfig)
+
+  // Helper function to format date in local timezone (YYYY-MM-DD)
+  const formatLocalDate = (date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // Quick date range presets
+  const applyQuickDateFilter = (filter) => {
+    const today = new Date()
+    let startDate, endDate
+
+    switch (filter) {
+      case 'today':
+        startDate = endDate = formatLocalDate(today)
+        break
+      case 'week':
+        const weekStart = new Date(today)
+        weekStart.setDate(today.getDate() - today.getDay())
+        startDate = formatLocalDate(weekStart)
+        endDate = formatLocalDate(today)
+        break
+      case 'currentMonth':
+        const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+        startDate = formatLocalDate(currentMonthStart)
+        endDate = formatLocalDate(today)
+        break
+      case 'previousMonth':
+        const prevMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+        const prevMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0) // Last day of previous month
+        startDate = formatLocalDate(prevMonthStart)
+        endDate = formatLocalDate(prevMonthEnd)
+        break
+      case 'currentYear':
+        const currentYearStart = new Date(today.getFullYear(), 0, 1)
+        startDate = formatLocalDate(currentYearStart)
+        endDate = formatLocalDate(today)
+        break
+      case 'previousYear':
+        const prevYearStart = new Date(today.getFullYear() - 1, 0, 1)
+        const prevYearEnd = new Date(today.getFullYear() - 1, 11, 31)
+        startDate = formatLocalDate(prevYearStart)
+        endDate = formatLocalDate(prevYearEnd)
+        break
+      case 'all':
+        // All data for 2026
+        startDate = '2026-01-01'
+        endDate = '2026-12-31'
+        break
+      default:
+        return
     }
-    
-    loadPreferences()
-  }, [user?.id])
 
-  // Salvează dimensiunile cardurilor pe server
-  const saveCardSizesToServer = async (newCardSizes) => {
-    try {
-      await axios.put(`/api/users/${user.id}/preferences`, {
-        preferences: {
-          cardSizes: newCardSizes,
-          widgetSizes: widgetSizes,
-          dashboard: dashboardConfig
-        }
-      })
-      console.log('✅ Card sizes saved automatically to server')
-    } catch (error) {
-      console.error('❌ Error saving card sizes automatically:', error)
-    }
+    setActiveFilter(filter) // Update active filter
+    setDateRange({ startDate, endDate })
   }
 
-  // Salvează dimensiunile widget-urilor pe server
-  const saveWidgetSizesToServer = async (newWidgetSizes) => {
-    try {
-      await axios.put(`/api/users/${user.id}/preferences`, {
-        preferences: {
-          cardSizes: cardSizes,
-          widgetSizes: newWidgetSizes,
-          dashboard: dashboardConfig
-        }
-      })
-      console.log('✅ Widget sizes saved automatically to server')
-    } catch (error) {
-      console.error('❌ Error saving widget sizes automatically:', error)
-    }
-  }
 
-  // Salvează preferințele pe server
-  const saveDashboardConfig = async () => {
-    try {
-      // Încearcă să salveze pe server
-      console.log('💾 Saving dashboard preferences to server for user:', user.id)
-      await axios.put(`/api/users/${user.id}/preferences`, {
-        preferences: {
-          dashboard: dashboardConfig,
-          cardSizes: cardSizes,
-          widgetSizes: widgetSizes
-        }
-      })
-      
-      console.log('✅ Dashboard preferences saved successfully!')
-      toast.success('Configurația dashboard-ului a fost salvată cu succes!')
-      setIsEditing(false)
-      setSelectedCards([])
-      setSelectedWidgets([])
-    } catch (error) {
-      console.error('❌ Error saving dashboard preferences:', error)
-      // Dacă serverul nu funcționează, folosește doar sessionStorage
-      toast.success('Configurația a fost salvată local!')
-      setIsEditing(false)
-      setSelectedCards([])
-      setSelectedWidgets([])
-    }
-  }
-
-  // Resetează configurația la implicită
-  const resetDashboardConfig = () => {
-    setDashboardConfig(defaultDashboardConfig)
-    sessionStorage.removeItem('dashboardConfig')
-    setSelectedCards([])
-    setSelectedWidgets([])
-    setCardSizes({
-      companies: 'medium',
-      locations: 'medium',
-      providers: 'medium',
-      cabinets: 'medium',
-      gameMixes: 'medium',
-      slots: 'medium',
-      warehouse: 'medium',
-      metrology: 'medium',
-      jackpots: 'medium',
-      invoices: 'medium',
-      onjnReports: 'medium',
-      legalDocuments: 'medium',
-      users: 'medium'
-    })
-    setIsEditing(false)
-  }
-
-  // Forțează sincronizarea preferințelor de pe server
-  const forceSyncPreferences = async () => {
-    if (!user?.id) return
-    
-    try {
-      console.log('🔄 Force syncing preferences from server...')
-      const response = await axios.get(`/api/users/${user.id}`, { timeout: 5000 })
-      const userData = response.data
-      const preferences = userData.preferences || {}
-      
-      if (preferences.dashboard) {
-        console.log('✅ Force loaded dashboard preferences from server:', preferences.dashboard)
-        setDashboardConfig(preferences.dashboard)
-        
-        // Load cardSizes and widgetSizes from server
-        if (preferences.cardSizes) {
-          console.log('✅ Force loaded card sizes from server:', preferences.cardSizes)
-          setCardSizes(preferences.cardSizes)
-        }
-        if (preferences.widgetSizes) {
-          console.log('✅ Force loaded widget sizes from server:', preferences.widgetSizes)
-          setWidgetSizes(preferences.widgetSizes)
-        }
-        toast.success('Preferințele au fost sincronizate de pe server!')
-      } else {
-        console.log('ℹ️ No dashboard preferences found on server')
-        toast('Nu există preferințe salvate pe server')
-      }
-    } catch (error) {
-      console.error('❌ Error force syncing preferences:', error)
-      toast.error('Eroare la sincronizarea preferințelor de pe server')
-    }
-  }
-
-  // Restore dashboard to default configuration
-  const restoreDashboardConfig = async () => {
-    if (!user?.id) return
-    
-    if (!confirm('⚠️ ATENȚIE: Acest buton va șterge COMPLET configurația ta salvată și va seta dashboard-ul la configurația default!\n\nDacă ai salvat deja o configurație, aceasta va fi pierdută definitiv!\n\nEști sigur că vrei să continui?')) {
-      return
-    }
-    
-    try {
-      console.log('🔄 Resetting dashboard configuration to default...')
-      const response = await axios.post(`/api/restore-dashboard/${user.id}`, {}, { timeout: 10000 })
-      
-      if (response.data.success) {
-        toast.success('✅ Dashboard resetat la configurația default! Configurația ta veche a fost ștearsă.')
-        // Reload entire page to apply changes
-        setTimeout(() => {
-          window.location.reload()
-        }, 1500)
-      } else {
-        toast.error('Eroare la resetarea dashboard-ului')
-      }
-    } catch (error) {
-      console.error('❌ Error resetting dashboard config:', error)
-      toast.error('Eroare la resetarea dashboard-ului')
-    }
-  }
-  
-  // Force reload saved configuration from server
-  const reloadSavedConfig = async () => {
-    if (!user?.id) return
-    
-    try {
-      console.log('🔄 Reloading saved configuration from server...')
-      const response = await axios.get(`/api/users/${user.id}`, { timeout: 10000 })
-      const userData = response.data
-      const preferences = userData.preferences || {}
-      
-      console.log('📊 Current server preferences:', preferences)
-      
-      if (preferences.dashboard) {
-        console.log('✅ Reloaded dashboard preferences from server:', preferences.dashboard)
-        setDashboardConfig(preferences.dashboard)
-        
-        if (preferences.cardSizes) {
-          setCardSizes(preferences.cardSizes)
-        }
-        if (preferences.widgetSizes) {
-          setWidgetSizes(preferences.widgetSizes)
-        }
-        
-        toast.success('Configurația salvată a fost încărcată!')
-        // Reload page to apply
-        setTimeout(() => {
-          window.location.reload()
-        }, 1000)
-      } else {
-        console.log('⚠️ No dashboard configuration found on server')
-        toast.error('Nu există configurație salvată pe server. Configurația nu a fost salvată sau a fost resetată.')
-      }
-    } catch (error) {
-      console.error('❌ Error reloading config:', error)
-      toast.error('Eroare la reîncărcarea configurației')
-    }
-  }
-
-  // Toggle vizibilitatea unui card
-  const toggleCardVisibility = (cardId) => {
-    setDashboardConfig(prev => {
-      const newConfig = {
-        ...prev,
-        statCards: prev.statCards.map(card => 
-          card.id === cardId ? { ...card, visible: !card.visible } : card
-        )
-      }
-      return newConfig
-    })
-  }
-
-  // Toggle vizibilitatea unui widget
-  const toggleWidgetVisibility = (widgetId) => {
-    setDashboardConfig(prev => {
-      const newConfig = {
-        ...prev,
-        widgets: prev.widgets.map(widget => 
-          widget.id === widgetId ? { ...widget, visible: !widget.visible } : widget
-        )
-      }
-      return newConfig
-    })
-  }
-
-  // Mută un card în sus
-  const moveCardUp = (cardId) => {
-    setDashboardConfig(prev => {
-      const cards = [...prev.statCards]
-      const index = cards.findIndex(card => card.id === cardId)
-      if (index > 0) {
-        [cards[index], cards[index - 1]] = [cards[index - 1], cards[index]]
-        cards.forEach((card, i) => card.order = i + 1)
-      }
-      const newConfig = { ...prev, statCards: cards }
-      return newConfig
-    })
-  }
-
-  // Mută un card în jos
-  const moveCardDown = (cardId) => {
-    setDashboardConfig(prev => {
-      const cards = [...prev.statCards]
-      const index = cards.findIndex(card => card.id === cardId)
-      if (index < cards.length - 1) {
-        [cards[index], cards[index + 1]] = [cards[index + 1], cards[index]]
-        cards.forEach((card, i) => card.order = i + 1)
-      }
-      const newConfig = { ...prev, statCards: cards }
-      return newConfig
-    })
-  }
-
-  // Mută un widget în sus
-  const moveWidgetUp = (widgetId) => {
-    setDashboardConfig(prev => {
-      const widgets = [...prev.widgets]
-      const index = widgets.findIndex(widget => widget.id === widgetId)
-      if (index > 0) {
-        [widgets[index], widgets[index - 1]] = [widgets[index - 1], widgets[index]]
-        widgets.forEach((widget, i) => widget.order = i + 1)
-      }
-      return { ...prev, widgets }
-    })
-  }
-
-  // Mută un widget în jos
-  const moveWidgetDown = (widgetId) => {
-    setDashboardConfig(prev => {
-      const widgets = [...prev.widgets]
-      const index = widgets.findIndex(widget => widget.id === widgetId)
-      if (index < widgets.length - 1) {
-        [widgets[index], widgets[index + 1]] = [widgets[index + 1], widgets[index]]
-        widgets.forEach((widget, i) => widget.order = i + 1)
-      }
-      return { ...prev, widgets }
-    })
-  }
-
-  // Schimbă mărimea unui card
-  const changeCardSize = (cardId, size) => {
-    setCardSizes(prev => {
-      const newCardSizes = {
-        ...prev,
-        [cardId]: size
-      }
-      
-      // Salvează automat pe server dacă utilizatorul este autentificat
-      if (user?.id) {
-        saveCardSizesToServer(newCardSizes)
-      }
-      
-      return newCardSizes
-    })
-  }
-
-  // Schimbă mărimea unui widget
-  const changeWidgetSize = (widgetId, size) => {
-    setWidgetSizes(prev => {
-      const newWidgetSizes = {
-        ...prev,
-        [widgetId]: size
-      }
-      
-      // Salvează automat pe server dacă utilizatorul este autentificat
-      if (user?.id) {
-        saveWidgetSizesToServer(newWidgetSizes)
-      }
-      
-      return newWidgetSizes
-    })
-  }
-
-  // Toggle card selection
-  const toggleCardSelection = (cardId) => {
-    setSelectedCards(prev => 
-      prev.includes(cardId) 
-        ? prev.filter(id => id !== cardId)
-        : [...prev, cardId]
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <RefreshCw className="w-12 h-12 mx-auto mb-4 text-blue-500 animate-spin" />
+            <p className="text-lg text-slate-600 dark:text-slate-400">Se încarcă dashboard-ul...</p>
+          </div>
+        </div>
+      </Layout>
     )
   }
 
-  // Toggle widget selection
-  const toggleWidgetSelection = (widgetId) => {
-    setSelectedWidgets(prev => 
-      prev.includes(widgetId) 
-        ? prev.filter(id => id !== widgetId)
-        : [...prev, widgetId]
-    )
-  }
-
-  // Select all cards
-  const selectAllCards = () => {
-    setSelectedCards(dashboardConfig.statCards.map(c => c.id))
-  }
-
-  // Deselect all cards
-  const deselectAllCards = () => {
-    setSelectedCards([])
-  }
-
-  // Bulk change size for selected cards
-  const bulkChangeCardSize = (size) => {
-    setCardSizes(prev => {
-      const newSizes = { ...prev }
-      selectedCards.forEach(cardId => {
-        newSizes[cardId] = size
-      })
-      return newSizes
-    })
-  }
-
-  // Bulk toggle visibility for selected cards
-  const bulkToggleCardVisibility = () => {
-    setDashboardConfig(prev => {
-      const statCards = prev.statCards.map(card => 
-        selectedCards.includes(card.id) 
-          ? { ...card, visible: !card.visible }
-          : card
-      )
-      return { ...prev, statCards }
-    })
-  }
-
-  // Select all widgets
-  const selectAllWidgets = () => {
-    setSelectedWidgets(dashboardConfig.widgets.map(w => w.id))
-  }
-
-  // Deselect all widgets
-  const deselectAllWidgets = () => {
-    setSelectedWidgets([])
-  }
-
-  // Bulk change size for selected widgets
-  const bulkChangeWidgetSize = (size) => {
-    setWidgetSizes(prev => {
-      const newSizes = { ...prev }
-      selectedWidgets.forEach(widgetId => {
-        newSizes[widgetId] = size
-      })
-      return newSizes
-    })
-    // Note: sessionStorage save removed to avoid circular dependency
-  }
-
-  // Bulk toggle visibility for selected widgets
-  const bulkToggleWidgetVisibility = () => {
-    setDashboardConfig(prev => {
-      const widgets = prev.widgets.map(widget => 
-        selectedWidgets.includes(widget.id) 
-          ? { ...widget, visible: !widget.visible }
-          : widget
-      )
-      return { ...prev, widgets }
-    })
-  }
-
-  // Obține clasa CSS pentru mărimea cardului (optimizat pentru grid uniform)
-  const getCardSizeClass = (size) => {
-    switch (size) {
-      case 'xs':
-        return 'dashboard-card-xs'
-      case 'small':
-        return 'dashboard-card-small'
-      case 'medium':
-        return 'dashboard-card-medium'
-      case 'large':
-        return 'dashboard-card-large'
-      case 'extra-large':
-        return 'dashboard-card-xl'
-      default:
-        return 'dashboard-card-medium'
-    }
-  }
-
-  // Obține clasa CSS pentru mărimea widget-ului (optimizat pentru grid uniform)
-  const getWidgetSizeClass = (size) => {
-    switch (size) {
-      case 'xs':
-        return 'dashboard-widget-xs'
-      case 'small':
-        return 'dashboard-widget-small'
-      case 'medium':
-        return 'dashboard-widget-medium'
-      case 'large':
-        return 'dashboard-widget-large'
-      case 'extra-large':
-        return 'dashboard-widget-xl'
-      default:
-        return 'dashboard-widget-medium'
-    }
-  }
-
-  // Obține iconița pentru mărimea cardului
-  const getSizeIcon = (size) => {
-    switch (size) {
-      case 'small':
-        return 'S'
-      case 'medium':
-        return 'M'
-      case 'large':
-        return 'L'
-      case 'extra-large':
-        return 'XL'
-      default:
-        return 'M'
-    }
-  }
-
-  const statCardsData = {
-    companies: {
-      title: 'Companii',
-      value: statistics?.totalCompanies || 0,
-      icon: Building2,
-      color: 'blue',
-      change: '+12%',
-      changeType: 'positive'
-    },
-    locations: {
-      title: 'Locații',
-      value: statistics?.totalLocations || 0,
-      icon: MapPin,
-      color: 'green',
-      change: '+8%',
-      changeType: 'positive'
-    },
-    providers: {
-      title: 'Furnizori',
-      value: statistics?.totalProviders || 0,
-      icon: Users,
-      color: 'purple',
-      change: '+5%',
-      changeType: 'positive'
-    },
-    cabinets: {
-      title: 'Cabinete',
-      value: statistics?.totalCabinets || 0,
-      icon: Gamepad2,
-      color: 'orange',
-      change: '+15%',
-      changeType: 'positive'
-    },
-    gameMixes: {
-      title: 'Game Mixes',
-      value: statistics?.totalGameMixes || 0,
-      icon: Settings,
-      color: 'indigo',
-      change: '+3%',
-      changeType: 'positive'
-    },
-    slots: {
-      title: 'Sloturi',
-      value: statistics?.totalSlots || 0,
-      icon: BarChart3,
-      color: 'emerald',
-      change: '+22%',
-      changeType: 'positive'
-    },
-    warehouse: {
-      title: 'Depozit',
-      value: statistics?.totalWarehouse || 0,
-      icon: Package,
-      color: 'slate',
-      change: '+7%',
-      changeType: 'positive'
-    },
-    metrology: {
-      title: 'Metrologie',
-      value: statistics?.totalMetrology || 0,
-      icon: Activity,
-      color: 'cyan',
-      change: '+2%',
-      changeType: 'positive'
-    },
-    jackpots: {
-      title: 'Jackpots',
-      value: statistics?.totalJackpots || 0,
-      icon: Trophy,
-      color: 'yellow',
-      change: '+18%',
-      changeType: 'positive'
-    },
-    invoices: {
-      title: 'Facturi',
-      value: statistics?.totalInvoices || 0,
-      icon: FileText,
-      color: 'red',
-      change: '+9%',
-      changeType: 'positive'
-    },
-    onjnReports: {
-      title: 'Rapoarte ONJN',
-      value: statistics?.totalOnjnReports || 0,
-      icon: Shield,
-      color: 'blue',
-      change: '+4%',
-      changeType: 'positive'
-    },
-    legalDocuments: {
-      title: 'Documente Legale',
-      value: statistics?.totalLegalDocuments || 0,
-      icon: FileText,
-      color: 'gray',
-      change: '+6%',
-      changeType: 'positive'
-    },
-    users: {
-      title: 'Utilizatori',
-      value: statistics?.totalUsers || 0,
-      icon: Users,
-      color: 'purple',
-      change: '+1%',
-      changeType: 'positive'
-    },
-    games: {
-      title: 'Librărie Jocuri',
-      value: statistics?.totalGames || 0,
-      icon: Gamepad2,
-      color: 'blue',
-      change: '+18%',
-      changeType: 'positive'
-    }
-  }
-
-  if (!dashboardConfig) {
-    return <div>Loading...</div>
-  }
+  const plData = dashboardData?.pl || {}
+  const expensesData = dashboardData?.expenses || {}
+  const revenueData = dashboardData?.revenue || {}
 
   return (
     <Layout>
-      <div className="space-y-8">
-        {/* Welcome Header */}
-        <div className="card p-8">
-          <div className="flex items-center justify-between">
-            <div>
-              {/* Welcome Popup */}
-              {showWelcome && (
-                <div className={`transition-all duration-500 ${
-                  isWelcomeFadingOut 
-                    ? 'opacity-0 transform -translate-y-2' 
-                    : 'opacity-100 transform translate-y-0'
-                }`}>
-                  <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent mb-4">
-                    Bun venit, {user?.fullName || 'Administrator'}!
-                  </h1>
-                </div>
-              )}
-              
-              {/* Update Time Popup */}
-              {showUpdateTime && (
-                <div className={`mt-3 transition-all duration-500 ${
-                  isFadingOut 
-                    ? 'opacity-0 transform -translate-y-2' 
-                    : 'opacity-100 transform translate-y-0'
-                }`}>
-                  <div className="inline-flex items-center px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-sm font-medium rounded-lg border border-green-200 dark:border-green-700 shadow-lg">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-3"></div>
-                    Ultima actualizare: {new Date().toLocaleString('ro-RO')}
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center space-x-4">
-              {/* Dashboard Configuration Buttons */}
-              <div className="flex items-center space-x-2">
-                {!isEditing ? (
-                  <>
-                    <button
-                      onClick={() => setIsEditing(true)}
-                      className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      <Settings className="w-4 h-4" />
-                      <span>Configurează Dashboard</span>
-                    </button>
-                    <button
-                      onClick={forceSyncPreferences}
-                      className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                      title="Sincronizează preferințele de pe server"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                      <span>Sincronizează</span>
-                    </button>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+              Dashboard
+            </h1>
+            <p className="text-slate-600 dark:text-slate-400 mt-1">
+              Bun venit, {user?.name || 'User'}! Aici găsești o privire de ansamblu asupra afacerii.
+            </p>
+          </div>
 
-                  </>
-                ) : (
-                  dashboardConfig && (
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={saveDashboardConfig}
-                        className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                      >
-                        <Save className="w-4 h-4" />
-                        <span>Salvează</span>
-                      </button>
-                      <button
-                        onClick={resetDashboardConfig}
-                        className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                        <span>Resetează</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsEditing(false)
-                          setSelectedCards([])
-                          setSelectedWidgets([])
-                        }}
-                        className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                      >
-                        <span>Anulează</span>
-                      </button>
-                    </div>
-                  )
-                )}
-            </div>
-            <div className="text-right">
-              <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-                v{getVersion()}
-              </div>
-              <div className="text-sm text-slate-500 dark:text-slate-400">
-                Build #{getBuild()}: {getBuildDate()}
-                </div>
-              </div>
-            </div>
+          {/* Date Range Selector */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => applyQuickDateFilter('today')}
+              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeFilter === 'today'
+                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
+                }`}
+            >
+              Azi
+            </button>
+            <button
+              onClick={() => applyQuickDateFilter('week')}
+              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeFilter === 'week'
+                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
+                }`}
+            >
+              Săpt
+            </button>
+            <button
+              onClick={() => applyQuickDateFilter('currentMonth')}
+              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeFilter === 'currentMonth'
+                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
+                }`}
+            >
+              Luna curentă
+            </button>
+            <button
+              onClick={() => applyQuickDateFilter('previousMonth')}
+              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeFilter === 'previousMonth'
+                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
+                }`}
+            >
+              Luna trecută
+            </button>
+            <button
+              onClick={() => applyQuickDateFilter('currentYear')}
+              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeFilter === 'currentYear'
+                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
+                }`}
+            >
+              Anul curent
+            </button>
+            <button
+              onClick={() => applyQuickDateFilter('previousYear')}
+              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeFilter === 'previousYear'
+                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
+                }`}
+            >
+              Anul trecut
+            </button>
+            <button
+              onClick={() => applyQuickDateFilter('all')}
+              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeFilter === 'all'
+                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
+                }`}
+            >
+              Toate
+            </button>
+            <button
+              onClick={loadDashboardData}
+              className="p-2 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              title="Reîmprospătează"
+            >
+              <RefreshCw className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
-        {/* Statistics Grid */}
-        {dashboardConfig && (
-        <div className="space-y-6">
-          {isEditing && dashboardConfig && (
-            <div className="card p-6 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300">Configurează Cardurile de Statistici</h3>
-                <div className="flex items-center space-x-2">
-                  {selectedCards.length > 0 && (
-                    <>
-                      <span className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-                        {selectedCards.length} selectate
-                      </span>
-                      <select
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            bulkChangeCardSize(e.target.value)
-                            e.target.value = ''
-                          }
-                        }}
-                        className="px-3 py-1 text-xs border border-blue-300 dark:border-blue-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Mărime pentru toate</option>
-                        <option value="xs">XS</option>
-                        <option value="small">S</option>
-                        <option value="medium">M</option>
-                        <option value="large">L</option>
-                        <option value="extra-large">XL</option>
-                      </select>
-                      <button
-                        onClick={bulkToggleCardVisibility}
-                        className="px-3 py-1 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        Toggle Vizibilitate
-                      </button>
-                      <button
-                        onClick={() => {
-                          setDashboardConfig(prev => ({
-                            ...prev,
-                            statCards: prev.statCards.map(card => ({ ...card, visible: false }))
-                          }))
-                        }}
-                        className="px-3 py-1 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                      >
-                        Ascunde Tot
-                      </button>
-                    </>
-                  )}
-                                        <button
-                        onClick={() => {
-                          setDashboardConfig(prev => ({
-                            ...prev,
-                            statCards: prev.statCards.map(card => ({ ...card, visible: true }))
-                          }))
-                        }}
-                        className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                      >
-                        Afișează Tot
-                      </button>
-                      <button
-                        onClick={selectedCards.length === dashboardConfig.statCards.length ? deselectAllCards : selectAllCards}
-                        className="px-3 py-1 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                      >
-                        {selectedCards.length === dashboardConfig.statCards.length ? 'Deselectează Tot' : 'Selectează Tot'}
-                      </button>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {dashboardConfig.statCards
-                  .sort((a, b) => a.order - b.order)
-                  .map((card, index) => (
-                    <div key={card.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
-                      selectedCards.includes(card.id)
-                        ? 'bg-blue-100 dark:bg-blue-900/40 border-blue-400 dark:border-blue-600'
-                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
-                    }`}>
-                      <div className="flex items-center space-x-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedCards.includes(card.id)}
-                          onChange={() => toggleCardSelection(card.id)}
-                          className="w-4 h-4 text-blue-600 bg-white dark:bg-slate-700 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
-                        />
-                        <GripVertical className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                        <span className="font-medium text-slate-800 dark:text-slate-200">{card.title}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => moveCardUp(card.id)}
-                          disabled={index === 0}
-                          className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 disabled:opacity-30"
-                          title="Mută în sus"
-                        >
-                          ↑
-                        </button>
-                        <button
-                          onClick={() => moveCardDown(card.id)}
-                          disabled={index === dashboardConfig.statCards.length - 1}
-                          className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 disabled:opacity-30"
-                          title="Mută în jos"
-                        >
-                          ↓
-                        </button>
-                        
-                        {/* Selector pentru mărimea cardului */}
-                        <select
-                          value={cardSizes[card.id]}
-                          onChange={(e) => changeCardSize(card.id, e.target.value)}
-                          className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          title="Mărimea cardului"
-                        >
-                          <option value="xs">XS</option>
-                          <option value="small">S</option>
-                          <option value="medium">M</option>
-                          <option value="large">L</option>
-                          <option value="extra-large">XL</option>
-                        </select>
-                        
-                        <button
-                          onClick={() => toggleCardVisibility(card.id)}
-                          className={`p-2 rounded-lg transition-colors ${
-                            card.visible 
-                              ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50' 
-                              : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'
-                          }`}
-                          title={card.visible ? "Ascunde cardul" : "Afișează cardul"}
-                        >
-                          {card.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
-          
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={dashboardConfig.statCards
-              .filter(card => card.visible)
-              .sort((a, b) => a.order - b.order)
-              .map(card => card.id)}
-            strategy={verticalListSortingStrategy}
+        {/* Main Hero Cards - P&L, Cheltuieli, Încasări */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* P&L Card */}
+          <div
+            onClick={() => navigate('/pl')}
+            className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 p-8 shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer hover:scale-105"
           >
-            <div className="dashboard-grid-stats">
-              {dashboardConfig.statCards
-                .filter(card => card.visible)
-                .sort((a, b) => a.order - b.order)
-                .map((cardConfig) => {
-                  const cardData = statCardsData[cardConfig.id]
-                  const cardSize = cardSizes[cardConfig.id] || 'medium'
-                  const sizeClass = getCardSizeClass(cardSize)
-                  const isSelected = selectedCards.includes(cardConfig.id)
-                  
-                  return (
-                    <SortableCard
-                      key={cardConfig.id}
-                      cardConfig={cardConfig}
-                      cardData={cardData}
-                      cardSize={cardSize}
-                      sizeClass={sizeClass}
-                      onToggleVisibility={toggleCardVisibility}
-                      onToggleSelection={toggleCardSelection}
-                      onSizeChange={(size) => changeCardSize(cardConfig.id, size)}
-                      isSelected={isSelected}
-                      isEditing={isEditing}
-                    />
-                  )
-                })}
-            </div>
-          </SortableContext>
-        </DndContext>
-
-        {/* Widget Configuration */}
-        {isEditing && dashboardConfig && (
-          <div className="card p-6 bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-purple-800 dark:text-purple-300">Configurează Widget-urile</h3>
-              <div className="flex items-center space-x-2">
-                {selectedWidgets.length > 0 && (
-                  <>
-                    <span className="text-sm text-purple-600 dark:text-purple-400 font-medium">
-                      {selectedWidgets.length} selectate
-                    </span>
-                    <select
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          bulkChangeWidgetSize(e.target.value)
-                          e.target.value = ''
-                        }
-                      }}
-                      className="px-3 py-1 text-xs border border-purple-300 dark:border-purple-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500"
-                    >
-                      <option value="">Mărime pentru toate</option>
-                      <option value="xs">XS</option>
-                      <option value="small">S</option>
-                      <option value="medium">M</option>
-                      <option value="large">L</option>
-                      <option value="extra-large">XL</option>
-                    </select>
-                    <button
-                      onClick={bulkToggleWidgetVisibility}
-                      className="px-3 py-1 text-xs bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                    >
-                      Toggle Vizibilitate
-                    </button>
-                    <button
-                      onClick={deselectAllWidgets}
-                      className="px-3 py-1 text-xs bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-                    >
-                      Deselectează Tot
-                    </button>
-                  </>
-                )}
-                <button
-                  onClick={selectedWidgets.length === dashboardConfig.widgets.length ? deselectAllWidgets : selectAllWidgets}
-                  className="px-3 py-1 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                >
-                  {selectedWidgets.length === dashboardConfig.widgets.length ? 'Deselectează Tot' : 'Selectează Tot'}
-                </button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {dashboardConfig.widgets
-                .sort((a, b) => a.order - b.order)
-                .map((widget, index) => (
-                  <div key={widget.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
-                    selectedWidgets.includes(widget.id)
-                      ? 'bg-purple-100 dark:bg-purple-900/40 border-purple-400 dark:border-purple-600'
-                      : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
-                  }`}>
-                    <div className="flex items-center space-x-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedWidgets.includes(widget.id)}
-                        onChange={() => toggleWidgetSelection(widget.id)}
-                        className="w-4 h-4 text-purple-600 bg-white dark:bg-slate-700 border-gray-300 dark:border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
-                      />
-                      <GripVertical className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                      <span className="font-medium text-slate-800 dark:text-slate-200">{widget.title}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => moveWidgetUp(widget.id)}
-                        disabled={index === 0}
-                        className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 disabled:opacity-30"
-                        title="Mută în sus"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        onClick={() => moveWidgetDown(widget.id)}
-                        disabled={index === dashboardConfig.widgets.length - 1}
-                        className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 disabled:opacity-30"
-                        title="Mută în jos"
-                      >
-                        ↓
-                      </button>
-                      {/* Selector pentru mărimea widget-ului */}
-                      <select
-                        value={widgetSizes[widget.id] || 'medium'}
-                        onChange={(e) => changeWidgetSize(widget.id, e.target.value)}
-                        className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        title="Mărimea widget-ului"
-                      >
-                        <option value="xs">XS</option>
-                        <option value="small">S</option>
-                        <option value="medium">M</option>
-                        <option value="large">L</option>
-                        <option value="extra-large">XL</option>
-                      </select>
-                      
-                      <button
-                        onClick={() => toggleWidgetVisibility(widget.id)}
-                        className={`p-2 rounded-lg transition-colors ${
-                          widget.visible 
-                            ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50' 
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'
-                        }`}
-                        title={widget.visible ? "Ascunde widgetul" : "Afișează widgetul"}
-                      >
-                        {widget.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                      </button>
-                    </div>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <PieChart className="w-8 h-8 text-white" />
+                </div>
+                {plData.trend && (
+                  <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold ${plData.trend > 0 ? 'bg-green-500/20 text-green-100' : 'bg-red-500/20 text-red-100'
+                    }`}>
+                    {plData.trend > 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                    {formatPercent(plData.trend)}
                   </div>
-                ))}
-            </div>
-          </div>
-        )}
-
-        {/* Widgets - Render dinamic bazat pe ordinea din configurație */}
-        <div className="dashboard-grid-widgets">
-          {dashboardConfig && dashboardConfig.widgets
-            .filter(w => w.visible)
-            .sort((a, b) => a.order - b.order)
-            .map(widget => {
-              const widgetSize = widgetSizes[widget.id] || 'medium'
-              const sizeClass = getWidgetSizeClass(widgetSize)
-              
-              return (
-                <div key={widget.id} className={sizeClass}>
-                  {(() => {
-                    switch (widget.id) {
-                      case 'quickActions':
-                        return <QuickActions />
-                      case 'recentActivity':
-                        return <RecentActivity />
-                      case 'databaseBackup':
-                        return <DatabaseBackup compact={true} />
-                      case 'currencyRate':
-                        return <ONJNCurrencyRate />
-                      case 'onjnCalendar':
-                        return <ONJNCalendar />
-                      case 'systemHealth':
-                        return <SystemHealth />
-                      case 'gamesLibrary':
-                        return <GamesLibraryWidget />
-                      case 'tasksWidget':
-                        return <TasksWidget />
-                      case 'promotionsActive':
-                        return <PromotionsWidget />
-                      case 'promotionsCalendar':
-                        return <PromotionsCalendarWidget />
-                      case 'promotionsAI':
-                        return <PromotionsAIWidget />
-                      default:
-                        return null
-                    }
-                  })()}
-                </div>
-              )
-            })
-          }
-        </div>
-
-        {/* Performance Charts - Conditional Rendering */}
-        {dashboardConfig && dashboardConfig.widgets.find(w => w.id === 'performanceCharts' && w.visible) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="card p-8">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Performanță Sistem</h3>
-              <TrendingUp className="w-6 h-6 text-green-500" />
-            </div>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 rounded-2xl">
-                <span className="font-semibold text-slate-700 dark:text-slate-300">CPU Usage</span>
-                <span className="text-green-600 dark:text-green-400 font-bold">23%</span>
+                )}
               </div>
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-2xl">
-                <span className="font-semibold text-slate-700 dark:text-slate-300">Memory Usage</span>
-                <span className="text-blue-600 dark:text-blue-400 font-bold">67%</span>
-              </div>
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/30 dark:to-orange-900/30 rounded-2xl">
-                <span className="font-semibold text-slate-700 dark:text-slate-300">Disk Usage</span>
-                <span className="text-yellow-600 dark:text-yellow-400 font-bold">45%</span>
+
+              <h3 className="text-white/80 text-sm font-medium mb-2">Profit & Loss</h3>
+              <p className="text-4xl font-bold text-white mb-1">
+                {formatCurrency(plData.profit || 0)} <span className="text-xl">RON</span>
+              </p>
+              <p className="text-white/60 text-sm mb-4">
+                Marja: {formatPercent(plData.margin || 0)}
+              </p>
+
+              <div className="flex items-center text-white/80 text-sm font-medium group-hover:text-white transition-colors">
+                Vezi detalii <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
               </div>
             </div>
           </div>
 
-          <div className="card p-8">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Activitate Recentă</h3>
-              <Activity className="w-6 h-6 text-blue-500" />
+          {/* Cheltuieli Card */}
+          <div
+            onClick={() => navigate('/expenditures')}
+            className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-red-500 to-red-600 p-8 shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer hover:scale-105"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <Receipt className="w-8 h-8 text-white" />
+                </div>
+                {expensesData.trend && (
+                  <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold ${expensesData.trend < 0 ? 'bg-green-500/20 text-green-100' : 'bg-red-500/20 text-red-100'
+                    }`}>
+                    {expensesData.trend < 0 ? <TrendingDown className="w-4 h-4" /> : <TrendingUp className="w-4 h-4" />}
+                    {formatPercent(Math.abs(expensesData.trend))}
+                  </div>
+                )}
+              </div>
+
+              <h3 className="text-white/80 text-sm font-medium mb-2">Cheltuieli</h3>
+              <p className="text-4xl font-bold text-white mb-1">
+                {formatCurrency(expensesData.total || 0)} <span className="text-xl">RON</span>
+              </p>
+              <p className="text-white/60 text-sm mb-4">
+                {expensesData.count || 0} tranzacții
+              </p>
+
+              <div className="flex items-center text-white/80 text-sm font-medium group-hover:text-white transition-colors">
+                Vezi detalii <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+              </div>
             </div>
-            <div className="space-y-4">
-              <div className="flex items-center space-x-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="font-semibold text-slate-700 dark:text-slate-300">Sistem pornit</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Acum 2 minute</p>
+          </div>
+
+          {/* Încasări Card */}
+          <div
+            onClick={() => navigate('/incasari/dashboard')}
+            className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-500 to-green-600 p-8 shadow-xl hover:shadow-2xl transition-all duration-300 cursor-pointer hover:scale-105"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <DollarSign className="w-8 h-8 text-white" />
                 </div>
+                {revenueData.trend && (
+                  <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold ${revenueData.trend > 0 ? 'bg-green-500/20 text-green-100' : 'bg-red-500/20 text-red-100'
+                    }`}>
+                    {revenueData.trend > 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                    {formatPercent(revenueData.trend)}
+                  </div>
+                )}
               </div>
-              <div className="flex items-center space-x-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
-                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="font-semibold text-slate-700 dark:text-slate-300">Backup completat</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Acum 1 oră</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
-                <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="font-semibold text-slate-700 dark:text-slate-300">Actualizare disponibilă</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Acum 3 ore</p>
-                </div>
+
+              <h3 className="text-white/80 text-sm font-medium mb-2">Încasări</h3>
+              <p className="text-4xl font-bold text-white mb-1">
+                {formatCurrency(revenueData.total || 0)} <span className="text-xl">RON</span>
+              </p>
+              <p className="text-white/60 text-sm mb-4">
+                {revenueData.locations || 0} locații active
+              </p>
+
+              <div className="flex items-center text-white/80 text-sm font-medium group-hover:text-white transition-colors">
+                Vezi detalii <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
               </div>
             </div>
           </div>
         </div>
-        )}
+
+        {/* Quick Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">Venit Total</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-white">
+              {formatCurrency(revenueData.total || 0)} RON
+            </p>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">Cheltuieli Totale</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-white">
+              {formatCurrency(expensesData.total || 0)} RON
+            </p>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">Profit Net</p>
+            <p className={`text-2xl font-bold ${(plData.profit || 0) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+              }`}>
+              {formatCurrency(plData.profit || 0)} RON
+            </p>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700">
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">Marja Profit</p>
+            <p className={`text-2xl font-bold ${(plData.margin || 0) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+              }`}>
+              {formatPercent(plData.margin || 0)}
+            </p>
+          </div>
         </div>
-        )}
+
+        {/* Period Info */}
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+          <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+            <Calendar className="w-5 h-5" />
+            <span className="text-sm font-medium">
+              Perioada selectată: {new Date(dateRange.startDate).toLocaleDateString('ro-RO')} - {new Date(dateRange.endDate).toLocaleDateString('ro-RO')}
+            </span>
+          </div>
+        </div>
       </div>
     </Layout>
   )
 }
 
 export default Dashboard
-
