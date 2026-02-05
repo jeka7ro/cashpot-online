@@ -2775,23 +2775,62 @@ const getIncludedFiltersForUser = async (pool, userId) => {
   try {
     const settingsResult = await pool.query(
       `
-        SELECT preferences
+        SELECT role, preferences
         FROM users
         WHERE id = $1
       `,
       [userId]
     )
 
-    const preferences = settingsResult.rows[0]?.preferences?.expendituresSettings
+    if (settingsResult.rows.length === 0) return result
+
+    const userRecord = settingsResult.rows[0]
+    const userRole = userRecord.role
+    const preferences = userRecord.preferences?.expendituresSettings
+
+    // PENTRU LOCAȚII: Păstrăm preferințele userului (dacă există)
+    if (preferences && Array.isArray(preferences.includedLocations) && preferences.includedLocations.length > 0) {
+      result.locations = preferences.includedLocations.filter(Boolean)
+    }
+
+    // PENTRU DEPARTAMENTE ȘI TIPURI:
+    // Dacă NU este admin, FORȚĂM setările GLOBALE (definite de Admin).
+    // Astfel, userii obișnuiți nu pot vedea cheltuieli "interzise" (Salarii, Taxe, etc.) chiar dacă au setări vechi salvate.
+    if (userRole !== 'admin') {
+      console.log(`🔒 [P&L] User ${userId} is (${userRole}). FORCING Global Settings for Departments/types.`)
+
+      try {
+        const globalResult = await pool.query(`
+          SELECT setting_value 
+          FROM global_settings 
+          WHERE setting_key = 'expenditures_sync_config'
+        `)
+
+        if (globalResult.rows.length > 0 && globalResult.rows[0].setting_value) {
+          const globalConfig = typeof globalResult.rows[0].setting_value === 'string'
+            ? JSON.parse(globalResult.rows[0].setting_value)
+            : globalResult.rows[0].setting_value
+
+          if (Array.isArray(globalConfig.includedDepartments)) {
+            result.departments = globalConfig.includedDepartments.filter(Boolean)
+          }
+          if (Array.isArray(globalConfig.includedExpenditureTypes)) {
+            result.types = globalConfig.includedExpenditureTypes.filter(Boolean)
+          }
+        }
+      } catch (globalErr) {
+        console.error('⚠️ [P&L] Failed to enforce global settings:', globalErr.message)
+      }
+      return result // Returnăm aici pentru non-admini
+    }
+
+    // PENTRU ADMINI: Folosim preferințele personale dacă există, altfel fallback la Global (mai jos)
     if (preferences) {
       if (Array.isArray(preferences.includedDepartments) && preferences.includedDepartments.length > 0) {
         result.departments = preferences.includedDepartments.filter(Boolean)
       }
       if (Array.isArray(preferences.includedExpenditureTypes) && preferences.includedExpenditureTypes.length > 0) {
         result.types = preferences.includedExpenditureTypes.filter(Boolean)
-      }
-      if (Array.isArray(preferences.includedLocations) && preferences.includedLocations.length > 0) {
-        result.locations = preferences.includedLocations.filter(Boolean)
       }
     }
     // 4. FALLBACK: Dacă nu există filtre personale (user nou sau neconfigurat), 
