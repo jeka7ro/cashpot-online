@@ -20,6 +20,8 @@ import ComparisonCharts from '../components/ComparisonCharts'
 import PredictiveAnalytics from '../components/PredictiveAnalytics'
 import TopPerformers from '../components/TopPerformers'
 import PLTable from '../components/PLTable'
+import SmartDatePicker from '../components/SmartDatePicker'
+import ExpendituresDepartmentTable from '../components/ExpendituresDepartmentTable'
 import DateRangeSelector, { QuickDateButtons } from '../components/DateRangeSelector'
 
 // Import utilities
@@ -42,7 +44,8 @@ const PLDashboard = () => {
     const [refreshing, setRefreshing] = useState(false)
     const [monthlyData, setMonthlyData] = useState([])
     const [showMenu, setShowMenu] = useState(false)
-    const [activeTab, setActiveTab] = useState('data') // Default to "Date Detaliate"
+    const [activeTab, setActiveTab] = useState('data')
+    const [expendituresForTable, setExpendituresForTable] = useState([])
 
     // Date range state (default to current year)
     const [dateRange, setDateRange] = useState({
@@ -151,9 +154,25 @@ const PLDashboard = () => {
         }
     }
 
+    // Fetch expenditures for the department table
+    const fetchExpendituresForTable = async () => {
+        try {
+            const { startDate, endDate } = dateRange
+            const response = await axios.get('/api/expenditures/data', {
+                params: { startDate, endDate }
+            })
+            if (response.data?.success) {
+                setExpendituresForTable(response.data.data || [])
+            }
+        } catch (error) {
+            console.error('Error fetching expenditures for table:', error)
+        }
+    }
+
     // Initial load
     useEffect(() => {
         fetchMonthlyData()
+        fetchExpendituresForTable()
     }, [visibleLocations, dateRange.startDate, dateRange.endDate])
 
     // Prepare data for Slot Optimizer (aggregated latest state)
@@ -411,12 +430,18 @@ const PLDashboard = () => {
                             </h1>
                             <div className="flex items-center gap-4 text-slate-600 dark:text-slate-400">
                                 {/* Advanced Date Selector */}
-                                <div className="flex items-center gap-2">
-                                    <QuickDateButtons onChange={setDateRange} />
+                                <div className="flex items-center gap-4">
+                                    <SmartDatePicker
+                                        dateRange={dateRange}
+                                        onChange={setDateRange}
+                                    />
                                     <div className="h-6 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
-                                    <DateRangeSelector
-                                        startDate={dateRange.startDate}
-                                        endDate={dateRange.endDate}
+                                    <QuickDateButtons
+                                        selectedFilter={null}
+                                        onFilterSelect={(id) => {
+                                            // Optional: if QuickDateButtons from DateRangeSelector.jsx supports it
+                                            // For now just keep it or replace logic
+                                        }}
                                         onChange={setDateRange}
                                     />
                                 </div>
@@ -518,8 +543,8 @@ const PLDashboard = () => {
                         <button
                             onClick={() => setActiveTab('data')}
                             className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${activeTab === 'data'
-                                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                                 }`}
                         >
                             <Table2 className="w-4 h-4" />
@@ -528,8 +553,8 @@ const PLDashboard = () => {
                         <button
                             onClick={() => setActiveTab('comparison')}
                             className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${activeTab === 'comparison'
-                                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                                 }`}
                         >
                             <TrendingUp className="w-4 h-4" />
@@ -538,8 +563,8 @@ const PLDashboard = () => {
                         <button
                             onClick={() => setActiveTab('insights')}
                             className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${activeTab === 'insights'
-                                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                                ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                                 }`}
                         >
                             <BrainCircuit className="w-4 h-4" />
@@ -588,6 +613,13 @@ const PLDashboard = () => {
                                 months={visualizationData.tableData}
                                 locations={Array.from(new Set(monthlyData.flatMap(m => m.plByLoc.map(l => l.locationName))))}
                             />
+
+                            {/* NOUL TABEL: Sumar Departament pe Locații (CERUT DE USER) */}
+                            <ExpendituresDepartmentTable
+                                data={expendituresForTable}
+                                locations={allLocations.map(l => l.name)}
+                            />
+
                             <ProfitHeatmap
                                 data={visualizationData.heatmapData}
                                 onCellClick={(location, month, data) => {
