@@ -50,24 +50,74 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
         setViewDate(newDate)
     }
 
-    const handlePrevRange = () => {
-        // Logic to shift the ACTUAL selection back by one period
-        // This is for the top arrows outside the popover (or inside top bar)
-        // Implementation depends on what "period" implies. 
-        // For now, let's keep it simple or implement if requested.
+    const formatToIso = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     }
 
-    // --- SELECTION HANDLERS ---
-    const selectYear = (year) => {
-        const start = new Date(year, 0, 1) // Jan 1
-        const end = new Date(year, 11, 31) // Dec 31
-        // Adjust time zone offset if needed, but simple string formatting is safer usually
-        // Using formatting to YYYY-MM-DD
+    // --- RANGE SELECTION LOGIC ---
+    const handleSelection = (targetStart, targetEnd) => {
+        // 1. Get current selection
+        const currentStart = new Date(dateRange.startDate)
+        const currentEnd = new Date(dateRange.endDate)
+
+        const targetStartTime = targetStart.getTime()
+        const targetEndTime = targetEnd.getTime()
+        const currentStartTime = currentStart.getTime()
+        const currentEndTime = currentEnd.getTime()
+
+        let newStart = targetStart
+        let newEnd = targetEnd
+
+        // Logic:
+        // If clicked unit is BEFORE current start -> Extend Start
+        // If clicked unit is AFTER current end -> Extend End
+        // If clicked unit is INSIDE or SAME -> Reset to single unit selection
+
+        if (targetStartTime < currentStartTime) {
+            // Clicked before: Extend Start
+            newStart = targetStart
+            newEnd = currentEnd
+        } else if (targetEndTime > currentEndTime) {
+            // Clicked after: Extend End
+            newStart = currentStart
+            newEnd = targetEnd
+        } else {
+            // Clicked Inside or Same: Reset to single unit selection (fresh start)
+            newStart = targetStart
+            newEnd = targetEnd
+        }
+
+        // Apply
         onChange({
-            startDate: formatToIso(start),
-            endDate: formatToIso(end)
+            startDate: formatToIso(newStart),
+            endDate: formatToIso(newEnd)
         })
-        setIsOpen(false)
+        // DO NOT CLOSE POPUP (User request: "se inchide instant... mizerie")
+    }
+
+    const isSelected = (unitStart, unitEnd) => {
+        const currentStart = new Date(dateRange.startDate)
+        const currentEnd = new Date(dateRange.endDate)
+
+        // normalize times for comparison to avoid hour issues
+        const uStart = unitStart.getTime()
+        const uEnd = unitEnd.getTime()
+        const cStart = new Date(currentStart.getFullYear(), currentStart.getMonth(), currentStart.getDate()).getTime()
+        const cEnd = new Date(currentEnd.getFullYear(), currentEnd.getMonth(), currentEnd.getDate(), 23, 59, 59).getTime()
+
+        // Should return true if this unit is Fully Contained in the range OR Overlaps significantly?
+        // Standard Grid Logic: Highlight if it is part of the range.
+        return (uStart >= cStart && uEnd <= cEnd) || (uStart <= cEnd && uEnd >= cStart)
+    }
+
+    // --- TAB HANDLERS ---
+    const selectYear = (year) => {
+        const start = new Date(year, 0, 1)
+        const end = new Date(year, 11, 31)
+        handleSelection(start, end)
     }
 
     const selectQuarter = (qIndex) => { // 0 to 3
@@ -75,31 +125,17 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
         const startMonth = qIndex * 3
         const endMonth = startMonth + 2
         const start = new Date(year, startMonth, 1)
-        const end = new Date(year, endMonth + 1, 0) // Last day of month
-        onChange({
-            startDate: formatToIso(start),
-            endDate: formatToIso(end)
-        })
-        setIsOpen(false)
+        const end = new Date(year, endMonth + 1, 0)
+        handleSelection(start, end)
     }
 
     const selectMonth = (mIndex) => { // 0 to 11
         const year = viewDate.getFullYear()
         const start = new Date(year, mIndex, 1)
         const end = new Date(year, mIndex + 1, 0)
-        onChange({
-            startDate: formatToIso(start),
-            endDate: formatToIso(end)
-        })
-        setIsOpen(false)
+        handleSelection(start, end)
     }
 
-    const formatToIso = (date) => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    }
 
     // --- RENDERERS ---
     const renderYears = () => {
@@ -111,17 +147,24 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
         }
         return (
             <div className="grid grid-cols-3 gap-2 mt-4">
-                {years.map(y => (
-                    <button
-                        key={y}
-                        onClick={() => selectYear(y)}
-                        className={`p-3 rounded-lg text-sm font-medium transition-colors border
-                        ${y === new Date().getFullYear() ? 'border-blue-500/50 text-blue-400' : 'border-slate-700 text-slate-300 hover:bg-slate-700'}
-                    `}
-                    >
-                        {y}
-                    </button>
-                ))}
+                {years.map(y => {
+                    const start = new Date(y, 0, 1)
+                    const end = new Date(y, 11, 31)
+                    const selected = isSelected(start, end)
+                    return (
+                        <button
+                            key={y}
+                            onClick={() => selectYear(y)}
+                            className={`p-3 rounded-lg text-sm font-medium transition-colors border
+                            ${selected
+                                    ? 'bg-blue-600 border-blue-500 text-white shadow-md transform scale-105'
+                                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:border-slate-500'}
+                        `}
+                        >
+                            {y}
+                        </button>
+                    )
+                })}
             </div>
         )
     }
@@ -130,15 +173,28 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
         const quarters = ['Q1 (Ian-Mar)', 'Q2 (Apr-Iun)', 'Q3 (Iul-Sep)', 'Q4 (Oct-Dec)']
         return (
             <div className="grid grid-cols-2 gap-3 mt-4">
-                {quarters.map((q, idx) => (
-                    <button
-                        key={idx}
-                        onClick={() => selectQuarter(idx)}
-                        className="p-4 rounded-lg text-sm font-medium bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-200"
-                    >
-                        {q}
-                    </button>
-                ))}
+                {quarters.map((q, idx) => {
+                    const year = viewDate.getFullYear()
+                    const startMonth = idx * 3
+                    const endMonth = startMonth + 2
+                    const start = new Date(year, startMonth, 1)
+                    const end = new Date(year, endMonth + 1, 0)
+                    const selected = isSelected(start, end)
+
+                    return (
+                        <button
+                            key={idx}
+                            onClick={() => selectQuarter(idx)}
+                            className={`p-4 rounded-lg text-sm font-medium border transition-colors
+                              ${selected
+                                    ? 'bg-blue-600 border-blue-500 text-white shadow-md'
+                                    : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-200'}
+                          `}
+                        >
+                            {q}
+                        </button>
+                    )
+                })}
             </div>
         )
     }
@@ -150,15 +206,26 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
         ]
         return (
             <div className="grid grid-cols-4 gap-2 mt-4">
-                {months.map((m, idx) => (
-                    <button
-                        key={idx}
-                        onClick={() => selectMonth(idx)}
-                        className="p-3 rounded-lg text-sm font-medium border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
-                    >
-                        {m}
-                    </button>
-                ))}
+                {months.map((m, idx) => {
+                    const year = viewDate.getFullYear()
+                    const start = new Date(year, idx, 1)
+                    const end = new Date(year, idx + 1, 0)
+                    const selected = isSelected(start, end)
+
+                    return (
+                        <button
+                            key={idx}
+                            onClick={() => selectMonth(idx)}
+                            className={`p-3 rounded-lg text-sm font-medium border transition-all
+                              ${selected
+                                    ? 'bg-blue-600 border-blue-500 text-white shadow-md'
+                                    : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'}
+                          `}
+                        >
+                            {m}
+                        </button>
+                    )
+                })}
             </div>
         )
     }
@@ -228,6 +295,7 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
                         <button
                             onClick={() => setIsOpen(false)}
                             className="p-1 hover:bg-slate-700 rounded-full text-slate-400 transition-colors"
+                            title="Închide"
                         >
                             <X className="w-4 h-4" />
                         </button>
@@ -259,13 +327,17 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
                         {activeTab === 'days' && renderDays()}
                     </div>
 
-                    {/* Hint */}
-                    <div className="mt-4 pt-3 border-t border-slate-700/50 text-center">
-                        <p className="text-xs text-slate-500">
-                            {activeTab === 'months' && 'Selectează o lună pentru a filtra datele'}
-                            {activeTab === 'years' && 'Selectează un an întreg'}
-                            {activeTab === 'quarters' && 'Selectează un trimestru fiscal'}
+                    {/* Hint / Actions */}
+                    <div className="mt-4 pt-3 border-t border-slate-700/50 flex justify-between items-center">
+                        <p className="text-xs text-slate-500 flex-1">
+                            {activeTab === 'years' ? 'Click pt selecție multiplă (Interval)' : 'Click pt intervale'}
                         </p>
+                        <button
+                            onClick={() => setIsOpen(false)}
+                            className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow-sm transition-colors"
+                        >
+                            Gata / Închide
+                        </button>
                     </div>
                 </div>
             )}
