@@ -2794,32 +2794,32 @@ const getIncludedFiltersForUser = async (pool, userId) => {
     }
 
     // PENTRU DEPARTAMENTE ȘI TIPURI:
-    // Dacă NU este admin, FORȚĂM setările GLOBALE (definite de Admin).
-    // Astfel, userii obișnuiți nu pot vedea cheltuieli "interzise" (Salarii, Taxe, etc.) chiar dacă au setări vechi salvate.
+    // Dacă NU este admin, FORȚĂM setările ADMINULUI (ID 1).
+    // Astfel, userii obișnuiți văd exact ce a filtrat Adminul în contul său.
     if (userRole !== 'admin') {
-      console.log(`🔒 [P&L] User ${userId} is (${userRole}). FORCING Global Settings for Departments/types.`)
+      console.log(`🔒 [P&L] User ${userId} is (${userRole}). FORCING Admin (ID 1) Settings.`)
 
       try {
-        const globalResult = await pool.query(`
-          SELECT setting_value 
-          FROM global_settings 
-          WHERE setting_key = 'expenditures_sync_config'
+        const adminSettingsResult = await pool.query(`
+          SELECT preferences 
+          FROM users 
+          WHERE id = 1
         `)
 
-        if (globalResult.rows.length > 0 && globalResult.rows[0].setting_value) {
-          const globalConfig = typeof globalResult.rows[0].setting_value === 'string'
-            ? JSON.parse(globalResult.rows[0].setting_value)
-            : globalResult.rows[0].setting_value
+        if (adminSettingsResult.rows.length > 0) {
+          const adminPref = adminSettingsResult.rows[0].preferences?.expendituresSettings
 
-          if (Array.isArray(globalConfig.includedDepartments)) {
-            result.departments = globalConfig.includedDepartments.filter(Boolean)
-          }
-          if (Array.isArray(globalConfig.includedExpenditureTypes)) {
-            result.types = globalConfig.includedExpenditureTypes.filter(Boolean)
+          if (adminPref) {
+            if (Array.isArray(adminPref.includedDepartments)) {
+              result.departments = adminPref.includedDepartments.filter(Boolean)
+            }
+            if (Array.isArray(adminPref.includedExpenditureTypes)) {
+              result.types = adminPref.includedExpenditureTypes.filter(Boolean)
+            }
           }
         }
-      } catch (globalErr) {
-        console.error('⚠️ [P&L] Failed to enforce global settings:', globalErr.message)
+      } catch (adminErr) {
+        console.error('⚠️ [P&L] Failed to load Admin settings:', adminErr.message)
       }
       return result // Returnăm aici pentru non-admini
     }
