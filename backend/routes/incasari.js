@@ -3245,8 +3245,8 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
     // APLICĂ FILTRELE DIN SETĂRI: Doar tipurile incluse
     if (includedFilters.types && includedFilters.types.length > 0) {
       const normalizedTypes = includedFilters.types.map(normalizeText).filter(Boolean)
-      // Excepție Salarii ȘI Auto-Discounts (Pepsi)
-      expendituresSql += ` AND (data_source = 'auto_discount' OR normalized_department_name = 'salarii' OR normalized_expenditure_type = ANY($${expendituresParamIndex}::text[]))`
+      // Excepție Auto-Discounts (Pepsi) rămâne activă că e sistem automat
+      expendituresSql += ` AND (data_source = 'auto_discount' OR normalized_expenditure_type = ANY($${expendituresParamIndex}::text[]))`
       expendituresParams.push(normalizedTypes)
       expendituresParamIndex++
     }
