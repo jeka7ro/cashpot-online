@@ -1619,76 +1619,27 @@ const Expenditures = () => {
             </div>
           </div>
 
-          {/* Rând 2: Date Picker Clasic și Comod */}
+          {/* Rând 2: Date Picker Smart */}
           <div className="mb-4">
-            {/* Input-uri de date + Butoane Rapide - Pe același rând */}
-            <div className="flex items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex-wrap">
-              {/* Date Inputs - Clasic și Simplu */}
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-slate-500 dark:text-slate-400" />
-                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                    De la:
-                  </label>
-                  <input
-                    type="date"
-                    value={dateRange.startDate}
-                    onChange={(e) => {
-                      setDateRange({ ...dateRange, startDate: e.target.value })
-                      setSelectedDateFilter('custom')
-                    }}
-                    className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
-                    style={{ minWidth: '160px' }}
-                  />
-                </div>
+            <div className="flex items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <SmartDatePicker
+                dateRange={dateRange}
+                onChange={(newRange) => {
+                  setDateRange(newRange)
+                  setSelectedDateFilter('custom')
+                }}
+              />
 
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                    Până la:
-                  </label>
-                  <input
-                    type="date"
-                    value={dateRange.endDate}
-                    onChange={(e) => {
-                      setDateRange({ ...dateRange, endDate: e.target.value })
-                      setSelectedDateFilter('custom')
-                    }}
-                    className="px-4 py-2 border-2 border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium text-sm transition-all hover:border-blue-400 dark:hover:border-blue-500"
-                    style={{ minWidth: '160px' }}
-                  />
-                </div>
-              </div>
-
-              {/* Butoane Rapide cu Iconițe și Text - Distribuite uniform */}
-              <div className="flex items-center gap-2 flex-1 justify-between min-w-0">
-                {[
-                  { id: 'azi', label: 'Azi', icon: Clock },
-                  { id: 'saptamana-curenta', label: 'Săpt', icon: CalendarDays },
-                  { id: 'luna-curenta', label: 'Luna curentă', icon: Calendar },
-                  { id: 'luna-anterioara', label: 'Luna trecută', icon: CalendarRange },
-                  { id: 'anul-curent', label: 'Anul curent', icon: Calendar },
-                  { id: 'anul-trecut', label: 'Anul trecut', icon: Calendar },
-                  { id: 'toate', label: 'Toate', icon: Calendar }
-                ].map((btn) => {
-                  const IconComponent = btn.icon
-                  const isActive = selectedDateFilter === btn.id || (
-                    btn.id === 'azi' && selectedDateFilter === 'azi'
-                  )
-                  return (
-                    <button
-                      key={btn.id}
-                      onClick={() => applyQuickDateFilter(btn.id)}
-                      className={`relative flex-1 min-w-0 inline-flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 rounded-lg transition-all hover:scale-105 active:scale-95 text-xs sm:text-sm font-medium ${isActive
-                        ? 'bg-blue-500 text-white shadow-md'
-                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
-                        }`}
-                      title={btn.label}
-                    >
-                      <IconComponent className="w-4 h-4 flex-shrink-0" />
-                      <span className="hidden sm:inline truncate">{btn.label}</span>
-                    </button>
-                  )
-                })}
+              {/* Information Text */}
+              <div className="hidden md:block ml-4 text-sm text-slate-500">
+                <span className="font-medium text-slate-700 dark:text-slate-300">
+                  {(() => {
+                    const start = new Date(dateRange.startDate)
+                    const end = new Date(dateRange.endDate)
+                    const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1
+                    return `${diff} zile selectate`
+                  })()}
+                </span>
               </div>
             </div>
           </div>
