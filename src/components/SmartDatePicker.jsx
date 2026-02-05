@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Calendar, ChevronLeft, ChevronRight, X, CalendarDays, Clock, CalendarRange } from 'lucide-react'
+import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react'
 
 const SmartDatePicker = ({ dateRange, onChange }) => {
     const [isOpen, setIsOpen] = useState(false)
     const [activeTab, setActiveTab] = useState('months') // 'years', 'quarters', 'months', 'days'
     const [viewDate, setViewDate] = useState(new Date()) // Used for navigation
-    const [selectionStart, setSelectionStart] = useState(null) // Tracks the first click of a range
+    const [selectionStart, setSelectionStart] = useState(null) // Tracks the first click of a range locally
     const containerRef = useRef(null)
 
     const MAX_YEAR = new Date().getFullYear()
@@ -27,7 +27,7 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
         const handleClickOutside = (event) => {
             if (containerRef.current && !containerRef.current.contains(event.target)) {
                 setIsOpen(false)
-                setSelectionStart(null) // Reset partial selection
+                setSelectionStart(null)
             }
         }
         document.addEventListener('mousedown', handleClickOutside)
@@ -58,7 +58,6 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
             newDate.setFullYear(newDate.getFullYear() + direction)
         }
 
-        // Clamp to MAX_YEAR
         if (newDate.getFullYear() > MAX_YEAR) {
             newDate.setFullYear(MAX_YEAR)
         }
@@ -74,61 +73,13 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
     }
 
     // --- RANGE SELECTION LOGIC ---
-    const handleSelection = (targetStart, targetEnd) => {
-        if (!selectionStart) {
-            // First point of range
-            setSelectionStart(targetStart)
-            // Just provide temporary visual feedback by setting range to this single unit
-            onChange({
-                startDate: formatToIso(targetStart),
-                endDate: formatToIso(targetEnd)
-            })
-        } else {
-            // Second point of range
-            const start = selectionStart.getTime() < targetStart.getTime() ? selectionStart : targetStart
-            const end = selectionStart.getTime() < targetStart.getTime() ? targetEnd : new Date(selectionStart.getFullYear(), selectionStart.getMonth() + 1, 0)
-
-            // Wait, for years/months we need to be careful with targetEnd
-            let finalStart, finalEnd;
-            if (selectionStart.getTime() < targetStart.getTime()) {
-                finalStart = selectionStart
-                finalEnd = targetEnd
-            } else {
-                finalStart = targetStart
-                // if selecting months/years, the end should be the end of the year/month
-                // but targetEnd passed in already represents that.
-                // However, if we click 2023 then 2021, targetStart is 2021-01-01, targetEnd is 2021-12-31.
-                // selectionStart (2023) is after targetStart.
-                // So finalStart = 2021-01-01, finalEnd = 2023-12-31 (end of selectionStart year)
-
-                // Let's determine the "end" part of selectionStart
-                // We need to know if selectionStart was a year, quarter, or month.
-                // To keep it simple, let's assume the caller passes the boundaries correctly.
-                // Since this is a shared handler, we'll just use the time comparison.
-
-                // Better logic: track the "end" associated with selectionStart too.
-                // But for now, let's just use the max of the two ends.
-                const currentSelectionEnd = new Date(dateRange.endDate)
-                finalEnd = targetEnd.getTime() > currentSelectionEnd.getTime() ? targetEnd : currentSelectionEnd
-            }
-
-            onChange({
-                startDate: formatToIso(finalStart),
-                endDate: formatToIso(finalEnd)
-            })
-            setSelectionStart(null)
-        }
-    }
-
-    // More robust range handler for specific tabs
+    // This is the CRITICAL fix: First click anchors locally, Second click notifies parent (onChange)
     const handleTabSelection = (unitStart, unitEnd) => {
         if (!selectionStart) {
+            // First click - anchor locally, DON'T call parent onChange to avoid re-renders/unmounts
             setSelectionStart({ start: unitStart, end: unitEnd })
-            onChange({
-                startDate: formatToIso(unitStart),
-                endDate: formatToIso(unitEnd)
-            })
         } else {
+            // Second click - calculate final range and notify parent
             let finalStart, finalEnd;
             if (unitStart.getTime() < selectionStart.start.getTime()) {
                 finalStart = unitStart
@@ -147,23 +98,22 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
     }
 
     const isSelected = (unitStart, unitEnd) => {
+        // Visual feedback during selection (highlight the anchored Start)
+        if (selectionStart) {
+            const sStart = selectionStart.start.getTime()
+            const sEnd = selectionStart.end.getTime()
+            const uStart = unitStart.getTime()
+            const uEnd = unitEnd.getTime()
+            return (uStart <= sEnd && uEnd >= sStart)
+        }
+
         if (!dateRange?.startDate || !dateRange?.endDate) return false
         const cStart = new Date(dateRange.startDate).getTime()
         const cEnd = new Date(dateRange.endDate).getTime()
         const uStart = unitStart.getTime()
         const uEnd = unitEnd.getTime()
 
-        // Highlight if unit overlaps with current selection
         return (uStart <= cEnd && uEnd >= cStart)
-    }
-
-    const isPartiallySelected = (unitStart, unitEnd) => {
-        if (!selectionStart) return false
-        const uStart = unitStart.getTime()
-        const uEnd = unitEnd.getTime()
-        const sStart = selectionStart.start.getTime()
-        const sEnd = selectionStart.end.getTime()
-        return (uStart <= sEnd && uEnd >= sStart)
     }
 
     // --- TAB HANDLERS ---
@@ -204,7 +154,6 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
                     const start = new Date(y, 0, 1)
                     const end = new Date(y, 11, 31)
                     const selected = isSelected(start, end)
-                    const partial = isPartiallySelected(start, end)
                     return (
                         <button
                             key={y}
@@ -212,9 +161,7 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
                             className={`p-3 rounded-lg text-sm font-medium transition-all border
                             ${selected
                                     ? 'bg-blue-600 border-blue-500 text-white shadow-md'
-                                    : partial
-                                        ? 'bg-blue-900/50 border-blue-700 text-blue-200'
-                                        : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:border-slate-500'}
+                                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:border-slate-500'}
                         `}
                         >
                             {y}
@@ -236,11 +183,8 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
                     const start = new Date(year, startMonth, 1)
                     const end = new Date(year, endMonth + 1, 0)
 
-                    // Prevent future quarters
                     if (start > new Date()) return null;
-
                     const selected = isSelected(start, end)
-                    const partial = isPartiallySelected(start, end)
 
                     return (
                         <button
@@ -249,9 +193,7 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
                             className={`p-4 rounded-lg text-sm font-medium border transition-colors
                               ${selected
                                     ? 'bg-blue-600 border-blue-500 text-white shadow-md'
-                                    : partial
-                                        ? 'bg-blue-900/50 border-blue-700 text-blue-200'
-                                        : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-200'}
+                                    : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-200'}
                           `}
                         >
                             {q}
@@ -274,11 +216,8 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
                     const start = new Date(year, idx, 1)
                     const end = new Date(year, idx + 1, 0)
 
-                    // Prevent future months
                     if (start > new Date()) return null;
-
                     const selected = isSelected(start, end)
-                    const partial = isPartiallySelected(start, end)
 
                     return (
                         <button
@@ -287,9 +226,7 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
                             className={`p-3 rounded-lg text-sm font-medium border transition-all
                               ${selected
                                     ? 'bg-blue-600 border-blue-500 text-white shadow-md'
-                                    : partial
-                                        ? 'bg-blue-900/50 border-blue-700 text-blue-200'
-                                        : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'}
+                                    : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'}
                           `}
                         >
                             {m}
@@ -328,7 +265,7 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
     return (
         <div className="relative" ref={containerRef}>
             <button
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={() => { setIsOpen(!isOpen); setSelectionStart(null); }}
                 className="flex items-center gap-3 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition-all shadow-sm group"
             >
                 <Calendar className="w-5 h-5 text-blue-400 group-hover:text-blue-300" />
@@ -359,7 +296,7 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
                             })}
                         </div>
                         <button
-                            onClick={() => setIsOpen(false)}
+                            onClick={() => { setIsOpen(false); setSelectionStart(null); }}
                             className="p-1 hover:bg-slate-700 rounded-full text-slate-400"
                         >
                             <X className="w-4 h-4" />
@@ -406,13 +343,13 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
 
                     <div className="mt-4 pt-3 border-t border-slate-700/50 flex justify-between items-center">
                         <p className="text-xs text-blue-400 font-medium">
-                            {selectionStart ? 'Selectează al doilea punct pentru interval...' : 'Click pentru a începe selecția unui interval'}
+                            {selectionStart ? 'Selectează al doilea punct pentru interval...' : 'Click pe 2 puncte pentru a selecta un interval'}
                         </p>
                         <button
                             onClick={() => setIsOpen(false)}
                             className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-lg transition-all"
                         >
-                            Gata
+                            Închide
                         </button>
                     </div>
                 </div>
