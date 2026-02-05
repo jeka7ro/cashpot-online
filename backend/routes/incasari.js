@@ -3126,14 +3126,23 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
     res.set('Surrogate-Control', 'no-store')
 
     // --- CACHE LOGIC START ---
+    // --- CACHE LOGIC START ---
     const cacheParams = {
       userId,
       location, provider, cabinet, gameMix, includeLocations,
-      startYear // cache depends on start year
+      startYear, // cache depends on start year
+      // CRITICAL: Include active filters in cache key!
+      // This ensures that if filters change (or are enforced differently), a new cache entry is created.
+      filters: {
+        d: includedFilters.departments ? includedFilters.departments.length : 0,
+        t: includedFilters.types ? includedFilters.types.length : 0,
+        // Include a simple hash/string of the first few to catch changes
+        s: (includedFilters.departments || []).slice(0, 3).join(',')
+      }
     }
     const cacheKeyString = JSON.stringify(cacheParams)
     const cacheHash = crypto.createHash('md5').update(cacheKeyString).digest('hex')
-    const cacheKey = `incasari_monthly_v1_${cacheHash}`
+    const cacheKey = `incasari_monthly_v2_${cacheHash}`
 
     try {
       // Check cache (valid for 1 hour)
