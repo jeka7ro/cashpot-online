@@ -2794,6 +2794,38 @@ const getIncludedFiltersForUser = async (pool, userId) => {
         result.locations = preferences.includedLocations.filter(Boolean)
       }
     }
+    // 4. FALLBACK: Dacă nu există filtre personale (user nou sau neconfigurat), 
+    // încărcăm setările GLOBALE (cele setate de Admin în Sincronizare)
+    // Astfel, userii văd direct ce a configurat Adminul, nu "totul" (sume astronomice).
+    if (!result.departments || !result.types) {
+      try {
+        const globalResult = await pool.query(`
+          SELECT setting_value 
+          FROM global_settings 
+          WHERE setting_key = 'expenditures_sync_config'
+        `)
+
+        if (globalResult.rows.length > 0 && globalResult.rows[0].setting_value) {
+          const globalConfig = typeof globalResult.rows[0].setting_value === 'string'
+            ? JSON.parse(globalResult.rows[0].setting_value)
+            : globalResult.rows[0].setting_value
+
+          // Fallback pentru departamente
+          if (!result.departments && Array.isArray(globalConfig.includedDepartments) && globalConfig.includedDepartments.length > 0) {
+            console.log(`🌍 [P&L] User ${userId} has no department filters. Using GLOBAL defaults.`)
+            result.departments = globalConfig.includedDepartments.filter(Boolean)
+          }
+
+          // Fallback pentru tipuri cheltuieli
+          if (!result.types && Array.isArray(globalConfig.includedExpenditureTypes) && globalConfig.includedExpenditureTypes.length > 0) {
+            console.log(`🌍 [P&L] User ${userId} has no type filters. Using GLOBAL defaults.`)
+            result.types = globalConfig.includedExpenditureTypes.filter(Boolean)
+          }
+        }
+      } catch (globalErr) {
+        console.error('⚠️ [P&L] Failed to load global fallback settings:', globalErr.message)
+      }
+    }
   } catch (error) {
     console.error('Error loading expenditures settings for location-expenditures:', error)
   }
