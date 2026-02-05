@@ -59,43 +59,40 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
 
     // --- RANGE SELECTION LOGIC ---
     const handleSelection = (targetStart, targetEnd) => {
-        // 1. Get current selection
         const currentStart = new Date(dateRange.startDate)
         const currentEnd = new Date(dateRange.endDate)
 
+        // If it's already a range, clicking a new one resets to a single selection
+        // This prevents accidental massive ranges if the user just wants to "Jump"
+        if (currentStart.getTime() !== currentEnd.getTime()) {
+            onChange({
+                startDate: formatToIso(targetStart),
+                endDate: formatToIso(targetEnd)
+            })
+            return
+        }
+
         const targetStartTime = targetStart.getTime()
-        const targetEndTime = targetEnd.getTime()
         const currentStartTime = currentStart.getTime()
-        const currentEndTime = currentEnd.getTime()
 
         let newStart = targetStart
         let newEnd = targetEnd
 
-        // Logic:
-        // If clicked unit is BEFORE current start -> Extend Start
-        // If clicked unit is AFTER current end -> Extend End
-        // If clicked unit is INSIDE or SAME -> Reset to single unit selection
-
         if (targetStartTime < currentStartTime) {
-            // Clicked before: Extend Start
             newStart = targetStart
             newEnd = currentEnd
-        } else if (targetEndTime > currentEndTime) {
-            // Clicked after: Extend End
+        } else if (targetStartTime > currentStartTime) {
             newStart = currentStart
             newEnd = targetEnd
         } else {
-            // Clicked Inside or Same: Reset to single unit selection (fresh start)
             newStart = targetStart
             newEnd = targetEnd
         }
 
-        // Apply
         onChange({
             startDate: formatToIso(newStart),
             endDate: formatToIso(newEnd)
         })
-        // DO NOT CLOSE POPUP (User request: "se inchide instant... mizerie")
     }
 
     const isSelected = (unitStart, unitEnd) => {

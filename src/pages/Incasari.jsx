@@ -15,6 +15,8 @@ import { formatCompactNumber } from '../utils/plUtils'
 import axios from 'axios'
 import * as XLSX from 'xlsx'
 import KPICard from '../components/KPICard'
+import SmartDatePicker from '../components/SmartDatePicker'
+import ExpendituresDepartmentTable from '../components/ExpendituresDepartmentTable'
 import DateRangeSelector, { QuickDateButtons } from '../components/DateRangeSelector'
 // Cache dezactivat temporar - folosim axios direct
 import {
@@ -308,6 +310,7 @@ const Incasari = () => {
       return { startDate: '', endDate: '' }
     }
   })
+  const [expendituresForTable, setExpendituresForTable] = useState([])
   const autoRefreshIntervalRef = useRef(null)
 
   // Format date local - funcție globală
@@ -545,7 +548,6 @@ const Incasari = () => {
     }
   }, [dateRange, locationFilter, providerFilter, cabinetFilter, gameMixFilter])
 
-  // Fetch cheltuieli pe locații pentru P&L (perioada selectată, respectând locațiile vizibile)
   useEffect(() => {
     const abortController = new AbortController()
 
@@ -576,7 +578,26 @@ const Incasari = () => {
       }
     }
 
+    const fetchExpendituresForTable = async () => {
+      try {
+        const { startDate, endDate } = dateRange
+        if (!startDate || !endDate) return
+
+        const response = await axios.get('/api/expenditures/data', {
+          params: { startDate, endDate },
+          signal: abortController.signal
+        })
+
+        if (response.data?.success) {
+          setExpendituresForTable(response.data.data || [])
+        }
+      } catch (error) {
+        // ignore
+      }
+    }
+
     fetchLocationExpenditures()
+    fetchExpendituresForTable()
 
     return () => {
       abortController.abort()
@@ -3041,13 +3062,15 @@ const Incasari = () => {
               </h1>
               <div className="flex items-center gap-4 text-slate-600 dark:text-slate-400">
                 {/* Advanced Date Selector */}
-                <div className="flex items-center gap-2">
-                  <QuickDateButtons onChange={handleDateChange} />
-                  <div className="h-6 w-px bg-slate-300 dark:bg-slate-700 mx-1"></div>
-                  <DateRangeSelector
-                    startDate={dateRange.startDate}
-                    endDate={dateRange.endDate}
-                    onChange={handleDateChange}
+                <div className="flex items-center gap-4">
+                  <SmartDatePicker
+                    dateRange={dateRange}
+                    onChange={setDateRange}
+                  />
+                  <div className="h-6 w-px bg-slate-100 dark:bg-slate-800 hidden md:block"></div>
+                  <QuickDateButtons
+                    selectedFilter={selectedDateFilter}
+                    onFilterSelect={applyQuickDateFilter}
                   />
                 </div>
               </div>
@@ -3599,10 +3622,7 @@ const Incasari = () => {
                     ) : (
                       <>
                         {plByLocation.map((row) => {
-                          // Găsește ID-ul locației pentru navigare
                           const location = locations.find(loc => loc.name === row.locationName)
-                          const locationId = location?.id
-
                           return (
                             <tr
                               key={row.locationName}
@@ -3612,7 +3632,6 @@ const Incasari = () => {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    // Navighează la pagina P&L separată pentru locație
                                     navigate(`/incasari/location-pl/${encodeURIComponent(row.locationName)}?dateRange=${dateRange.startDate}_${dateRange.endDate}`)
                                   }}
                                   className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-semibold hover:underline transition-colors text-left"
@@ -3667,53 +3686,25 @@ const Incasari = () => {
                             </tr>
                           )
                         })}
-                        {/* Rând cu totaluri */}
                         <tr className="border-t-2 border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/60 font-semibold">
                           <td className="py-3 px-3 text-slate-900 dark:text-slate-100">TOTAL</td>
-                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                            {formatNumber(plTotals.totalIn)}
-                          </td>
-                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                            {formatNumber(plTotals.bet)}
-                          </td>
-                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                            {formatNumber(plTotals.win)}
-                          </td>
-                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                            {formatNumber(plTotals.ggr)}
-                          </td>
-                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                            {formatNumber(plTotals.marketing)}
-                          </td>
+                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.totalIn)}</td>
+                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.bet)}</td>
+                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.win)}</td>
+                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.ggr)}</td>
+                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.marketing)}</td>
                           <td className="py-3 px-3 text-right">
                             <div className="flex items-center justify-end gap-2 text-sm">
                               <span className="text-slate-900 dark:text-slate-100">{formatPercent(plTotals.bonusCost)}</span>
                               {plTotals.bonusCostDynamics !== null && (
-                                <span className="inline-flex items-center gap-1">
-                                  {plTotals.bonusCostDynamics < 0 ? (
-                                    <TrendingDown className="w-3.5 h-3.5 text-emerald-500" />
-                                  ) : plTotals.bonusCostDynamics > 0 ? (
-                                    <TrendingUp className="w-3.5 h-3.5 text-red-500" />
-                                  ) : null}
-                                  <span className={plTotals.bonusCostDynamics < 0 ? 'text-emerald-500' : plTotals.bonusCostDynamics > 0 ? 'text-red-500' : 'text-slate-400'}>
-                                    {plTotals.bonusCostDynamics > 0 ? '+' : ''}{plTotals.bonusCostDynamics.toFixed(2)}%
-                                  </span>
-                                </span>
+                                <span className="text-xs">{plTotals.bonusCostDynamics > 0 ? '+' : ''}{plTotals.bonusCostDynamics.toFixed(2)}%</span>
                               )}
                             </div>
                           </td>
-                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                            {formatPercent(plTotals.winBetPercent)}
-                          </td>
-                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                            {formatNumber(plTotals.hh || 0)}
-                          </td>
-                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                            {formatNumber(plTotals.cashback || 0)}
-                          </td>
-                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">
-                            {formatNumber(plTotals.tombola || 0)}
-                          </td>
+                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatPercent(plTotals.winBetPercent)}</td>
+                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.hh || 0)}</td>
+                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.cashback || 0)}</td>
+                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.tombola || 0)}</td>
                         </tr>
                       </>
                     )}
@@ -3721,6 +3712,12 @@ const Incasari = () => {
                 </table>
               </div>
             </div>
+
+            {/* NOUL TABEL: Sumar Departament pe Locații (CERUT DE USER) */}
+            <ExpendituresDepartmentTable
+              data={expendituresForTable}
+              locations={locations.map(l => l.name)} // Ensure we pass location names
+            />
 
             {/* Modal de progres sincronizare Încasări (Cyber) */}
             {syncModalOpen && (
