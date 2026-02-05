@@ -13,7 +13,7 @@ router.post('/login', [
   try {
     console.log('🔐 LOGIN REQUEST RECEIVED')
     console.log('   Body:', { username: req.body?.username, password: req.body?.password ? '***' : 'missing' })
-    
+
     const errors = validationResult(req)
     if (!errors.isEmpty()) {
       console.log('❌ Validation errors:', errors.array())
@@ -78,10 +78,10 @@ router.post('/login', [
 
     // Generate JWT token
     const token = jwt.sign(
-      { 
-        userId: user.id, 
+      {
+        userId: user.id,
         username: user.username,
-        role: user.role 
+        role: user.role
       },
       process.env.JWT_SECRET || 'your_jwt_secret',
       { expiresIn: '7d' } // Extend to 7 days to avoid frequent re-logins
@@ -108,7 +108,7 @@ router.post('/login', [
     console.error('   Error stack:', error.stack)
     console.error('   Error code:', error.code)
     console.error('   Error detail:', error.detail)
-    
+
     // Check if it's a DB connection error
     if (error.message && error.message.includes('Connection terminated')) {
       return res.status(503).json({
@@ -116,7 +116,7 @@ router.post('/login', [
         message: 'Database connection error. Please try again.'
       })
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -140,7 +140,7 @@ router.get('/verify', async (req, res) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret')
-    
+
     // Import pool from server-postgres.js
     const pool = req.app.get('pool')
     if (!pool) {
@@ -152,7 +152,7 @@ router.get('/verify', async (req, res) => {
 
     // Get user from database
     const result = await pool.query('SELECT * FROM users WHERE id = $1', [decoded.userId])
-    
+
     if (result.rows.length === 0) {
       return res.status(401).json({
         success: false,
@@ -167,7 +167,7 @@ router.get('/verify', async (req, res) => {
     if (!userPermissions || Object.keys(userPermissions).length === 0) {
       // Import default permissions logic (simplified version)
       const defaultPermissions = {
-        admin: { 
+        admin: {
           dashboard: { view: true },
           companies: { view: true, create: true, update: true, delete: true },
           locations: { view: true, create: true, update: true, delete: true },
@@ -184,8 +184,8 @@ router.get('/verify', async (req, res) => {
           users: { view: true, create: true, update: true, delete: true },
           cyberImport: { view: true, import: true }
         },
-        user: { 
-          dashboard: { view: true },
+        user: {
+          dashboard: { view: false },
           companies: { view: true },
           locations: { view: true },
           providers: { view: true },

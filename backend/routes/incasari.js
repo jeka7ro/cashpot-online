@@ -162,6 +162,19 @@ router.get('/dashboard/summary', authenticateToken, async (req, res) => {
         ? includeLocations.split(',').map((s) => normalizeLocationName(s)).filter(Boolean)
         : undefined
 
+    // CRITICAL FIX: If user is NOT admin and has NO location filters (either from query or settings), 
+    // we MUST return empty result. Do NOT show all locations by default for restricted users.
+    const isAdmin = req.user?.role === 'admin'
+    if (!isAdmin && (!locationsArray || locationsArray.length === 0) && (!includedFilters.locations || includedFilters.locations.length === 0)) {
+      console.warn(`🛑 [dashboard/summary] BLOCKED: Non-admin user ${userId} has no location filters. Returning empty.`)
+      return res.json({
+        success: true,
+        pl: { profit: 0, margin: 0, trend: 0 },
+        expenses: { total: 0, count: 0, trend: 0 },
+        revenue: { total: 0, locations: 0, trend: 0 }
+      })
+    }
+
     // Get total revenue from incasari_daily (using profit = in_amount - out_amount)
     const revenueQuery = await pool.query(
       `SELECT 
@@ -2936,6 +2949,21 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
         ? includeLocations.split(',').map((s) => normalizeLocationName(s)).filter(Boolean)
         : undefined
 
+    // Get user's included filters from settings (same as dashboard)
+    const includedFilters = await getIncludedFiltersForUser(pool, userId)
+
+    // CRITICAL FIX: If user is NOT admin and has NO location filters (either from query or settings), 
+    // we MUST return empty result. Do NOT show all locations by default for restricted users.
+    const isAdmin = req.user?.role === 'admin'
+    if (!isAdmin && (!locationsArray || locationsArray.length === 0) && (!includedFilters.locations || includedFilters.locations.length === 0)) {
+      console.warn(`🛑 [monthly-by-location] BLOCKED: Non-admin user ${userId} has no location filters. Returning empty.`)
+      return res.json({
+        success: true,
+        data: [],
+        total: { revenue: 0, expenses: 0, profit: 0, margin: 0 }
+      })
+    }
+
     const activeIds = getActiveMachineIds({
       location,
       provider,
@@ -3078,7 +3106,7 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
     })
 
     // Obține filtrele din setări pentru a aplica filtrele corecte
-    const includedFilters = await getIncludedFiltersForUser(pool, userId)
+    // (deja obtinute la inceputul functiei)
 
     console.log(`🔍 [monthly-by-location] User ID: ${userId}`)
     console.log(`🔍 [monthly-by-location] Filtre obținute:`, {
