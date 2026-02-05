@@ -14,6 +14,7 @@ import ExpendituresMappingModal from '../components/modals/ExpendituresMappingMo
 import ExpendituresCharts from '../components/ExpendituresCharts'
 import ExpendituresAdvancedCharts from '../components/ExpendituresAdvancedCharts'
 import ExpendituresTable from '../components/ExpendituresTable'
+import ExpendituresDepartmentTable from '../components/ExpendituresDepartmentTable'
 import DateRangeSelector from '../components/DateRangeSelector'
 import { generateAIInsights } from '../utils/aiInsights'
 
@@ -1865,6 +1866,14 @@ const Expenditures = () => {
                     }
                   })
                 }}
+              />
+            )}
+
+            {/* NOUL TABEL: Sumar Departament pe Locații */}
+            {filteredDataForTable && filteredDataForTable.length > 0 && (
+              <ExpendituresDepartmentTable
+                data={filteredDataForTable}
+                locations={locations}
               />
             )}
           </div>
