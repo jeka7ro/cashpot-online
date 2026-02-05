@@ -2,19 +2,19 @@ import React from 'react'
 import { TrendingUp, TrendingDown, Activity, DollarSign, Target, AlertCircle } from 'lucide-react'
 import { formatCompactNumber, getValueColor } from '../utils/plUtils'
 
-const KPICard = ({ title, value, change, changeLabel, icon: Icon, trend, healthScore }) => {
+const KPICard = ({ title, value, change, changeLabel, icon: Icon, trend, healthScore, suffix = 'RON' }) => {
     const isPositive = change >= 0
     const trendColor = getValueColor(change)
 
     return (
-        <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm hover:shadow-md transition-all duration-300 hover:scale-[1.02]">
+        <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-10 shadow-sm hover:shadow-md transition-all duration-300 hover:scale-[1.02]">
             {/* Gradient overlay - Dark mode only */}
             <div className="absolute inset-0 hidden dark:block bg-gradient-to-br from-white/5 via-transparent to-transparent" />
             <div className="absolute top-0 left-0 w-full h-1/2 hidden dark:block bg-gradient-to-b from-white/10 to-transparent" />
 
             <div className="relative z-10">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-10">
                     <div className={`p-3 rounded-xl ${isPositive ? 'bg-emerald-500/20' : 'bg-red-500/20'}`}>
                         <Icon className={`w-6 h-6 ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`} />
                     </div>
@@ -47,7 +47,9 @@ const KPICard = ({ title, value, change, changeLabel, icon: Icon, trend, healthS
                     <span className="text-3xl font-bold text-slate-900 dark:text-white">
                         {typeof value === 'number' ? formatCompactNumber(value) : value}
                     </span>
-                    <span className="text-sm text-slate-500 dark:text-slate-400">RON</span>
+                    {suffix && (
+                        <span className="text-sm text-slate-500 dark:text-slate-400">{suffix}</span>
+                    )}
                 </div>
 
                 {/* Trend */}

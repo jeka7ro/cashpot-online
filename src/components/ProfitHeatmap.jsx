@@ -1,7 +1,59 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useRef } from 'react'
 import { formatCompactNumber } from '../utils/plUtils'
+import { FileText, Download } from 'lucide-react'
+import html2canvas from 'html2canvas'
+import { jsPDF } from 'jspdf'
+import toast from 'react-hot-toast'
 
 const ProfitHeatmap = ({ data, onCellClick }) => {
+    const exportRef = useRef(null)
+
+    const handleExportPDF = async () => {
+        try {
+            toast.loading('📄 Generare PDF...', { id: 'pdf-export-heatmap' })
+
+            if (!exportRef.current) {
+                toast.error('Eroare: zona de export nu a fost găsită', { id: 'pdf-export-heatmap' })
+                return
+            }
+
+            const element = exportRef.current
+            const canvas = await html2canvas(element, {
+                scale: 3, // Increased scale for better quality
+                useCORS: true,
+                logging: false,
+                backgroundColor: document.documentElement.classList.contains('dark') ? '#0f172a' : '#ffffff',
+                windowWidth: 1600, // Fixed width for consistent capture
+                onclone: (clonedDoc) => {
+                    const el = clonedDoc.querySelector('[ref="exportRef"]') || clonedDoc.body.firstChild
+                    if (el) el.style.padding = '40px'
+                }
+            })
+
+            const imgData = canvas.toDataURL('image/png')
+            const pdf = new jsPDF({
+                orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+                unit: 'mm',
+                format: 'a4'
+            })
+
+            const pageWidth = pdf.internal.pageSize.getWidth()
+            const pageHeight = pdf.internal.pageSize.getHeight()
+            const imgWidth = pageWidth - 20 // 10mm margins
+            const imgHeight = (canvas.height * imgWidth) / canvas.width
+
+            pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight)
+
+            const fileName = `Profitabilitate_Sali_${new Date().toISOString().split('T')[0]}.pdf`
+            pdf.save(fileName)
+
+            toast.success('✅ PDF exportat cu succes!', { id: 'pdf-export-heatmap' })
+        } catch (error) {
+            console.error('Error exporting heatmap to PDF:', error)
+            toast.error('❌ Eroare la export PDF: ' + error.message, { id: 'pdf-export-heatmap' })
+        }
+    }
+
     // Extract unique months across all locations
     const months = useMemo(() => {
         if (!data || data.length === 0) return []
@@ -16,7 +68,10 @@ const ProfitHeatmap = ({ data, onCellClick }) => {
 
     const locations = useMemo(() => {
         if (!data) return []
-        return data.map(d => d.location).sort()
+        return data
+            .map(d => d.location)
+            .filter(loc => loc && !loc.toLowerCase().includes('depozit'))
+            .sort()
     }, [data])
 
     // Calculate color scale for all profits
@@ -54,7 +109,7 @@ const ProfitHeatmap = ({ data, onCellClick }) => {
     }
 
     return (
-        <div className="relative overflow-hidden rounded-3xl bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-4 md:p-6 shadow-sm">
+        <div ref={exportRef} className="relative overflow-hidden rounded-3xl bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-4 md:p-6 shadow-sm">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-8 gap-4">
                 <div>
                     <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-1">
@@ -63,15 +118,27 @@ const ProfitHeatmap = ({ data, onCellClick }) => {
                     <p className="text-[11px] text-slate-500 font-bold opacity-70 uppercase tracking-wider">Distribuție lunară per punct de lucru</p>
                 </div>
 
-                <div className="flex items-center gap-4 bg-white/60 dark:bg-slate-900/40 px-4 py-2 rounded-2xl border border-white/20">
-                    <div className="flex flex-col items-center">
-                        <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase mb-1 tracking-widest">Legendă Profit Net</span>
-                        <div className="flex items-center gap-3">
-                            <span className="text-[9px] font-black text-red-500">PIERDERE</span>
-                            <div className="w-24 md:w-32 h-2 rounded-full bg-gradient-to-r from-red-500 via-slate-200 dark:via-slate-700 to-emerald-500 shadow-inner" />
-                            <span className="text-[9px] font-black text-emerald-500">PROFIT</span>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 bg-white/60 dark:bg-slate-900/40 px-4 py-2 rounded-2xl border border-white/20">
+                        <div className="flex flex-col items-center">
+                            <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase mb-1 tracking-widest">Legendă Profit Net</span>
+                            <div className="flex items-center gap-3">
+                                <span className="text-[9px] font-black text-red-500">PIERDERE</span>
+                                <div className="w-24 md:w-32 h-2 rounded-full bg-gradient-to-r from-red-500 via-slate-200 dark:via-slate-700 to-emerald-500 shadow-inner" />
+                                <span className="text-[9px] font-black text-emerald-500">PROFIT</span>
+                            </div>
                         </div>
                     </div>
+
+                    <button
+                        onClick={handleExportPDF}
+                        data-html2canvas-ignore
+                        className="flex items-center gap-2 px-4 py-2.5 bg-red-500 hover:bg-red-600 active:scale-95 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all shadow-lg shadow-red-500/20"
+                        title="Descarcă PDF"
+                    >
+                        <FileText className="w-4 h-4" />
+                        <span className="hidden sm:inline">Export PDF</span>
+                    </button>
                 </div>
             </div>
 
@@ -84,10 +151,10 @@ const ProfitHeatmap = ({ data, onCellClick }) => {
                     {months.map(m => (
                         <div key={m.month} className="text-center group overflow-hidden">
                             <div className="bg-slate-100/40 dark:bg-slate-900/20 rounded-lg py-1.5 px-0.5 border border-slate-200/30 dark:border-slate-700/30">
-                                <span className="text-[8px] md:text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter leading-none block truncate">
+                                <span className="text-[10px] md:text-[11px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-tight leading-none block truncate">
                                     {m.label.split(' ')[0]}
                                 </span>
-                                <span className="text-[7px] font-bold text-slate-400 dark:text-slate-600 block leading-none mt-0.5">
+                                <span className="text-[8px] md:text-[9px] font-bold text-slate-500/80 dark:text-slate-400/80 block leading-none mt-0.5">
                                     {m.label.split(' ')[1]}
                                 </span>
                             </div>
@@ -115,7 +182,7 @@ const ProfitHeatmap = ({ data, onCellClick }) => {
                             <div key={locName} style={gridStyle} className="group/row items-stretch">
                                 {/* Location Label */}
                                 <div className="flex items-center pr-2 group-hover/row:translate-x-1 transition-transform">
-                                    <span className="text-[10px] font-black text-slate-700 dark:text-slate-300 truncate block uppercase tracking-tight">
+                                    <span className="text-[11px] md:text-[12px] font-black text-slate-800 dark:text-slate-200 truncate block uppercase tracking-tight">
                                         {locName}
                                     </span>
                                 </div>
