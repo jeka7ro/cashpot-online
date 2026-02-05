@@ -1870,7 +1870,7 @@ const Expenditures = () => {
             )}
 
             {/* NOUL TABEL: Sumar Departament pe Locații */}
-            {filteredDataForTable && filteredDataForTable.length > 0 && (
+            {filteredDataForTable && (
               <ExpendituresDepartmentTable
                 data={filteredDataForTable}
                 locations={locations}

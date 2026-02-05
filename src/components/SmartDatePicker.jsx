@@ -303,16 +303,38 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
 
                     {/* Navigation (Only for relevant views) */}
                     {activeTab !== 'days' && (
-                        <div className="flex items-center justify-between mb-2 px-2">
+                        <div className="flex items-center justify-between mb-2 px-2 bg-slate-900/30 p-2 rounded-lg">
                             <button onClick={() => navigateView(-1)} className="p-1 hover:bg-slate-700 rounded-lg text-slate-400">
                                 <ChevronLeft className="w-5 h-5" />
                             </button>
-                            <span className="text-lg font-bold text-white">
-                                {activeTab === 'years'
-                                    ? `${Math.floor(viewDate.getFullYear() / 10) * 10} - ${Math.floor(viewDate.getFullYear() / 10) * 10 + 9}`
-                                    : viewDate.getFullYear()
-                                }
-                            </span>
+
+                            {/* Year Dropdown / Title */}
+                            <div className="flex items-center gap-2">
+                                {activeTab === 'years' ? (
+                                    <span className="text-lg font-bold text-white">
+                                        {Math.floor(viewDate.getFullYear() / 10) * 10} - {Math.floor(viewDate.getFullYear() / 10) * 10 + 9}
+                                    </span>
+                                ) : (
+                                    <select
+                                        value={viewDate.getFullYear()}
+                                        onChange={(e) => {
+                                            const newYear = parseInt(e.target.value)
+                                            const newDate = new Date(viewDate)
+                                            newDate.setFullYear(newYear)
+                                            setViewDate(newDate)
+                                        }}
+                                        className="bg-transparent text-lg font-bold text-white border-none focus:ring-0 cursor-pointer appearance-none text-center hover:text-blue-400"
+                                        style={{ textAlignLast: 'center' }}
+                                    >
+                                        {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map(y => (
+                                            <option key={y} value={y} className="bg-slate-800 text-white">
+                                                {y}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+                            </div>
+
                             <button onClick={() => navigateView(1)} className="p-1 hover:bg-slate-700 rounded-lg text-slate-400">
                                 <ChevronRight className="w-5 h-5" />
                             </button>
