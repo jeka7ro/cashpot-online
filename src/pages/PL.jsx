@@ -615,10 +615,40 @@ const PLDashboard = () => {
                             />
 
                             {/* NOUL TABEL: Sumar Departament pe Locații (CERUT DE USER) */}
-                            <ExpendituresDepartmentTable
-                                data={expendituresForTable}
-                                locations={allLocations.map(l => l.name)}
-                            />
+                            <div className="mt-12 mb-8 p-6 bg-white dark:bg-slate-800/40 rounded-3xl border-2 border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
+                                <div className="flex items-center gap-4 mb-8">
+                                    <div className="p-3 bg-blue-600/10 rounded-2xl">
+                                        <Table2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                                            Sumar P&L pe Departamente
+                                        </h2>
+                                        <p className="text-sm text-slate-500 font-medium mt-1">
+                                            Analiza centralizată a cheltuielilor pe categorii operaționale
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {allLocations && expendituresForTable && expendituresForTable.length > 0 ? (
+                                    <ExpendituresDepartmentTable
+                                        data={expendituresForTable}
+                                        locations={allLocations.map(l => l.name || l)}
+                                    />
+                                ) : (
+                                    <div className="py-20 text-center">
+                                        <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-dashed border-slate-300 dark:border-slate-700">
+                                            <Loader2 className="w-8 h-8 text-slate-400 animate-spin" />
+                                        </div>
+                                        <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300">
+                                            Se caută datele pentru departamente...
+                                        </h3>
+                                        <p className="text-slate-500 dark:text-slate-400 text-sm max-w-md mx-auto mt-2">
+                                            Dacă acest mesaj persistă, asigurați-vă că ați selectat o perioadă cu date valide și cel puțin o locație.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
 
                             <ProfitHeatmap
                                 data={visualizationData.heatmapData}
