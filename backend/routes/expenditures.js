@@ -3079,15 +3079,17 @@ router.post('/preview-google-sheets', authenticateToken, async (req, res) => {
         }
 
         // Check if exists in DB
-        const existing = await pool.query(`
+        // Check if exists in DB
+        const checkQuery = `
           SELECT id FROM expenditures_sync 
-          WHERE operational_date = $1 
-            AND amount = $2 
-            AND location_name = $3 
-            AND department_name = $4
-            AND expenditure_type = $5
+          WHERE operational_date::DATE = $1::DATE 
+            AND amount::NUMERIC = $2::NUMERIC 
+            AND TRIM(location_name) = TRIM($3) 
+            AND TRIM(department_name) = TRIM($4)
+            AND TRIM(expenditure_type) = TRIM($5)
           LIMIT 1
-        `, [operationalDate, amount, locationRow, departmentRow, expenditureType])
+        `;
+        const existing = await pool.query(checkQuery, [operationalDate, amount, location, department, expenditureType])
 
         const rowData = {
           date: operationalDate,
