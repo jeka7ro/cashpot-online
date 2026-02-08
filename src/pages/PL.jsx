@@ -673,6 +673,15 @@ const PLDashboard = () => {
                                     console.log('Clicked:', location, month, data)
                                 }}
                             />
+
+                            {/* NEW SMART CHARTS */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <ExpenseCategoryChart data={expendituresForTable} />
+                                <LocationEfficiencyMatrix
+                                    monthlyData={visualizationData.monthlyProfits}
+                                    locations={locations}
+                                />
+                            </div>
                         </div>
                     )}
 

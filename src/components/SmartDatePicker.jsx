@@ -266,13 +266,13 @@ const SmartDatePicker = ({ dateRange, onChange }) => {
         <div className="relative" ref={containerRef}>
             <button
                 onClick={() => { setIsOpen(!isOpen); setSelectionStart(null); }}
-                className="flex items-center gap-3 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition-all shadow-sm group"
+                className="flex items-center gap-3 px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded-xl transition-all shadow-sm group"
             >
-                <Calendar className="w-5 h-5 text-blue-400 group-hover:text-blue-300" />
-                <span className="text-sm font-medium text-slate-200">
+                <Calendar className="w-5 h-5 text-blue-600 dark:text-blue-400 group-hover:text-blue-500 dark:group-hover:text-blue-300" />
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
                     {getRangeText()}
                 </span>
-                <ChevronRight className={`w-4 h-4 text-slate-500 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                <ChevronRight className={`w-4 h-4 text-slate-400 dark:text-slate-500 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
             </button>
 
             {isOpen && (
