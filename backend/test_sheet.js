@@ -80,6 +80,59 @@ async function run() {
         `);
         console.table(kebabRes.rows);
 
+        // BATCH CHECK DUPLICATES (Simulate the fix)
+        console.log('\n--- BATCH DUPLICATE CHECK (First 50 rows) ---');
+        let duplicatesFound = 0;
+        let newFound = 0;
+
+        for (const row of rows.slice(0, 50)) {
+            const values = parseCsvRow(row);
+            if (values.length < 5) continue;
+
+            const [dateStr, explanation, amountStr, location, department, expenditureType] = values;
+
+            const amount = parseAmount(amountStr);
+            let operationalDate;
+            if (dateStr && (dateStr.includes('.') || dateStr.includes('/') || dateStr.includes('-'))) {
+                if (dateStr.includes('.')) {
+                    const dateParts = dateStr.split('.');
+                    if (dateParts.length === 3) operationalDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`;
+                } else if (dateStr.includes('/')) {
+                    const dateParts = dateStr.split('/');
+                    if (dateParts.length === 3) operationalDate = `${dateParts[2]}-${dateParts[0].padStart(2, '0')}-${dateParts[1].padStart(2, '0')}`;
+                } else {
+                    operationalDate = dateStr;
+                }
+            }
+
+            const normalizedLocation = (location || 'Unknown').trim();
+            const normalizedDepartment = (department || 'Unknown').trim();
+            const normalizedType = (expenditureType || 'Unknown').trim();
+
+            if (!operationalDate) continue;
+
+            const query = `
+                SELECT id 
+                FROM expenditures_sync 
+                WHERE operational_date = $1 
+                    AND amount = $2 
+                    AND location_name = $3 
+                    AND department_name = $4
+                    AND expenditure_type = $5
+                LIMIT 1
+            `;
+
+            const res = await pool.query(query, [operationalDate, amount, normalizedLocation, normalizedDepartment, normalizedType]);
+
+            if (res.rows.length > 0) {
+                duplicatesFound++;
+            } else {
+                newFound++;
+                console.log(`[NEW?] Date: ${operationalDate}, Amount: ${amount}, Loc: "${normalizedLocation}", Dep: "${normalizedDepartment}", Type: "${normalizedType}"`);
+            }
+        }
+        console.log(`Summary: ${duplicatesFound} duplicates, ${newFound} potential NEW records checked.`);
+
     } catch (e) {
         console.error('An error occurred:', e);
     } finally {
