@@ -97,53 +97,9 @@ async function run() {
 
                 if (res.rows.length > 0) {
                     duplicatesFound++;
-                    const src = res.rows[0].data_source;
-                    if (src !== 'google_sheets') {
-                        console.log(`[EXISTING DIFF SOURCE] Found duplicate with source '${src}' for ${amount} / ${normalizedDepartment}`);
-                    }
                 } else {
                     newFound++;
-                    console.log(`[TRULY NEW?] Date: ${operationalDate}, Amount: ${amount}, Loc: "${normalizedLocation}", Dep: "${normalizedDepartment}", Type: "${normalizedType}"`);
-
-                    // Deep debug for the first mismatch
-                    if (newFound === 1) {
-                        console.log('--- DEEP DEBUG FIRST MISMATCH ---');
-                        const debugRes = await pool.query(`
-                            FROM expenditures_sync 
-                            WHERE operational_date = $1 AND data_source = 'google_sheets'
-                        `, [operationalDate]);
-
-                        console.log(`Found ${debugRes.rows.length} records for date ${operationalDate} in DB.`);
-
-                        // Specific check for amount
-                        const amountMatches = debugRes.rows.filter(r => Math.abs(Number(r.amount) - amount) < 0.01);
-                        console.log(`Records matching amount ${amount}: ${amountMatches.length}`);
-
-                        console.log('--- ALL DB AMOUNTS FOR THIS DATE ---');
-                        debugRes.rows.forEach(r => {
-                            console.log(`ID: ${r.id}, Amount: ${r.amount}, Loc: ${r.location_name}, Dep: ${r.department_name}`);
-                        });
-                        console.log('------------------------------------');
-
-                        if (amountMatches.length > 0) {
-                            amountMatches.forEach(r => {
-                                console.log('Potential Match:', {
-                                    id: r.id,
-                                    dbLoc: r.location_name,
-                                    csvLoc: normalizedLocation,
-                                    locMatch: r.location_name === normalizedLocation,
-                                    dbDep: r.department_name,
-                                    csvDep: normalizedDepartment,
-                                    depMatch: r.department_name === normalizedDepartment,
-                                    dbType: r.expenditure_type,
-                                    csvType: normalizedType,
-                                    typeMatch: r.expenditure_type === normalizedType,
-                                    typeHex: Buffer.from(r.expenditure_type).toString('hex'),
-                                    csvTypeHex: Buffer.from(normalizedType).toString('hex')
-                                });
-                            });
-                        }
-                    }
+                    console.log(`[NEW VALUE] Date: ${operationalDate}, Amount: ${amount}, Loc: "${normalizedLocation}", Dep: "${normalizedDepartment}", Type: "${normalizedType}"`);
                 }
             }
             console.log(`Summary: ${duplicatesFound} duplicates, ${newFound} potential NEW records checked.`);
