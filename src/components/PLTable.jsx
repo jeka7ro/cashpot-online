@@ -79,7 +79,7 @@ const PLTable = ({ months, locations }) => {
                 </h3>
                 <button
                     onClick={exportToExcel}
-                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/30 dark:text-emerald-400 rounded-lg transition-all border border-emerald-200 dark:border-emerald-800/50"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors shadow-sm"
                 >
                     <FileSpreadsheet className="w-4 h-4" />
                     Export Excel
