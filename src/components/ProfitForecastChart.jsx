@@ -8,8 +8,8 @@ const ProfitForecastChart = ({ monthlyData }) => {
 
         // Get last 12 months of actual data
         const historical = monthlyData.slice(-12).map((month, idx) => ({
-            month: month.label,
-            profit: month.plByLoc.reduce((sum, loc) => sum + loc.pl, 0),
+            month: month.label || month.month,
+            profit: month.pl || 0,
             isActual: true,
             index: idx
         }))

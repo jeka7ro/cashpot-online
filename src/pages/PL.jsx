@@ -693,7 +693,7 @@ const PLDashboard = () => {
                             {/* SMART P&L CHARTS */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                 <ProfitForecastChart monthlyData={visualizationData.monthlyProfits} />
-                                <LocationROIChart monthlyData={visualizationData.monthlyProfits} />
+                                <LocationROIChart monthlyData={monthlyData} />
                             </div>
 
                             {/* SLOT OPTIMIZER */}
