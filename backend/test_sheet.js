@@ -22,6 +22,12 @@ async function run() {
     }
     console.log('CSV URL:', csvUrl);
 
+    const { Pool } = pg;
+    const pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    });
+
     try {
         const response = await fetch(csvUrl);
         if (!response.ok) throw new Error(`Fetch failed: ${response.statusText}`);
@@ -37,85 +43,47 @@ async function run() {
 
         if (turkKebabRows.length > 0) {
             console.log('Sample row:', turkKebabRows[0]);
-            // parse it
             const values = parseCsvRow(turkKebabRows[0]);
             console.log('Parsed values:', values);
             console.log('Original Amount String:', values[2]);
             console.log('Parsed Amount Result:', parseAmount(values[2]));
         }
 
-        // Check batches of rows to find why 1800+ are new
-        console.log('\n--- Batch Duplicate Check (First 50 rows) ---');
-        const { Pool } = pg;
-        const pool = new Pool({
-            connectionString: process.env.DATABASE_URL,
-            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-        });
+        // Check distinct data sources
+        console.log('\n--- CHECKING DATA SOURCES ---');
+        // Check schema for operational_date
+        const schemaRes = await pool.query(`
+            SELECT column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_name = 'expenditures_sync' AND column_name = 'operational_date'
+        `);
+        console.table(schemaRes.rows);
 
-        let duplicatesFound = 0;
-        let newFound = 0;
-
-        try {
-            for (const row of rows.slice(0, 50)) {
-                const values = parseCsvRow(row);
-                if (values.length < 5) continue;
-
-                const [dateStr, explanation, amountStr, location, department, expenditureType] = values;
-
-                const amount = parseAmount(amountStr);
-                let operationalDate;
-                if (dateStr && (dateStr.includes('.') || dateStr.includes('/') || dateStr.includes('-'))) {
-                    if (dateStr.includes('.')) {
-                        const dateParts = dateStr.split('.');
-                        if (dateParts.length === 3) operationalDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`;
-                    } else if (dateStr.includes('/')) {
-                        const dateParts = dateStr.split('/');
-                        if (dateParts.length === 3) operationalDate = `${dateParts[2]}-${dateParts[0].padStart(2, '0')}-${dateParts[1].padStart(2, '0')}`;
-                    } else {
-                        operationalDate = dateStr;
-                    }
-                }
-
-                const normalizedLocation = (location || 'Unknown').trim();
-                const normalizedDepartment = (department || 'Unknown').trim();
-                const normalizedType = (expenditureType || 'Unknown').trim();
-
-                if (!operationalDate) continue;
-
-                const query = `
-                    SELECT id, data_source
-                    FROM expenditures_sync
-                    WHERE operational_date = $1
-                        AND amount = $2
-                        AND location_name = $3
-                        AND department_name = $4
-                        AND expenditure_type = $5
-                    LIMIT 1
-                `;
-
-                const res = await pool.query(query, [operationalDate, amount, normalizedLocation, normalizedDepartment, normalizedType]);
-
-                if (res.rows.length > 0) {
-                    duplicatesFound++;
-                } else {
-                    newFound++;
-                    console.log(`[NEW VALUE] Date: ${operationalDate}, Amount: ${amount}, Loc: "${normalizedLocation}", Dep: "${normalizedDepartment}", Type: "${normalizedType}"`);
-                }
-            }
-            console.log(`Summary: ${duplicatesFound} duplicates, ${newFound} potential NEW records checked.`);
-
-            // Check total count in DB
-            const total = await pool.query("SELECT count(*) FROM expenditures_sync WHERE data_source='google_sheets'");
-            console.log(`Total Google Sheets records in DB: ${total.rows[0].count}`);
-
-        } catch (e) {
-            console.error('DB Error:', e);
-        } finally {
-            await pool.end();
+        // Check if there are any records for 2023-10-01 in ANY source with ANY time
+        console.log('\n--- CHECKING 2023-10-01 RECORDS ---');
+        const octRes = await pool.query(`
+            SELECT id, operational_date, data_source 
+            FROM expenditures_sync 
+            WHERE operational_date >= '2023-10-01 00:00:00' AND operational_date < '2023-10-02 00:00:00'
+        `);
+        console.log(`Found ${octRes.rows.length} records for 2023-10-01 range.`);
+        if (octRes.rows.length > 0) {
+            console.log('Sample:', octRes.rows[0]);
         }
 
-    } catch (error) {
-        console.error('Error:', error);
+        // Check "Turk Kebab" presence across ALL sources
+        console.log('\n--- CHECKING TURK KEBAB ACROSS ALL SOURCES ---');
+        const kebabRes = await pool.query(`
+            SELECT id, data_source, operational_date, amount, description 
+            FROM expenditures_sync 
+            WHERE description ILIKE '%Turk Kebab%'
+        `);
+        console.table(kebabRes.rows);
+
+    } catch (e) {
+        console.error('An error occurred:', e);
+    } finally {
+        await pool.end();
     }
 }
 

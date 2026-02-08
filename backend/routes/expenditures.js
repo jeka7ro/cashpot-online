@@ -3356,7 +3356,6 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
               AND location_name = $3 
               AND department_name = $4
               AND expenditure_type = $5
-              AND data_source = 'google_sheets'
             LIMIT 1
           `, [operationalDate, amount, normalizedLocation, normalizedDepartment, normalizedType])
 
