@@ -91,7 +91,7 @@ const LocationROIChart = ({ monthlyData }) => {
                 </div>
             </div>
 
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={280}>
                 <BarChart
                     data={chartData}
                     layout="vertical"
