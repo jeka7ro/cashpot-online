@@ -1992,6 +1992,16 @@ const Expenditures = () => {
                   </p>
                 </div>
 
+                <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30 p-6 rounded-2xl border border-orange-200 dark:border-orange-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Șterse</span>
+                    <Trash2 className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                  </div>
+                  <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                    {importProgress.deleted || 0}
+                  </p>
+                </div>
+
                 {importProgress.errors > 0 && (
                   <div className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/30 dark:to-red-800/30 p-6 rounded-2xl border border-red-200 dark:border-red-700">
                     <div className="flex items-center justify-between mb-2">

@@ -158,14 +158,22 @@ const PLDashboard = () => {
     const fetchExpendituresForTable = async () => {
         try {
             const { startDate, endDate } = dateRange
-            const response = await axios.get('/api/expenditures/data', {
-                params: { startDate, endDate }
+            console.log(`🔍 [DEPT TABLE] Fetching FILTERED expenditures... Range: ${startDate} to ${endDate}`)
+            const response = await axios.get('/api/expenditures/sql-table', {
+                params: {
+                    startDate,
+                    endDate,
+                    pageSize: 'all'
+                }
             })
             if (response.data?.success) {
-                setExpendituresForTable(response.data.data || [])
+                const data = response.data.data || []
+                console.log(`✅ [DEPT TABLE] Received ${data.length} filtered records`)
+                setExpendituresForTable(data)
             }
         } catch (error) {
-            console.error('Error fetching expenditures for table:', error)
+            console.error('❌ Error fetching expenditures for table:', error)
+            setExpendituresForTable([])
         }
     }
 
@@ -253,6 +261,8 @@ const PLDashboard = () => {
 
         // Calculate profit margin
         const profitMargin = current.ggr > 0 ? (current.pl / current.ggr) * 100 : 0
+        const previousProfitMargin = previous.ggr > 0 ? (previous.pl / previous.ggr) * 100 : 0
+        const marginChange = profitMargin - previousProfitMargin
 
         return {
             current,
@@ -261,6 +271,7 @@ const PLDashboard = () => {
             ggrChange,
             expensesChange,
             profitMargin,
+            marginChange,
             currentYearData: currentData,
             previousYearData: previousData
         }
@@ -313,12 +324,14 @@ const PLDashboard = () => {
             ...metrics.previousYearData.map(m => ({
                 label: m.label,
                 pl: m.plByLoc.reduce((sum, loc) => sum + loc.pl, 0),
-                ggr: m.plByLoc.reduce((sum, loc) => sum + loc.ggr, 0)
+                ggr: m.plByLoc.reduce((sum, loc) => sum + loc.ggr, 0),
+                expenses: m.plByLoc.reduce((sum, loc) => sum + loc.expenses, 0)
             })),
             ...metrics.currentYearData.map(m => ({
                 label: m.label,
                 pl: m.plByLoc.reduce((sum, loc) => sum + loc.pl, 0),
-                ggr: m.plByLoc.reduce((sum, loc) => sum + loc.ggr, 0)
+                ggr: m.plByLoc.reduce((sum, loc) => sum + loc.ggr, 0),
+                expenses: m.plByLoc.reduce((sum, loc) => sum + loc.expenses, 0)
             }))
         ].sort((a, b) => {
             // Simple sort by year/month if labels are standard, but they are localized strings
@@ -508,7 +521,6 @@ const PLDashboard = () => {
                             value={metrics.current.pl}
                             change={metrics.plChange}
                             changeLabel={`vs ${currentSelectionYear - 1}`}
-                            icon={DollarSign}
                             trend={visualizationData.monthlyProfits.map(m => m.pl)}
                         />
 
@@ -517,7 +529,6 @@ const PLDashboard = () => {
                             value={metrics.current.ggr}
                             change={metrics.ggrChange}
                             changeLabel={`vs ${currentSelectionYear - 1}`}
-                            icon={TrendingUp}
                             trend={visualizationData.monthlyProfits.map(m => m.ggr)}
                         />
 
@@ -526,15 +537,14 @@ const PLDashboard = () => {
                             value={metrics.current.expenses}
                             change={metrics.expensesChange}
                             changeLabel={`vs ${currentSelectionYear - 1}`}
-                            icon={Activity}
+                            trend={visualizationData.monthlyProfits.map(m => m.expenses)}
                         />
 
                         <KPICard
                             title="Marjă Profit"
                             value={`${metrics.profitMargin.toFixed(1)}%`}
-                            change={metrics.plChange}
-                            changeLabel="trend"
-                            icon={Target}
+                            change={metrics.marginChange}
+                            changeLabel={`vs ${currentSelectionYear - 1}`}
                         />
                     </div>
 
@@ -614,41 +624,13 @@ const PLDashboard = () => {
                                 locations={Array.from(new Set(monthlyData.flatMap(m => m.plByLoc.map(l => l.locationName))))}
                             />
 
-                            {/* NOUL TABEL: Sumar Departament pe Locații (CERUT DE USER) */}
-                            <div className="mt-12 mb-8 p-6 bg-white dark:bg-slate-800/40 rounded-3xl border-2 border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
-                                <div className="flex items-center gap-4 mb-8">
-                                    <div className="p-3 bg-blue-600/10 rounded-2xl">
-                                        <Table2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-                                            Sumar P&L pe Departamente
-                                        </h2>
-                                        <p className="text-sm text-slate-500 font-medium mt-1">
-                                            Analiza centralizată a cheltuielilor pe categorii operaționale
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {allLocations && expendituresForTable && expendituresForTable.length > 0 ? (
-                                    <ExpendituresDepartmentTable
-                                        data={expendituresForTable}
-                                        locations={allLocations.map(l => l.name || l)}
-                                    />
-                                ) : (
-                                    <div className="py-20 text-center">
-                                        <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-dashed border-slate-300 dark:border-slate-700">
-                                            <Loader2 className="w-8 h-8 text-slate-400 animate-spin" />
-                                        </div>
-                                        <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300">
-                                            Se caută datele pentru departamente...
-                                        </h3>
-                                        <p className="text-slate-500 dark:text-slate-400 text-sm max-w-md mx-auto mt-2">
-                                            Dacă acest mesaj persistă, asigurați-vă că ați selectat o perioadă cu date valide și cel puțin o locație.
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
+                            {allLocations && (
+                                <ExpendituresDepartmentTable
+                                    data={expendituresForTable}
+                                    locations={allLocations.map(l => l.name || l)}
+                                    dateRange={dateRange}
+                                />
+                            )}
 
                             <ProfitHeatmap
                                 data={visualizationData.heatmapData}

@@ -59,6 +59,13 @@ const normalizeLocationName = (name) => {
   n = n.replace(/\s*E\.?\s*S\.?\s*$/i, '')
   // Elimină și alte variante posibile
   n = n.replace(/\s*ES\s*$/i, '')
+
+  // ROBUST: Lowercase and strip accents to match Expenditures logic
+  n = n.replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
+    .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+
   return n.trim()
 }
 
@@ -2836,7 +2843,14 @@ const getIncludedFiltersForUser = async (pool, userId) => {
     // 4. FALLBACK: Dacă nu există filtre personale (user nou sau neconfigurat), 
     // încărcăm setările GLOBALE (cele setate de Admin în Sincronizare)
     // Astfel, userii văd direct ce a configurat Adminul, nu "totul" (sume astronomice).
+    // EXCEPTIE: ADMINII trebuie să vadă TOTUL dacă nu au filtre personale setate!
     if (!result.departments || !result.types) {
+      // CRITICAL FIX: Skip fallback for admins to match Expenditures page behavior
+      if (userRole === 'admin') {
+        console.log(`🌍 [P&L] User ${userId} is ADMIN and has no personal filters. NOT using global fallback (Showing ALL).`)
+        return result
+      }
+
       try {
         const globalResult = await pool.query(`
           SELECT setting_value 
@@ -3049,7 +3063,7 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
     // Query OPTIMIZAT pentru date lunare grupate pe an, lună și locație
     // Folosește DATE_TRUNC pentru performanță mai bună și limitează la ultimii 2 ani (optimizat pentru viteză)
     const currentYear = new Date().getFullYear()
-    const startYear = currentYear - 1 // Ultimii 2 ani (anul curent + anul trecut)
+    const startYear = 2024 // STRICT FILTER: User requested data ONLY from 2024 onwards
 
     console.log(`🔍 [monthly-by-location] activeIds count: ${activeIds?.length || 0}`)
 
@@ -3179,9 +3193,24 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
     }
 
     const locationMap = new Map()
+    // Normalization Map: normalized -> Official Name
+    const normalizedToOfficialMap = new Map()
+
     locationsData.forEach((loc) => {
       if (loc && typeof loc.id !== 'undefined') {
-        locationMap.set(String(loc.id), loc.name || loc.location || `Loc ${loc.id}`)
+        let officialName = loc.name || loc.location || `Loc ${loc.id}`
+
+        // DEBUG: Log original name
+        if (officialName.includes('Craiova')) console.log(`🔍 [MAP-DEBUG] Processing ID ${loc.id}: "${officialName}"`)
+
+        // CLEANUP: Force remove "E.S" suffix from display name to merge duplicates visually
+        officialName = officialName.replace(/\s*E\.?\s*S\.?\s*$/i, '')
+
+        // DEBUG: Log sanitized name
+        if (officialName.includes('Craiova')) console.log(`🔍 [MAP-DEBUG] Sanitized ID ${loc.id}: "${officialName}"`)
+
+        locationMap.set(String(loc.id), officialName)
+        normalizedToOfficialMap.set(normalizeLocationName(officialName), officialName)
       }
     })
 
@@ -3268,46 +3297,103 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
     console.log(`✅ [monthly-by-location] Query expenditures_sync completat în ${Date.now() - expendituresStartTime}ms, ${expendituresResult.rows.length} rânduri`)
     console.log(`📊 [monthly-by-location] Filtre aplicate: departments=${includedFilters.departments?.length || 'all'}, types=${includedFilters.types?.length || 'all'}`)
 
-    // Creează un map pentru cheltuieli: key = "year-month-normalizedLocationName"
-    // Normalizează numele locațiilor pentru a potrivi "Craiova E.S" cu "Craiova"
-    const expendituresMap = new Map()
+    // --- MERGE LOGIC (FULL OUTER JOIN) ---
+    // Create a map of ALL keys (Year-Month-Location) from both datasets
+    const mergedData = new Map()
+
+    // Helper to get/create merged entry
+    const getMergedEntry = (key) => {
+      if (!mergedData.has(key)) {
+        mergedData.set(key, {
+          year: 0, month: 0, locationKey: '',
+          locationId: null, locationName: 'Unknown',
+          totalGgr: 0, totalIn: 0, totalBet: 0, totalWin: 0,
+          totalJackpot: 0, totalHh: 0, totalCbReal: 0,
+          totalCbBirthday: 0, totalCbRaffle: 0, slotsCount: 0,
+          totalExpenditures: 0
+        })
+      }
+      return mergedData.get(key)
+    }
+
+    // 1. Process Income Data (result.rows) and populate Map
+    (result.rows || []).forEach((row) => {
+      const locationId = row.location_id
+      // Get location unique identifier (try ID first, then Name)
+      // Note: Income data has location_id. Expenditures data has location_name.
+      // We need a common key. We used "Year-Month-NormalizedName".
+
+      const locIdStr = locationId === null || typeof locationId === 'undefined' ? null : String(locationId)
+      const locationName = locIdStr ? locationMap.get(locIdStr) || `Loc ${locIdStr}` : 'Nesetat'
+      const normalizedLocationName = normalizeLocationName(locationName)
+
+      const key = `${parseInt(row.year)}-${parseInt(row.month)}-${normalizedLocationName}`
+      const entry = getMergedEntry(key)
+
+      entry.year = parseInt(row.year)
+      entry.month = parseInt(row.month)
+      entry.locationKey = normalizedLocationName
+      entry.locationId = locationId
+      entry.locationName = locationName // Name from ID mapping
+
+      entry.totalGgr += Number(row.total_ggr || 0)
+      entry.totalIn += Number(row.total_in || 0)
+      entry.totalBet += Number(row.total_bet || 0)
+      entry.totalWin += Number(row.total_win || 0)
+      entry.totalJackpot += Number(row.total_jackpot || 0)
+      entry.totalHh += Number(row.total_hh || 0)
+      entry.totalCbReal += Number(row.total_cb_real || 0)
+      entry.totalCbBirthday += Number(row.total_cb_birthday || 0)
+      entry.totalCbRaffle += Number(row.total_cb_raffle || 0)
+      entry.slotsCount = Math.max(entry.slotsCount, Number(row.slots_count || 0))
+    })
+
+    // 2. Process Expenditures Data (expendituresResult.rows) and populate/update Map
     expendituresResult.rows.forEach((row) => {
       const normalizedLocationName = normalizeLocationName(row.location_name)
       const key = `${parseInt(row.year)}-${parseInt(row.month)}-${normalizedLocationName}`
-      // Dacă există deja o cheie, adună valorile (pentru cazurile în care există atât "Craiova" cât și "Craiova E.S")
-      const existingValue = expendituresMap.get(key) || 0
-      expendituresMap.set(key, existingValue + Number(row.total_expenditures || 0))
-    })
+      const entry = getMergedEntry(key)
 
-    const rows = (result.rows || []).map((row) => {
-      const locationId = row.location_id
-      const key =
-        locationId === null || typeof locationId === 'undefined' ? null : String(locationId)
-      const locationName = key ? locationMap.get(key) || `Loc ${key}` : 'Nesetat'
-      const normalizedLocationName = normalizeLocationName(locationName)
+      // Set identification fields if this is a new entry (Expense-only row)
+      if (entry.year === 0) {
+        entry.year = parseInt(row.year)
+        entry.month = parseInt(row.month)
+        entry.locationKey = normalizedLocationName
 
-      // Caută cheltuielile pentru această combinație an-lună-locație (folosind nume normalizat)
-      const expendituresKey = `${parseInt(row.year)}-${parseInt(row.month)}-${normalizedLocationName}`
-      const totalExpenditures = expendituresMap.get(expendituresKey) || 0
+        // Use name from expense as raw fallback
+        // BUT TRY TO MATCH IT TO OFFICIAL NAME
+        const officialName = normalizedToOfficialMap.get(normalizedLocationName)
 
-      return {
-        year: parseInt(row.year),
-        month: parseInt(row.month),
-        locationId,
-        locationName,
-        totalGgr: Number(row.total_ggr || 0),
-        totalIn: Number(row.total_in || 0),
-        totalBet: Number(row.total_bet || 0),
-        totalWin: Number(row.total_win || 0),
-        totalJackpot: Number(row.total_jackpot || 0),
-        totalHh: Number(row.total_hh || 0),
-        totalCbReal: Number(row.total_cb_real || 0),
-        totalCbBirthday: Number(row.total_cb_birthday || 0),
-        totalCbRaffle: Number(row.total_cb_raffle || 0),
-        slotsCount: Number(row.slots_count || 0),
-        totalExpenditures
+        if (officialName) {
+          entry.locationName = officialName
+        } else {
+          // Fallback: Clean the raw name too just in case it wasn't in the map
+          entry.locationName = row.location_name.replace(/\s*E\.?\s*S\.?\s*$/i, '')
+        }
+
+        // Try to find ID from Name (Reverse lookup via map)
+        if (!entry.locationId && officialName) {
+          for (const [lId, lName] of locationMap.entries()) {
+            if (lName === officialName) {
+              entry.locationId = Number(lId)
+              break
+            }
+          }
+        }
       }
+
+      entry.totalExpenditures += Number(row.total_expenditures || 0)
     })
+
+    // Convert Map values to Array
+    const rows = Array.from(mergedData.values()).sort((a, b) => {
+      // Sort by Year DESC, Month DESC, Location Name ASC
+      if (b.year !== a.year) return b.year - a.year
+      if (b.month !== a.month) return b.month - a.month
+      return a.locationName.localeCompare(b.locationName)
+    })
+
+    console.log(`📊 [monthly-by-location] Merged ${rows.length} rows (Income + Expenses)`)
 
     console.log(`📊 [monthly-by-location] Procesat ${rows.length} rânduri pentru raspuns final`)
     if (rows.length > 0) {

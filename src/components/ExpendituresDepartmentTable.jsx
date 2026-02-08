@@ -1,11 +1,14 @@
 import React, { useMemo } from 'react'
-import { Building2 } from 'lucide-react'
+import { Building2, Loader2, X } from 'lucide-react'
+import { formatCompactNumber } from '../utils/plUtils'
 
 const ExpendituresDepartmentTable = ({ data, locations }) => {
     // Aggregate data by Department -> Location
     const { departmentRows, totalsRow } = useMemo(() => {
-        const deptMap = {} // { "DeptName": { total: 0, "Location1": 100, "Location2": 50 } }
-        const totals = { total: 0 } // { total: 0, "Location1": 0, ... }
+        if (!data || !locations) return { departmentRows: [], totalsRow: {} }
+
+        const deptMap = {}
+        const totals = { total: 0 }
 
         // Init totals
         locations.forEach(loc => totals[loc] = 0)
@@ -20,23 +23,14 @@ const ExpendituresDepartmentTable = ({ data, locations }) => {
                 locations.forEach(l => deptMap[dept][l] = 0)
             }
 
-            // Add to department
-            if (locations.includes(loc)) { // Only if location is in the active headers
-                // Note: If location filtering logic in parent changes, 'locations' prop reflects active columns
-                deptMap[dept][loc] += amount
-            }
-            // Add to department total
-            deptMap[dept].total += amount
-
-            // Add to grand totals
-            // We sum ALL amounts in the filtered dataset, but split by displayed locations
             if (locations.includes(loc)) {
+                deptMap[dept][loc] += amount
                 totals[loc] += amount
             }
+            deptMap[dept].total += amount
             totals.total += amount
         })
 
-        // Convert map to array and sort
         const rows = Object.entries(deptMap).map(([name, values]) => ({
             name,
             ...values
@@ -45,80 +39,94 @@ const ExpendituresDepartmentTable = ({ data, locations }) => {
         return { departmentRows: rows, totalsRow: totals }
     }, [data, locations])
 
-    const formatCurrency = (val) => {
-        if (!val || val === 0) return '-'
-        return new Intl.NumberFormat('ro-RO', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
-        }).format(val)
+    if (!data) {
+        return (
+            <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-20 shadow-sm text-center mt-8">
+                <Loader2 className="w-12 h-12 animate-spin text-indigo-600 mx-auto mb-4" />
+                <p className="text-slate-600 dark:text-slate-400 font-bold">Încărcare date departamente...</p>
+            </div>
+        )
     }
 
-    if (!data || data.length === 0) return null
+    if (data.length === 0) {
+        return (
+            <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-20 shadow-sm text-center mt-8">
+                <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-dashed border-slate-300 dark:border-slate-700">
+                    <X className="w-8 h-8 text-slate-400" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300">
+                    Nu s-au găsit date pentru departamente
+                </h3>
+                <p className="text-slate-500 dark:text-slate-400 text-sm max-w-md mx-auto mt-2">
+                    Nu există cheltuieli înregistrate (sau incluse în filtre) pentru perioada selectată.
+                </p>
+            </div>
+        )
+    }
 
     return (
-        <div className="mt-8 pt-8 border-t-2 border-slate-200 dark:border-slate-700">
-            <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center">
-                    <Building2 className="w-6 h-6 mr-2 text-green-600" />
-                    Sumar pe Departamente
-                </h2>
+        <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm mt-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="flex items-center gap-3 mb-6">
+                <div className="p-2.5 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
+                    <Building2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                        Sumar P&L pe Departamente
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Distribuția costurilor operaționale pe locații
+                    </p>
+                </div>
             </div>
 
-            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm max-h-[600px] overflow-y-auto font-mono text-sm">
-                <table className="w-full border-collapse bg-white dark:bg-slate-800 text-left">
-                    <thead className="bg-slate-100 dark:bg-slate-900 sticky top-0 z-20 shadow-sm">
+            <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                    <thead>
                         <tr>
-                            <th className="p-3 border-b border-r border-slate-300 dark:border-slate-600 font-bold text-slate-700 dark:text-slate-300 min-w-[200px] sticky left-0 z-30 bg-slate-100 dark:bg-slate-900">
+                            <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider sticky left-0 bg-white/90 dark:bg-slate-800/90 z-20 backdrop-blur-md">
                                 Departament
                             </th>
                             {locations.map(loc => (
-                                <th key={loc} className="p-3 border-b border-slate-300 dark:border-slate-600 font-bold text-slate-700 dark:text-slate-300 min-w-[120px] text-right whitespace-nowrap">
+                                <th key={loc} colSpan="3" className="px-4 py-3 text-center text-xs font-bold text-slate-500 uppercase tracking-wider border-l border-slate-200 dark:border-slate-700">
                                     {loc}
                                 </th>
                             ))}
-                            <th className="p-3 border-b border-l border-slate-300 dark:border-slate-600 font-bold text-slate-900 dark:text-white min-w-[120px] text-right bg-blue-50 dark:bg-slate-800/50 sticky right-0 z-20">
-                                TOTAL
+                            <th colSpan="3" className="px-4 py-3 text-center text-xs font-bold text-orange-500 uppercase tracking-wider border-l-2 border-orange-200 dark:border-orange-800 bg-orange-50/30 dark:bg-orange-900/10">
+                                Total Rețea
                             </th>
                         </tr>
                     </thead>
-                    <tbody>
-                        {departmentRows.map((row, idx) => (
-                            <tr
-                                key={row.name}
-                                className={`
-                    border-b border-slate-200 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors
-                    ${idx % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-slate-50 dark:bg-slate-800/50'}
-                `}
-                            >
-                                <td className="p-3 border-r border-slate-200 dark:border-slate-700 font-semibold text-slate-800 dark:text-slate-200 sticky left-0 z-10 bg-inherit shadow-[1px_0_0_0_rgba(0,0,0,0.05)]">
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                        {departmentRows.map((row) => (
+                            <tr key={row.name} className="hover:bg-white/60 dark:hover:bg-slate-700/60 transition-colors group">
+                                <td className="px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-300 sticky left-0 bg-white/90 dark:bg-slate-800/90 z-10 group-hover:bg-white group-hover:dark:bg-slate-700 backdrop-blur-md">
                                     {row.name}
                                 </td>
-                                {locations.map(loc => (
-                                    <td key={loc} className="p-3 text-right text-slate-600 dark:text-slate-400 border-r border-slate-100 dark:border-slate-700/50">
-                                        {formatCurrency(row[loc])}
+                                {locations.map(locName => (
+                                    <td key={`${row.name}-${locName}`} colSpan="3" className="px-4 py-3 text-xs text-center text-orange-500/80 border-l border-slate-100 dark:border-slate-800">
+                                        {row[locName] > 0 ? formatCompactNumber(row[locName]) : '-'}
                                     </td>
                                 ))}
-                                <td className="p-3 border-l border-slate-200 dark:border-slate-700 font-bold text-slate-900 dark:text-white text-right bg-blue-50/50 dark:bg-slate-800/50">
-                                    {formatCurrency(row.total)}
+                                <td colSpan="3" className="px-4 py-3 text-xs font-black text-center text-orange-600 border-l-2 border-orange-200 dark:border-orange-800 bg-orange-50/10 dark:bg-orange-900/10">
+                                    {formatCompactNumber(row.total)}
                                 </td>
                             </tr>
                         ))}
-
-                        {/* Totals Row */}
-                        <tr className="bg-slate-100 dark:bg-slate-900 font-bold border-t-2 border-slate-300 dark:border-slate-600 sticky bottom-0 z-20 shadow-lg">
-                            <td className="p-3 border-r border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white sticky left-0 z-30 bg-slate-100 dark:bg-slate-900">
-                                TOTAL GENERAL
-                            </td>
-                            {locations.map(loc => (
-                                <td key={loc} className="p-3 text-right text-slate-900 dark:text-white border-r border-slate-300 dark:border-slate-600">
-                                    {formatCurrency(totalsRow[loc])}
+                    </tbody>
+                    <tfoot className="bg-slate-50 dark:bg-slate-900/50 font-black">
+                        <tr>
+                            <td className="px-4 py-4 text-sm uppercase tracking-wider sticky left-0 bg-slate-50 dark:bg-slate-900 z-10">Total General</td>
+                            {locations.map(locName => (
+                                <td key={`${locName}-footer`} colSpan="3" className="px-4 py-4 text-xs text-center text-orange-600 border-l border-slate-200 dark:border-slate-700">
+                                    {formatCompactNumber(totalsRow[locName])}
                                 </td>
                             ))}
-                            <td className="p-3 border-l border-slate-300 dark:border-slate-600 text-right text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-slate-800 z-20">
-                                {formatCurrency(totalsRow.total)}
+                            <td colSpan="3" className="px-4 py-4 text-sm text-center border-l-2 border-orange-300 dark:border-orange-700 bg-orange-100/50 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400">
+                                {formatCompactNumber(totalsRow.total)}
                             </td>
                         </tr>
-                    </tbody>
+                    </tfoot>
                 </table>
             </div>
         </div>

@@ -1508,6 +1508,7 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
         totalRecords: 0, // Pentru UI
         totalProcessed: 0,
         imported: 0,
+        deleted: 0,
         skipped: 0,
         errors: 0,
         fromExternalAPI: 0,
@@ -1849,6 +1850,17 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
         return String(str).trim().replace(/\s+/g, ' ')
       }
 
+      // NOUL NORMALIZATOR (compatibil cu P&L / incasari.js)
+      const normalizeForSearch = (text) => {
+        if (!text) return ''
+        return String(text).trim()
+          .replace(/ţ/g, 'ț').replace(/ş/g, 'ș')
+          .replace(/Ţ/g, 'Ț').replace(/Ş/g, 'Ș')
+          .normalize('NFD') // Desparte diacriticele
+          .replace(/[\u0300-\u036f]/g, '') // Elimină accentele
+          .toLowerCase()
+      }
+
       // Normalizează numele de locație (FĂRĂ diacritice - user vrea fără)
       const normalizeLocationName = (name) => {
         if (!name) return 'Unknown'
@@ -1927,6 +1939,110 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
       // Skip building existing map - let PostgreSQL handle duplicates via UNIQUE INDEX
       console.log(`📊 Existing records in database: ${existingData.length} (will be handled by PostgreSQL UNIQUE INDEX)`)
 
+      // ==========================================================================================
+      // SYNC DELETIONS: Șterge din SQL ce nu mai există în Google Sheets
+      // ==========================================================================================
+      if (importSources.googleSheets && googleSheetsData.length > 0) {
+        _importAllProgress.currentStep = 'Se verifică ștergerile din Google Sheets...'
+        console.log('🗑️ Checking for deletions (Google Sheets sync)...')
+
+        // 1. Identifică înregistrările vechi care provin din Google Sheets
+        // Folosim existingData încărcat la Step 1
+        const oldGsRecords = existingData.filter(r => r.data_source === 'google_sheets')
+
+        if (oldGsRecords.length > 0) {
+          // 2. Extrage înregistrările noi din Google Sheets (din normalizedExternalData)
+          // Trebuie să filtrăm din normalizedExternalData, NU din googleSheetsData brut (pentru că normalizarea e importantă)
+          const newGsRecords = externalData.filter(r => r.data_source === 'google_sheets')
+
+          // 3. Construiește set de chei unice pentru noile înregistrări
+          const generateKey = (r) => {
+            // Cheia unică trebuie să fie IDENTICĂ cu cea folosită la deduplicare
+            return `${r.operational_date}|${parseFloat(r.amount).toFixed(2)}|${r.location_name}|${r.department_name}|${r.expenditure_type}`
+          }
+
+          const newKeys = new Set(newGsRecords.map(r => generateKey(r)))
+
+          // 4. Găsește ID-urile care trebuie șterse (sunt în vechi, dar nu în nou)
+          const idsToDelete = oldGsRecords
+            .filter(r => {
+              // Reconstruim cheia pentru înregistrarea veche (trebuie normalizată la fel!)
+              // ATENȚIE: r.amount din DB poate fi string sau number, asigurăm format consistent
+              // r.operational_date din DB este Date object, convertim la string YYYY-MM-DD
+
+              let dateStr = ''
+              if (r.operational_date instanceof Date) {
+                // FIXED: Use local date components instead of toISOString() to avoid UTC shift
+                const year = r.operational_date.getFullYear()
+                const month = String(r.operational_date.getMonth() + 1).padStart(2, '0')
+                const day = String(r.operational_date.getDate()).padStart(2, '0')
+                dateStr = `${year}-${month}-${day}`
+              } else if (typeof r.operational_date === 'string') {
+                dateStr = r.operational_date.substring(0, 10)
+              }
+
+              // Normalizare string-uri din DB (care sunt deja normalizate, dar just in case)
+              // IMPORTANT: Datele din DB sunt deja normalizate la insert, deci le folosim direct
+              // DAR trebuie să ne asigurăm că formatul cheii este identic
+
+              const key = `${dateStr}|${parseFloat(r.amount).toFixed(2)}|${r.location_name}|${r.department_name}|${r.expenditure_type}`
+              return !newKeys.has(key)
+            })
+            .map(r => r.id)
+
+          // LOGGING DEBUG
+          console.log('🔍 DEBUG KEYS:')
+          if (oldGsRecords.length > 0) {
+            const sampleOld = oldGsRecords[0]
+
+            let dateStr = ''
+            if (sampleOld.operational_date instanceof Date) {
+              const year = sampleOld.operational_date.getFullYear()
+              const month = String(sampleOld.operational_date.getMonth() + 1).padStart(2, '0')
+              const day = String(sampleOld.operational_date.getDate()).padStart(2, '0')
+              dateStr = `${year}-${month}-${day}`
+            } else if (typeof sampleOld.operational_date === 'string') {
+              dateStr = sampleOld.operational_date.substring(0, 10)
+            }
+            const keyOld = `${dateStr}|${parseFloat(sampleOld.amount).toFixed(2)}|${sampleOld.location_name}|${sampleOld.department_name}|${sampleOld.expenditure_type}`
+            console.log('🔑 OLD KEY Sample:', keyOld)
+            console.log('   -> Raw Amount:', sampleOld.amount, 'Type:', typeof sampleOld.amount)
+          }
+
+          if (newGsRecords.length > 0) {
+            const sampleNew = newGsRecords[0]
+            const keyNew = generateKey(sampleNew)
+            console.log('🔑 NEW KEY Sample:', keyNew)
+            console.log('   -> Raw Amount:', sampleNew.amount, 'Type:', typeof sampleNew.amount)
+          }
+
+          console.log(`🔍 Sync Analysis:`)
+          console.log(`   - Old GS Records in DB: ${oldGsRecords.length}`)
+          console.log(`   - New GS Records in Sheet: ${newGsRecords.length}`)
+          console.log(`   - Unique Records in Sheet: ${newKeys.size}`)
+          console.log(`   - Records to DELETE: ${idsToDelete.length}`)
+
+          // 5. Execută ștergerea
+          if (idsToDelete.length > 0) {
+            console.log(`🗑️ Deleting ${idsToDelete.length} obsolete records from Google Sheets source...`)
+
+            // Ștergem în batch-uri de 500 pentru a nu bloca baza
+            const deleteBatchSize = 500
+            let deletedCount = 0
+            for (let i = 0; i < idsToDelete.length; i += deleteBatchSize) {
+              const batchIds = idsToDelete.slice(i, i + deleteBatchSize)
+              await localPool.query('DELETE FROM expenditures_sync WHERE id = ANY($1)', [batchIds])
+              deletedCount += batchIds.length
+              _importAllProgress.deleted = deletedCount
+            }
+
+            console.log(`✅ Deleted ${deletedCount} records successfully.`)
+            // Adăugăm la log-ul UI (opțional, dacă avem câmp pentru asta, sau doar console)
+          }
+        }
+      }
+      // ==========================================================================================
+
       const mappingResult = await localPool.query('SELECT * FROM expenditure_location_mapping')
       const mapping = {}
       mappingResult.rows.forEach(row => {
@@ -1963,18 +2079,29 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
           const dataSource = row.data_source || 'api_sync'
           const description = row.description || null
 
-          // Direct INSERT cu ON CONFLICT DO NOTHING
+          // Direct INSERT cu ON CONFLICT UPDATE
+          // CALCULĂM VALORILE NORMALIZATE
+          const normLoc = normalizeLocationName(row.location_name) // Păstrăm logica specifică de locație
+          const normLocSearch = normalizeForSearch(normLoc) // Apoi normalizăm pentru căutare (fără diacritice, lowercase)
+          const normDept = normalizeForSearch(row.department_name)
+          const normType = normalizeForSearch(row.expenditure_type)
+
           const insertPromise = (async () => {
             try {
-
               const result = dataSource === 'google_sheets' && description
                 ? await localPool.query(`
                     INSERT INTO expenditures_sync (
                       location_name, department_name, expenditure_type, amount, 
-                      operational_date, synced_at, mapped_location_id, data_source, description
-                    ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7, $8)
+                      operational_date, synced_at, mapped_location_id, data_source, description,
+                      normalized_location_name, normalized_department_name, normalized_expenditure_type
+                    ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7, $8, $9, $10, $11)
                     ON CONFLICT (operational_date, amount, location_name, department_name, expenditure_type) 
-                    DO NOTHING
+                    DO UPDATE SET 
+                      description = EXCLUDED.description,
+                      normalized_location_name = EXCLUDED.normalized_location_name,
+                      normalized_department_name = EXCLUDED.normalized_department_name,
+                      normalized_expenditure_type = EXCLUDED.normalized_expenditure_type,
+                      synced_at = CURRENT_TIMESTAMP
                   `, [
                   row.location_name,
                   row.department_name,
@@ -1983,15 +2110,23 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
                   row.operational_date,
                   mappedLocationId,
                   dataSource,
-                  description
+                  description,
+                  normLocSearch,
+                  normDept,
+                  normType
                 ])
                 : await localPool.query(`
                     INSERT INTO expenditures_sync (
                       location_name, department_name, expenditure_type, amount, 
-                      operational_date, synced_at, mapped_location_id, data_source
-                    ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7)
+                      operational_date, synced_at, mapped_location_id, data_source,
+                      normalized_location_name, normalized_department_name, normalized_expenditure_type
+                    ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7, $8, $9, $10)
                     ON CONFLICT (operational_date, amount, location_name, department_name, expenditure_type) 
-                    DO NOTHING
+                    DO UPDATE SET 
+                      normalized_location_name = EXCLUDED.normalized_location_name,
+                      normalized_department_name = EXCLUDED.normalized_department_name,
+                      normalized_expenditure_type = EXCLUDED.normalized_expenditure_type,
+                      synced_at = CURRENT_TIMESTAMP
                   `, [
                   row.location_name,
                   row.department_name,
@@ -1999,7 +2134,10 @@ export async function executeExpendituresImport(pool, importSources = { bat: tru
                   row.amount,
                   row.operational_date,
                   mappedLocationId,
-                  dataSource
+                  dataSource,
+                  normLocSearch,
+                  normDept,
+                  normType
                 ])
 
               if (result.rowCount > 0) {

@@ -214,10 +214,7 @@ export const AuthProvider = ({ children }) => {
           isAuthCheckRunning.current = false
         }
       } else {
-        // No token, only redirect if not already on login page
-        if (window.location.pathname !== '/login') {
-          window.location.replace('/login')
-        }
+        // No token - nu forțăm reload, lăsăm Router-ul să decidă (via ProtectedRoute)
       }
       setLoading(false)
     }
