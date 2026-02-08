@@ -3017,6 +3017,13 @@ router.post('/preview-google-sheets', authenticateToken, async (req, res) => {
           // Elimină spații și separatori de mii
           let cleanAmount = amountStrClean.replace(/\s/g, '')
 
+          // Detectare numere negative în paranteze: (20.500,00)
+          let isNegative = false
+          if (cleanAmount.includes('(') && cleanAmount.includes(')')) {
+            isNegative = true
+            cleanAmount = cleanAmount.replace(/\(/g, '').replace(/\)/g, '')
+          }
+
           // Strategie: dacă există virgulă, folosește-o ca separator zecimal (format românesc)
           if (amountStrClean.includes(',')) {
             // Format românesc: 1234,56 sau 1.234,56
@@ -3037,6 +3044,9 @@ router.post('/preview-google-sheets', authenticateToken, async (req, res) => {
           }
 
           amount = parseFloat(cleanAmount) || 0
+          if (isNegative) {
+            amount = -Math.abs(amount)
+          }
 
           // Rotunjire la 2 zecimale pentru consistență
           amount = Math.round(amount * 100) / 100
@@ -3261,6 +3271,13 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
           // Elimină spații și separatori de mii
           let cleanAmount = amountStrClean.replace(/\s/g, '')
 
+          // Detectare numere negative în paranteze: (20.500,00)
+          let isNegative = false
+          if (cleanAmount.includes('(') && cleanAmount.includes(')')) {
+            isNegative = true
+            cleanAmount = cleanAmount.replace(/\(/g, '').replace(/\)/g, '')
+          }
+
           // Strategie: dacă există virgulă, folosește-o ca separator zecimal (format românesc)
           if (amountStrClean.includes(',')) {
             // Format românesc: 1234,56 sau 1.234,56
@@ -3281,6 +3298,9 @@ router.post('/import-google-sheets', authenticateToken, async (req, res) => {
           }
 
           amount = parseFloat(cleanAmount) || 0
+          if (isNegative) {
+            amount = -Math.abs(amount)
+          }
 
           // Rotunjire la 2 zecimale pentru consistență
           amount = Math.round(amount * 100) / 100
