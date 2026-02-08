@@ -11,8 +11,8 @@ import * as XLSX from 'xlsx'
 import NarrativeInsights from '../components/NarrativeInsights'
 import CostAnalysis from '../components/CostAnalysis'
 import SlotOptimizer from '../components/SlotOptimizer'
-import ExpenseCategoryChart from '../components/ExpenseCategoryChart'
-import LocationEfficiencyMatrix from '../components/LocationEfficiencyMatrix'
+import ProfitForecastChart from '../components/ProfitForecastChart'
+import LocationROIChart from '../components/LocationROIChart'
 
 // Import existing components
 import KPICard from '../components/KPICard'
@@ -673,15 +673,6 @@ const PLDashboard = () => {
                                     console.log('Clicked:', location, month, data)
                                 }}
                             />
-
-                            {/* NEW SMART CHARTS */}
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <ExpenseCategoryChart data={expendituresForTable} />
-                                <LocationEfficiencyMatrix
-                                    monthlyData={visualizationData.monthlyProfits}
-                                    locations={allLocations?.map(l => l.name || l) || []}
-                                />
-                            </div>
                         </div>
                     )}
 
@@ -699,13 +690,10 @@ const PLDashboard = () => {
                                 }))}
                             />
 
-                            {/* NEW SMART CHARTS */}
+                            {/* SMART P&L CHARTS */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <ExpenseCategoryChart data={expendituresForTable} />
-                                <LocationEfficiencyMatrix
-                                    monthlyData={visualizationData.monthlyProfits}
-                                    locations={locations}
-                                />
+                                <ProfitForecastChart monthlyData={visualizationData.monthlyProfits} />
+                                <LocationROIChart monthlyData={visualizationData.monthlyProfits} />
                             </div>
 
                             {/* SLOT OPTIMIZER */}
