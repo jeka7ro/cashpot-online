@@ -698,7 +698,7 @@ const PLDashboard = () => {
                 </div>
 
                 {/* SMART P&L CHARTS - BOTTOM OF PAGE */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
                     <ProfitForecastChart monthlyData={visualizationData.monthlyProfits} />
                     <LocationROIChart monthlyData={monthlyData} />
                 </div>
