@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import Layout from '../components/Layout'
 import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
-import { Download, RefreshCw, Loader2, DollarSign, TrendingUp, Activity, Target, Menu, FileSpreadsheet, LayoutDashboard, Table2, BrainCircuit } from 'lucide-react'
+import { Download, RefreshCw, Loader2, DollarSign, TrendingUp, Activity, Target, Menu, FileSpreadsheet, LayoutDashboard, Table2, BrainCircuit, Settings } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import axios from 'axios'
 import * as XLSX from 'xlsx'
@@ -47,11 +47,30 @@ const PLDashboard = () => {
     const [activeTab, setActiveTab] = useState('data')
     const [expendituresForTable, setExpendituresForTable] = useState([])
 
-    // Date range state (default to current year)
-    const [dateRange, setDateRange] = useState({
-        startDate: `${new Date().getFullYear()}-01-01`,
-        endDate: `${new Date().getFullYear()}-12-31`
+    // Date range state with localStorage persistence
+    const [dateRange, setDateRange] = useState(() => {
+        try {
+            const saved = localStorage.getItem('pl_dateRange')
+            if (saved) {
+                return JSON.parse(saved)
+            }
+        } catch (e) {
+            console.error('Failed to load saved date range:', e)
+        }
+        return {
+            startDate: `${new Date().getFullYear()}-01-01`,
+            endDate: `${new Date().getFullYear()}-12-31`
+        }
     })
+
+    // Persist date range to localStorage whenever it changes
+    useEffect(() => {
+        try {
+            localStorage.setItem('pl_dateRange', JSON.stringify(dateRange))
+        } catch (e) {
+            console.error('Failed to save date range:', e)
+        }
+    }, [dateRange])
 
     const currentSelectionYear = new Date(dateRange.startDate).getFullYear()
 
@@ -506,6 +525,18 @@ const PLDashboard = () => {
                                             <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
                                             <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
                                                 Export Excel
+                                            </span>
+                                        </button>
+
+                                        <button
+                                            onClick={() => {
+                                                window.location.href = '/expenditures/settings'
+                                            }}
+                                            className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center space-x-3 transition-colors"
+                                        >
+                                            <Settings className="w-4 h-4 text-purple-500" />
+                                            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                                                Setări Cheltuieli
                                             </span>
                                         </button>
                                     </div>
