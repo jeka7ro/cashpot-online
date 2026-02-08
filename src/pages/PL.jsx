@@ -679,7 +679,7 @@ const PLDashboard = () => {
                                 <ExpenseCategoryChart data={expendituresForTable} />
                                 <LocationEfficiencyMatrix
                                     monthlyData={visualizationData.monthlyProfits}
-                                    locations={locations}
+                                    locations={allLocations?.map(l => l.name || l) || []}
                                 />
                             </div>
                         </div>
