@@ -11,6 +11,8 @@ import * as XLSX from 'xlsx'
 import NarrativeInsights from '../components/NarrativeInsights'
 import CostAnalysis from '../components/CostAnalysis'
 import SlotOptimizer from '../components/SlotOptimizer'
+import ExpenseCategoryChart from '../components/ExpenseCategoryChart'
+import LocationEfficiencyMatrix from '../components/LocationEfficiencyMatrix'
 
 // Import existing components
 import KPICard from '../components/KPICard'
@@ -574,8 +576,10 @@ const PLDashboard = () => {
                         <KPICard
                             title="Marjă Profit"
                             value={`${metrics.profitMargin.toFixed(1)}%`}
-                            change={metrics.marginChange}
-                            changeLabel={`vs ${currentSelectionYear - 1}`}
+                            thresholdMode={true}
+                            thresholdValue={10}
+                            suffix=""
+                            change={0}
                         />
                     </div>
 
@@ -685,6 +689,15 @@ const PLDashboard = () => {
                                     pl: m.plByLoc.reduce((sum, loc) => sum + loc.pl, 0)
                                 }))}
                             />
+
+                            {/* NEW SMART CHARTS */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <ExpenseCategoryChart data={expendituresForTable} />
+                                <LocationEfficiencyMatrix
+                                    monthlyData={visualizationData.monthlyProfits}
+                                    locations={locations}
+                                />
+                            </div>
 
                             {/* SLOT OPTIMIZER */}
                             <SlotOptimizer locationData={optimizerData} />

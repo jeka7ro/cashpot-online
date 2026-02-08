@@ -2,9 +2,18 @@ import React from 'react'
 import { TrendingUp, TrendingDown } from 'lucide-react'
 import { formatCompactNumber, getValueColor } from '../utils/plUtils'
 
-const KPICard = ({ title, value, change, changeLabel, trend, healthScore, suffix = 'RON' }) => {
+const KPICard = ({ title, value, change, changeLabel, trend, healthScore, suffix = 'RON', thresholdMode = false, thresholdValue = 10 }) => {
+    // Extract numeric value if it's a percentage string
+    const numericValue = typeof value === 'string' && value.includes('%')
+        ? parseFloat(value.replace('%', ''))
+        : (typeof value === 'number' ? value : 0)
+
     const isPositive = change >= 0
     const trendColor = getValueColor(change)
+
+    // Threshold mode logic
+    const meetsThreshold = numericValue >= thresholdValue
+    const thresholdColor = meetsThreshold ? '#22c55e' : (numericValue >= thresholdValue * 0.5 ? '#f59e0b' : '#ef4444')
 
     return (
         <div className="relative overflow-hidden rounded-xl bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm hover:shadow-md transition-all duration-300 hover:scale-[1.01]">
@@ -13,17 +22,29 @@ const KPICard = ({ title, value, change, changeLabel, trend, healthScore, suffix
                 <div className="flex items-start justify-between mb-2">
                     <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 leading-tight">{title}</h3>
 
-                    {/* Trend Pill */}
-                    <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-700/50 px-1.5 py-0.5 rounded text-xs">
-                        {isPositive ? (
-                            <TrendingUp className="w-3 h-3" style={{ color: trendColor }} />
-                        ) : (
-                            <TrendingDown className="w-3 h-3" style={{ color: trendColor }} />
-                        )}
-                        <span className="font-semibold" style={{ color: trendColor }}>
-                            {isPositive ? '+' : ''}{change.toFixed(1)}%
-                        </span>
-                    </div>
+                    {/* Trend Pill or Threshold Indicator */}
+                    {!thresholdMode ? (
+                        <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-700/50 px-1.5 py-0.5 rounded text-xs">
+                            {isPositive ? (
+                                <TrendingUp className="w-3 h-3" style={{ color: trendColor }} />
+                            ) : (
+                                <TrendingDown className="w-3 h-3" style={{ color: trendColor }} />
+                            )}
+                            <span className="font-semibold" style={{ color: trendColor }}>
+                                {isPositive ? '+' : ''}{change.toFixed(1)}%
+                            </span>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-700/50 px-1.5 py-0.5 rounded text-xs">
+                            <div
+                                className="w-2 h-2 rounded-full"
+                                style={{ backgroundColor: thresholdColor }}
+                            />
+                            <span className="font-semibold" style={{ color: thresholdColor }}>
+                                {meetsThreshold ? 'Sănătos' : 'Sub țintă'}
+                            </span>
+                        </div>
+                    )}
                 </div>
 
                 {/* Value (Middle) */}
@@ -55,6 +76,10 @@ const KPICard = ({ title, value, change, changeLabel, trend, healthScore, suffix
                                     />
                                 )
                             })}
+                        </div>
+                    ) : thresholdMode ? (
+                        <div className="text-xs text-slate-400 dark:text-slate-500">
+                            Țintă: ≥{thresholdValue}%
                         </div>
                     ) : (
                         <div className="text-xs text-slate-400 dark:text-slate-500">
