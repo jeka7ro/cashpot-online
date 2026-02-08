@@ -44,39 +44,116 @@ async function run() {
             console.log('Parsed Amount Result:', parseAmount(values[2]));
         }
 
-        // Check DB connection
+        // Check batches of rows to find why 1800+ are new
+        console.log('\n--- Batch Duplicate Check (First 50 rows) ---');
         const { Pool } = pg;
-        console.log('Connecting to DB:', process.env.DATABASE_URL ? 'URL defined' : 'URL MISSING');
-        if (!process.env.DATABASE_URL) {
-            console.error("DATABASE_URL is missing from .env");
-            return;
-        }
-
         const pool = new Pool({
             connectionString: process.env.DATABASE_URL,
             ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
         });
 
-        try {
-            const res = await pool.query("SELECT to_regclass('public.expenditures_sync') as exists");
-            if (!res.rows[0].exists) {
-                console.log('Table expenditures_sync DOES NOT EXIST in this DB.');
-                // List tables
-                const tables = await pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'");
-                console.log('Tables in DB:', tables.rows.map(r => r.table_name).join(', '));
-            } else {
-                const countRes = await pool.query('SELECT count(*) FROM expenditures_sync');
-                console.log('DB Connection OK. Total records in expenditures_sync:', countRes.rows[0].count);
+        let duplicatesFound = 0;
+        let newFound = 0;
 
-                // Check for specific records in DB
-                const dbRes = await pool.query("SELECT * FROM expenditures_sync WHERE description ILIKE '%Turk Kebab%'");
-                console.log(`Found ${dbRes.rows.length} records in DB matching 'Turk Kebab'`);
-                if (dbRes.rows.length > 0) {
-                    console.log('Sample DB record:', dbRes.rows[0]);
+        try {
+            for (const row of rows.slice(0, 50)) {
+                const values = parseCsvRow(row);
+                if (values.length < 5) continue;
+
+                const [dateStr, explanation, amountStr, location, department, expenditureType] = values;
+
+                const amount = parseAmount(amountStr);
+                let operationalDate;
+                if (dateStr && (dateStr.includes('.') || dateStr.includes('/') || dateStr.includes('-'))) {
+                    if (dateStr.includes('.')) {
+                        const dateParts = dateStr.split('.');
+                        if (dateParts.length === 3) operationalDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`;
+                    } else if (dateStr.includes('/')) {
+                        const dateParts = dateStr.split('/');
+                        if (dateParts.length === 3) operationalDate = `${dateParts[2]}-${dateParts[0].padStart(2, '0')}-${dateParts[1].padStart(2, '0')}`;
+                    } else {
+                        operationalDate = dateStr;
+                    }
+                }
+
+                const normalizedLocation = (location || 'Unknown').trim();
+                const normalizedDepartment = (department || 'Unknown').trim();
+                const normalizedType = (expenditureType || 'Unknown').trim();
+
+                if (!operationalDate) continue;
+
+                const query = `
+                    SELECT id, data_source
+                    FROM expenditures_sync
+                    WHERE operational_date = $1
+                        AND amount = $2
+                        AND location_name = $3
+                        AND department_name = $4
+                        AND expenditure_type = $5
+                    LIMIT 1
+                `;
+
+                const res = await pool.query(query, [operationalDate, amount, normalizedLocation, normalizedDepartment, normalizedType]);
+
+                if (res.rows.length > 0) {
+                    duplicatesFound++;
+                    const src = res.rows[0].data_source;
+                    if (src !== 'google_sheets') {
+                        console.log(`[EXISTING DIFF SOURCE] Found duplicate with source '${src}' for ${amount} / ${normalizedDepartment}`);
+                    }
+                } else {
+                    newFound++;
+                    console.log(`[TRULY NEW?] Date: ${operationalDate}, Amount: ${amount}, Loc: "${normalizedLocation}", Dep: "${normalizedDepartment}", Type: "${normalizedType}"`);
+
+                    // Deep debug for the first mismatch
+                    if (newFound === 1) {
+                        console.log('--- DEEP DEBUG FIRST MISMATCH ---');
+                        const debugRes = await pool.query(`
+                            FROM expenditures_sync 
+                            WHERE operational_date = $1 AND data_source = 'google_sheets'
+                        `, [operationalDate]);
+
+                        console.log(`Found ${debugRes.rows.length} records for date ${operationalDate} in DB.`);
+
+                        // Specific check for amount
+                        const amountMatches = debugRes.rows.filter(r => Math.abs(Number(r.amount) - amount) < 0.01);
+                        console.log(`Records matching amount ${amount}: ${amountMatches.length}`);
+
+                        console.log('--- ALL DB AMOUNTS FOR THIS DATE ---');
+                        debugRes.rows.forEach(r => {
+                            console.log(`ID: ${r.id}, Amount: ${r.amount}, Loc: ${r.location_name}, Dep: ${r.department_name}`);
+                        });
+                        console.log('------------------------------------');
+
+                        if (amountMatches.length > 0) {
+                            amountMatches.forEach(r => {
+                                console.log('Potential Match:', {
+                                    id: r.id,
+                                    dbLoc: r.location_name,
+                                    csvLoc: normalizedLocation,
+                                    locMatch: r.location_name === normalizedLocation,
+                                    dbDep: r.department_name,
+                                    csvDep: normalizedDepartment,
+                                    depMatch: r.department_name === normalizedDepartment,
+                                    dbType: r.expenditure_type,
+                                    csvType: normalizedType,
+                                    typeMatch: r.expenditure_type === normalizedType,
+                                    typeHex: Buffer.from(r.expenditure_type).toString('hex'),
+                                    csvTypeHex: Buffer.from(normalizedType).toString('hex')
+                                });
+                            });
+                        }
+                    }
                 }
             }
+            console.log(`Summary: ${duplicatesFound} duplicates, ${newFound} potential NEW records checked.`);
+
+            // Check total count in DB
+            const total = await pool.query("SELECT count(*) FROM expenditures_sync WHERE data_source='google_sheets'");
+            console.log(`Total Google Sheets records in DB: ${total.rows[0].count}`);
+
         } catch (e) {
-            console.error('DB Error:', e.message);
+            console.error('DB Error:', e);
         } finally {
             await pool.end();
         }
@@ -113,33 +190,37 @@ function parseAmount(amountStr) {
     // Elimină spații și separatori de mii
     let cleanAmount = amountStrClean.replace(/\s/g, '');
 
+    // Detectare numere negative în paranteze: (20.500,00)
+    let isNegative = false;
+    if (cleanAmount.includes('(') && cleanAmount.includes(')')) {
+        isNegative = true;
+        cleanAmount = cleanAmount.replace(/\(/g, '').replace(/\)/g, '');
+    }
+
     // Strategie: dacă există virgulă, folosește-o ca separator zecimal (format românesc)
     if (amountStrClean.includes(',')) {
         // Format românesc: 1234,56 sau 1.234,56
-        cleanAmount = amountStrClean.replace(/\./g, '').replace(',', '.');
+        cleanAmount = cleanAmount.replace(/\./g, '').replace(',', '.');
     } else if (amountStrClean.includes('.') && amountStrClean.split('.').length === 2) {
         // Format englez: 1234.56 (un singur punct = separator zecimal)
-        const parts = amountStrClean.split('.');
+        const parts = cleanAmount.split('.');
         if (parts[1].length <= 3) {
             // Probabil separator zecimal
-            cleanAmount = amountStrClean;
+            cleanAmount = cleanAmount;
         } else {
             // Probabil separator de mii
-            cleanAmount = amountStrClean.replace(/\./g, '');
+            cleanAmount = cleanAmount.replace(/\./g, '');
         }
     } else if (amountStrClean.includes('.')) {
         // Multiple puncte = separator de mii românesc
-        cleanAmount = amountStrClean.replace(/\./g, '');
+        cleanAmount = cleanAmount.replace(/\./g, '');
     }
 
-    const amount = parseFloat(cleanAmount);
+    let amount = parseFloat(cleanAmount);
+    if (isNegative) {
+        amount = -Math.abs(amount);
+    }
     return amount;
 }
-
-// Add this to run():
-// ...
-// console.log('Parsed values:', values);
-// console.log('Parsed Amount:', parseAmount(values[2]));
-
 
 run();
