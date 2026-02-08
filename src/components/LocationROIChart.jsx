@@ -76,7 +76,7 @@ const LocationROIChart = ({ monthlyData }) => {
     }
 
     return (
-        <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+        <div className="w-full relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
                 <div className="p-2.5 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
                     <Target className="w-5 h-5 text-purple-600 dark:text-purple-400" />

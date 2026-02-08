@@ -92,7 +92,7 @@ const ProfitForecastChart = ({ monthlyData }) => {
     }
 
     return (
-        <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+        <div className="w-full relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                     <div className="p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
