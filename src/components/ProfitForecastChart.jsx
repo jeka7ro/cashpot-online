@@ -116,7 +116,7 @@ const ProfitForecastChart = ({ monthlyData }) => {
             </div>
 
             <ResponsiveContainer width="100%" height={280}>
-                <ComposedChart data={chartData.combined} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <ComposedChart data={chartData.combined} margin={{ top: 10, right: 30, left: 20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                     <XAxis
                         dataKey="month"
