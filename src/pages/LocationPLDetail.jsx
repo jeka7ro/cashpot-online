@@ -654,14 +654,14 @@ const LocationPLDetail = () => {
                     <td className="px-3 py-2.5 text-right text-slate-800 dark:text-slate-200 tabular-nums">{fmt(totals.out)}</td>
                     <td className="px-3 py-2.5 text-right text-slate-800 dark:text-slate-200 tabular-nums">{fmt(totals.win)}</td>
                     <td className="px-3 py-2.5 text-right text-slate-800 dark:text-slate-200 tabular-nums">{fmt(totals.bet)}</td>
-                    <td className={`px-3 py-2.5 text-right font-bold tabular-nums ${totals.profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>
-                      {fmt(totals.profit)}
-                    </td>
                     <td className="px-3 py-2.5 text-right text-slate-700 dark:text-slate-300 tabular-nums">
                       {totals.bet > 0 ? pct((totals.win / totals.bet) * 100) : '—'}
                     </td>
                     <td className="px-3 py-2.5 text-right text-cyan-600 dark:text-cyan-400 tabular-nums">
                       {totals.out > 0 ? pct((totals.in / totals.out) * 100) : '—'}
+                    </td>
+                    <td className={`px-3 py-2.5 text-right font-bold tabular-nums ${totals.profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>
+                      {fmt(totals.profit)}
                     </td>
                   </tr>
                 </tfoot>
