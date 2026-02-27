@@ -185,15 +185,61 @@ router.get('/dashboard/summary', authenticateToken, async (req, res) => {
       })
     }
 
+    // Define targetLocations once
+    const targetLocations = locationsArray || (includedFilters.locations && includedFilters.locations.length > 0 ? includedFilters.locations : null)
+
+    // Calculate active machine IDs for the permitted locations
+    const activeIds = getActiveMachineIds({ includeLocations: targetLocations })
+
+    const daysDiff = Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24))
+    const prevStartDate = new Date(startDate)
+    prevStartDate.setDate(prevStartDate.getDate() - daysDiff)
+    const prevEndDate = new Date(endDate)
+    prevEndDate.setDate(prevEndDate.getDate() - daysDiff)
+
     // Get total revenue from incasari_daily (using profit = in_amount - out_amount)
-    const revenueQuery = await pool.query(
-      `SELECT 
+    let revenueSql = `
+      SELECT 
         COALESCE(SUM(profit), 0) as total,
         COUNT(DISTINCT location_id) as locations
       FROM incasari_daily
-      WHERE audit_date BETWEEN $1 AND $2`,
-      [startDate, endDate]
-    )
+      WHERE audit_date BETWEEN $1 AND $2
+    `
+    let prevRevenueSql = `
+      SELECT COALESCE(SUM(profit), 0) as total
+      FROM incasari_daily
+      WHERE audit_date BETWEEN $1 AND $2
+    `
+    const revenueParams = [startDate, endDate]
+    const prevRevenueParams = [prevStartDate.toISOString().split('T')[0], prevEndDate.toISOString().split('T')[0]]
+
+    // APPLY LOCATION FILTERS TO REVENUE QUERIES 
+    if (activeIds && activeIds.length > 0) {
+      revenueSql += ` AND machine_id = ANY($3)`
+      prevRevenueSql += ` AND machine_id = ANY($3)`
+      revenueParams.push(activeIds)
+      prevRevenueParams.push(activeIds)
+    } else if (targetLocations && targetLocations.length > 0) {
+      // Fallback: map location names to IDs if activeIds is empty somehow
+      const locsData = loadExportedData('locations.json')
+      const targetIds = locsData
+        .filter(l => targetLocations.map(normalizeText).includes(normalizeLocationName(l.name || l.location)))
+        .map(l => l.id)
+        .filter(id => id !== undefined && id !== null)
+
+      if (targetIds.length > 0) {
+        revenueSql += ` AND location_id = ANY($3::integer[])`
+        prevRevenueSql += ` AND location_id = ANY($3::integer[])`
+        revenueParams.push(targetIds)
+        prevRevenueParams.push(targetIds)
+      } else {
+        revenueSql += ` AND 1=0` // User has filters but no mapped IDs exist
+        prevRevenueSql += ` AND 1=0`
+      }
+    }
+
+    const revenueQuery = await pool.query(revenueSql, revenueParams)
+    const prevRevenueQuery = await pool.query(prevRevenueSql, prevRevenueParams)
 
     // Build expenses query with user's filters (EXACT SAME LOGIC AS /monthly-by-location)
     let expensesSql = `
@@ -210,8 +256,7 @@ router.get('/dashboard/summary', authenticateToken, async (req, res) => {
     const expensesParams = [startDate, endDate]
     let paramIdx = 3
 
-    // APPLY LOCATION FILTERS (EXACT SAME AS /monthly-by-location)
-    const targetLocations = locationsArray || (includedFilters.locations && includedFilters.locations.length > 0 ? includedFilters.locations : null)
+    // APPLY LOCATION FILTERS TO EXPENSES
     if (targetLocations && targetLocations.length > 0) {
       const normalizedTargetLocations = targetLocations.map(normalizeText).filter(Boolean)
       expensesSql += ` AND normalized_location_name = ANY($${paramIdx}::text[])`
@@ -236,22 +281,6 @@ router.get('/dashboard/summary', authenticateToken, async (req, res) => {
     }
 
     const expensesQuery = await pool.query(expensesSql, expensesParams)
-
-
-
-    // Get previous period for comparison (same duration)
-    const daysDiff = Math.ceil((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24))
-    const prevStartDate = new Date(startDate)
-    prevStartDate.setDate(prevStartDate.getDate() - daysDiff)
-    const prevEndDate = new Date(endDate)
-    prevEndDate.setDate(prevEndDate.getDate() - daysDiff)
-
-    const prevRevenueQuery = await pool.query(
-      `SELECT COALESCE(SUM(profit), 0) as total
-      FROM incasari_daily
-      WHERE audit_date BETWEEN $1 AND $2`,
-      [prevStartDate.toISOString().split('T')[0], prevEndDate.toISOString().split('T')[0]]
-    )
 
     // Build previous expenses query with same filters (EXACT SAME LOGIC AS /monthly-by-location)
     let prevExpensesSql = `
