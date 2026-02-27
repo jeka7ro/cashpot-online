@@ -1,275 +1,652 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, BarChart3, DollarSign, TrendingUp, TrendingDown } from 'lucide-react'
+import {
+  ArrowLeft, Download, Search, TrendingUp, TrendingDown,
+  ChevronUp, ChevronDown, ChevronsUpDown, Cpu, DollarSign,
+  BarChart2, Percent, RefreshCw, Calendar, CalendarDays,
+  CalendarRange, CalendarX, CalendarCheck, Clock
+} from 'lucide-react'
 import Layout from '../components/Layout'
+import KPICard from '../components/KPICard'
 import axios from 'axios'
-import { useData } from '../contexts/DataContext'
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 
+/* ── colors ──────────────────────────────────────────────── */
+const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f43f5e', '#f59e0b', '#06b6d4', '#ec4899', '#6366f1', '#14b8a6', '#f97316']
+
+/* ── date utils ───────────────────────────────────────────── */
+const fmtDate = (d) => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+const QUICK_PERIODS = [
+  {
+    id: 'today', label: 'Azi', icon: CalendarDays,
+    get: () => {
+      const d = new Date(); return { s: fmtDate(d), e: fmtDate(d) }
+    }
+  },
+  {
+    id: 'yesterday', label: 'Ieri', icon: Clock,
+    get: () => {
+      const d = new Date(); d.setDate(d.getDate() - 1); return { s: fmtDate(d), e: fmtDate(d) }
+    }
+  },
+  {
+    id: 'thisMonth', label: 'Luna curentă', icon: CalendarRange,
+    get: () => {
+      const n = new Date()
+      return {
+        s: fmtDate(new Date(n.getFullYear(), n.getMonth(), 1)),
+        e: fmtDate(new Date(n.getFullYear(), n.getMonth() + 1, 0))
+      }
+    }
+  },
+  {
+    id: 'lastMonth', label: 'Luna trecută', icon: CalendarX,
+    get: () => {
+      const n = new Date()
+      return {
+        s: fmtDate(new Date(n.getFullYear(), n.getMonth() - 1, 1)),
+        e: fmtDate(new Date(n.getFullYear(), n.getMonth(), 0))
+      }
+    }
+  },
+  {
+    id: 'thisYear', label: 'Anul curent', icon: CalendarCheck,
+    get: () => {
+      const n = new Date()
+      return {
+        s: fmtDate(new Date(n.getFullYear(), 0, 1)),
+        e: fmtDate(new Date(n.getFullYear(), 11, 31))
+      }
+    }
+  },
+  {
+    id: 'lastYear', label: 'Anul trecut', icon: Calendar,
+    get: () => {
+      const n = new Date()
+      return {
+        s: fmtDate(new Date(n.getFullYear() - 1, 0, 1)),
+        e: fmtDate(new Date(n.getFullYear() - 1, 11, 31))
+      }
+    }
+  },
+]
+
+/* ── number helpers ────────────────────────────────────────── */
+const fmt = (v, dec = 0) =>
+  new Intl.NumberFormat('ro-RO', { minimumFractionDigits: dec, maximumFractionDigits: dec }).format(v ?? 0)
+
+const pct = (v) => `${Number(v ?? 0).toFixed(2)}%`
+
+/* ── sort icon ─────────────────────────────────────────────── */
+const SortIcon = ({ col, sortCol, sortDir }) => {
+  if (sortCol !== col) return <ChevronsUpDown className="w-3 h-3 opacity-30 inline ml-1" />
+  return sortDir === 'asc'
+    ? <ChevronUp className="w-3 h-3 inline ml-1 text-emerald-600 dark:text-emerald-400" />
+    : <ChevronDown className="w-3 h-3 inline ml-1 text-emerald-600 dark:text-emerald-400" />
+}
+
+/* ══════════════════════════════════════════════════════════ */
 const LocationPLDetail = () => {
   const { locationName } = useParams()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const { locations, expendituresData } = useData()
-  
-  const [incomeData, setIncomeData] = useState(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const [slots, setSlots] = useState([])
   const [loading, setLoading] = useState(true)
-  
-  // Parse dateRange from URL
+  const [error, setError] = useState(null)
+  const [search, setSearch] = useState('')
+  const [sortCol, setSortCol] = useState('totalIn')
+  const [sortDir, setSortDir] = useState('desc')
+  const [provFilter, setProvFilter] = useState('all')
+  const [cabFilter, setCabFilter] = useState('all')
+  const [activeQuick, setActiveQuick] = useState(null)
+
+  const decoded = decodeURIComponent(locationName)
+
+  /* ── parse dateRange from URL ─────────────────────────────── */
   const dateRange = useMemo(() => {
-    const dateRangeParam = searchParams.get('dateRange')
-    if (!dateRangeParam) {
-      // Default to current month
-      const now = new Date()
-      const startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-      const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    const p = searchParams.get('dateRange')
+    if (!p || !p.includes('_')) {
+      // Default: luna curentă
+      const n = new Date()
       return {
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0]
+        startDate: fmtDate(new Date(n.getFullYear(), n.getMonth(), 1)),
+        endDate: fmtDate(new Date(n.getFullYear(), n.getMonth() + 1, 0))
       }
     }
-    const [startDate, endDate] = dateRangeParam.split('_')
-    return { startDate, endDate }
+    const parts = p.split('_')
+    return { startDate: parts[0], endDate: parts[1] }
   }, [searchParams])
-  
-  // Find location
-  const location = useMemo(() => {
-    return locations.find(loc => loc.name === decodeURIComponent(locationName))
-  }, [locations, locationName])
-  
-  // Filter expenses for this location
-  const locationExpenses = useMemo(() => {
-    if (!expendituresData) return []
-    return expendituresData.filter(item => 
-      item.location_id === location?.id || 
-      item.location_name === decodeURIComponent(locationName)
-    )
-  }, [expendituresData, location, locationName])
-  
-  // Calculate expenses for date range
-  const expensesForPeriod = useMemo(() => {
-    const filtered = locationExpenses.filter(item => {
-      const itemDate = new Date(item.operational_date)
-      const start = new Date(dateRange.startDate)
-      const end = new Date(dateRange.endDate)
-      return itemDate >= start && itemDate <= end
-    })
-    return filtered.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0)
-  }, [locationExpenses, dateRange])
-  
-  // Fetch income data
-  useEffect(() => {
-    const fetchIncomeData = async () => {
-      setLoading(true)
-      try {
-        const response = await axios.get('/api/incasari/avg-in-by-location', {
-          params: {
-            startDate: dateRange.startDate,
-            endDate: dateRange.endDate
-          }
-        })
-        if (response.data?.success && Array.isArray(response.data.rows)) {
-          const decodedLocationName = decodeURIComponent(locationName)
-          const locationIncome = response.data.rows.find(
-            item => {
-              const itemLocationName = item.locationName || ''
-              return itemLocationName === decodedLocationName || 
-                     itemLocationName.toLowerCase() === decodedLocationName.toLowerCase()
-            }
-          )
-          if (locationIncome) {
-            setIncomeData(locationIncome)
-          } else {
-            console.log('Location not found in response:', {
-              searched: decodedLocationName,
-              available: response.data.rows.map(r => r.locationName)
-            })
-            setIncomeData(null)
-          }
+
+  /* ── change period & update URL ───────────────────────────── */
+  const setPeriod = useCallback((s, e, quickId = null) => {
+    setActiveQuick(quickId)
+    setSearchParams({ dateRange: `${s}_${e}` }, { replace: true })
+  }, [setSearchParams])
+
+  /* ── fetch ──────────────────────────────────────────────── */
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await axios.get('/api/incasari/slots-by-location', {
+        params: {
+          startDate: dateRange.startDate,
+          endDate: dateRange.endDate,
+          location: decoded
         }
-      } catch (error) {
-        console.error('Error fetching income data:', error)
-      } finally {
-        setLoading(false)
+      })
+      if (res.data?.success) {
+        setSlots(res.data.rows || [])
+      } else {
+        setError(res.data?.error || 'Eroare necunoscută')
       }
+    } catch (err) {
+      setError(err.response?.data?.error || err.message)
+    } finally {
+      setLoading(false)
     }
-    
-    if (locationName && dateRange.startDate && dateRange.endDate) {
-      fetchIncomeData()
+  }, [locationName, dateRange.startDate, dateRange.endDate])
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  /* ── aggregate totals ─────────────────────────────────────── */
+  const totals = useMemo(() =>
+    slots.reduce((acc, r) => ({
+      in: acc.in + r.totalIn,
+      out: acc.out + r.totalOut,
+      profit: acc.profit + r.totalProfit,
+      bet: acc.bet + r.totalBet,
+      win: acc.win + r.totalWin,
+      jackpot: acc.jackpot + (r.totalJackpot || 0),
+      raffle: acc.raffle + (r.totalRaffle || 0),
+      hh: acc.hh + (r.totalHh || 0),
+      cbReal: acc.cbReal + (r.totalCbReal || 0),
+      cbBirthday: acc.cbBirthday + (r.totalCbBirthday || 0)
+    }), { in: 0, out: 0, profit: 0, bet: 0, win: 0, jackpot: 0, raffle: 0, hh: 0, cbReal: 0, cbBirthday: 0 }), [slots])
+
+  /* ── filter options ─────────────────────────────────────── */
+  const providers = useMemo(() => ['all', ...new Set(slots.map(s => s.provider).filter(Boolean).sort())], [slots])
+  const cabinets = useMemo(() => ['all', ...new Set(slots.map(s => s.cabinet).filter(Boolean).sort())], [slots])
+
+  /* ── filtered + sorted rows ─────────────────────────────── */
+  const displayed = useMemo(() => {
+    let d = slots
+    if (provFilter !== 'all') d = d.filter(r => r.provider === provFilter)
+    if (cabFilter !== 'all') d = d.filter(r => r.cabinet === cabFilter)
+    if (search) {
+      const q = search.toLowerCase()
+      d = d.filter(r =>
+        r.serialNumber?.toLowerCase().includes(q) ||
+        r.provider?.toLowerCase().includes(q) ||
+        r.cabinet?.toLowerCase().includes(q) ||
+        r.gameMix?.toLowerCase().includes(q)
+      )
     }
-  }, [locationName, dateRange])
-  
-  // Calculate P&L
-  const plData = useMemo(() => {
-    if (!incomeData) return null
-    const ggr = Number(incomeData.totalProfit || 0)
-    const expenses = expensesForPeriod
-    const pl = ggr - expenses
-    const totalIn = Number(incomeData.totalIn || 0)
-    const profitPercent = totalIn > 0 ? (pl / totalIn) * 100 : 0
-    return {
-      ggr,
-      expenses,
-      pl,
-      totalIn,
-      profitPercent
-    }
-  }, [incomeData, expensesForPeriod])
-  
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('ro-RO', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value)
+    return [...d].sort((a, b) => {
+      const va = a[sortCol] ?? 0, vb = b[sortCol] ?? 0
+      if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va)
+      return sortDir === 'asc' ? va - vb : vb - va
+    })
+  }, [slots, search, sortCol, sortDir, provFilter, cabFilter])
+
+  const handleSort = (col) => {
+    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortCol(col); setSortDir('desc') }
   }
-  
-  const formatNumber = (value) => {
-    return new Intl.NumberFormat('ro-RO', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value)
+
+  /* ── aggregate by provider ─────────────────────────────────────── */
+  const providerStats = useMemo(() => {
+    const stats = {}
+    displayed.forEach(r => {
+      const p = r.provider || 'Necunoscut'
+      if (!stats[p]) stats[p] = { count: 0, totalIn: 0, totalOut: 0, totalWin: 0, totalBet: 0, totalProfit: 0, totalJackpot: 0, totalRaffle: 0 }
+      stats[p].count++
+      stats[p].totalIn += r.totalIn
+      stats[p].totalOut += r.totalOut
+      stats[p].totalWin += r.totalWin
+      stats[p].totalBet += r.totalBet
+      stats[p].totalJackpot += r.totalJackpot || 0
+      stats[p].totalRaffle += r.totalRaffle || 0
+      stats[p].totalProfit += r.totalProfit
+    })
+    return Object.entries(stats)
+      .map(([prov, s]) => ({ provider: prov, ...s }))
+      .sort((a, b) => b.totalProfit - a.totalProfit)
+  }, [displayed])
+
+  /* ── aggregate for pie charts (BET) ───────────────────────────── */
+  const cabinetBetStats = useMemo(() => {
+    const stats = {}
+    displayed.forEach(r => {
+      const key = r.cabinet || 'Necunoscut'
+      stats[key] = (stats[key] || 0) + r.totalBet
+    })
+    return Object.entries(stats)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10)
+  }, [displayed])
+
+  const mixBetStats = useMemo(() => {
+    const stats = {}
+    displayed.forEach(r => {
+      const key = r.gameMix || 'Necunoscut'
+      stats[key] = (stats[key] || 0) + r.totalBet
+    })
+    return Object.entries(stats)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10)
+  }, [displayed])
+
+
+  /* ── export CSV ─────────────────────────────────────────── */
+  const exportCSV = () => {
+    const headers = ['Serial', 'Provider', 'Cabinet', 'Mix', 'IN', 'OUT', 'WIN', 'BET', '%WIN/BET', '%IN/OUT', 'GGR']
+    const rows = displayed.map(r => [
+      r.serialNumber, r.provider, r.cabinet, r.gameMix || '',
+      r.totalIn.toFixed(2), r.totalOut.toFixed(2), r.totalWin.toFixed(2),
+      r.totalBet.toFixed(2), r.winBetPct.toFixed(2), r.inOutPct.toFixed(2),
+      r.totalProfit.toFixed(2)
+    ])
+    const csv = [headers, ...rows].map(r => r.join(';')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${decoded}_${dateRange.startDate}_${dateRange.endDate}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
-  
+
+  /* ── table header ─────────────────────────────────────────── */
+  const Th = ({ col, children, right }) => (
+    <th
+      onClick={() => handleSort(col)}
+      className={`px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider cursor-pointer
+        select-none whitespace-nowrap text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200 transition-colors
+        ${right ? 'text-right' : 'text-left'}`}
+    >
+      {children}
+      <SortIcon col={col} sortCol={sortCol} sortDir={sortDir} />
+    </th>
+  )
+
+  /* ── render ─────────────────────────────────────────────── */
   return (
     <Layout>
-      <div className="p-6">
-        <button
-          onClick={() => navigate('/incasari')}
-          className="mb-4 flex items-center text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5 mr-2" />
-          Înapoi la Încasări
-        </button>
-        
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg p-6">
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2 flex items-center">
-            <BarChart3 className="w-8 h-8 mr-3 text-blue-500" />
-            P&L - {decodeURIComponent(locationName)}
-          </h1>
-          <p className="text-slate-600 dark:text-slate-400 mb-6">
-            Perioada: {dateRange.startDate} - {dateRange.endDate}
-          </p>
-          
-          {loading ? (
-            <div className="text-center py-8 text-slate-500">Se încarcă datele...</div>
-          ) : plData ? (
-            <>
-              {/* P&L Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-6 rounded-xl">
-                  <p className="text-slate-600 dark:text-slate-400 text-sm font-medium mb-2">GGR</p>
-                  <p className="text-3xl font-bold text-green-600 dark:text-green-400">
-                    {formatCurrency(plData.ggr)} RON
-                  </p>
-                </div>
-                
-                <div className="bg-gradient-to-br from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 p-6 rounded-xl">
-                  <p className="text-slate-600 dark:text-slate-400 text-sm font-medium mb-2">Cheltuieli</p>
-                  <p className="text-3xl font-bold text-red-600 dark:text-red-400">
-                    {formatCurrency(plData.expenses)} RON
-                  </p>
-                </div>
-                
-                <div className={`bg-gradient-to-br p-6 rounded-xl ${
-                  plData.pl >= 0 
-                    ? 'from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20' 
-                    : 'from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20'
-                }`}>
-                  <p className="text-slate-600 dark:text-slate-400 text-sm font-medium mb-2">P&L</p>
-                  <p className={`text-3xl font-bold ${
-                    plData.pl >= 0 
-                      ? 'text-blue-600 dark:text-blue-400' 
-                      : 'text-orange-600 dark:text-orange-400'
-                  }`}>
-                    {formatCurrency(plData.pl)} RON
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">
-                    {plData.profitPercent >= 0 ? (
-                      <span className="flex items-center text-green-600 dark:text-green-400">
-                        <TrendingUp className="w-4 h-4 mr-1" />
-                        {plData.profitPercent.toFixed(2)}% din IN
-                      </span>
-                    ) : (
-                      <span className="flex items-center text-red-600 dark:text-red-400">
-                        <TrendingDown className="w-4 h-4 mr-1" />
-                        {Math.abs(plData.profitPercent).toFixed(2)}% din IN
-                      </span>
-                    )}
-                  </p>
-                </div>
-                
-                <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 p-6 rounded-xl">
-                  <p className="text-slate-600 dark:text-slate-400 text-sm font-medium mb-2">Total IN</p>
-                  <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">
-                    {formatCurrency(plData.totalIn)} RON
-                  </p>
-                </div>
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-6 space-y-4">
+
+        {/* ── Header row ─────────────────────────────────── */}
+        <div className="flex items-start gap-4 flex-wrap">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors mt-1"
+          >
+            <ArrowLeft className="w-4 h-4" /> Înapoi
+          </button>
+
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl font-bold text-white">{decoded}</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+              Încasări per aparat ·{' '}
+              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                {dateRange.startDate} → {dateRange.endDate}
+              </span>
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={fetchData}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Reîncarcă
+            </button>
+            <button
+              onClick={exportCSV}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" /> Export CSV
+            </button>
+          </div>
+        </div>
+
+        {/* ── Controls Row (Dates + Filters) ──────────────────────── */}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            {/* Left: Dates */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {QUICK_PERIODS.map(({ id, label, icon: Icon, get }) => {
+                const isActive = activeQuick === id
+                return (
+                  <button
+                    key={id}
+                    onClick={() => { const { s, e } = get(); setPeriod(s, e, id) }}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                      border transition-all whitespace-nowrap
+                      ${isActive
+                        ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+                        : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white hover:border-slate-400 dark:hover:border-slate-500'
+                      }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {label}
+                  </button>
+                )
+              })}
+              <div className="flex items-center gap-1.5 ml-2 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1">
+                <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                <input
+                  type="date"
+                  value={dateRange.startDate}
+                  onChange={e => setPeriod(e.target.value, dateRange.endDate)}
+                  className="bg-transparent text-xs text-slate-800 dark:text-slate-200 focus:outline-none w-28"
+                />
+                <span className="text-slate-600 text-xs">→</span>
+                <input
+                  type="date"
+                  value={dateRange.endDate}
+                  onChange={e => setPeriod(dateRange.startDate, e.target.value)}
+                  className="bg-transparent text-xs text-slate-800 dark:text-slate-200 focus:outline-none w-28"
+                />
               </div>
-              
-              {/* Breakdown Table */}
-              <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-6">
-                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-4">
-                  Detalii P&L
-                </h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-slate-200 dark:border-slate-700">
-                        <th className="text-left py-3 px-4 text-slate-700 dark:text-slate-300 font-semibold">Indicator</th>
-                        <th className="text-right py-3 px-4 text-slate-700 dark:text-slate-300 font-semibold">Valoare (RON)</th>
-                        <th className="text-right py-3 px-4 text-slate-700 dark:text-slate-300 font-semibold">% din IN</th>
+            </div>
+
+            {/* Right: Filters */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Serial, provider, cabinet, mix..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="pl-8 pr-3 py-1.5 w-64 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs
+                    text-slate-800 dark:text-slate-200 placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500/30 focus:outline-none"
+                />
+              </div>
+              <select value={provFilter} onChange={e => setProvFilter(e.target.value)}
+                className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:outline-none">
+                {providers.map(p => <option key={p} value={p}>{p === 'all' ? 'Toți Providerii' : p}</option>)}
+              </select>
+              <select value={cabFilter} onChange={e => setCabFilter(e.target.value)}
+                className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:outline-none">
+                {cabinets.map(c => <option key={c} value={c}>{c === 'all' ? 'Toate Cabinetele' : c}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* ── KPI Cards ──────────────────────────────────── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <KPICard title="Total IN" value={totals.in} suffix="RON" icon={DollarSign} accent="emerald" />
+          <KPICard
+            title="Bonus Cost"
+            value={totals.bet > 0 ? ((totals.jackpot + totals.raffle + totals.hh + totals.cbReal + totals.cbBirthday) / totals.bet * 100).toFixed(2) : '0.00'}
+            suffix={`% (${fmt(totals.jackpot + totals.raffle + totals.hh + totals.cbReal + totals.cbBirthday)} lei)`}
+            icon={TrendingDown} accent="rose"
+          />
+          <KPICard title="Total BET" value={totals.bet} suffix="RON" icon={BarChart2} accent="blue" />
+          <KPICard title="WIN.BET %" value={totals.bet > 0 ? ((totals.win / totals.bet) * 100).toFixed(2) : '0.00'} suffix="%" icon={Percent} accent="purple" />
+          <KPICard title="GGR (IN-OUT)" value={fmt(totals.profit)} suffix="RON" icon={Percent} accent="amber" changeLabel={totals.in > 0 ? `${((totals.profit / totals.in) * 100).toFixed(2)}% din IN` : ''} change={0} />
+          <KPICard title="Aparate" value={displayed.length} suffix="" icon={Cpu} accent="cyan" changeLabel={`din ${slots.length} total`} change={0} />
+        </div>
+
+        {/* ── Mid Section: Stats & Charts ────────────────────────── */}
+        {!loading && !error && displayed.length > 0 && (
+          <div className="grid grid-cols-1 2xl:grid-cols-2 gap-4 mt-2 mb-4">
+
+            {/* Left: Provider Summary Table */}
+            {providerStats.length > 0 && (
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden flex flex-col h-full">
+                <div className="px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 shrink-0">
+                  <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Centralizator Producători</h3>
+                </div>
+                <div className="overflow-x-auto flex-1">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Producător</th>
+                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Aparate</th>
+                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">IN (lei)</th>
+                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">BET (lei)</th>
+                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Jackpot</th>
+                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Raffles</th>
+                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">%WIN/BET</th>
+                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">%IN/OUT</th>
+                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">GGR (lei)</th>
                       </tr>
                     </thead>
-                    <tbody>
-                      <tr className="border-b border-slate-200 dark:border-slate-700">
-                        <td className="py-3 px-4 text-slate-900 dark:text-slate-100 font-medium">Total IN</td>
-                        <td className="py-3 px-4 text-right text-slate-900 dark:text-slate-100 font-bold">
-                          {formatCurrency(plData.totalIn)}
-                        </td>
-                        <td className="py-3 px-4 text-right text-slate-600 dark:text-slate-400">100.00%</td>
-                      </tr>
-                      <tr className="border-b border-slate-200 dark:border-slate-700">
-                        <td className="py-3 px-4 text-slate-900 dark:text-slate-100 font-medium">GGR</td>
-                        <td className="py-3 px-4 text-right text-green-600 dark:text-green-400 font-bold">
-                          {formatCurrency(plData.ggr)}
-                        </td>
-                        <td className="py-3 px-4 text-right text-slate-600 dark:text-slate-400">
-                          {plData.totalIn > 0 ? ((plData.ggr / plData.totalIn) * 100).toFixed(2) : '0.00'}%
-                        </td>
-                      </tr>
-                      <tr className="border-b border-slate-200 dark:border-slate-700">
-                        <td className="py-3 px-4 text-slate-900 dark:text-slate-100 font-medium">Cheltuieli</td>
-                        <td className="py-3 px-4 text-right text-red-600 dark:text-red-400 font-bold">
-                          {formatCurrency(plData.expenses)}
-                        </td>
-                        <td className="py-3 px-4 text-right text-slate-600 dark:text-slate-400">
-                          {plData.totalIn > 0 ? ((plData.expenses / plData.totalIn) * 100).toFixed(2) : '0.00'}%
-                        </td>
-                      </tr>
-                      <tr className="bg-slate-100 dark:bg-slate-800">
-                        <td className="py-3 px-4 text-slate-900 dark:text-slate-100 font-bold text-lg">P&L</td>
-                        <td className={`py-3 px-4 text-right font-bold text-lg ${
-                          plData.pl >= 0 
-                            ? 'text-blue-600 dark:text-blue-400' 
-                            : 'text-orange-600 dark:text-orange-400'
-                        }`}>
-                          {formatCurrency(plData.pl)}
-                        </td>
-                        <td className={`py-3 px-4 text-right font-bold text-lg ${
-                          plData.pl >= 0 
-                            ? 'text-blue-600 dark:text-blue-400' 
-                            : 'text-orange-600 dark:text-orange-400'
-                        }`}>
-                          {plData.profitPercent.toFixed(2)}%
-                        </td>
-                      </tr>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
+                      {providerStats.map(s => {
+                        const winBet = s.totalBet > 0 ? (s.totalWin / s.totalBet) * 100 : 0
+                        const inOut = s.totalOut > 0 ? (s.totalIn / s.totalOut) * 100 : 0
+                        return (
+                          <tr key={s.provider} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                            <td className="px-4 py-2 text-slate-800 dark:text-slate-200 font-medium">{s.provider}</td>
+                            <td className="px-4 py-2 text-right text-slate-500 dark:text-slate-400 tabular-nums">{s.count}</td>
+                            <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalIn)}</td>
+                            <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalBet)}</td>
+                            <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalJackpot)}</td>
+                            <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalRaffle)}</td>
+                            <td className="px-4 py-2 text-right tabular-nums">
+                              <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${winBet >= 98 ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300'
+                                : winBet >= 95 ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                                  : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                                }`}>
+                                {pct(winBet)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{pct(inOut)}</td>
+                            <td className={`px-4 py-2 text-right font-bold tabular-nums ${s.totalProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>
+                              {fmt(s.totalProfit)}
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
               </div>
-            </>
+            )}
+
+            {/* Right: Pie Charts (BET by Cabinet / Mix) */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col">
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4 text-center shrink-0">Distribuție BET pe Cabinete (Top 10)</h3>
+                <div className="flex-1 min-h-[200px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={cabinetBetStats}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={75}
+                        paddingAngle={2}
+                        dataKey="value"
+                        stroke="none"
+                        labelLine={{ stroke: '#475569', strokeWidth: 1 }}
+                        label={(props) => {
+                          const { cx, cy, midAngle, outerRadius, percent, index, name } = props;
+                          const RADIAN = Math.PI / 180;
+                          const radius = outerRadius * 1.15;
+                          const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                          const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                          return (
+                            <text
+                              x={x} y={y}
+                              fill={COLORS[index % COLORS.length]}
+                              textAnchor={x > cx ? 'start' : 'end'}
+                              dominantBaseline="central"
+                              fontSize={11}
+                              fontWeight={500}
+                              className="drop-shadow-md"
+                            >
+                              {`${name} ${(percent * 100).toFixed(0)}%`}
+                            </text>
+                          );
+                        }}
+                      >
+                        {cabinetBetStats.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value) => [fmt(value) + ' lei', 'BET']}
+                        contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '8px', fontSize: '12px', color: '#f8fafc' }}
+                        itemStyle={{ color: '#3b82f6' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col">
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4 text-center shrink-0">Distribuție BET pe Mix-uri (Top 10)</h3>
+                <div className="flex-1 min-h-[200px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={mixBetStats}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={75}
+                        paddingAngle={2}
+                        dataKey="value"
+                        stroke="none"
+                        labelLine={{ stroke: '#475569', strokeWidth: 1 }}
+                        label={(props) => {
+                          const { cx, cy, midAngle, outerRadius, percent, index, name } = props;
+                          const RADIAN = Math.PI / 180;
+                          const radius = outerRadius * 1.15;
+                          const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                          const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                          return (
+                            <text
+                              x={x} y={y}
+                              fill={COLORS[index % COLORS.length]}
+                              textAnchor={x > cx ? 'start' : 'end'}
+                              dominantBaseline="central"
+                              fontSize={11}
+                              fontWeight={500}
+                              className="drop-shadow-md"
+                            >
+                              {`${name} ${(percent * 100).toFixed(0)}%`}
+                            </text>
+                          );
+                        }}
+                      >
+                        {mixBetStats.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value) => [fmt(value) + ' lei', 'BET']}
+                        contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '8px', fontSize: '12px', color: '#f8fafc' }}
+                        itemStyle={{ color: '#8b5cf6' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* ── Table ────────────────────────────────────────── */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+          {loading ? (
+            <div className="flex items-center justify-center py-20 gap-3 text-slate-500 dark:text-slate-400">
+              <RefreshCw className="w-5 h-5 animate-spin" /> Se încarcă datele...
+            </div>
+          ) : error ? (
+            <div className="text-center py-12 text-rose-400 text-sm">{error}</div>
+          ) : displayed.length === 0 ? (
+            <div className="text-center py-12 text-slate-500 text-sm">
+              Nu există date pentru această perioadă / filtre.
+            </div>
           ) : (
-            <div className="text-center py-8 text-slate-500">
-              Nu există date pentru această locație în perioada selectată.
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
+                  <tr>
+                    <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 w-8">#</th>
+                    <Th col="serialNumber">Serial</Th>
+                    <Th col="provider">Provider</Th>
+                    <Th col="cabinet">Cabinet</Th>
+                    <Th col="gameMix">Mix</Th>
+                    <Th col="totalIn" right>IN (lei)</Th>
+                    <Th col="totalOut" right>OUT (lei)</Th>
+                    <Th col="totalWin" right>WIN (lei)</Th>
+                    <Th col="totalBet" right>BET (lei)</Th>
+                    <Th col="winBetPct" right>%WIN/BET</Th>
+                    <Th col="inOutPct" right>%IN/OUT</Th>
+                    <Th col="totalProfit" right>GGR (lei)</Th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
+                  {displayed.map((row, idx) => {
+                    const ggrPos = row.totalProfit >= 0
+                    return (
+                      <tr key={row.serialNumber} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="px-3 py-2 text-slate-500 text-xs">{idx + 1}</td>
+                        <td className="px-3 py-2 font-mono text-xs text-slate-500 dark:text-slate-400">{row.serialNumber}</td>
+                        <td className="px-3 py-2 text-slate-800 dark:text-slate-200 font-medium">{row.provider}</td>
+                        <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{row.cabinet}</td>
+                        <td className="px-3 py-2 text-xs text-slate-700 dark:text-slate-300">{row.gameMix || ''}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(row.totalIn)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(row.totalOut)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(row.totalWin)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(row.totalBet)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${row.winBetPct >= 98 ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300'
+                            : row.winBetPct >= 95 ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                              : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                            }`}>
+                            {pct(row.winBetPct)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{pct(row.inOutPct)}</td>
+                        <td className={`px-3 py-2 text-right font-bold tabular-nums ${ggrPos ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>
+                          {fmt(row.totalProfit)}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                <tfoot className="bg-slate-100 dark:bg-slate-800 border-t-2 border-slate-300 dark:border-slate-600">
+                  <tr className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                    <td colSpan={5} className="px-3 py-2.5 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      TOTAL · {displayed.length} aparate
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-slate-800 dark:text-slate-200 tabular-nums">{fmt(totals.in)}</td>
+                    <td className="px-3 py-2.5 text-right text-slate-800 dark:text-slate-200 tabular-nums">{fmt(totals.out)}</td>
+                    <td className="px-3 py-2.5 text-right text-slate-800 dark:text-slate-200 tabular-nums">{fmt(totals.win)}</td>
+                    <td className="px-3 py-2.5 text-right text-slate-800 dark:text-slate-200 tabular-nums">{fmt(totals.bet)}</td>
+                    <td className={`px-3 py-2.5 text-right font-bold tabular-nums ${totals.profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>
+                      {fmt(totals.profit)}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-slate-700 dark:text-slate-300 tabular-nums">
+                      {totals.bet > 0 ? pct((totals.win / totals.bet) * 100) : '—'}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-cyan-600 dark:text-cyan-400 tabular-nums">
+                      {totals.out > 0 ? pct((totals.in / totals.out) * 100) : '—'}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
           )}
         </div>
@@ -279,4 +656,3 @@ const LocationPLDetail = () => {
 }
 
 export default LocationPLDetail
-

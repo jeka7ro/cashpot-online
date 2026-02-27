@@ -14,7 +14,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [rememberPassword, setRememberPassword] = useState(false)
-  
+
   // CIRCUIT BREAKER pentru global-settings - oprește loop-ul infinit!
   const settingsLoadAttempted = useRef(false)
   const settingsFailures = useRef(0)
@@ -22,7 +22,7 @@ const Login = () => {
   const autoLoginAttempted = useRef(false) // Previne auto-login repetat
   const SETTINGS_CIRCUIT_BREAKER_THRESHOLD = 1 // OPRESTE după PRIMUL eșec 500!
   const SETTINGS_CIRCUIT_BREAKER_RESET_TIME = 120000 // 2 minute înainte de retry
-  
+
   const [settings, setSettings] = useState({
     logo: { type: 'upload', url: '', file: null },
     loginImage: { type: 'upload', url: '', file: null },
@@ -51,7 +51,7 @@ const Login = () => {
     const storedFailure = localStorage.getItem('settings_circuit_breaker_failure')
     const storedTime = localStorage.getItem('settings_circuit_breaker_time')
     const now = Date.now()
-    
+
     // Load global login settings from server - DOAR O DATĂ!
     const loadGlobalSettings = async () => {
       // Dacă circuit breaker-ul e activ, TESTEAZĂ backend-ul înainte de a bloca!
@@ -95,7 +95,7 @@ const Login = () => {
       if (settingsLoadAttempted.current) {
         return // Deja încercat, nu mai încerca!
       }
-      
+
       const now2 = Date.now()
       if (settingsFailures.current >= SETTINGS_CIRCUIT_BREAKER_THRESHOLD) {
         if (now2 - lastSettingsFailure.current < SETTINGS_CIRCUIT_BREAKER_RESET_TIME) {
@@ -108,9 +108,9 @@ const Login = () => {
           localStorage.removeItem('settings_circuit_breaker_time')
         }
       }
-      
+
       settingsLoadAttempted.current = true
-      
+
       try {
         const response = await axios.get('/api/global-settings', { timeout: 5000 })
         if (response.data.login_settings) {
@@ -161,33 +161,6 @@ const Login = () => {
           password: credentials.password || ''
         })
         setRememberPassword(true)
-        
-        // Auto-login if credentials are saved and user is not already authenticated
-        // CIRCUIT BREAKER: Oprește auto-login-ul complet când backend-ul e down!
-        // NU mai face auto-login dacă settings-urile au eșuat (backend-ul e down)
-        const backendIsDown = settingsFailures.current >= SETTINGS_CIRCUIT_BREAKER_THRESHOLD
-        if (credentials.username && credentials.password && !isAuthenticated && !loading && !autoLoginAttempted.current && !backendIsDown) {
-          autoLoginAttempted.current = true
-          // console.log('🔄 Auto-logging in with saved credentials...')
-          const autoLogin = async () => {
-            try {
-              await login(credentials.username, credentials.password)
-            } catch (error) {
-              // Silent fail - don't spam console
-              // console.error('Auto-login failed:', error)
-              // Dacă e 500, backend-ul e down - nu mai încerca!
-              if (error.response?.status === 500) {
-                // Backend-ul e DOWN - nu mai încerca auto-login!
-                return
-              }
-              // Clear invalid credentials doar pentru erori de autentificare
-              if (error.response?.status === 401 || error.response?.status === 403) {
-                localStorage.removeItem('cashpot_remember_credentials')
-              }
-            }
-          }
-          autoLogin()
-        }
       } catch (error) {
         // Silent fail
         // console.error('Error loading saved credentials:', error)
@@ -214,7 +187,7 @@ const Login = () => {
     setIsSubmitting(true)
 
     const result = await login(formData.username, formData.password)
-    
+
     if (result.success) {
       // Save credentials if "Remember Password" is checked
       if (rememberPassword) {
@@ -229,10 +202,10 @@ const Login = () => {
         localStorage.removeItem('cashpot_remember_credentials')
         console.log('🗑️ Credentials removed from localStorage')
       }
-      
+
       navigate('/dashboard', { replace: true })
     }
-    
+
     setIsSubmitting(false)
   }
 
@@ -242,8 +215,8 @@ const Login = () => {
 
   const logoUrl = settings.logo.file || settings.logo.url
   const loginImageUrl = settings.loginImage.file || settings.loginImage.url || 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1200&q=80'
-  
-  const buttonStyle = settings.loginButtonColor.useGradient 
+
+  const buttonStyle = settings.loginButtonColor.useGradient
     ? { background: `linear-gradient(to right, ${settings.loginButtonColor.primary}, ${settings.loginButtonColor.secondary})` }
     : { backgroundColor: settings.loginButtonColor.primary }
 
@@ -266,9 +239,9 @@ const Login = () => {
             {/* Logo și Titlu în Card */}
             <div className="flex flex-col items-center mb-12">
               {logoUrl && (
-                <img 
-                  src={logoUrl} 
-                  alt="Logo" 
+                <img
+                  src={logoUrl}
+                  alt="Logo"
                   className="h-20 md:h-24 object-contain mb-4"
                 />
               )}
@@ -279,7 +252,7 @@ const Login = () => {
                 Access your CASHPOT dashboard
               </p>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Email Field */}
               <div className="space-y-2">
@@ -387,9 +360,9 @@ const Login = () => {
       {/* Right Side - Image */}
       <div className="hidden lg:flex lg:w-1/2 items-center justify-center p-8" style={pageStyle}>
         <div className="w-full h-full rounded-3xl overflow-hidden shadow-2xl">
-          <img 
+          <img
             src={loginImageUrl}
-            alt="Login Background" 
+            alt="Login Background"
             className="w-full h-full object-cover"
             onError={(e) => {
               e.target.src = 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1200&q=80'

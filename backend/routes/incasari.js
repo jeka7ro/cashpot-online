@@ -170,10 +170,13 @@ router.get('/dashboard/summary', authenticateToken, async (req, res) => {
         : undefined
 
     // CRITICAL FIX: If user is NOT admin and has NO location filters (either from query or settings), 
-    // we MUST return empty result. Do NOT show all locations by default for restricted users.
+    // we normally return empty result to prevent data leakage. 
+    // BUT if user has explicit 'incasari.view' permission or is 'financiar', allow them to see ALL.
     const isAdmin = req.user?.role === 'admin'
-    if (!isAdmin && (!locationsArray || locationsArray.length === 0) && (!includedFilters.locations || includedFilters.locations.length === 0)) {
-      console.warn(`🛑 [dashboard/summary] BLOCKED: Non-admin user ${userId} has no location filters. Returning empty.`)
+    const hasViewPermission = req.user?.permissions?.incasari?.view === true || req.user?.role === 'financiar'
+
+    if (!isAdmin && !hasViewPermission && (!locationsArray || locationsArray.length === 0) && (!includedFilters.locations || includedFilters.locations.length === 0)) {
+      console.warn(`🛑 [dashboard/summary] BLOCKED: Non-admin user ${userId} has no location filters and no view verification. Returning empty.`)
       return res.json({
         success: true,
         pl: { profit: 0, margin: 0, trend: 0 },
@@ -3038,10 +3041,13 @@ router.get('/monthly-by-location', authenticateToken, async (req, res) => {
     const includedFilters = await getIncludedFiltersForUser(pool, userId)
 
     // CRITICAL FIX: If user is NOT admin and has NO location filters (either from query or settings), 
-    // we MUST return empty result. Do NOT show all locations by default for restricted users.
+    // we normally return empty result to prevent data leakage. 
+    // BUT if user has explicit 'incasari.view' permission or is 'financiar', allow them to see ALL.
     const isAdmin = req.user?.role === 'admin'
-    if (!isAdmin && (!locationsArray || locationsArray.length === 0) && (!includedFilters.locations || includedFilters.locations.length === 0)) {
-      console.warn(`🛑 [monthly-by-location] BLOCKED: Non-admin user ${userId} has no location filters. Returning empty.`)
+    const hasViewPermission = req.user?.permissions?.incasari?.view === true || req.user?.role === 'financiar'
+
+    if (!isAdmin && !hasViewPermission && (!locationsArray || locationsArray.length === 0) && (!includedFilters.locations || includedFilters.locations.length === 0)) {
+      console.warn(`🛑 [monthly-by-location] BLOCKED: Non-admin user ${userId} has no location filters and no view verification. Returning empty.`)
       return res.json({
         success: true,
         data: [],
@@ -4694,6 +4700,198 @@ router.get('/aws-list', authenticateToken, async (req, res) => {
   }
 })
 
+// TEMP DEBUG: structura machine_types din Cyber
+router.get('/debug-cyber-tables', authenticateToken, async (req, res) => {
+  try {
+    const cp = await getCyberPool()
+    const [cols] = await cp.query(`DESCRIBE cyberslot_dbn.machine_types`)
+    const [sample] = await cp.query(`SELECT * FROM cyberslot_dbn.machine_types LIMIT 5`)
+    const [masCols] = await cp.query(`DESCRIBE cyberslot_dbn.machine_audit_summaries`)
+    res.json({ machineTypesColumns: cols, sample, masColumns: masCols })
+  } catch (e) {
+    res.json({ error: e.message })
+  }
+})
+
+// GET /api/incasari/slots-by-location?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD&location=Pitesti
+// Returnează date agregate per aparat pentru o locație
+// Sursă primară: Cyber (machine_audit_summaries) — exact ca restul endpointurilor din sistem
+// Fallback: PostgreSQL incasari_daily
+router.get('/slots-by-location', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    const { startDate, endDate, location } = req.query
+
+    if (!startDate || !endDate || !location) {
+      return res.status(400).json({ success: false, error: 'Lipsesc parametri: startDate, endDate, location' })
+    }
+
+    const decodedLocation = decodeURIComponent(location)
+    const normalizedTarget = normalizeLocationName(decodedLocation)
+
+    // 1. Găsește location_id din locations.json
+    let locationIds = []
+    try {
+      const locationsData = loadExportedData('locations.json')
+      if (Array.isArray(locationsData)) {
+        const matched = locationsData.filter(loc => {
+          const n = normalizeLocationName(loc.name || loc.location || '')
+          // Match exact sau match fără sufixul E.S.
+          return n === normalizedTarget
+        })
+        locationIds = matched.map(l => Number(l.id)).filter(id => Number.isFinite(id))
+        console.log(`🔍 [slots-by-location] "${decodedLocation}" → location_ids:`, locationIds)
+      }
+    } catch (e) {
+      console.error('❌ Eroare la încărcarea locations.json:', e)
+    }
+
+    if (locationIds.length === 0) {
+      return res.json({ success: true, rows: [], location: decodedLocation, source: 'none', debug: 'no location_ids found' })
+    }
+
+    // 2. Build slot map (machine_id → metadata) din slots.json
+    const allSlots = getActiveSlots()
+    const slotByMachineId = new Map()
+    const slotBySerial = new Map()
+    allSlots.forEach(slot => {
+      if (slot?.id) slotByMachineId.set(Number(slot.id), slot)
+      if (slot?.serial_number) slotBySerial.set(String(slot.serial_number).trim(), slot)
+    })
+
+    const buildRow = (machineId, cyberSerial, totalIn, totalOut, totalBet, totalWin, totalJackpot, daysCount) => {
+      const mId = Number(machineId)
+      const sn = String(cyberSerial || '').trim()
+      // Lookup: machine_id → slot.id, sau serial → slot.serial_number
+      const meta = slotByMachineId.get(mId) || (sn ? slotBySerial.get(sn) : null) || {}
+      const ggr = totalIn - totalOut
+      const serialDisplay = sn || (meta.serial_number ? String(meta.serial_number).trim() : String(machineId))
+
+      return {
+        serialNumber: serialDisplay,
+        machineId: mId,
+        provider: meta.provider || meta.manufacturer || '—',
+        cabinet: meta.cabinet || meta.cabinet_name || '—',
+        gameMix: meta.game_mix || null,   // null = fara mix in sistem
+        totalIn,
+        totalOut,
+        totalProfit: ggr,
+        totalBet,
+        totalWin,
+        totalJackpot,
+        daysCount,
+        winBetPct: totalBet > 0 ? (totalWin / totalBet) * 100 : 0,
+        inOutPct: totalOut > 0 ? (totalIn / totalOut) * 100 : 0,
+      }
+    }
+
+    // 3. Încearcă Cyber — sursă primară
+    try {
+      const cp = await getCyberPool()
+      const placeholders = locationIds.map(() => '?').join(',')
+
+      // Doar machine_types pentru Mix (name) și Producător (manufacturer) — cabinet/serial vin din slots.json
+      const [cyberRows] = await cp.query(`
+        SELECT
+          mas.machine_id,
+          mt.name AS game_mix,
+          mt.manufacturer AS provider,
+          COALESCE(SUM(mas.in),      0) AS total_in,
+          COALESCE(SUM(mas.out),     0) AS total_out,
+          COALESCE(SUM(mas.bet),     0) AS total_bet,
+          COALESCE(SUM(mas.win),     0) AS total_win,
+          COALESCE(SUM(mas.jackpot), 0) AS total_jackpot,
+          COALESCE(SUM(mas.cb_raffle), 0) AS total_raffle,
+          COALESCE(SUM(mas.hh), 0) AS total_hh,
+          COALESCE(SUM(mas.cb_real), 0) AS total_cb_real,
+          COALESCE(SUM(mas.cb_birthday), 0) AS total_cb_birthday,
+          COUNT(DISTINCT mas.date)       AS days_count
+        FROM cyberslot_dbn.machine_audit_summaries mas
+        LEFT JOIN cyberslot_dbn.machine_types mt ON mt.id = mas.machine_type_id
+        WHERE mas.date >= ? AND mas.date <= ?
+          AND mas.location_id IN (${placeholders})
+        GROUP BY mas.machine_id, mt.name, mt.manufacturer
+        ORDER BY total_in DESC
+      `, [startDate, endDate, ...locationIds])
+
+      console.log(`✅ [slots-by-location] Cyber: ${cyberRows.length} aparate pentru "${decodedLocation}"`)
+
+      const rows = cyberRows.map(r => {
+        const mId = Number(r.machine_id)
+        // Serial, cabinet vin din slots.json (slot.id = machine_id din Cyber)
+        const meta = slotByMachineId.get(mId) || {}
+        const serialDisplay = meta.serial_number ? String(meta.serial_number).trim() : String(mId)
+        const totalIn = Number(r.total_in || 0)
+        const totalOut = Number(r.total_out || 0)
+        const totalBet = Number(r.total_bet || 0)
+        const totalWin = Number(r.total_win || 0)
+
+        return {
+          serialNumber: serialDisplay,
+          machineId: mId,
+          provider: r.provider || meta.provider || '—',
+          cabinet: meta.cabinet || '—',
+          gameMix: r.game_mix || null,   // direct din machine_types via machine_type_id
+          totalIn,
+          totalOut,
+          totalProfit: totalIn - totalOut,
+          totalBet,
+          totalWin,
+          totalJackpot: Number(r.total_jackpot || 0),
+          totalRaffle: Number(r.total_raffle || 0),
+          totalHh: Number(r.total_hh || 0),
+          totalCbReal: Number(r.total_cb_real || 0),
+          totalCbBirthday: Number(r.total_cb_birthday || 0),
+          daysCount: Number(r.days_count || 0),
+          winBetPct: totalBet > 0 ? (totalWin / totalBet) * 100 : 0,
+          inOutPct: totalOut > 0 ? (totalIn / totalOut) * 100 : 0,
+        }
+      })
+
+      return res.json({ success: true, location: decodedLocation, locationIds, startDate, endDate, rows, source: 'cyber' })
+
+    } catch (cyberErr) {
+      console.warn(`⚠️ [slots-by-location] Cyber unavailable (${cyberErr.message}), fallback la PostgreSQL`)
+    }
+
+    // 4. Fallback: PostgreSQL
+    if (!pool) return res.status(500).json({ success: false, error: 'Database pool not available' })
+
+    const pgPlaceholders = locationIds.map((_, i) => `$${i + 3}`).join(',')
+    const pgResult = await pool.query(`
+      SELECT
+        serial_number,
+        COALESCE(SUM(in_amount),  0) AS total_in,
+        COALESCE(SUM(out_amount), 0) AS total_out,
+        COALESCE(SUM(bet),        0) AS total_bet,
+        COALESCE(SUM(win),        0) AS total_win,
+        COALESCE(SUM(jackpot),    0) AS total_jackpot,
+        COUNT(DISTINCT audit_date)   AS days_count
+      FROM incasari_daily
+      WHERE audit_date BETWEEN $1 AND $2
+        AND location_id IN (${pgPlaceholders})
+        AND serial_number IS NOT NULL AND serial_number != ''
+      GROUP BY serial_number
+      ORDER BY total_in DESC
+    `, [startDate, endDate, ...locationIds])
+
+    console.log(`✅ [slots-by-location] PostgreSQL fallback: ${pgResult.rows.length} aparate`)
+
+    const rows = pgResult.rows.map(r =>
+      buildRow(
+        null, r.serial_number,
+        Number(r.total_in || 0), Number(r.total_out || 0),
+        Number(r.total_bet || 0), Number(r.total_win || 0),
+        Number(r.total_jackpot || 0), Number(r.days_count || 0)
+      )
+    )
+
+    return res.json({ success: true, location: decodedLocation, locationIds, startDate, endDate, rows, source: 'postgresql' })
+
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/slots-by-location:', error)
+    return res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 export default router
-
-

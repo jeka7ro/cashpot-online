@@ -3054,132 +3054,98 @@ const Incasari = () => {
     <Layout>
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
         <div className="max-w-[1800px] mx-auto p-6 space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
-                Panou Control Încasări
-              </h1>
-              <div className="flex items-center gap-4 text-slate-600 dark:text-slate-400">
-                {/* Advanced Date Selector */}
-                <div className="flex items-center gap-4">
-                  <SmartDatePicker
-                    dateRange={dateRange}
-                    onChange={setDateRange}
-                  />
-                  <div className="h-6 w-px bg-slate-100 dark:bg-slate-800 hidden md:block"></div>
-                  <QuickDateButtons
-                    selectedFilter={selectedDateFilter}
-                    onFilterSelect={applyQuickDateFilter}
-                  />
-                </div>
-              </div>
+          {/* Titlu */}
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Panou Control Încasări</h1>
+
+          {/* Toolbar — un singur rând */}
+          <div className="flex items-center gap-2 overflow-x-auto flex-nowrap">
+            {/* Date picker */}
+            <SmartDatePicker dateRange={dateRange} onChange={setDateRange} />
+            <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 shrink-0" />
+
+            {/* Quick date buttons */}
+            <QuickDateButtons selectedFilter={selectedDateFilter} onFilterSelect={applyQuickDateFilter} />
+            <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 shrink-0" />
+
+            {/* Filtru Locație */}
+            <div className="flex items-center gap-1.5 px-2.5 h-8 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shrink-0">
+              <MapPin className="w-3.5 h-3.5 text-slate-400" />
+              <select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)} className="bg-transparent border-none text-xs font-semibold focus:ring-0 text-slate-700 dark:text-slate-100 p-0 pr-5">
+                <option value="all">Toate Locațiile</option>
+                {filtersMeta.locations.map((loc) => <option key={loc} value={loc}>{loc}</option>)}
+              </select>
             </div>
 
-            <div className="relative ml-auto flex items-center gap-3">
+            {/* Filtru Provider */}
+            <div className="flex items-center gap-1.5 px-2.5 h-8 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shrink-0">
+              <Zap className="w-3.5 h-3.5 text-slate-400" />
+              <select value={providerFilter} onChange={(e) => setProviderFilter(e.target.value)} className="bg-transparent border-none text-xs font-semibold focus:ring-0 text-slate-700 dark:text-slate-100 p-0 pr-5">
+                <option value="all">Toți Providerii</option>
+                {filtersMeta.providers.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+
+            {/* Filtru Cabinet */}
+            <div className="flex items-center gap-1.5 px-2.5 h-8 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shrink-0">
+              <Calculator className="w-3.5 h-3.5 text-slate-400" />
+              <select value={cabinetFilter} onChange={(e) => setCabinetFilter(e.target.value)} className="bg-transparent border-none text-xs font-semibold focus:ring-0 text-slate-700 dark:text-slate-100 p-0 pr-5">
+                <option value="all">Toate Cabinetele</option>
+                {filtersMeta.cabinets.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+
+            {/* Căutare */}
+            <div className="relative shrink-0">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <input type="text" placeholder="Căutare..." value={searchText} onChange={(e) => setSearchText(e.target.value)} className="pl-8 pr-3 h-8 w-36 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500/20 transition-all font-medium" />
+            </div>
+
+            {/* Menu button */}
+            <div className="relative ml-auto shrink-0 flex items-center">
               <button
                 onClick={() => setShowMenu(!showMenu)}
-                className="inline-flex items-center justify-center p-2.5 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-2 border-slate-300 dark:border-slate-600 transition-all hover:border-emerald-500 dark:hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 shadow-sm"
+                className="inline-flex items-center justify-center p-2 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 transition-all hover:border-emerald-500 dark:hover:border-emerald-500 shadow-sm"
               >
-                <Menu className="w-5 h-5" />
+                <Menu className="w-4 h-4" />
               </button>
 
               {/* Dropdown Menu */}
               {showMenu && (
                 <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setShowMenu(false)}
-                  />
+                  <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
                   <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-slate-800 rounded-xl border-2 border-slate-200 dark:border-slate-700 shadow-xl z-50 py-2">
                     <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700 mb-2">
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        Acțiuni Rapide
-                      </p>
+                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Acțiuni Rapide</p>
                     </div>
 
-                    <button
-                      onClick={async () => {
-                        setShowMenu(false)
-                        try {
-                          const statusResp = await axios.get('/api/incasari/sync-status')
-                          if (statusResp.data?.running) {
-                            toast.error('Sincronizare deja în curs')
-                            setSyncModalOpen(true)
-                            return
-                          }
-                          const resp = await axios.post('/api/incasari/sync')
-                          if (resp.data?.success) {
-                            toast.success('Sincronizare Încasări pornită')
-                            setSyncModalOpen(true)
-                          }
-                        } catch (error) {
-                          toast.error('Eroare la sincronizare')
-                        }
-                      }}
-                      className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center space-x-3 transition-colors"
-                    >
+                    <button onClick={async () => { setShowMenu(false); try { const statusResp = await axios.get('/api/incasari/sync-status'); if (statusResp.data?.running) { toast.error('Sincronizare deja în curs'); setSyncModalOpen(true); return; } const resp = await axios.post('/api/incasari/sync'); if (resp.data?.success) { toast.success('Sincronizare Încasări pornită'); setSyncModalOpen(true); } } catch (error) { toast.error('Eroare la sincronizare'); } }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center space-x-3 transition-colors">
                       <RefreshCw className={`w-4 h-4 text-emerald-500 ${syncStatus.running ? 'animate-spin' : ''}`} />
-                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                        {syncStatus.running ? 'Sincronizare în curs...' : 'Refresh Încasări (Cyber)'}
-                      </span>
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{syncStatus.running ? 'Sincronizare în curs...' : 'Refresh Încasări (Cyber)'}</span>
                     </button>
 
-                    <button
-                      onClick={() => {
-                        setShowMenu(false)
-                        exportOverviewToExcel()
-                      }}
-                      className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center space-x-3 transition-colors"
-                    >
+                    <button onClick={() => { setShowMenu(false); exportOverviewToExcel(); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center space-x-3 transition-colors">
                       <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
-                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                        Export Overview
-                      </span>
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Export Overview</span>
                     </button>
 
-                    <div className="h-px bg-slate-100 dark:bg-slate-700 my-1 mx-2"></div>
-                    <div className="px-4 py-2">
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        Pagini Corelate
-                      </p>
-                    </div>
+                    <div className="h-px bg-slate-100 dark:bg-slate-700 my-1 mx-2" />
+                    <div className="px-4 py-2"><p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pagini Corelate</p></div>
 
-                    <button
-                      onClick={() => {
-                        navigate('/incasari/monthly')
-                        setShowMenu(false)
-                      }}
-                      className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center space-x-3 transition-colors"
-                    >
+                    <button onClick={() => { navigate('/incasari/monthly'); setShowMenu(false); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center space-x-3 transition-colors">
                       <BarChart3 className="w-4 h-4 text-blue-500" />
                       <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Vizualizare Lunară</span>
                     </button>
 
-                    <button
-                      onClick={() => {
-                        navigate('/incasari/operational')
-                        setShowMenu(false)
-                      }}
-                      className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center space-x-3 transition-colors"
-                    >
+                    <button onClick={() => { navigate('/incasari/operational'); setShowMenu(false); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center space-x-3 transition-colors">
                       <Activity className="w-4 h-4 text-purple-500" />
                       <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Operațional</span>
                     </button>
 
-                    <div className="h-px bg-slate-100 dark:bg-slate-700 my-1 mx-2"></div>
+                    <div className="h-px bg-slate-100 dark:bg-slate-700 my-1 mx-2" />
 
-                    <button
-                      onClick={() => {
-                        navigate('/incasari/settings')
-                        setShowMenu(false)
-                      }}
-                      className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center space-x-3 transition-colors"
-                    >
+                    <button onClick={() => { navigate('/incasari/settings'); setShowMenu(false); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center space-x-3 transition-colors">
                       <Settings className="w-4 h-4 text-slate-500" />
-                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                        Setări Încasări
-                      </span>
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Setări Încasări</span>
                     </button>
                   </div>
                 </>
@@ -3187,407 +3153,187 @@ const Incasari = () => {
             </div>
           </div>
 
-          {/* Filters - Nou Design */}
-          <div className="card p-5 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-xl border border-transparent backdrop-blur-2xl">
-            {/* Rând 1: Bară de Căutare + Filtre - Pe același rând */}
-            {/* Quick Filters Toolbar */}
-            <div className="flex flex-wrap items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-2xl border-2 border-slate-200 dark:border-slate-700 shadow-sm animate-in fade-in slide-in-from-top-4 duration-500">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-700">
-                <MapPin className="w-4 h-4 text-slate-400" />
-                <select
-                  value={locationFilter}
-                  onChange={(e) => setLocationFilter(e.target.value)}
-                  className="bg-transparent border-none text-sm font-semibold focus:ring-0 text-slate-700 dark:text-slate-100 p-0 pr-8"
-                >
-                  <option value="all">Toate Locațiile</option>
-                  {filtersMeta.locations.map((loc) => (
-                    <option key={loc} value={loc}>{loc}</option>
-                  ))}
-                </select>
-              </div>
 
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-700">
-                <Zap className="w-4 h-4 text-slate-400" />
-                <select
-                  value={providerFilter}
-                  onChange={(e) => setProviderFilter(e.target.value)}
-                  className="bg-transparent border-none text-sm font-semibold focus:ring-0 text-slate-700 dark:text-slate-100 p-0 pr-8"
-                >
-                  <option value="all">Toți Providerii</option>
-                  {filtersMeta.providers.map((p) => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-              </div>
 
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-700">
-                <Calculator className="w-4 h-4 text-slate-400" />
-                <select
-                  value={cabinetFilter}
-                  onChange={(e) => setCabinetFilter(e.target.value)}
-                  className="bg-transparent border-none text-sm font-semibold focus:ring-0 text-slate-700 dark:text-slate-100 p-0 pr-8"
-                >
-                  <option value="all">Toate Cabinetele</option>
-                  {filtersMeta.cabinets.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
+          {/* Carduri KPI principale - mutate aici, imediat după filtre */}
+          {(() => {
+            // Detectează dacă perioada selectată este "Luna curentă"
+            const now = new Date()
+            const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+            const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+            const currentMonthStartStr = `${currentMonthStart.getFullYear()}-${String(currentMonthStart.getMonth() + 1).padStart(2, '0')}-${String(currentMonthStart.getDate()).padStart(2, '0')}`
+            const currentMonthEndStr = `${currentMonthEnd.getFullYear()}-${String(currentMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(currentMonthEnd.getDate()).padStart(2, '0')}`
+            const isCurrentMonth = dateRange.startDate === currentMonthStartStr && dateRange.endDate === currentMonthEndStr
 
-              <div className="relative ml-auto sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Căutare rapidă..."
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  className="w-full pl-10 pr-4 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 transition-all font-medium"
-                />
-              </div>
-            </div>
+            // Folosește datele din overview.currentMonth dacă este luna curentă, altfel folosește summary
+            // IMPORTANT: Verifică dacă overview.currentMonth există și are date, altfel folosește summary
+            const hasCurrentMonthData = overview?.currentMonth && (
+              overview.currentMonth.in ||
+              overview.currentMonth.bet ||
+              overview.currentMonth.ggr ||
+              overview.currentMonth.profit ||
+              overview.currentMonth.slots
+            )
+            // Calculează zilele din perioada selectată
+            const start = new Date(dateRange.startDate)
+            const end = new Date(dateRange.endDate)
+            const diffTime = Math.abs(end - start)
+            const daysCountInRange = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
 
-            {/* Carduri KPI principale - mutate aici, imediat după filtre */}
-            {(() => {
-              // Detectează dacă perioada selectată este "Luna curentă"
-              const now = new Date()
-              const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-              const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-              const currentMonthStartStr = `${currentMonthStart.getFullYear()}-${String(currentMonthStart.getMonth() + 1).padStart(2, '0')}-${String(currentMonthStart.getDate()).padStart(2, '0')}`
-              const currentMonthEndStr = `${currentMonthEnd.getFullYear()}-${String(currentMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(currentMonthEnd.getDate()).padStart(2, '0')}`
-              const isCurrentMonth = dateRange.startDate === currentMonthStartStr && dateRange.endDate === currentMonthEndStr
+            // Calculează numărul de sloturi distincte
+            // Dacă perioada selectată este o lună completă, folosește datele din slotsByMonthLocation
+            const startYear = start.getFullYear()
+            const startMonth = start.getMonth() + 1
+            const endYear = end.getFullYear()
+            const endMonth = end.getMonth() + 1
+            const isStartOfMonth = start.getDate() === 1
+            const isEndOfMonth = end.getDate() === new Date(endYear, endMonth, 0).getDate()
+            const isFullMonth = isStartOfMonth && isEndOfMonth && startYear === endYear && startMonth === endMonth
 
-              // Folosește datele din overview.currentMonth dacă este luna curentă, altfel folosește summary
-              // IMPORTANT: Verifică dacă overview.currentMonth există și are date, altfel folosește summary
-              const hasCurrentMonthData = overview?.currentMonth && (
-                overview.currentMonth.in ||
-                overview.currentMonth.bet ||
-                overview.currentMonth.ggr ||
-                overview.currentMonth.profit ||
-                overview.currentMonth.slots
-              )
-              // Calculează zilele din perioada selectată
-              const start = new Date(dateRange.startDate)
-              const end = new Date(dateRange.endDate)
-              const diffTime = Math.abs(end - start)
-              const daysCountInRange = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
+            let calculatedSlotsCount = 0
 
-              // Calculează numărul de sloturi distincte
-              // Dacă perioada selectată este o lună completă, folosește datele din slotsByMonthLocation
-              const startYear = start.getFullYear()
-              const startMonth = start.getMonth() + 1
-              const endYear = end.getFullYear()
-              const endMonth = end.getMonth() + 1
-              const isStartOfMonth = start.getDate() === 1
-              const isEndOfMonth = end.getDate() === new Date(endYear, endMonth, 0).getDate()
-              const isFullMonth = isStartOfMonth && isEndOfMonth && startYear === endYear && startMonth === endMonth
+            // Dacă este o lună completă și avem date în slotsByMonthLocation pentru acel an și lună, folosește-le
+            if (isFullMonth && slotsByMonthLocation && slotsByMonthLocation.year === startYear && slotsByMonthLocation.monthData && slotsByMonthLocation.monthData[startMonth]) {
+              const monthData = slotsByMonthLocation.monthData[startMonth]
+              // Folosește aceeași logică ca în tabel pentru a obține valorile
+              const getValue = (location) => {
+                const value = Number(monthData[location] || 0)
+                const key = `slots_${slotsByMonthLocation.year}_${startMonth}_${location}`
 
-              let calculatedSlotsCount = 0
-
-              // Dacă este o lună completă și avem date în slotsByMonthLocation pentru acel an și lună, folosește-le
-              if (isFullMonth && slotsByMonthLocation && slotsByMonthLocation.year === startYear && slotsByMonthLocation.monthData && slotsByMonthLocation.monthData[startMonth]) {
-                const monthData = slotsByMonthLocation.monthData[startMonth]
-                // Folosește aceeași logică ca în tabel pentru a obține valorile
-                const getValue = (location) => {
-                  const value = Number(monthData[location] || 0)
-                  const key = `slots_${slotsByMonthLocation.year}_${startMonth}_${location}`
-
-                  if (value !== null && value !== undefined && !isNaN(value)) {
-                    try {
-                      localStorage.setItem(key, value.toString())
-                    } catch (e) { }
-                    return value
-                  }
-
+                if (value !== null && value !== undefined && !isNaN(value)) {
                   try {
-                    const saved = localStorage.getItem(key)
-                    if (saved !== null && saved !== undefined) {
-                      const savedValue = Number(saved)
-                      if (!isNaN(savedValue)) {
-                        return savedValue
-                      }
-                    }
+                    localStorage.setItem(key, value.toString())
                   } catch (e) { }
-
-                  return 0
+                  return value
                 }
 
-                // Suma tuturor sloturilor pentru toate locațiile din această lună (la fel ca în tabel)
-                calculatedSlotsCount = slotsByMonthLocation.locations.reduce((sum, location) => {
-                  return sum + getValue(location)
-                }, 0)
-              } else {
-                // Altfel, calculează din locationDailyData (pentru perioade parțiale sau alte scenarii)
-                const slotsSet = new Set()
-                locationDailyData.forEach(item => {
-                  if (item.serial_number) {
-                    slotsSet.add(item.serial_number)
+                try {
+                  const saved = localStorage.getItem(key)
+                  if (saved !== null && saved !== undefined) {
+                    const savedValue = Number(saved)
+                    if (!isNaN(savedValue)) {
+                      return savedValue
+                    }
                   }
-                })
-                calculatedSlotsCount = slotsSet.size || summary.slotsCount || 0
+                } catch (e) { }
+
+                return 0
               }
 
-              // Calculează averageDrop corect: sum of IN / count of slots / count of days
-              const totalInForPeriod = isCurrentMonth && hasCurrentMonthData
-                ? (overview.currentMonth.in || 0)
-                : (summary.totalIn || 0)
-              const calculatedAverageDrop = calculatedSlotsCount > 0 && daysCountInRange > 0
-                ? totalInForPeriod / calculatedSlotsCount / daysCountInRange
+              // Suma tuturor sloturilor pentru toate locațiile din această lună (la fel ca în tabel)
+              calculatedSlotsCount = slotsByMonthLocation.locations.reduce((sum, location) => {
+                return sum + getValue(location)
+              }, 0)
+            } else {
+              // Altfel, calculează din locationDailyData (pentru perioade parțiale sau alte scenarii)
+              const slotsSet = new Set()
+              locationDailyData.forEach(item => {
+                if (item.serial_number) {
+                  slotsSet.add(item.serial_number)
+                }
+              })
+              calculatedSlotsCount = slotsSet.size || summary.slotsCount || 0
+            }
+
+            // Calculează averageDrop corect: sum of IN / count of slots / count of days
+            const totalInForPeriod = isCurrentMonth && hasCurrentMonthData
+              ? (overview.currentMonth.in || 0)
+              : (summary.totalIn || 0)
+            const calculatedAverageDrop = calculatedSlotsCount > 0 && daysCountInRange > 0
+              ? totalInForPeriod / calculatedSlotsCount / daysCountInRange
+              : 0
+
+            const displayData = isCurrentMonth && hasCurrentMonthData ? {
+              totalIn: overview.currentMonth.in || 0,
+              totalBet: overview.currentMonth.bet || 0,
+              totalProfit: overview.currentMonth.ggr || overview.currentMonth.profit || 0,
+              slotsCount: calculatedSlotsCount,
+              daysCount: daysCountInRange,
+              averageDrop: calculatedAverageDrop,
+              winBetPercent: overview.currentMonth.bet && overview.currentMonth.win
+                ? (overview.currentMonth.win / overview.currentMonth.bet) * 100
                 : 0
+            } : {
+              ...summary,
+              slotsCount: calculatedSlotsCount,
+              daysCount: daysCountInRange,
+              averageDrop: calculatedAverageDrop
+            }
 
-              const displayData = isCurrentMonth && hasCurrentMonthData ? {
-                totalIn: overview.currentMonth.in || 0,
-                totalBet: overview.currentMonth.bet || 0,
-                totalProfit: overview.currentMonth.ggr || overview.currentMonth.profit || 0,
-                slotsCount: calculatedSlotsCount,
-                daysCount: daysCountInRange,
-                averageDrop: calculatedAverageDrop,
-                winBetPercent: overview.currentMonth.bet && overview.currentMonth.win
-                  ? (overview.currentMonth.win / overview.currentMonth.bet) * 100
-                  : 0
-              } : {
-                ...summary,
-                slotsCount: calculatedSlotsCount,
-                daysCount: daysCountInRange,
-                averageDrop: calculatedAverageDrop
-              }
-
-              return (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-10 mt-10 mb-10">
-                  {/* Total IN Card */}
-                  <div className="bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-2xl p-10 shadow-sm relative overflow-hidden flex flex-col justify-between hover:shadow-md transition-all duration-300 hover:scale-[1.02]">
-                    <div className="absolute inset-0 hidden dark:block bg-gradient-to-br from-white/5 via-transparent to-transparent" />
-                    <div className="relative z-10">
-                      <div className="bg-blue-500/20 rounded-xl p-3 mb-4 w-fit shadow-inner">
-                        <DollarSign className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                      </div>
-                      <h3 className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">Total IN (Sumar)</h3>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-bold text-slate-900 dark:text-white">
-                          {formatCompactNumber(displayData.totalIn)}
-                        </span>
-                        <span className="text-sm text-slate-500 dark:text-slate-400"></span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Total BET Card */}
-                  <div className="bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-2xl p-6 shadow-sm relative overflow-hidden flex flex-col justify-between hover:shadow-md transition-all duration-300 hover:scale-[1.02]">
-                    <div className="absolute inset-0 hidden dark:block bg-gradient-to-br from-white/5 via-transparent to-transparent" />
-                    <div className="relative z-10">
-                      <div className="bg-purple-500/20 rounded-xl p-3 mb-4 w-fit shadow-inner">
-                        <Coins className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                      </div>
-                      <h3 className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">Total BET (Sumar)</h3>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-bold text-slate-900 dark:text-white">
-                          {formatCompactNumber(displayData.totalBet)}
-                        </span>
-                        <span className="text-sm text-slate-500 dark:text-slate-400"></span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Modern KPI Cards */}
-                  <KPICard
-                    title="GGR Total"
-                    value={summary.totalProfit || 0}
-                    change={dynamics.profitChange}
-                    changeLabel="vs luna prec."
-                    icon={TrendingUp}
-                    trend={dailyStats.map(d => d.ggr)}
-                    suffix=""
-                  />
-
-                  <KPICard
-                    title="Venit (IN)"
-                    value={summary.totalIn || 0}
-                    change={dynamics.inChange}
-                    changeLabel="vs luna prec."
-                    icon={DollarSign}
-                    trend={dailyStats.map(d => d.in)}
-                    suffix=""
-                  />
-
-                  <KPICard
-                    title="Sloturi Active"
-                    value={calculatedSlotsCount}
-                    change={0}
-                    changeLabel="Active în perioadă"
-                    icon={Activity}
-                    suffix=""
-                  />
-
-                  <KPICard
-                    title="Avg Drop / Zi"
-                    value={calculatedAverageDrop}
-                    change={0}
-                    changeLabel={`${daysCountInRange} zile operaționale`}
-                    icon={Target}
-                    suffix=""
-                  />
-                </div>
-              )
-            })()}
-
-            {/* Card Prezentare generală */}
-            <div className="bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm p-6 mb-10">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                  Prezentare generală
-                </h2>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      fetchOverview(true, true) // Manual refresh cu indicator și forțează refresh
-                    }}
-                    className="flex items-center gap-1 px-2 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                    title="Actualizare date"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-                    {isRefreshing && <span className="text-xs">Actualizare...</span>}
-                  </button>
-                  <button
-                    onClick={exportOverviewToExcel}
-                    className="flex items-center space-x-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-lg transition-colors"
-                    title="Exportă în Excel"
-                  >
-                    <FileSpreadsheet className="w-4 h-4" />
-                    <span>Export Excel</span>
-                  </button>
-                </div>
+            return (
+              <div className="grid grid-cols-5 gap-3 mt-4 mb-4">
+                <KPICard
+                  title="Total IN"
+                  value={displayData.totalIn}
+                  change={dynamics.inChange}
+                  changeLabel="vs luna prec."
+                  icon={DollarSign}
+                  trend={dailyStats.map(d => d.total_in || d.totalIn || 0)}
+                  suffix="RON"
+                  accent="blue"
+                />
+                <KPICard
+                  title="Total BET"
+                  value={displayData.totalBet}
+                  change={0}
+                  changeLabel="Perioada selectată"
+                  icon={Coins}
+                  trend={dailyStats.map(d => d.total_bet || d.totalBet || 0)}
+                  suffix="RON"
+                  accent="purple"
+                />
+                <KPICard
+                  title="GGR Total"
+                  value={summary.totalProfit || 0}
+                  change={dynamics.profitChange}
+                  changeLabel="vs luna prec."
+                  icon={TrendingUp}
+                  trend={dailyStats.map(d => d.total_profit || d.totalProfit || 0)}
+                  suffix="RON"
+                  accent="emerald"
+                />
+                <KPICard
+                  title="Sloturi Active"
+                  value={calculatedSlotsCount}
+                  change={0}
+                  changeLabel="Active în perioadă"
+                  icon={Activity}
+                  suffix=""
+                  accent="amber"
+                />
+                <KPICard
+                  title="Avg Drop / Zi"
+                  value={Math.round(calculatedAverageDrop)}
+                  change={0}
+                  changeLabel={`${daysCountInRange} zile operaționale`}
+                  icon={Target}
+                  suffix="RON"
+                  accent="cyan"
+                />
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-700">
-                      <th className="text-left py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                        Perioadă
-                      </th>
-                      <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                        Sloturi
-                      </th>
-                      <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                        GGR
-                      </th>
-                      <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                        Dinamica GGR
-                      </th>
-                      <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                        IN
-                      </th>
-                      <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                        OUT
-                      </th>
-                      <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                        BET
-                      </th>
-                      <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                        Marketing
-                      </th>
-                      <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                        Bonus cost (%)
-                      </th>
-                      <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                        JACKPOT
-                      </th>
-                      <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                        HH
-                      </th>
-                      <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                        CASHBACK
-                      </th>
-                      <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                        Zi naștere
-                      </th>
-                      <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                        Tombolă
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {overviewRowConfigs.map(({ label, data, dynamics, bonusCostDynamics }, idx) => {
-                      const marketingValue = calcMarketingValue(data)
-                      const bonusValue = calcBonusCostPercent(data)
-                      const rowClass =
-                        idx === overviewRowConfigs.length - 1
-                          ? ''
-                          : 'border-b border-slate-100 dark:border-slate-800'
+            )
 
-                      // Calculează dinamica pentru GGR
-                      const ggrDynamics = dynamics !== undefined && dynamics !== null ? dynamics : null
-                      const isPositive = ggrDynamics !== null && ggrDynamics >= 0
+          })()}
 
-                      // Calculează dinamica pentru Bonus Cost
-                      const bonusDynamics = bonusCostDynamics !== undefined && bonusCostDynamics !== null ? bonusCostDynamics : null
-                      const isBonusPositive = bonusDynamics !== null && bonusDynamics >= 0
-
-                      return (
-                        <tr key={label} className={rowClass}>
-                          <td className="py-2 px-3 font-medium">{label}</td>
-                          <td className="py-2 px-3 text-right">{formatNumber(data?.slotsCount || 0)}</td>
-                          <td className="py-2 px-3 text-right text-emerald-500 font-semibold">
-                            {formatNumber(data?.ggr || 0)}
-                          </td>
-                          <td className="py-2 px-3 text-right">
-                            {ggrDynamics !== null ? (
-                              <div className={`flex items-center justify-end gap-1 ${isPositive ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
-                                {isPositive ? (
-                                  <TrendingUp className="w-4 h-4" />
-                                ) : (
-                                  <TrendingDown className="w-4 h-4" />
-                                )}
-                                <span className={`font-semibold ${isPositive ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
-                                  {isPositive ? '+' : ''}{Math.round(ggrDynamics)}%
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-slate-400">-</span>
-                            )}
-                          </td>
-                          <td className="py-2 px-3 text-right">{formatNumber(data?.in || 0)}</td>
-                          <td className="py-2 px-3 text-right">{formatNumber(data?.out || 0)}</td>
-                          <td className="py-2 px-3 text-right">{formatNumber(data?.bet || 0)}</td>
-                          <td className="py-2 px-3 text-right">{formatNumber(marketingValue)}</td>
-                          <td className="py-2 px-3 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <span>{formatPercent(bonusValue)}</span>
-                              {bonusDynamics !== null && (
-                                <div className={`flex items-center gap-0.5 ${isBonusPositive ? 'text-red-500 dark:text-red-400' : 'text-emerald-500 dark:text-emerald-400'}`}>
-                                  {isBonusPositive ? (
-                                    <TrendingUp className="w-3 h-3" />
-                                  ) : (
-                                    <TrendingDown className="w-3 h-3" />
-                                  )}
-                                  <span className={`text-xs font-semibold ${isBonusPositive ? 'text-red-500 dark:text-red-400' : 'text-emerald-500 dark:text-emerald-400'}`}>
-                                    {isBonusPositive ? '+' : ''}{bonusDynamics.toFixed(2)}%
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-2 px-3 text-right">{formatNumber(data?.jackpot || 0)}</td>
-                          <td className="py-2 px-3 text-right">{formatNumber(data?.hh || 0)}</td>
-                          <td className="py-2 px-3 text-right">{formatNumber(data?.cb_real || 0)}</td>
-                          <td className="py-2 px-3 text-right">{formatNumber(data?.cb_birthday || 0)}</td>
-                          <td className="py-2 px-3 text-right">{formatNumber(data?.cb_raffle || 0)}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Prezentare pe locații pentru perioada selectată */}
-            <div className="bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm p-10 mb-10">
-              <div className="flex items-center justify-between mb-10">
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                    Prezentare pe locații – perioada {dateRange.startDate} – {dateRange.endDate}
-                  </h2>
-                </div>
+          {/* Card Prezentare generală */}
+          <div className="bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm p-6 mb-10">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                Prezentare generală
+              </h2>
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={exportPLTableToExcel}
+                  onClick={() => {
+                    fetchOverview(true, true) // Manual refresh cu indicator și forțează refresh
+                  }}
+                  className="flex items-center gap-1 px-2 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                  title="Actualizare date"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  {isRefreshing && <span className="text-xs">Actualizare...</span>}
+                </button>
+                <button
+                  onClick={exportOverviewToExcel}
                   className="flex items-center space-x-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-lg transition-colors"
                   title="Exportă în Excel"
                 >
@@ -3595,275 +3341,677 @@ const Incasari = () => {
                   <span>Export Excel</span>
                 </button>
               </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-400">
-                      <th className="py-2 px-3 text-left">Locație</th>
-                      <th className="py-2 px-3 text-right">IN</th>
-                      <th className="py-2 px-3 text-right">Bet</th>
-                      <th className="py-2 px-3 text-right">Win</th>
-                      <th className="py-2 px-3 text-right">GGR</th>
-                      <th className="py-2 px-3 text-right">Marketing</th>
-                      <th className="py-2 px-3 text-right">Bonus cost (%)</th>
-                      <th className="py-2 px-3 text-right">Win/Bet %</th>
-                      <th className="py-2 px-3 text-right">HH</th>
-                      <th className="py-2 px-3 text-right">CASHBACK</th>
-                      <th className="py-2 px-3 text-right">Tombolă</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {plByLocation.length === 0 ? (
-                      <tr>
-                        <td colSpan="11" className="py-8 px-3 text-center text-slate-500 dark:text-slate-400">
-                          Nu există date pentru perioada selectată
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-700">
+                    <th className="text-left py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                      Perioadă
+                    </th>
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                      Sloturi
+                    </th>
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                      GGR
+                    </th>
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                      Dinamica GGR
+                    </th>
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                      IN
+                    </th>
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                      OUT
+                    </th>
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                      BET
+                    </th>
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                      Marketing
+                    </th>
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                      Bonus cost (%)
+                    </th>
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                      JACKPOT
+                    </th>
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                      HH
+                    </th>
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                      CASHBACK
+                    </th>
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                      Zi naștere
+                    </th>
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                      Tombolă
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {overviewRowConfigs.map(({ label, data, dynamics, bonusCostDynamics }, idx) => {
+                    const marketingValue = calcMarketingValue(data)
+                    const bonusValue = calcBonusCostPercent(data)
+                    const rowClass =
+                      idx === overviewRowConfigs.length - 1
+                        ? ''
+                        : 'border-b border-slate-100 dark:border-slate-800'
+
+                    // Calculează dinamica pentru GGR
+                    const ggrDynamics = dynamics !== undefined && dynamics !== null ? dynamics : null
+                    const isPositive = ggrDynamics !== null && ggrDynamics >= 0
+
+                    // Calculează dinamica pentru Bonus Cost
+                    const bonusDynamics = bonusCostDynamics !== undefined && bonusCostDynamics !== null ? bonusCostDynamics : null
+                    const isBonusPositive = bonusDynamics !== null && bonusDynamics >= 0
+
+                    return (
+                      <tr key={label} className={rowClass}>
+                        <td className="py-2 px-3 font-medium">{label}</td>
+                        <td className="py-2 px-3 text-right">{formatNumber(data?.slotsCount || 0)}</td>
+                        <td className="py-2 px-3 text-right text-emerald-500 font-semibold">
+                          {formatNumber(data?.ggr || 0)}
                         </td>
-                      </tr>
-                    ) : (
-                      <>
-                        {plByLocation.map((row) => {
-                          const location = locations.find(loc => loc.name === row.locationName)
-                          return (
-                            <tr
-                              key={row.locationName}
-                              className="border-b border-slate-200 dark:border-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-800/40 transition-colors"
-                            >
-                              <td className="py-2 px-3 font-medium text-slate-900 dark:text-slate-100">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    navigate(`/incasari/location-pl/${encodeURIComponent(row.locationName)}?dateRange=${dateRange.startDate}_${dateRange.endDate}`)
-                                  }}
-                                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-semibold hover:underline transition-colors text-left"
-                                >
-                                  {row.locationName}
-                                </button>
-                              </td>
-                              <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                                {formatNumber(row.totalIn)}
-                              </td>
-                              <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                                {formatNumber(row.bet)}
-                              </td>
-                              <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                                {formatNumber(row.win)}
-                              </td>
-                              <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                                {formatNumber(row.ggr)}
-                              </td>
-                              <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                                {formatNumber(row.marketing)}
-                              </td>
-                              <td className="py-2 px-3 text-right">
-                                <div className="flex items-center justify-end gap-2 text-sm">
-                                  <span className="text-slate-700 dark:text-slate-300">{formatPercent(row.bonusCost)}</span>
-                                  {row.bonusCostDynamics !== null && (
-                                    <span className="inline-flex items-center gap-1">
-                                      {row.bonusCostDynamics < 0 ? (
-                                        <TrendingDown className="w-3.5 h-3.5 text-emerald-500" />
-                                      ) : row.bonusCostDynamics > 0 ? (
-                                        <TrendingUp className="w-3.5 h-3.5 text-red-500" />
-                                      ) : null}
-                                      <span className={row.bonusCostDynamics < 0 ? 'text-emerald-500' : row.bonusCostDynamics > 0 ? 'text-red-500' : 'text-slate-400'}>
-                                        {row.bonusCostDynamics > 0 ? '+' : ''}{row.bonusCostDynamics.toFixed(2)}%
-                                      </span>
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                                {formatPercent(row.winBetPercent)}
-                              </td>
-                              <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                                {formatNumber(row.hh || 0)}
-                              </td>
-                              <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                                {formatNumber(row.cashback || 0)}
-                              </td>
-                              <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
-                                {formatNumber(row.tombola || 0)}
-                              </td>
-                            </tr>
-                          )
-                        })}
-                        <tr className="border-t-2 border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/60 font-semibold">
-                          <td className="py-3 px-3 text-slate-900 dark:text-slate-100">TOTAL</td>
-                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.totalIn)}</td>
-                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.bet)}</td>
-                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.win)}</td>
-                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.ggr)}</td>
-                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.marketing)}</td>
-                          <td className="py-3 px-3 text-right">
-                            <div className="flex items-center justify-end gap-2 text-sm">
-                              <span className="text-slate-900 dark:text-slate-100">{formatPercent(plTotals.bonusCost)}</span>
-                              {plTotals.bonusCostDynamics !== null && (
-                                <span className="text-xs">{plTotals.bonusCostDynamics > 0 ? '+' : ''}{plTotals.bonusCostDynamics.toFixed(2)}%</span>
+                        <td className="py-2 px-3 text-right">
+                          {ggrDynamics !== null ? (
+                            <div className={`flex items-center justify-end gap-1 ${isPositive ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                              {isPositive ? (
+                                <TrendingUp className="w-4 h-4" />
+                              ) : (
+                                <TrendingDown className="w-4 h-4" />
                               )}
+                              <span className={`font-semibold ${isPositive ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                                {isPositive ? '+' : ''}{Math.round(ggrDynamics)}%
+                              </span>
                             </div>
-                          </td>
-                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatPercent(plTotals.winBetPercent)}</td>
-                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.hh || 0)}</td>
-                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.cashback || 0)}</td>
-                          <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.tombola || 0)}</td>
-                        </tr>
-                      </>
+                          ) : (
+                            <span className="text-slate-400">-</span>
+                          )}
+                        </td>
+                        <td className="py-2 px-3 text-right">{formatNumber(data?.in || 0)}</td>
+                        <td className="py-2 px-3 text-right">{formatNumber(data?.out || 0)}</td>
+                        <td className="py-2 px-3 text-right">{formatNumber(data?.bet || 0)}</td>
+                        <td className="py-2 px-3 text-right">{formatNumber(marketingValue)}</td>
+                        <td className="py-2 px-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <span>{formatPercent(bonusValue)}</span>
+                            {bonusDynamics !== null && (
+                              <div className={`flex items-center gap-0.5 ${isBonusPositive ? 'text-red-500 dark:text-red-400' : 'text-emerald-500 dark:text-emerald-400'}`}>
+                                {isBonusPositive ? (
+                                  <TrendingUp className="w-3 h-3" />
+                                ) : (
+                                  <TrendingDown className="w-3 h-3" />
+                                )}
+                                <span className={`text-xs font-semibold ${isBonusPositive ? 'text-red-500 dark:text-red-400' : 'text-emerald-500 dark:text-emerald-400'}`}>
+                                  {isBonusPositive ? '+' : ''}{bonusDynamics.toFixed(2)}%
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-2 px-3 text-right">{formatNumber(data?.jackpot || 0)}</td>
+                        <td className="py-2 px-3 text-right">{formatNumber(data?.hh || 0)}</td>
+                        <td className="py-2 px-3 text-right">{formatNumber(data?.cb_real || 0)}</td>
+                        <td className="py-2 px-3 text-right">{formatNumber(data?.cb_birthday || 0)}</td>
+                        <td className="py-2 px-3 text-right">{formatNumber(data?.cb_raffle || 0)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Prezentare pe locații pentru perioada selectată */}
+          <div className="bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm p-10 mb-10">
+            <div className="flex items-center justify-between mb-10">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  Prezentare pe locații – perioada {dateRange.startDate} – {dateRange.endDate}
+                </h2>
+              </div>
+              <button
+                onClick={exportPLTableToExcel}
+                className="flex items-center space-x-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-lg transition-colors"
+                title="Exportă în Excel"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Export Excel</span>
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-400">
+                    <th className="py-2 px-3 text-left">Locație</th>
+                    <th className="py-2 px-3 text-right">IN</th>
+                    <th className="py-2 px-3 text-right">Bet</th>
+                    <th className="py-2 px-3 text-right">Win</th>
+                    <th className="py-2 px-3 text-right">GGR</th>
+                    <th className="py-2 px-3 text-right">Marketing</th>
+                    <th className="py-2 px-3 text-right">Bonus cost (%)</th>
+                    <th className="py-2 px-3 text-right">Win/Bet %</th>
+                    <th className="py-2 px-3 text-right">HH</th>
+                    <th className="py-2 px-3 text-right">CASHBACK</th>
+                    <th className="py-2 px-3 text-right">Tombolă</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {plByLocation.length === 0 ? (
+                    <tr>
+                      <td colSpan="11" className="py-8 px-3 text-center text-slate-500 dark:text-slate-400">
+                        Nu există date pentru perioada selectată
+                      </td>
+                    </tr>
+                  ) : (
+                    <>
+                      {plByLocation.map((row) => {
+                        const location = locations.find(loc => loc.name === row.locationName)
+                        return (
+                          <tr
+                            key={row.locationName}
+                            className="border-b border-slate-200 dark:border-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-800/40 transition-colors"
+                          >
+                            <td className="py-2 px-3 font-medium text-slate-900 dark:text-slate-100">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  navigate(`/incasari/location-pl/${encodeURIComponent(row.locationName)}?dateRange=${dateRange.startDate}_${dateRange.endDate}`)
+                                }}
+                                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-semibold hover:underline transition-colors text-left"
+                              >
+                                {row.locationName}
+                              </button>
+                            </td>
+                            <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                              {formatNumber(row.totalIn)}
+                            </td>
+                            <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                              {formatNumber(row.bet)}
+                            </td>
+                            <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                              {formatNumber(row.win)}
+                            </td>
+                            <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                              {formatNumber(row.ggr)}
+                            </td>
+                            <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                              {formatNumber(row.marketing)}
+                            </td>
+                            <td className="py-2 px-3 text-right">
+                              <div className="flex items-center justify-end gap-2 text-sm">
+                                <span className="text-slate-700 dark:text-slate-300">{formatPercent(row.bonusCost)}</span>
+                                {row.bonusCostDynamics !== null && (
+                                  <span className="inline-flex items-center gap-1">
+                                    {row.bonusCostDynamics < 0 ? (
+                                      <TrendingDown className="w-3.5 h-3.5 text-emerald-500" />
+                                    ) : row.bonusCostDynamics > 0 ? (
+                                      <TrendingUp className="w-3.5 h-3.5 text-red-500" />
+                                    ) : null}
+                                    <span className={row.bonusCostDynamics < 0 ? 'text-emerald-500' : row.bonusCostDynamics > 0 ? 'text-red-500' : 'text-slate-400'}>
+                                      {row.bonusCostDynamics > 0 ? '+' : ''}{row.bonusCostDynamics.toFixed(2)}%
+                                    </span>
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                              {formatPercent(row.winBetPercent)}
+                            </td>
+                            <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                              {formatNumber(row.hh || 0)}
+                            </td>
+                            <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                              {formatNumber(row.cashback || 0)}
+                            </td>
+                            <td className="py-2 px-3 text-right text-slate-800 dark:text-slate-100">
+                              {formatNumber(row.tombola || 0)}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                      <tr className="border-t-2 border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/60 font-semibold">
+                        <td className="py-3 px-3 text-slate-900 dark:text-slate-100">TOTAL</td>
+                        <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.totalIn)}</td>
+                        <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.bet)}</td>
+                        <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.win)}</td>
+                        <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.ggr)}</td>
+                        <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.marketing)}</td>
+                        <td className="py-3 px-3 text-right">
+                          <div className="flex items-center justify-end gap-2 text-sm">
+                            <span className="text-slate-900 dark:text-slate-100">{formatPercent(plTotals.bonusCost)}</span>
+                            {plTotals.bonusCostDynamics !== null && (
+                              <span className="text-xs">{plTotals.bonusCostDynamics > 0 ? '+' : ''}{plTotals.bonusCostDynamics.toFixed(2)}%</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatPercent(plTotals.winBetPercent)}</td>
+                        <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.hh || 0)}</td>
+                        <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.cashback || 0)}</td>
+                        <td className="py-3 px-3 text-right text-slate-900 dark:text-slate-100">{formatNumber(plTotals.tombola || 0)}</td>
+                      </tr>
+                    </>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+
+
+          {/* Modal de progres sincronizare Încasări (Cyber) */}
+          {syncModalOpen && (
+            <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/70">
+              <div className="bg-slate-900 text-slate-100 rounded-2xl shadow-2xl w-full max-w-2xl p-6 border border-slate-700">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-lg font-bold flex items-center gap-2">
+                      <BarChart3 className="w-5 h-5 text-emerald-400" />
+                      Sincronizare date Încasări (Cyber)
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Status:{' '}
+                      <span className="font-semibold">
+                        {syncStatus.running ? 'În curs...' : 'Finalizat / Inactiv'}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {syncStatus.running && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            const resp = await axios.delete('/api/incasari/sync-stop')
+                            if (resp.data?.success) {
+                              toast.success('Sincronizarea a fost oprită')
+                              // Reîncarcă statusul
+                              const statusResp = await axios.get('/api/incasari/sync-status')
+                              if (statusResp.data?.success) {
+                                setSyncStatus({
+                                  running: !!statusResp.data.running,
+                                  startTime: statusResp.data.startTime || null,
+                                  endTime: statusResp.data.endTime || null,
+                                  output: statusResp.data.output || ''
+                                })
+                              }
+                            } else {
+                              toast.error(resp.data?.error || 'Nu am putut opri sincronizarea')
+                            }
+                          } catch (error) {
+                            console.error('❌ Eroare la oprirea sincronizării:', error)
+                            toast.error(error.response?.data?.error || error.message || 'Eroare la oprirea sincronizării')
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs rounded-lg transition-colors flex items-center gap-1"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        Oprește
+                      </button>
                     )}
-                  </tbody>
-                </table>
+                    <button
+                      onClick={() => setSyncModalOpen(false)}
+                      className="text-slate-400 hover:text-slate-100 text-sm"
+                    >
+                      Închide
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mb-4 text-xs text-slate-300 space-y-1">
+                  <p>
+                    Pornit la:{' '}
+                    <span className="font-mono">
+                      {syncStatus.startTime
+                        ? new Date(syncStatus.startTime).toLocaleString('ro-RO')
+                        : '-'}
+                    </span>
+                  </p>
+                  <p>
+                    Terminare:{' '}
+                    <span className="font-mono">
+                      {syncStatus.endTime
+                        ? new Date(syncStatus.endTime).toLocaleString('ro-RO')
+                        : syncStatus.running
+                          ? 'în curs...'
+                          : '-'}
+                    </span>
+                  </p>
+                </div>
+
+                {syncStatus.running && (
+                  <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-4">
+                    <div className="h-full w-1/3 bg-gradient-to-r from-emerald-400 to-cyan-400 animate-pulse" />
+                  </div>
+                )}
+
+                <div className="bg-slate-950/60 border border-slate-700 rounded-xl p-3 max-h-64 overflow-auto text-xs font-mono whitespace-pre-wrap">
+                  {(() => {
+                    const lines = (syncStatus.output || '').split('\n')
+                    const lastLines = lines.slice(-40).join('\n').trim()
+                    return lastLines || 'Nu există încă mesaje de la scriptul de sincronizare.'
+                  })()}
+                </div>
               </div>
             </div>
+          )}
 
-            {/* NOUL TABEL: Sumar Departament pe Locații (CERUT DE USER) */}
-            <ExpendituresDepartmentTable
-              data={expendituresForTable}
-              locations={locations.map(l => l.name)} // Ensure we pass location names
-            />
 
-            {/* Modal de progres sincronizare Încasări (Cyber) */}
-            {syncModalOpen && (
-              <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/70">
-                <div className="bg-slate-900 text-slate-100 rounded-2xl shadow-2xl w-full max-w-2xl p-6 border border-slate-700">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h2 className="text-lg font-bold flex items-center gap-2">
-                        <BarChart3 className="w-5 h-5 text-emerald-400" />
-                        Sincronizare date Încasări (Cyber)
-                      </h2>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Status:{' '}
-                        <span className="font-semibold">
-                          {syncStatus.running ? 'În curs...' : 'Finalizat / Inactiv'}
-                        </span>
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {syncStatus.running && (
-                        <button
-                          onClick={async () => {
-                            try {
-                              const resp = await axios.delete('/api/incasari/sync-stop')
-                              if (resp.data?.success) {
-                                toast.success('Sincronizarea a fost oprită')
-                                // Reîncarcă statusul
-                                const statusResp = await axios.get('/api/incasari/sync-status')
-                                if (statusResp.data?.success) {
-                                  setSyncStatus({
-                                    running: !!statusResp.data.running,
-                                    startTime: statusResp.data.startTime || null,
-                                    endTime: statusResp.data.endTime || null,
-                                    output: statusResp.data.output || ''
-                                  })
-                                }
-                              } else {
-                                toast.error(resp.data?.error || 'Nu am putut opri sincronizarea')
-                              }
-                            } catch (error) {
-                              console.error('❌ Eroare la oprirea sincronizării:', error)
-                              toast.error(error.response?.data?.error || error.message || 'Eroare la oprirea sincronizării')
-                            }
-                          }}
-                          className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs rounded-lg transition-colors flex items-center gap-1"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                          Oprește
-                        </button>
-                      )}
-                      <button
-                        onClick={() => setSyncModalOpen(false)}
-                        className="text-slate-400 hover:text-slate-100 text-sm"
-                      >
-                        Închide
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="mb-4 text-xs text-slate-300 space-y-1">
-                    <p>
-                      Pornit la:{' '}
-                      <span className="font-mono">
-                        {syncStatus.startTime
-                          ? new Date(syncStatus.startTime).toLocaleString('ro-RO')
-                          : '-'}
-                      </span>
-                    </p>
-                    <p>
-                      Terminare:{' '}
-                      <span className="font-mono">
-                        {syncStatus.endTime
-                          ? new Date(syncStatus.endTime).toLocaleString('ro-RO')
-                          : syncStatus.running
-                            ? 'în curs...'
-                            : '-'}
-                      </span>
-                    </p>
-                  </div>
-
-                  {syncStatus.running && (
-                    <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-4">
-                      <div className="h-full w-1/3 bg-gradient-to-r from-emerald-400 to-cyan-400 animate-pulse" />
-                    </div>
-                  )}
-
-                  <div className="bg-slate-950/60 border border-slate-700 rounded-xl p-3 max-h-64 overflow-auto text-xs font-mono whitespace-pre-wrap">
-                    {(() => {
-                      const lines = (syncStatus.output || '').split('\n')
-                      const lastLines = lines.slice(-40).join('\n').trim()
-                      return lastLines || 'Nu există încă mesaje de la scriptul de sincronizare.'
-                    })()}
-                  </div>
+          {/* Grafice principale - unul pe rând, mari */}
+          <div className="space-y-10 mb-10">
+            <div className="bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg p-10">
+              <div className="flex items-center justify-between mb-10">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                    Evoluție GGR {isSingleMonthRange ? '(zilnic)' : ''}
+                  </h2>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                    {dateRange.startDate} - {dateRange.endDate}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                    {formatNumber(chartData.reduce((sum, d) => sum + (d.totalGgr || 0), 0))}
+                  </p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center justify-end mt-1">
+                    <TrendingUp className="w-4 h-4 mr-1 text-green-500" />
+                    Total perioadă
+                  </p>
                 </div>
               </div>
-            )}
-
-
-            {/* Grafice principale - unul pe rând, mari */}
-            <div className="space-y-10 mb-10">
-              <div className="bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg p-10">
-                <div className="flex items-center justify-between mb-10">
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                      Evoluție GGR {isSingleMonthRange ? '(zilnic)' : ''}
-                    </h2>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                      {dateRange.startDate} - {dateRange.endDate}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-3xl font-bold text-green-600 dark:text-green-400">
-                      {formatNumber(chartData.reduce((sum, d) => sum + (d.totalGgr || 0), 0))}
-                    </p>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center justify-end mt-1">
-                      <TrendingUp className="w-4 h-4 mr-1 text-green-500" />
-                      Total perioadă
-                    </p>
-                  </div>
+              {chartData.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400">
+                  Nu există date pentru perioada selectată
                 </div>
-                {chartData.length === 0 ? (
+              ) : (
+                <ResponsiveContainer width="100%" height={200}>
+                  <ComposedChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
+                    <XAxis
+                      dataKey="label"
+                      stroke="#64748b"
+                      style={{ fontSize: '12px' }}
+                    />
+                    <YAxis
+                      yAxisId="left"
+                      stroke="#64748b"
+                      style={{ fontSize: '12px' }}
+                      tickFormatter={(value) => formatNumber(value)}
+                      domain={['dataMin - 50000', 'dataMax + 50000']}
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      stroke="#64748b"
+                      style={{ fontSize: '12px' }}
+                      tickFormatter={(v) => v.toLocaleString('ro-RO')}
+                    />
+                    <Tooltip
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload || payload.length === 0) return null;
+
+                        return (
+                          <div
+                            style={{
+                              backgroundColor: '#1e293b',
+                              padding: '12px 16px',
+                              borderRadius: '12px',
+                              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
+                              border: 'none'
+                            }}
+                          >
+                            <p style={{ color: '#fff', fontWeight: 'bold', marginBottom: '8px' }}>
+                              Data: {label}
+                            </p>
+                            {payload.map((entry, index) => (
+                              <p key={index} style={{ color: entry.color, margin: '4px 0' }}>
+                                {entry.name}: {
+                                  entry.name === 'Sloturi active'
+                                    ? entry.value.toLocaleString('ro-RO')
+                                    : formatNumber(entry.value)
+                                }
+                              </p>
+                            ))}
+                          </div>
+                        );
+                      }}
+                      cursor={false}
+                      wrapperStyle={{
+                        backgroundColor: 'transparent',
+                        background: 'transparent',
+                        border: 'none',
+                        boxShadow: 'none',
+                        padding: 0,
+                        margin: 0
+                      }}
+                      contentStyle={{
+                        backgroundColor: 'transparent',
+                        background: 'transparent',
+                        border: 'none',
+                        boxShadow: 'none',
+                        padding: 0,
+                        margin: 0
+                      }}
+                    />
+                    {!isSingleMonthRange && (
+                      <Bar
+                        yAxisId="right"
+                        dataKey="slotsCount"
+                        name="Sloturi active"
+                        fill="#38bdf8"
+                        radius={[4, 4, 0, 0]}
+                      >
+                        <LabelList
+                          dataKey="slotsCount"
+                          position="inside"
+                          formatter={(value) => value.toLocaleString('ro-RO')}
+                          style={{ fontSize: '11px', fontWeight: 'bold', fill: '#fff' }}
+                        />
+                      </Bar>
+                    )}
+                    <Line
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="totalGgr"
+                      name="GGR"
+                      stroke="#22c55e"
+                      strokeWidth={4}
+                      dot={{ fill: '#22c55e', r: 4 }}
+                      activeDot={{ r: 6 }}
+                    >
+                      <LabelList
+                        dataKey="totalGgr"
+                        position="top"
+                        offset={15}
+                        formatter={(value) => formatNumber(value)}
+                        style={{
+                          fontSize: '14px',
+                          fontWeight: 'bold',
+                          fill: '#065f46',
+                          textShadow: '0 0 3px rgba(255, 255, 255, 0.9), 0 1px 2px rgba(0, 0, 0, 0.2)',
+                          paintOrder: 'stroke fill'
+                        }}
+                        className="dark:fill-green-300 dark:drop-shadow-[0_0_3px_rgba(0,0,0,0.8)]"
+                      />
+                    </Line>
+                    <Line
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="trendGgr"
+                      name="Trend GGR (AI)"
+                      stroke="#a855f7"
+                      strokeWidth={1.5}
+                      strokeDasharray="4 4"
+                      dot={false}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+
+            <div className="bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg p-10">
+              <div className="flex items-center justify-between mb-10">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                    IN (Luna curentă vs Luna trecută)
+                  </h2>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                    {dateRange.startDate} - {dateRange.endDate}
+                  </p>
+                </div>
+              </div>
+              {comparisonChartData.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400" style={{ height: '200px' }}>
+                  Nu există date pentru perioada selectată
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={200}>
+                  <ComposedChart data={comparisonChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
+                    <XAxis
+                      dataKey="label"
+                      stroke="#64748b"
+                      style={{ fontSize: '12px' }}
+                    />
+                    <YAxis
+                      yAxisId="left"
+                      stroke="#64748b"
+                      style={{ fontSize: '12px' }}
+                      tickFormatter={(v) => formatNumber(v)}
+                    />
+                    <Tooltip
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload || payload.length === 0) return null;
+
+                        const currentEntry = payload.find(p => p.dataKey === 'currentIn')
+                        const lastEntry = payload.find(p => p.dataKey === 'lastIn')
+                        const currentValue = currentEntry?.value || 0
+                        const lastValue = lastEntry?.value || 0
+                        const difference = currentValue - lastValue
+                        const percentChange = lastValue > 0 ? ((difference / lastValue) * 100).toFixed(1) : 0
+                        const isEstimated = currentEntry?.payload?.isEstimated
+
+                        return (
+                          <div
+                            style={{
+                              backgroundColor: '#1e293b',
+                              padding: '16px 20px',
+                              borderRadius: '12px',
+                              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
+                              border: '1px solid rgba(255, 255, 255, 0.1)',
+                              minWidth: '280px'
+                            }}
+                          >
+                            <p style={{ color: '#fff', fontWeight: 'bold', marginBottom: '12px', fontSize: '16px' }}>
+                              Zi {label}
+                              {isEstimated && (
+                                <span style={{ color: '#86efac', marginLeft: '8px', fontSize: '12px' }}>
+                                  (Estimare)
+                                </span>
+                              )}
+                            </p>
+                            <div style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', marginBottom: '8px', paddingBottom: '8px' }}>
+                              <p style={{ color: '#22c55e', margin: '4px 0', fontSize: '14px', fontWeight: '600' }}>
+                                {currentEntry?.name}: {formatNumber(currentValue)}
+                              </p>
+                              <p style={{ color: '#60a5fa', margin: '4px 0', fontSize: '14px', fontWeight: '600' }}>
+                                {lastEntry?.name}: {formatNumber(lastValue)}
+                              </p>
+                            </div>
+                            <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                              <p style={{ color: difference >= 0 ? '#22c55e' : '#ef4444', margin: '4px 0', fontSize: '13px' }}>
+                                Diferență: {difference >= 0 ? '+' : ''}{formatNumber(difference)}
+                              </p>
+                              <p style={{ color: difference >= 0 ? '#22c55e' : '#ef4444', margin: '4px 0', fontSize: '13px' }}>
+                                Variație: {percentChange >= 0 ? '+' : ''}{percentChange}%
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      }}
+                      cursor={false}
+                      wrapperStyle={{
+                        backgroundColor: 'transparent',
+                        background: 'transparent',
+                        border: 'none',
+                        boxShadow: 'none',
+                        padding: 0,
+                        margin: 0
+                      }}
+                      contentStyle={{
+                        backgroundColor: 'transparent',
+                        background: 'transparent',
+                        border: 'none',
+                        boxShadow: 'none',
+                        padding: 0,
+                        margin: 0
+                      }}
+                    />
+                    <Legend />
+                    <Bar yAxisId="left" dataKey="currentIn" name="IN Luna curentă" fill="#22c55e" radius={[4, 4, 0, 0]}>
+                      <LabelList
+                        dataKey="currentIn"
+                        position="top"
+                        formatter={(value, entry) => {
+                          if (entry?.payload?.isEstimated) {
+                            return `~${formatNumber(value)} (est.)`
+                          }
+                          return formatNumber(value)
+                        }}
+                        style={{ fontSize: '10px', fontWeight: 'bold', fill: '#22c55e' }}
+                      />
+                      {comparisonChartData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={entry.isEstimated ? "#86efac" : "#22c55e"}
+                          fillOpacity={entry.isEstimated ? 0.6 : 1}
+                        />
+                      ))}
+                    </Bar>
+                    <Bar yAxisId="left" dataKey="lastIn" name="IN Luna trecută" fill="#60a5fa" radius={[4, 4, 0, 0]}>
+                      <LabelList
+                        dataKey="lastIn"
+                        position="top"
+                        formatter={(value) => formatNumber(value)}
+                        style={{ fontSize: '10px', fontWeight: 'bold', fill: '#60a5fa' }}
+                      />
+                    </Bar>
+                  </ComposedChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          {/* Bar charts Top N pe locații și cabinete (IN mediu/slot) */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-10 mb-10">
+            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-10">
+              <div className="flex items-center justify-between mb-10">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                  GGR pe locații
+                </h2>
+              </div>
+              <div className="h-80">
+                {locationPieData.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400">
                     Nu există date pentru perioada selectată
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height={200}>
-                    <ComposedChart data={chartData}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={locationPieData} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
                       <XAxis
-                        dataKey="label"
+                        type="number"
                         stroke="#64748b"
                         style={{ fontSize: '12px' }}
+                        tickFormatter={(v) => formatNumber(v)}
                       />
                       <YAxis
-                        yAxisId="left"
+                        dataKey="locationName"
+                        type="category"
                         stroke="#64748b"
                         style={{ fontSize: '12px' }}
-                        tickFormatter={(value) => formatNumber(value)}
-                        domain={['dataMin - 50000', 'dataMax + 50000']}
-                      />
-                      <YAxis
-                        yAxisId="right"
-                        orientation="right"
-                        stroke="#64748b"
-                        style={{ fontSize: '12px' }}
-                        tickFormatter={(v) => v.toLocaleString('ro-RO')}
+                        width={120}
                       />
                       <Tooltip
                         content={({ active, payload, label }) => {
@@ -3880,17 +4028,11 @@ const Incasari = () => {
                               }}
                             >
                               <p style={{ color: '#fff', fontWeight: 'bold', marginBottom: '8px' }}>
-                                Data: {label}
+                                Locație: {label}
                               </p>
-                              {payload.map((entry, index) => (
-                                <p key={index} style={{ color: entry.color, margin: '4px 0' }}>
-                                  {entry.name}: {
-                                    entry.name === 'Sloturi active'
-                                      ? entry.value.toLocaleString('ro-RO')
-                                      : formatNumber(entry.value)
-                                  }
-                                </p>
-                              ))}
+                              <p style={{ color: '#22c55e', margin: '4px 0' }}>
+                                GGR: {formatNumber(payload[0]?.value || 0)}
+                              </p>
                             </div>
                           );
                         }}
@@ -3912,139 +4054,68 @@ const Incasari = () => {
                           margin: 0
                         }}
                       />
-                      {!isSingleMonthRange && (
-                        <Bar
-                          yAxisId="right"
-                          dataKey="slotsCount"
-                          name="Sloturi active"
-                          fill="#38bdf8"
-                          radius={[4, 4, 0, 0]}
-                        >
-                          <LabelList
-                            dataKey="slotsCount"
-                            position="inside"
-                            formatter={(value) => value.toLocaleString('ro-RO')}
-                            style={{ fontSize: '11px', fontWeight: 'bold', fill: '#fff' }}
-                          />
-                        </Bar>
-                      )}
-                      <Line
-                        yAxisId="left"
-                        type="monotone"
-                        dataKey="totalGgr"
-                        name="GGR"
-                        stroke="#22c55e"
-                        strokeWidth={4}
-                        dot={{ fill: '#22c55e', r: 4 }}
-                        activeDot={{ r: 6 }}
-                      >
+                      <Bar dataKey="totalProfit" fill="#22c55e" radius={[0, 4, 4, 0]}>
                         <LabelList
-                          dataKey="totalGgr"
-                          position="top"
-                          offset={15}
+                          dataKey="totalProfit"
+                          position="right"
                           formatter={(value) => formatNumber(value)}
-                          style={{
-                            fontSize: '14px',
-                            fontWeight: 'bold',
-                            fill: '#065f46',
-                            textShadow: '0 0 3px rgba(255, 255, 255, 0.9), 0 1px 2px rgba(0, 0, 0, 0.2)',
-                            paintOrder: 'stroke fill'
-                          }}
-                          className="dark:fill-green-300 dark:drop-shadow-[0_0_3px_rgba(0,0,0,0.8)]"
+                          style={{ fontSize: '10px', fontWeight: 'bold', fill: '#22c55e' }}
                         />
-                      </Line>
-                      <Line
-                        yAxisId="left"
-                        type="monotone"
-                        dataKey="trendGgr"
-                        name="Trend GGR (AI)"
-                        stroke="#a855f7"
-                        strokeWidth={1.5}
-                        strokeDasharray="4 4"
-                        dot={false}
-                      />
-                    </ComposedChart>
+                      </Bar>
+                    </BarChart>
                   </ResponsiveContainer>
                 )}
               </div>
+            </div>
 
-              <div className="bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg p-10">
-                <div className="flex items-center justify-between mb-10">
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                      IN (Luna curentă vs Luna trecută)
-                    </h2>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                      {dateRange.startDate} - {dateRange.endDate}
-                    </p>
-                  </div>
-                </div>
-                {comparisonChartData.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400" style={{ height: '200px' }}>
+            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-10">
+              <div className="flex items-center justify-between mb-10">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                  Average Drop pe cabinete
+                </h2>
+              </div>
+              <div className="h-80">
+                {cabinetPieData.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400">
                     Nu există date pentru perioada selectată
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height={200}>
-                    <ComposedChart data={comparisonChartData}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={cabinetPieData} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
                       <XAxis
-                        dataKey="label"
-                        stroke="#64748b"
-                        style={{ fontSize: '12px' }}
-                      />
-                      <YAxis
-                        yAxisId="left"
+                        type="number"
                         stroke="#64748b"
                         style={{ fontSize: '12px' }}
                         tickFormatter={(v) => formatNumber(v)}
+                      />
+                      <YAxis
+                        dataKey="cabinetName"
+                        type="category"
+                        stroke="#64748b"
+                        style={{ fontSize: '12px' }}
+                        width={120}
                       />
                       <Tooltip
                         content={({ active, payload, label }) => {
                           if (!active || !payload || payload.length === 0) return null;
 
-                          const currentEntry = payload.find(p => p.dataKey === 'currentIn')
-                          const lastEntry = payload.find(p => p.dataKey === 'lastIn')
-                          const currentValue = currentEntry?.value || 0
-                          const lastValue = lastEntry?.value || 0
-                          const difference = currentValue - lastValue
-                          const percentChange = lastValue > 0 ? ((difference / lastValue) * 100).toFixed(1) : 0
-                          const isEstimated = currentEntry?.payload?.isEstimated
-
                           return (
                             <div
                               style={{
                                 backgroundColor: '#1e293b',
-                                padding: '16px 20px',
+                                padding: '12px 16px',
                                 borderRadius: '12px',
                                 boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
-                                border: '1px solid rgba(255, 255, 255, 0.1)',
-                                minWidth: '280px'
+                                border: 'none'
                               }}
                             >
-                              <p style={{ color: '#fff', fontWeight: 'bold', marginBottom: '12px', fontSize: '16px' }}>
-                                Zi {label}
-                                {isEstimated && (
-                                  <span style={{ color: '#86efac', marginLeft: '8px', fontSize: '12px' }}>
-                                    (Estimare)
-                                  </span>
-                                )}
+                              <p style={{ color: '#fff', fontWeight: 'bold', marginBottom: '8px' }}>
+                                Cabinet: {label}
                               </p>
-                              <div style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', marginBottom: '8px', paddingBottom: '8px' }}>
-                                <p style={{ color: '#22c55e', margin: '4px 0', fontSize: '14px', fontWeight: '600' }}>
-                                  {currentEntry?.name}: {formatNumber(currentValue)}
-                                </p>
-                                <p style={{ color: '#60a5fa', margin: '4px 0', fontSize: '14px', fontWeight: '600' }}>
-                                  {lastEntry?.name}: {formatNumber(lastValue)}
-                                </p>
-                              </div>
-                              <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
-                                <p style={{ color: difference >= 0 ? '#22c55e' : '#ef4444', margin: '4px 0', fontSize: '13px' }}>
-                                  Diferență: {difference >= 0 ? '+' : ''}{formatNumber(difference)}
-                                </p>
-                                <p style={{ color: difference >= 0 ? '#22c55e' : '#ef4444', margin: '4px 0', fontSize: '13px' }}>
-                                  Variație: {percentChange >= 0 ? '+' : ''}{percentChange}%
-                                </p>
-                              </div>
+                              <p style={{ color: '#0ea5e9', margin: '4px 0' }}>
+                                Average Drop: {formatNumber(payload[0]?.value || 0)}
+                              </p>
                             </div>
                           );
                         }}
@@ -4066,585 +4137,395 @@ const Incasari = () => {
                           margin: 0
                         }}
                       />
-                      <Legend />
-                      <Bar yAxisId="left" dataKey="currentIn" name="IN Luna curentă" fill="#22c55e" radius={[4, 4, 0, 0]}>
+                      <Bar dataKey="averageDrop" fill="#0ea5e9" radius={[0, 4, 4, 0]}>
                         <LabelList
-                          dataKey="currentIn"
-                          position="top"
-                          formatter={(value, entry) => {
-                            if (entry?.payload?.isEstimated) {
-                              return `~${formatNumber(value)} (est.)`
-                            }
-                            return formatNumber(value)
-                          }}
-                          style={{ fontSize: '10px', fontWeight: 'bold', fill: '#22c55e' }}
-                        />
-                        {comparisonChartData.map((entry, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={entry.isEstimated ? "#86efac" : "#22c55e"}
-                            fillOpacity={entry.isEstimated ? 0.6 : 1}
-                          />
-                        ))}
-                      </Bar>
-                      <Bar yAxisId="left" dataKey="lastIn" name="IN Luna trecută" fill="#60a5fa" radius={[4, 4, 0, 0]}>
-                        <LabelList
-                          dataKey="lastIn"
-                          position="top"
+                          dataKey="averageDrop"
+                          position="right"
                           formatter={(value) => formatNumber(value)}
-                          style={{ fontSize: '10px', fontWeight: 'bold', fill: '#60a5fa' }}
+                          style={{ fontSize: '10px', fontWeight: 'bold', fill: '#0ea5e9' }}
                         />
                       </Bar>
-                    </ComposedChart>
+                    </BarChart>
                   </ResponsiveContainer>
                 )}
               </div>
             </div>
+          </div>
 
-            {/* Bar charts Top N pe locații și cabinete (IN mediu/slot) */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-10 mb-10">
-              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-10">
-                <div className="flex items-center justify-between mb-10">
-                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                    GGR pe locații
-                  </h2>
-                </div>
-                <div className="h-80">
-                  {locationPieData.length === 0 ? (
-                    <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400">
-                      Nu există date pentru perioada selectată
-                    </div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={locationPieData} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
-                        <XAxis
-                          type="number"
-                          stroke="#64748b"
-                          style={{ fontSize: '12px' }}
-                          tickFormatter={(v) => formatNumber(v)}
-                        />
-                        <YAxis
-                          dataKey="locationName"
-                          type="category"
-                          stroke="#64748b"
-                          style={{ fontSize: '12px' }}
-                          width={120}
-                        />
-                        <Tooltip
-                          content={({ active, payload, label }) => {
-                            if (!active || !payload || payload.length === 0) return null;
-
-                            return (
-                              <div
-                                style={{
-                                  backgroundColor: '#1e293b',
-                                  padding: '12px 16px',
-                                  borderRadius: '12px',
-                                  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
-                                  border: 'none'
-                                }}
-                              >
-                                <p style={{ color: '#fff', fontWeight: 'bold', marginBottom: '8px' }}>
-                                  Locație: {label}
-                                </p>
-                                <p style={{ color: '#22c55e', margin: '4px 0' }}>
-                                  GGR: {formatNumber(payload[0]?.value || 0)}
-                                </p>
-                              </div>
-                            );
-                          }}
-                          cursor={false}
-                          wrapperStyle={{
-                            backgroundColor: 'transparent',
-                            background: 'transparent',
-                            border: 'none',
-                            boxShadow: 'none',
-                            padding: 0,
-                            margin: 0
-                          }}
-                          contentStyle={{
-                            backgroundColor: 'transparent',
-                            background: 'transparent',
-                            border: 'none',
-                            boxShadow: 'none',
-                            padding: 0,
-                            margin: 0
-                          }}
-                        />
-                        <Bar dataKey="totalProfit" fill="#22c55e" radius={[0, 4, 4, 0]}>
-                          <LabelList
-                            dataKey="totalProfit"
-                            position="right"
-                            formatter={(value) => formatNumber(value)}
-                            style={{ fontSize: '10px', fontWeight: 'bold', fill: '#22c55e' }}
-                          />
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-lg p-10">
-                <div className="flex items-center justify-between mb-10">
-                  <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                    Average Drop pe cabinete
-                  </h2>
-                </div>
-                <div className="h-80">
-                  {cabinetPieData.length === 0 ? (
-                    <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400">
-                      Nu există date pentru perioada selectată
-                    </div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={cabinetPieData} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
-                        <XAxis
-                          type="number"
-                          stroke="#64748b"
-                          style={{ fontSize: '12px' }}
-                          tickFormatter={(v) => formatNumber(v)}
-                        />
-                        <YAxis
-                          dataKey="cabinetName"
-                          type="category"
-                          stroke="#64748b"
-                          style={{ fontSize: '12px' }}
-                          width={120}
-                        />
-                        <Tooltip
-                          content={({ active, payload, label }) => {
-                            if (!active || !payload || payload.length === 0) return null;
-
-                            return (
-                              <div
-                                style={{
-                                  backgroundColor: '#1e293b',
-                                  padding: '12px 16px',
-                                  borderRadius: '12px',
-                                  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
-                                  border: 'none'
-                                }}
-                              >
-                                <p style={{ color: '#fff', fontWeight: 'bold', marginBottom: '8px' }}>
-                                  Cabinet: {label}
-                                </p>
-                                <p style={{ color: '#0ea5e9', margin: '4px 0' }}>
-                                  Average Drop: {formatNumber(payload[0]?.value || 0)}
-                                </p>
-                              </div>
-                            );
-                          }}
-                          cursor={false}
-                          wrapperStyle={{
-                            backgroundColor: 'transparent',
-                            background: 'transparent',
-                            border: 'none',
-                            boxShadow: 'none',
-                            padding: 0,
-                            margin: 0
-                          }}
-                          contentStyle={{
-                            backgroundColor: 'transparent',
-                            background: 'transparent',
-                            border: 'none',
-                            boxShadow: 'none',
-                            padding: 0,
-                            margin: 0
-                          }}
-                        />
-                        <Bar dataKey="averageDrop" fill="#0ea5e9" radius={[0, 4, 4, 0]}>
-                          <LabelList
-                            dataKey="averageDrop"
-                            position="right"
-                            formatter={(value) => formatNumber(value)}
-                            style={{ fontSize: '10px', fontWeight: 'bold', fill: '#0ea5e9' }}
-                          />
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  )}
-                </div>
-              </div>
+          {/* Tabel Sloturi pe lună și locație pentru anul curent */}
+          <div className="bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm p-10 mb-10">
+            <div className="flex items-center justify-between mb-10">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                Număr sloturi pe lună și locație - Anul {slotsByMonthLocation.year}
+              </h2>
+              <button
+                onClick={exportSlotsByMonthLocationToExcel}
+                className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition-all shadow-sm hover:shadow-md"
+                title="Export Excel"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Export Excel</span>
+              </button>
             </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm" style={{ tableLayout: 'fixed', width: '100%' }}>
+                <colgroup>
+                  <col style={{ width: '120px' }} />
+                  {slotsByMonthLocation.locations.map(() => (
+                    <col key={Math.random()} style={{ width: '180px' }} />
+                  ))}
+                  <col style={{ width: '150px' }} />
+                </colgroup>
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-700">
+                    <th className="px-3 py-2 text-left font-semibold text-slate-700 dark:text-slate-300 sticky left-0 bg-slate-50 dark:bg-slate-800/60 z-10">
+                      Lună
+                    </th>
+                    {slotsByMonthLocation.locations.map((location) => (
+                      <th
+                        key={location}
+                        className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-300"
+                        style={{ width: '180px' }}
+                      >
+                        {location}
+                      </th>
+                    ))}
+                    <th className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/60" style={{ width: '150px' }}>
+                      Total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => {
+                    const monthNames = [
+                      'Ianuarie',
+                      'Februarie',
+                      'Martie',
+                      'Aprilie',
+                      'Mai',
+                      'Iunie',
+                      'Iulie',
+                      'August',
+                      'Septembrie',
+                      'Octombrie',
+                      'Noiembrie',
+                      'Decembrie'
+                    ]
+                    const monthData = slotsByMonthLocation.monthData[month] || {}
 
-            {/* Tabel Sloturi pe lună și locație pentru anul curent */}
-            <div className="bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm p-10 mb-10">
-              <div className="flex items-center justify-between mb-10">
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                  Număr sloturi pe lună și locație - Anul {slotsByMonthLocation.year}
-                </h2>
+                    // Calculează totalul pentru această lună (suma tuturor locațiilor)
+                    const monthTotal = slotsByMonthLocation.locations.reduce((sum, location) => {
+                      return sum + (Number(monthData[location] || 0))
+                    }, 0)
+
+                    // Folosește datele salvate local sau datele curente - AFIȘEAZĂ MEREU ULTIMELE DATE
+                    const getValue = (location) => {
+                      const value = Number(monthData[location] || 0)
+                      const key = `slots_${slotsByMonthLocation.year}_${month}_${location}`
+
+                      // Dacă există valoare nouă (chiar dacă e zero), salvează-o și o folosește
+                      if (value !== null && value !== undefined && !isNaN(value)) {
+                        try {
+                          localStorage.setItem(key, value.toString())
+                        } catch (e) { }
+                        return value
+                      }
+
+                      // Dacă nu există valoare nouă, încarcă ultima valoare salvată
+                      try {
+                        const saved = localStorage.getItem(key)
+                        if (saved !== null && saved !== undefined) {
+                          const savedValue = Number(saved)
+                          if (!isNaN(savedValue)) {
+                            return savedValue
+                          }
+                        }
+                      } catch (e) { }
+
+                      // Dacă nu există nimic salvat, returnează 0 (dar va fi afișat)
+                      return 0
+                    }
+
+                    const savedTotal = slotsByMonthLocation.locations.reduce((sum, location) => {
+                      return sum + getValue(location)
+                    }, 0)
+
+                    return (
+                      <tr
+                        key={month}
+                        className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                      >
+                        <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-100 sticky left-0 bg-slate-50 dark:bg-slate-800/60 z-10">
+                          {monthNames[month - 1]}
+                        </td>
+                        {slotsByMonthLocation.locations.map((location) => {
+                          const value = getValue(location)
+                          return (
+                            <td
+                              key={location}
+                              className="px-3 py-2 text-right text-slate-800 dark:text-slate-100"
+                              style={{ width: '180px' }}
+                            >
+                              {formatNumber(value)}
+                            </td>
+                          )
+                        })}
+                        <td className="px-3 py-2 text-right font-semibold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800/60" style={{ width: '150px' }}>
+                          {formatNumber(savedTotal)}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Tabel GGR pe lună și locație pentru anul selectat */}
+          <div className="bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm p-10 mb-10">
+            <div className="flex items-center justify-between mb-10">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                Tabel zilnic (centralizator) - GGR pe lună și locație - Anul {ggrByMonthLocation.year}
+              </h2>
+              <div className="flex items-center gap-3">
                 <button
-                  onClick={exportSlotsByMonthLocationToExcel}
-                  className="inline-flex items-center space-x-2 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition-all shadow-sm hover:shadow-md"
-                  title="Export Excel"
+                  onClick={() => {
+                    try {
+                      const rows = [
+                        ['Lună', ...ggrByMonthLocation.locations, 'Total']
+                      ]
+
+                      const monthNames = [
+                        'Ianuarie', 'Februarie', 'Martie', 'Aprilie', 'Mai', 'Iunie',
+                        'Iulie', 'August', 'Septembrie', 'Octombrie', 'Noiembrie', 'Decembrie'
+                      ]
+
+                      Array.from({ length: 12 }, (_, i) => i + 1).forEach((month) => {
+                        const monthData = ggrByMonthLocation.monthData[month] || {}
+                        const row = [monthNames[month - 1]]
+
+                        let monthTotal = 0
+                        ggrByMonthLocation.locations.forEach((location) => {
+                          const value = Number(monthData[location] || 0)
+                          row.push(value)
+                          monthTotal += value
+                        })
+                        row.push(monthTotal)
+                        rows.push(row)
+                      })
+
+                      // Adaugă rândul Total pentru anul în curs
+                      const totalRow = ['Total']
+                      let grandTotal = 0
+                      ggrByMonthLocation.locations.forEach((location) => {
+                        let locationTotal = 0
+                        for (let month = 1; month <= 12; month++) {
+                          const monthData = ggrByMonthLocation.monthData[month] || {}
+                          locationTotal += Number(monthData[location] || 0)
+                        }
+                        totalRow.push(locationTotal)
+                        grandTotal += locationTotal
+                      })
+                      totalRow.push(grandTotal)
+                      rows.push(totalRow)
+
+                      const ws = XLSX.utils.aoa_to_sheet(rows)
+                      const wb = XLSX.utils.book_new()
+                      XLSX.utils.book_append_sheet(wb, ws, 'GGR pe lună și locație')
+                      XLSX.writeFile(wb, `GGR_Luna_Locatie_${ggrByMonthLocation.year}.xlsx`)
+                      toast.success('Export Excel realizat cu succes!')
+                    } catch (error) {
+                      console.error('Eroare la export Excel:', error)
+                      toast.error('Eroare la export Excel')
+                    }
+                  }}
+                  className="flex items-center space-x-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-lg transition-colors"
+                  title="Exportă în Excel"
                 >
                   <FileSpreadsheet className="w-4 h-4" />
                   <span>Export Excel</span>
                 </button>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm" style={{ tableLayout: 'fixed', width: '100%' }}>
-                  <colgroup>
-                    <col style={{ width: '120px' }} />
-                    {slotsByMonthLocation.locations.map(() => (
-                      <col key={Math.random()} style={{ width: '180px' }} />
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm" style={{ tableLayout: 'fixed', width: '100%' }}>
+                <colgroup>
+                  <col style={{ width: '120px' }} />
+                  {ggrByMonthLocation.locations.map(() => (
+                    <col key={Math.random()} style={{ width: '180px' }} />
+                  ))}
+                  <col style={{ width: '150px' }} />
+                </colgroup>
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-700">
+                    <th className="px-3 py-2 text-left font-semibold text-slate-700 dark:text-slate-300 sticky left-0 bg-slate-50 dark:bg-slate-800/60 z-10">
+                      Lună
+                    </th>
+                    {ggrByMonthLocation.locations.map((location) => (
+                      <th
+                        key={location}
+                        className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-300"
+                        style={{ width: '180px' }}
+                      >
+                        {location}
+                      </th>
                     ))}
-                    <col style={{ width: '150px' }} />
-                  </colgroup>
-                  <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-700">
-                      <th className="px-3 py-2 text-left font-semibold text-slate-700 dark:text-slate-300 sticky left-0 bg-slate-50 dark:bg-slate-800/60 z-10">
-                        Lună
-                      </th>
-                      {slotsByMonthLocation.locations.map((location) => (
-                        <th
-                          key={location}
-                          className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-300"
-                          style={{ width: '180px' }}
-                        >
-                          {location}
-                        </th>
-                      ))}
-                      <th className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/60" style={{ width: '150px' }}>
-                        Total
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => {
-                      const monthNames = [
-                        'Ianuarie',
-                        'Februarie',
-                        'Martie',
-                        'Aprilie',
-                        'Mai',
-                        'Iunie',
-                        'Iulie',
-                        'August',
-                        'Septembrie',
-                        'Octombrie',
-                        'Noiembrie',
-                        'Decembrie'
-                      ]
-                      const monthData = slotsByMonthLocation.monthData[month] || {}
+                    <th className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/60" style={{ width: '150px' }}>
+                      Total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => {
+                    const monthNames = [
+                      'Ianuarie',
+                      'Februarie',
+                      'Martie',
+                      'Aprilie',
+                      'Mai',
+                      'Iunie',
+                      'Iulie',
+                      'August',
+                      'Septembrie',
+                      'Octombrie',
+                      'Noiembrie',
+                      'Decembrie'
+                    ]
+                    const monthData = ggrByMonthLocation.monthData[month] || {}
+                    const currentMonth = new Date().getMonth() + 1
+                    const currentYear = new Date().getFullYear()
+                    const isCurrentMonth = month === currentMonth && ggrByMonthLocation.year === currentYear
 
-                      // Calculează totalul pentru această lună (suma tuturor locațiilor)
-                      const monthTotal = slotsByMonthLocation.locations.reduce((sum, location) => {
+                    // Pentru luna curentă, folosim totalul din overview.currentMonth pentru consistență
+                    // Pentru celelalte luni, calculăm din datele tabelului
+                    let monthTotal
+                    if (isCurrentMonth && overview?.currentMonth) {
+                      // Folosim totalul din "Prezentare generală" pentru luna curentă (este corect)
+                      monthTotal = Number(overview.currentMonth.ggr || overview.currentMonth.profit || 0)
+                    } else {
+                      // Pentru luni închise, calculăm din datele tabelului
+                      monthTotal = ggrByMonthLocation.locations.reduce((sum, location) => {
                         return sum + (Number(monthData[location] || 0))
                       }, 0)
+                    }
 
-                      // Folosește datele salvate local sau datele curente - AFIȘEAZĂ MEREU ULTIMELE DATE
-                      const getValue = (location) => {
-                        const value = Number(monthData[location] || 0)
-                        const key = `slots_${slotsByMonthLocation.year}_${month}_${location}`
+                    // Folosește datele salvate local sau datele curente - AFIȘEAZĂ MEREU ULTIMELE DATE
+                    const getValue = (location) => {
+                      const value = Number(monthData[location] || 0)
+                      const key = `ggr_${ggrByMonthLocation.year}_${month}_${location}`
 
-                        // Dacă există valoare nouă (chiar dacă e zero), salvează-o și o folosește
-                        if (value !== null && value !== undefined && !isNaN(value)) {
-                          try {
-                            localStorage.setItem(key, value.toString())
-                          } catch (e) { }
-                          return value
-                        }
-
-                        // Dacă nu există valoare nouă, încarcă ultima valoare salvată
+                      // Dacă există valoare nouă (chiar dacă e zero), salvează-o și o folosește
+                      if (value !== null && value !== undefined && !isNaN(value)) {
                         try {
-                          const saved = localStorage.getItem(key)
-                          if (saved !== null && saved !== undefined) {
-                            const savedValue = Number(saved)
-                            if (!isNaN(savedValue)) {
-                              return savedValue
-                            }
-                          }
+                          localStorage.setItem(key, value.toString())
                         } catch (e) { }
-
-                        // Dacă nu există nimic salvat, returnează 0 (dar va fi afișat)
-                        return 0
+                        return value
                       }
 
-                      const savedTotal = slotsByMonthLocation.locations.reduce((sum, location) => {
+                      // Dacă nu există valoare nouă, încarcă ultima valoare salvată
+                      try {
+                        const saved = localStorage.getItem(key)
+                        if (saved !== null && saved !== undefined) {
+                          const savedValue = Number(saved)
+                          if (!isNaN(savedValue)) {
+                            return savedValue
+                          }
+                        }
+                      } catch (e) { }
+
+                      // Dacă nu există nimic salvat, returnează 0 (dar va fi afișat)
+                      return 0
+                    }
+
+                    // Pentru luna curentă, folosim totalul din overview (este corect)
+                    // Pentru celelalte luni, calculăm din valorile per locație
+                    const savedTotal = isCurrentMonth && overview?.currentMonth
+                      ? monthTotal
+                      : ggrByMonthLocation.locations.reduce((sum, location) => {
                         return sum + getValue(location)
                       }, 0)
 
-                      return (
-                        <tr
-                          key={month}
-                          className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
-                        >
-                          <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-100 sticky left-0 bg-slate-50 dark:bg-slate-800/60 z-10">
-                            {monthNames[month - 1]}
-                          </td>
-                          {slotsByMonthLocation.locations.map((location) => {
-                            const value = getValue(location)
-                            return (
-                              <td
-                                key={location}
-                                className="px-3 py-2 text-right text-slate-800 dark:text-slate-100"
-                                style={{ width: '180px' }}
-                              >
-                                {formatNumber(value)}
-                              </td>
-                            )
-                          })}
-                          <td className="px-3 py-2 text-right font-semibold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800/60" style={{ width: '150px' }}>
-                            {formatNumber(savedTotal)}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Tabel GGR pe lună și locație pentru anul selectat */}
-            <div className="bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm p-10 mb-10">
-              <div className="flex items-center justify-between mb-10">
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                  Tabel zilnic (centralizator) - GGR pe lună și locație - Anul {ggrByMonthLocation.year}
-                </h2>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => {
-                      try {
-                        const rows = [
-                          ['Lună', ...ggrByMonthLocation.locations, 'Total']
-                        ]
-
-                        const monthNames = [
-                          'Ianuarie', 'Februarie', 'Martie', 'Aprilie', 'Mai', 'Iunie',
-                          'Iulie', 'August', 'Septembrie', 'Octombrie', 'Noiembrie', 'Decembrie'
-                        ]
-
-                        Array.from({ length: 12 }, (_, i) => i + 1).forEach((month) => {
-                          const monthData = ggrByMonthLocation.monthData[month] || {}
-                          const row = [monthNames[month - 1]]
-
-                          let monthTotal = 0
-                          ggrByMonthLocation.locations.forEach((location) => {
-                            const value = Number(monthData[location] || 0)
-                            row.push(value)
-                            monthTotal += value
-                          })
-                          row.push(monthTotal)
-                          rows.push(row)
-                        })
-
-                        // Adaugă rândul Total pentru anul în curs
-                        const totalRow = ['Total']
-                        let grandTotal = 0
-                        ggrByMonthLocation.locations.forEach((location) => {
-                          let locationTotal = 0
-                          for (let month = 1; month <= 12; month++) {
-                            const monthData = ggrByMonthLocation.monthData[month] || {}
-                            locationTotal += Number(monthData[location] || 0)
-                          }
-                          totalRow.push(locationTotal)
-                          grandTotal += locationTotal
-                        })
-                        totalRow.push(grandTotal)
-                        rows.push(totalRow)
-
-                        const ws = XLSX.utils.aoa_to_sheet(rows)
-                        const wb = XLSX.utils.book_new()
-                        XLSX.utils.book_append_sheet(wb, ws, 'GGR pe lună și locație')
-                        XLSX.writeFile(wb, `GGR_Luna_Locatie_${ggrByMonthLocation.year}.xlsx`)
-                        toast.success('Export Excel realizat cu succes!')
-                      } catch (error) {
-                        console.error('Eroare la export Excel:', error)
-                        toast.error('Eroare la export Excel')
-                      }
-                    }}
-                    className="flex items-center space-x-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-lg transition-colors"
-                    title="Exportă în Excel"
-                  >
-                    <FileSpreadsheet className="w-4 h-4" />
-                    <span>Export Excel</span>
-                  </button>
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm" style={{ tableLayout: 'fixed', width: '100%' }}>
-                  <colgroup>
-                    <col style={{ width: '120px' }} />
-                    {ggrByMonthLocation.locations.map(() => (
-                      <col key={Math.random()} style={{ width: '180px' }} />
-                    ))}
-                    <col style={{ width: '150px' }} />
-                  </colgroup>
-                  <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-700">
-                      <th className="px-3 py-2 text-left font-semibold text-slate-700 dark:text-slate-300 sticky left-0 bg-slate-50 dark:bg-slate-800/60 z-10">
-                        Lună
-                      </th>
-                      {ggrByMonthLocation.locations.map((location) => (
-                        <th
-                          key={location}
-                          className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-300"
-                          style={{ width: '180px' }}
-                        >
-                          {location}
-                        </th>
-                      ))}
-                      <th className="px-3 py-2 text-right font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/60" style={{ width: '150px' }}>
-                        Total
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => {
-                      const monthNames = [
-                        'Ianuarie',
-                        'Februarie',
-                        'Martie',
-                        'Aprilie',
-                        'Mai',
-                        'Iunie',
-                        'Iulie',
-                        'August',
-                        'Septembrie',
-                        'Octombrie',
-                        'Noiembrie',
-                        'Decembrie'
-                      ]
-                      const monthData = ggrByMonthLocation.monthData[month] || {}
-                      const currentMonth = new Date().getMonth() + 1
-                      const currentYear = new Date().getFullYear()
-                      const isCurrentMonth = month === currentMonth && ggrByMonthLocation.year === currentYear
-
-                      // Pentru luna curentă, folosim totalul din overview.currentMonth pentru consistență
-                      // Pentru celelalte luni, calculăm din datele tabelului
-                      let monthTotal
-                      if (isCurrentMonth && overview?.currentMonth) {
-                        // Folosim totalul din "Prezentare generală" pentru luna curentă (este corect)
-                        monthTotal = Number(overview.currentMonth.ggr || overview.currentMonth.profit || 0)
-                      } else {
-                        // Pentru luni închise, calculăm din datele tabelului
-                        monthTotal = ggrByMonthLocation.locations.reduce((sum, location) => {
-                          return sum + (Number(monthData[location] || 0))
-                        }, 0)
-                      }
-
-                      // Folosește datele salvate local sau datele curente - AFIȘEAZĂ MEREU ULTIMELE DATE
-                      const getValue = (location) => {
+                    return (
+                      <tr
+                        key={month}
+                        className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                      >
+                        <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-100 sticky left-0 bg-slate-50 dark:bg-slate-800/60 z-10">
+                          {monthNames[month - 1]}
+                        </td>
+                        {ggrByMonthLocation.locations.map((location) => {
+                          const value = getValue(location)
+                          return (
+                            <td
+                              key={location}
+                              className="px-3 py-2 text-right text-slate-800 dark:text-slate-100"
+                              style={{ width: '180px' }}
+                            >
+                              {formatNumber(value)}
+                            </td>
+                          )
+                        })}
+                        <td className="px-3 py-2 text-right font-semibold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800/60" style={{ width: '150px' }}>
+                          {formatNumber(savedTotal)}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {/* Rând Total pentru anul în curs */}
+                  {(() => {
+                    // Calculează totalurile pentru fiecare locație pe toate lunile
+                    const yearTotals = ggrByMonthLocation.locations.reduce((acc, location) => {
+                      let total = 0
+                      for (let month = 1; month <= 12; month++) {
+                        const monthData = ggrByMonthLocation.monthData[month] || {}
                         const value = Number(monthData[location] || 0)
                         const key = `ggr_${ggrByMonthLocation.year}_${month}_${location}`
 
-                        // Dacă există valoare nouă (chiar dacă e zero), salvează-o și o folosește
+                        // Dacă există valoare nouă, o folosește
                         if (value !== null && value !== undefined && !isNaN(value)) {
+                          total += value
+                        } else {
+                          // Dacă nu există valoare nouă, încarcă ultima valoare salvată
                           try {
-                            localStorage.setItem(key, value.toString())
-                          } catch (e) { }
-                          return value
-                        }
-
-                        // Dacă nu există valoare nouă, încarcă ultima valoare salvată
-                        try {
-                          const saved = localStorage.getItem(key)
-                          if (saved !== null && saved !== undefined) {
-                            const savedValue = Number(saved)
-                            if (!isNaN(savedValue)) {
-                              return savedValue
-                            }
-                          }
-                        } catch (e) { }
-
-                        // Dacă nu există nimic salvat, returnează 0 (dar va fi afișat)
-                        return 0
-                      }
-
-                      // Pentru luna curentă, folosim totalul din overview (este corect)
-                      // Pentru celelalte luni, calculăm din valorile per locație
-                      const savedTotal = isCurrentMonth && overview?.currentMonth
-                        ? monthTotal
-                        : ggrByMonthLocation.locations.reduce((sum, location) => {
-                          return sum + getValue(location)
-                        }, 0)
-
-                      return (
-                        <tr
-                          key={month}
-                          className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
-                        >
-                          <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-100 sticky left-0 bg-slate-50 dark:bg-slate-800/60 z-10">
-                            {monthNames[month - 1]}
-                          </td>
-                          {ggrByMonthLocation.locations.map((location) => {
-                            const value = getValue(location)
-                            return (
-                              <td
-                                key={location}
-                                className="px-3 py-2 text-right text-slate-800 dark:text-slate-100"
-                                style={{ width: '180px' }}
-                              >
-                                {formatNumber(value)}
-                              </td>
-                            )
-                          })}
-                          <td className="px-3 py-2 text-right font-semibold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800/60" style={{ width: '150px' }}>
-                            {formatNumber(savedTotal)}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                    {/* Rând Total pentru anul în curs */}
-                    {(() => {
-                      // Calculează totalurile pentru fiecare locație pe toate lunile
-                      const yearTotals = ggrByMonthLocation.locations.reduce((acc, location) => {
-                        let total = 0
-                        for (let month = 1; month <= 12; month++) {
-                          const monthData = ggrByMonthLocation.monthData[month] || {}
-                          const value = Number(monthData[location] || 0)
-                          const key = `ggr_${ggrByMonthLocation.year}_${month}_${location}`
-
-                          // Dacă există valoare nouă, o folosește
-                          if (value !== null && value !== undefined && !isNaN(value)) {
-                            total += value
-                          } else {
-                            // Dacă nu există valoare nouă, încarcă ultima valoare salvată
-                            try {
-                              const saved = localStorage.getItem(key)
-                              if (saved !== null && saved !== undefined) {
-                                const savedValue = Number(saved)
-                                if (!isNaN(savedValue)) {
-                                  total += savedValue
-                                }
+                            const saved = localStorage.getItem(key)
+                            if (saved !== null && saved !== undefined) {
+                              const savedValue = Number(saved)
+                              if (!isNaN(savedValue)) {
+                                total += savedValue
                               }
-                            } catch (e) { }
-                          }
+                            }
+                          } catch (e) { }
                         }
-                        acc[location] = total
-                        return acc
-                      }, {})
+                      }
+                      acc[location] = total
+                      return acc
+                    }, {})
 
-                      // Calculează totalul general (suma tuturor locațiilor pentru toate lunile)
-                      const grandTotal = Object.values(yearTotals).reduce((sum, val) => sum + val, 0)
+                    // Calculează totalul general (suma tuturor locațiilor pentru toate lunile)
+                    const grandTotal = Object.values(yearTotals).reduce((sum, val) => sum + val, 0)
 
-                      return (
-                        <tr className="border-t-2 border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800/80 font-bold">
-                          <td className="px-3 py-2 font-bold text-slate-900 dark:text-slate-100 sticky left-0 bg-slate-100 dark:bg-slate-800/80 z-10">
-                            Total
+                    return (
+                      <tr className="border-t-2 border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800/80 font-bold">
+                        <td className="px-3 py-2 font-bold text-slate-900 dark:text-slate-100 sticky left-0 bg-slate-100 dark:bg-slate-800/80 z-10">
+                          Total
+                        </td>
+                        {ggrByMonthLocation.locations.map((location) => (
+                          <td
+                            key={location}
+                            className="px-3 py-2 text-right font-bold text-slate-900 dark:text-slate-100"
+                            style={{ width: '180px' }}
+                          >
+                            {formatNumber(yearTotals[location] || 0)}
                           </td>
-                          {ggrByMonthLocation.locations.map((location) => (
-                            <td
-                              key={location}
-                              className="px-3 py-2 text-right font-bold text-slate-900 dark:text-slate-100"
-                              style={{ width: '180px' }}
-                            >
-                              {formatNumber(yearTotals[location] || 0)}
-                            </td>
-                          ))}
-                          <td className="px-3 py-2 text-right font-bold text-slate-900 dark:text-slate-100 bg-slate-200 dark:bg-slate-700/80" style={{ width: '150px' }}>
-                            {formatNumber(grandTotal)}
-                          </td>
-                        </tr>
-                      )
-                    })()}
-                  </tbody>
-                </table>
-              </div>
+                        ))}
+                        <td className="px-3 py-2 text-right font-bold text-slate-900 dark:text-slate-100 bg-slate-200 dark:bg-slate-700/80" style={{ width: '150px' }}>
+                          {formatNumber(grandTotal)}
+                        </td>
+                      </tr>
+                    )
+                  })()}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
