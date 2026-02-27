@@ -11,6 +11,8 @@ import KPICard from '../components/KPICard'
 import axios from 'axios'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 
+import * as XLSX from 'xlsx'
+
 /* ── colors ──────────────────────────────────────────────── */
 const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f43f5e', '#f59e0b', '#06b6d4', '#ec4899', '#6366f1', '#14b8a6', '#f97316']
 
@@ -247,23 +249,40 @@ const LocationPLDetail = () => {
   }, [displayed])
 
 
-  /* ── export CSV ─────────────────────────────────────────── */
-  const exportCSV = () => {
-    const headers = ['Serial', 'Provider', 'Cabinet', 'Mix', 'IN', 'OUT', 'WIN', 'BET', '%WIN/BET', '%IN/OUT', 'GGR']
-    const rows = displayed.map(r => [
-      r.serialNumber, r.provider, r.cabinet, r.gameMix || '',
-      r.totalIn.toFixed(2), r.totalOut.toFixed(2), r.totalWin.toFixed(2),
-      r.totalBet.toFixed(2), r.winBetPct.toFixed(2), r.inOutPct.toFixed(2),
-      r.totalProfit.toFixed(2)
-    ])
-    const csv = [headers, ...rows].map(r => r.join(';')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${decoded}_${dateRange.startDate}_${dateRange.endDate}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+  /* ── export Excel ─────────────────────────────────────────── */
+  const exportExcel = () => {
+    const data = displayed.map(r => ({
+      Serial: r.serialNumber,
+      Provider: r.provider,
+      Cabinet: r.cabinet,
+      Mix: r.gameMix || '',
+      'IN (lei)': Number(r.totalIn.toFixed(2)),
+      'OUT (lei)': Number(r.totalOut.toFixed(2)),
+      'WIN (lei)': Number(r.totalWin.toFixed(2)),
+      'BET (lei)': Number(r.totalBet.toFixed(2)),
+      '%WIN/BET': Number(r.winBetPct.toFixed(2)),
+      '%IN/OUT': Number(r.inOutPct.toFixed(2)),
+      'GGR (lei)': Number(r.totalProfit.toFixed(2))
+    }))
+
+    data.push({
+      Serial: 'TOTAL',
+      Provider: '',
+      Cabinet: '',
+      Mix: '',
+      'IN (lei)': Number(totals.in.toFixed(2)),
+      'OUT (lei)': Number(totals.out.toFixed(2)),
+      'WIN (lei)': Number(totals.win.toFixed(2)),
+      'BET (lei)': Number(totals.bet.toFixed(2)),
+      '%WIN/BET': totals.bet > 0 ? Number(((totals.win / totals.bet) * 100).toFixed(2)) : 0,
+      '%IN/OUT': totals.out > 0 ? Number(((totals.in / totals.out) * 100).toFixed(2)) : 0,
+      'GGR (lei)': Number(totals.profit.toFixed(2))
+    })
+
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, "Incasari Reparate")
+    XLSX.writeFile(wb, `${decoded}_${dateRange.startDate}_${dateRange.endDate}.xlsx`)
   }
 
   /* ── table header ─────────────────────────────────────────── */
@@ -312,10 +331,10 @@ const LocationPLDetail = () => {
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Reîncarcă
             </button>
             <button
-              onClick={exportCSV}
+              onClick={exportExcel}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition-colors"
             >
-              <Download className="w-3.5 h-3.5" /> Export CSV
+              <Download className="w-3.5 h-3.5" /> Export Excel
             </button>
           </div>
         </div>
