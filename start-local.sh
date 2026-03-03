@@ -32,7 +32,7 @@ echo "✅ Dependențe instalate!"
 echo ""
 echo "📋 Configurație:"
 echo "   - Backend: http://localhost:5001 (sau PORT din backend/.env)"
-echo "   - Frontend: http://localhost:5174 (5173 este folosit de altă aplicație)"
+echo "   - Frontend: http://localhost:3030 (5173 este folosit de altă aplicație)"
 echo ""
 echo "⚠️  IMPORTANT:"
 echo "   - Backend-ul va rula în acest terminal"
@@ -56,7 +56,7 @@ echo ""
 
 # Pornește frontend
 cd src
-npm run dev &
+VITE_PORT=3030 npm run dev -- --port 3030 &
 FRONTEND_PID=$!
 cd ..
 
@@ -67,7 +67,7 @@ echo "📊 Procese:"
 echo "   - Backend PID: $BACKEND_PID"
 echo "   - Frontend PID: $FRONTEND_PID"
 echo ""
-echo "🌐 Accesează aplicația la: http://localhost:5174"
+echo "🌐 Accesează aplicația la: http://localhost:3030"
 echo ""
 echo "⏹️  Pentru oprire, apasă Ctrl+C sau rulează:"
 echo "   kill $BACKEND_PID $FRONTEND_PID"

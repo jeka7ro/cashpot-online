@@ -1,23 +1,26 @@
 import React, { useState } from 'react'
 import { Edit, Trash2, ChevronLeft, ChevronRight, FileText, Building2, Eye } from 'lucide-react'
 
-const DataTable = ({ 
-  data, 
-  columns, 
-  onEdit, 
-  onDelete, 
+const DataTable = ({
+  data,
+  columns,
+  onEdit,
+  onDelete,
   onView,
   onViewContracts,
   onViewProprietari,
   onRowClick, // New prop for row click
-  loading = false, 
-  searchTerm = '', 
+  loading = false,
+  searchTerm = '',
   onSearchChange,
   selectedItems = [],
   onSelectAll,
   onSelectItem,
-  moduleColor = 'blue' // New prop for module color
+  moduleColor = 'blue', // New prop for module color
+  compact = false // New prop for tight layout
 }) => {
+  const paddingClass = compact ? 'px-4 py-2 text-sm' : 'p-6 text-base'
+  const headerTextSize = compact ? 'text-xs' : 'text-base'
   const [currentPage, setCurrentPage] = useState(1)
   const [sortField, setSortField] = useState('')
   const [sortDirection, setSortDirection] = useState('asc')
@@ -92,10 +95,10 @@ const DataTable = ({
 
   const sortedData = [...paginatedData].sort((a, b) => {
     if (!sortField) return 0
-    
+
     const aValue = a[sortField] || ''
     const bValue = b[sortField] || ''
-    
+
     if (sortDirection === 'asc') {
       return aValue.toString().localeCompare(bValue.toString())
     } else {
@@ -124,23 +127,22 @@ const DataTable = ({
         <table className="w-full min-w-[800px] bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700">
           <thead className={`table-header bg-gradient-to-r ${currentColor.header}`}>
             <tr>
-              <th className="p-6 w-12">
+              <th className={`${compact ? 'px-4 py-2' : 'p-6'} w-12`}>
                 <div className="flex items-center justify-center">
-                  <input 
-                    type="checkbox" 
-                    className="w-4 h-4 text-blue-600 bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600 rounded focus:ring-blue-500 focus:ring-2"
+                  <input
+                    type="checkbox"
+                    className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} text-blue-600 bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600 rounded focus:ring-blue-500 focus:ring-2`}
                     checked={paginatedData.length > 0 && paginatedData.every(item => selectedItems.includes(item.id))}
                     onChange={(e) => onSelectAll && onSelectAll(e.target.checked)}
                   />
                 </div>
               </th>
-              <th className={`text-left p-6 font-bold ${currentColor.text} text-base uppercase tracking-wider w-16`}>#</th>
+              <th className={`text-left ${paddingClass} font-bold ${currentColor.text} ${headerTextSize} uppercase tracking-wider w-16`}>#</th>
               {columns.map((column) => (
-                <th 
+                <th
                   key={column.key}
-                  className={`text-left p-6 font-bold ${currentColor.text} text-base uppercase tracking-wider ${
-                    column.sortable ? `cursor-pointer ${currentColor.hover} transition-colors` : ''
-                  }`}
+                  className={`text-left ${paddingClass} font-bold ${currentColor.text} ${headerTextSize} uppercase tracking-wider ${column.sortable ? `cursor-pointer ${currentColor.hover} transition-colors` : ''
+                    }`}
                   onClick={() => column.sortable && handleSort(column.key)}
                 >
                   <div className="flex items-center space-x-2">
@@ -158,55 +160,55 @@ const DataTable = ({
           </thead>
           <tbody className="divide-y divide-slate-200/50 dark:divide-slate-700/50">
             {sortedData.map((item, idx) => (
-              <tr 
-                key={item._id || item.id} 
+              <tr
+                key={item._id || item.id}
                 className={`table-row hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
                 onClick={() => onRowClick && onRowClick(item)}
               >
-                <td className="p-6" onClick={(e) => e.stopPropagation()}>
+                <td className={`${compact ? 'px-4 py-2' : 'p-6'}`} onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center justify-center">
-                    <input 
-                      type="checkbox" 
-                      className="w-4 h-4 text-blue-600 bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600 rounded focus:ring-blue-500 focus:ring-2 group-hover:bg-blue-50 dark:group-hover:bg-slate-600"
+                    <input
+                      type="checkbox"
+                      className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} text-blue-600 bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600 rounded focus:ring-blue-500 focus:ring-2 group-hover:bg-blue-50 dark:group-hover:bg-slate-600`}
                       checked={selectedItems.includes(item.id)}
                       onChange={(e) => onSelectItem && onSelectItem(item.id, e.target.checked)}
                     />
                   </div>
                 </td>
-                <td className="p-6 text-slate-600 dark:text-slate-400 font-semibold text-base">
+                <td className={`${paddingClass} text-slate-600 dark:text-slate-400 font-semibold`}>
                   {startIndex + idx + 1}
                 </td>
                 {columns.map((column) => (
-                  <td key={column.key} className="p-6 text-base font-medium text-slate-700 dark:text-slate-300">
+                  <td key={column.key} className={`${paddingClass} font-medium text-slate-700 dark:text-slate-300`}>
                     {column.render ? column.render(item) : item[column.key]}
                   </td>
                 ))}
                 {(onEdit || onDelete || onView || onViewContracts || onViewProprietari) && (
-                  <td className="p-6" onClick={(e) => e.stopPropagation()}>
+                  <td className={`${compact ? 'px-4 py-2' : 'p-6'}`} onClick={(e) => e.stopPropagation()}>
                     <div className="flex flex-col space-y-2">
                       <div className="flex space-x-2">
                         {onView && (
-                          <button 
-                            onClick={() => onView(item)} 
-                            className="p-2 text-blue-600 dark:text-blue-400 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-800/40 dark:hover:to-indigo-800/40 rounded-xl shadow-lg hover:shadow-blue-500/25 transition-all duration-200 group/btn"
+                          <button
+                            onClick={() => onView(item)}
+                            className={`p-2 text-blue-600 dark:text-blue-400 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 hover:from-blue-100 hover:to-indigo-100 dark:hover:from-blue-800/40 dark:hover:to-indigo-800/40 rounded-xl shadow-lg hover:shadow-blue-500/25 transition-all duration-200 group/btn`}
                             title="Previzualizează"
                           >
                             <Eye size={14} className="group-hover/btn:scale-110 transition-transform" />
                           </button>
                         )}
                         {onViewContracts && (
-                          <button 
-                            onClick={() => onViewContracts(item)} 
-                            className="p-2 text-green-600 dark:text-green-400 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 hover:from-green-100 hover:to-emerald-100 dark:hover:from-green-800/40 dark:hover:to-emerald-800/40 rounded-xl shadow-lg hover:shadow-green-500/25 transition-all duration-200 group/btn"
+                          <button
+                            onClick={() => onViewContracts(item)}
+                            className={`p-2 text-green-600 dark:text-green-400 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 hover:from-green-100 hover:to-emerald-100 dark:hover:from-green-800/40 dark:hover:to-emerald-800/40 rounded-xl shadow-lg hover:shadow-green-500/25 transition-all duration-200 group/btn`}
                             title="Vezi contracte"
                           >
                             <FileText size={14} className="group-hover/btn:scale-110 transition-transform" />
                           </button>
                         )}
                         {onViewProprietari && (
-                          <button 
-                            onClick={() => onViewProprietari(item)} 
-                            className="p-2 text-purple-600 dark:text-purple-400 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/30 dark:to-violet-900/30 hover:from-purple-100 hover:to-violet-100 dark:hover:from-purple-800/40 dark:hover:to-violet-800/40 rounded-xl shadow-lg hover:shadow-purple-500/25 transition-all duration-200 group/btn"
+                          <button
+                            onClick={() => onViewProprietari(item)}
+                            className={`p-2 text-purple-600 dark:text-purple-400 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/30 dark:to-violet-900/30 hover:from-purple-100 hover:to-violet-100 dark:hover:from-purple-800/40 dark:hover:to-violet-800/40 rounded-xl shadow-lg hover:shadow-purple-500/25 transition-all duration-200 group/btn`}
                             title="Vezi proprietari"
                           >
                             <Building2 size={14} className="group-hover/btn:scale-110 transition-transform" />
@@ -215,18 +217,18 @@ const DataTable = ({
                       </div>
                       <div className="flex space-x-2">
                         {onEdit && (
-                          <button 
-                            onClick={() => onEdit(item)} 
-                            className="p-2 text-emerald-600 dark:text-emerald-400 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/30 dark:to-green-900/30 hover:from-emerald-100 hover:to-green-100 dark:hover:from-emerald-800/40 dark:hover:to-green-800/40 rounded-xl shadow-lg hover:shadow-emerald-500/25 transition-all duration-200 group/btn"
+                          <button
+                            onClick={() => onEdit(item)}
+                            className={`p-2 text-emerald-600 dark:text-emerald-400 bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/30 dark:to-green-900/30 hover:from-emerald-100 hover:to-green-100 dark:hover:from-emerald-800/40 dark:hover:to-green-800/40 rounded-xl shadow-lg hover:shadow-emerald-500/25 transition-all duration-200 group/btn`}
                             title="Editează"
                           >
                             <Edit size={14} className="group-hover/btn:scale-110 transition-transform" />
                           </button>
                         )}
                         {onDelete && (
-                          <button 
-                            onClick={() => onDelete(item)} 
-                            className="p-2 text-red-600 dark:text-red-400 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/30 dark:to-pink-900/30 hover:from-red-100 hover:to-pink-100 dark:hover:from-red-800/40 dark:hover:to-pink-800/40 rounded-xl shadow-lg hover:shadow-red-500/25 transition-all duration-200 group/btn"
+                          <button
+                            onClick={() => onDelete(item)}
+                            className={`p-2 text-red-600 dark:text-red-400 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/30 dark:to-pink-900/30 hover:from-red-100 hover:to-pink-100 dark:hover:from-red-800/40 dark:hover:to-pink-800/40 rounded-xl shadow-lg hover:shadow-red-500/25 transition-all duration-200 group/btn`}
                             title="Șterge"
                           >
                             <Trash2 size={14} className="group-hover/btn:scale-110 transition-transform" />
@@ -242,29 +244,29 @@ const DataTable = ({
           {columns.some(col => col.footer) && (
             <tfoot className={`bg-gradient-to-r ${currentColor.header} border-t-2 border-slate-300 dark:border-slate-600`}>
               <tr>
-                <td className="p-6" colSpan="2"></td>
+                <td className={`${compact ? 'px-4 py-2' : 'p-6'}`} colSpan="2"></td>
                 {columns.map((column) => (
-                  <td key={column.key} className={`p-6 font-bold ${currentColor.text} text-base`}>
+                  <td key={column.key} className={`${paddingClass} font-bold ${currentColor.text}`}>
                     {column.footer ? column.footer(data) : ''}
                   </td>
                 ))}
-                <td className="p-6"></td>
+                <td className={`${compact ? 'px-4 py-2' : 'p-6'}`}></td>
               </tr>
             </tfoot>
           )}
         </table>
       </div>
-      
+
       {/* Pagination */}
       <div className="bg-gradient-to-r from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-700 dark:via-slate-800 dark:to-slate-700 px-6 md:px-8 py-4 md:py-6 border-t border-slate-200/50 dark:border-slate-600/50 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
         <div className="flex flex-wrap items-center gap-4 md:gap-6">
           <span className="text-sm md:text-base font-semibold text-slate-700 dark:text-slate-200">Înregistrări:</span>
-          <select 
-            value={itemsPerPage} 
+          <select
+            value={itemsPerPage}
             onChange={(e) => {
               setItemsPerPage(Number(e.target.value))
               setCurrentPage(1)
-            }} 
+            }}
             className="border-2 border-slate-200 dark:border-slate-600 rounded-2xl px-4 py-2 text-sm font-medium bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all duration-200 shadow-lg text-slate-900 dark:text-slate-100"
           >
             <option value={15}>15</option>
@@ -278,9 +280,9 @@ const DataTable = ({
           </span>
         </div>
         <div className="flex items-center justify-between sm:justify-start gap-3">
-          <button 
-            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} 
-            disabled={currentPage === 1} 
+          <button
+            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
             className="px-4 md:px-6 py-2 md:py-3 border-2 border-slate-200 dark:border-slate-600 rounded-2xl text-sm md:text-base font-bold hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl group text-slate-700 dark:text-slate-200"
           >
             <span className="group-hover:-translate-x-1 transition-transform inline-block">Înapoi</span>
@@ -290,9 +292,9 @@ const DataTable = ({
               Pag {currentPage}/{totalPages || 1}
             </span>
           </div>
-          <button 
-            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} 
-            disabled={currentPage === totalPages} 
+          <button
+            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
             className="px-4 md:px-6 py-2 md:py-3 border-2 border-slate-200 dark:border-slate-600 rounded-2xl text-sm md:text-base font-bold hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl group text-slate-700 dark:text-slate-200"
           >
             <span className="group-hover:translate-x-1 transition-transform inline-block">Înainte</span>

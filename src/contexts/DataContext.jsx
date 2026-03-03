@@ -563,8 +563,17 @@ export const DataProvider = ({ children }) => {
         return { success: true, data: offlinePromotion }
       }
 
-      toast.error('Eroare la adăugare!')
-      return { success: false, error: error.message }
+      let errorMsg = 'Eroare la adăugare!';
+      const serverErr = error.response?.data?.error;
+      if (serverErr) {
+        if (serverErr.includes('metrology_cvt_number_key') || serverErr.includes('duplicate key')) {
+          errorMsg = 'Eroare: Această Serie CVT / Număr există deja în baza de date la alt aparat!';
+        } else {
+          errorMsg = `Eroare: ${serverErr}`;
+        }
+      }
+      toast.error(errorMsg, { duration: 5000 });
+      return { success: false, error: serverErr || error.message }
     }
   }
 
@@ -601,8 +610,17 @@ export const DataProvider = ({ children }) => {
       }
     } catch (error) {
       console.error(`Error updating ${entity}:`, error)
-      toast.error('Eroare la actualizare!')
-      return { success: false, error: error.message }
+      let errorMsg = 'Eroare la actualizare!';
+      const serverErr = error.response?.data?.error;
+      if (serverErr) {
+        if (serverErr.includes('metrology_cvt_number_key') || serverErr.includes('duplicate key')) {
+          errorMsg = 'Eroare: Această Serie CVT / Număr există deja în baza de date la alt aparat!';
+        } else {
+          errorMsg = `Eroare: ${serverErr}`;
+        }
+      }
+      toast.error(errorMsg, { duration: 5000 });
+      return { success: false, error: serverErr || error.message }
     }
   }
 

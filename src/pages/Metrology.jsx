@@ -12,6 +12,7 @@ import ApprovalModal from '../components/modals/ApprovalModal'
 import CommissionModal from '../components/modals/CommissionModal'
 import SoftwareModal from '../components/modals/SoftwareModal'
 import AuthorityModal from '../components/modals/AuthorityModal'
+import axios from 'axios'
 import ONJNCalendarModal from '../components/modals/ONJNCalendarModal'
 import { getGameMixName } from '../utils/gameMixFormatter'
 
@@ -29,7 +30,7 @@ const Metrology = () => {
   const [editingItem, setEditingItem] = useState(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [viewingItem, setViewingItem] = useState(null)
-  
+
   // Sub-page states
   const [commissions, setCommissions] = useState([])
   const [software, setSoftware] = useState([])
@@ -106,8 +107,8 @@ const Metrology = () => {
   // Filter data based on active tab
   const filteredMetrology = metrology.filter(item => {
     const matchesSearch = item.serial_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.provider?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.cabinet?.toLowerCase().includes(searchTerm.toLowerCase())
+      item.provider?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.cabinet?.toLowerCase().includes(searchTerm.toLowerCase())
     return matchesSearch
   })
 
@@ -130,7 +131,7 @@ const Metrology = () => {
 
   const handleBulkDelete = async () => {
     if (selectedItems.length === 0) return
-    
+
     if (window.confirm(`Ești sigur că vrei să ștergi ${selectedItems.length} elemente?`)) {
       try {
         for (const id of selectedItems) {
@@ -175,32 +176,37 @@ const Metrology = () => {
     setShowModal(false)
     setEditingItem(null)
   }
-  
+
   // View CVT document in new tab (EXACT CA ÎN LOCATIONS!)
   const handleViewDocument = (item) => {
-    const cvtFile = item.cvt_file || item.cvtFile
-    if (cvtFile) {
+    const cvtFileUrl = getCvtPdfUrl(item)
+
+    if (cvtFileUrl) {
       try {
-        // Convertește Base64 → Blob → Object URL → deschide în tab nou
-        const base64Data = cvtFile.split(',')[1] || cvtFile
-        const byteCharacters = atob(base64Data)
-        const byteNumbers = new Array(byteCharacters.length)
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i)
+        // If it's a data URL, construct a blob URL to avoid url length limits in some browsers
+        if (cvtFileUrl.startsWith('data:application/pdf;base64,')) {
+          const base64Data = cvtFileUrl.split(',')[1]
+          const byteCharacters = atob(base64Data)
+          const byteNumbers = new Array(byteCharacters.length)
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i)
+          }
+          const byteArray = new Uint8Array(byteNumbers)
+          const blob = new Blob([byteArray], { type: 'application/pdf' })
+          const blobUrl = URL.createObjectURL(blob)
+
+          window.open(blobUrl, '_blank')
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
+        } else {
+          // It's a regular URL, just open it
+          window.open(cvtFileUrl, '_blank')
         }
-        const byteArray = new Uint8Array(byteNumbers)
-        const blob = new Blob([byteArray], { type: 'application/pdf' })
-        const blobUrl = URL.createObjectURL(blob)
-        
-        // Deschide în tab nou
-        window.open(blobUrl, '_blank')
-        
-        // Cleanup după 1 minut (pentru a nu leak memory)
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
       } catch (error) {
         console.error('Error opening CVT:', error)
         toast.error('❌ Eroare la deschiderea documentului CVT')
       }
+    } else {
+      toast.error('❌ Nu există document atașat')
     }
   }
 
@@ -224,23 +230,21 @@ const Metrology = () => {
     try {
       const url = editingCommission ? `/api/commissions/${editingCommission.id}` : '/api/commissions'
       const method = editingCommission ? 'PUT' : 'POST'
-      
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      })
-      
-      if (response.ok) {
+
+      const response = await axios({ method, url, data });
+
+      if (response.data) {
         setShowCommissionModal(false)
         setEditingCommission(null)
         // Reload data
-        const response = await fetch('/api/commissions')
-        const newData = await response.json()
-        setCommissions(newData)
+        const nextData = await axios.get('/api/commissions')
+        setCommissions(nextData.data)
+        toast.success(editingCommission ? 'Comisie actualizată!' : 'Comisie creată!');
       }
     } catch (error) {
       console.error('Error saving commission:', error)
+      const serverErr = error.response?.data?.error;
+      toast.error(serverErr ? `Eroare: ${serverErr}` : 'Eroare la salvare!', { duration: 5000 });
     }
   }
 
@@ -248,23 +252,21 @@ const Metrology = () => {
     try {
       const url = editingSoftware ? `/api/software/${editingSoftware.id}` : '/api/software'
       const method = editingSoftware ? 'PUT' : 'POST'
-      
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      })
-      
-      if (response.ok) {
+
+      const response = await axios({ method, url, data });
+
+      if (response.data) {
         setShowSoftwareModal(false)
         setEditingSoftware(null)
         // Reload data
-        const response = await fetch('/api/software')
-        const newData = await response.json()
-        setSoftware(newData)
+        const nextData = await axios.get('/api/software')
+        setSoftware(nextData.data)
+        toast.success(editingSoftware ? 'Software actualizat!' : 'Software creat!');
       }
     } catch (error) {
       console.error('Error saving software:', error)
+      const serverErr = error.response?.data?.error;
+      toast.error(serverErr ? `Eroare: ${serverErr}` : 'Eroare la salvare!', { duration: 5000 });
     }
   }
 
@@ -291,14 +293,15 @@ const Metrology = () => {
   const handleCommissionDelete = async (item) => {
     if (window.confirm('Sigur vrei să ștergi această comisie?')) {
       try {
-        const response = await fetch(`/api/commissions/${item.id}`, { method: 'DELETE' })
-        if (response.ok) {
-          const newData = await fetch('/api/commissions')
-          const data = await newData.json()
-          setCommissions(data)
+        const response = await axios.delete(`/api/commissions/${item.id}`)
+        if (response.data) {
+          const nextData = await axios.get('/api/commissions')
+          setCommissions(nextData.data)
+          toast.success('Comisie ștearsă!')
         }
       } catch (error) {
         console.error('Error deleting commission:', error)
+        toast.error('Eroare la ștergere!')
       }
     }
   }
@@ -315,14 +318,15 @@ const Metrology = () => {
   const handleSoftwareDelete = async (item) => {
     if (window.confirm('Sigur vrei să ștergi acest software?')) {
       try {
-        const response = await fetch(`/api/software/${item.id}`, { method: 'DELETE' })
-        if (response.ok) {
-          const newData = await fetch('/api/software')
-          const data = await newData.json()
-          setSoftware(data)
+        const response = await axios.delete(`/api/software/${item.id}`)
+        if (response.data) {
+          const nextData = await axios.get('/api/software')
+          setSoftware(nextData.data)
+          toast.success('Software șters!')
         }
       } catch (error) {
         console.error('Error deleting software:', error)
+        toast.error('Eroare la ștergere!')
       }
     }
   }
@@ -331,61 +335,60 @@ const Metrology = () => {
     try {
       const url = editingAuthority ? `/api/authorities/${editingAuthority.id}` : '/api/authorities'
       const method = editingAuthority ? 'PUT' : 'POST'
-      
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      })
-      
-      if (response.ok) {
-        const newData = await fetch('/api/authorities')
-        const data = await newData.json()
-        setAuthorities(data)
+
+      const response = await axios({ method, url, data: formData });
+
+      if (response.data) {
+        const nextData = await axios.get('/api/authorities')
+        setAuthorities(nextData.data)
         setShowAuthorityModal(false)
         setEditingAuthority(null)
+        toast.success(editingAuthority ? 'Autoritate actualizată!' : 'Autoritate creată!');
       }
     } catch (error) {
       console.error('Error saving authority:', error)
+      const serverErr = error.response?.data?.error;
+      toast.error(serverErr ? `Eroare: ${serverErr}` : 'Eroare la salvare!', { duration: 5000 });
     }
   }
 
   const handleAuthorityDelete = async (item) => {
     if (window.confirm('Sigur vrei să ștergi această autoritate?')) {
       try {
-        const response = await fetch(`/api/authorities/${item.id}`, { method: 'DELETE' })
-        if (response.ok) {
-          const newData = await fetch('/api/authorities')
-          const data = await newData.json()
-          setAuthorities(data)
+        const response = await axios.delete(`/api/authorities/${item.id}`)
+        if (response.data) {
+          const nextData = await axios.get('/api/authorities')
+          setAuthorities(nextData.data)
+          toast.success('Autoritate ștearsă!')
         }
       } catch (error) {
         console.error('Error deleting authority:', error)
+        toast.error('Eroare la ștergere!')
       }
     }
   }
 
   // Define columns for the main metrology table - Updated
   const columns = [
-    { 
-      key: 'cvt_series', 
-      label: 'SERIE CVT', 
+    {
+      key: 'cvt_series',
+      label: 'SERIE CVT',
       sortable: true,
       render: (item) => (
         <button
           onClick={() => navigate(`/metrology/cvt/${item.id}`)}
           className="text-cyan-600 hover:text-cyan-800 font-semibold hover:underline transition-colors"
         >
-          {item.cvt_series || item.cvt_number || 'N/A'}
+          {item.cvt_series || (item.cvt_number && item.cvt_number.startsWith('AUTO-') ? 'N/A' : item.cvt_number) || 'N/A'}
         </button>
       )
     },
     { key: 'cvt_type', label: 'TIP CVT', sortable: true },
     { key: 'approval_type', label: 'APROBARE DE TIP', sortable: true },
     { key: 'software', label: 'SOFTWARE', sortable: true },
-    { 
-      key: 'cvt_dates_combined', 
-      label: 'DATE CVT & EXPIRARE', 
+    {
+      key: 'cvt_dates_combined',
+      label: 'DATE CVT & EXPIRARE',
       sortable: true,
       render: (item) => {
         const cvtDate = item.cvt_date ? new Date(item.cvt_date).toLocaleDateString('ro-RO', {
@@ -393,23 +396,23 @@ const Metrology = () => {
           month: '2-digit',
           day: '2-digit'
         }) : 'N/A'
-        
+
         const expiryDate = item.expiry_date ? new Date(item.expiry_date).toLocaleDateString('ro-RO', {
           year: 'numeric',
           month: '2-digit',
           day: '2-digit'
         }) : 'N/A'
-        
+
         // Calculate remaining days
         let daysRemaining = 'N/A'
         let colorClass = 'text-green-600 bg-green-50'
-        
+
         if (item.expiry_date) {
           const today = new Date()
           const expiry = new Date(item.expiry_date)
           const diffTime = expiry - today
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-          
+
           if (diffDays < 0) {
             colorClass = 'text-red-600 bg-red-50'
             daysRemaining = `Expirat (${Math.abs(diffDays)} zile)`
@@ -421,7 +424,7 @@ const Metrology = () => {
             daysRemaining = `${diffDays} zile`
           }
         }
-        
+
         return (
           <div className="space-y-2">
             <div className="text-slate-600 text-sm space-y-1">
@@ -438,9 +441,9 @@ const Metrology = () => {
       }
     },
     { key: 'issuing_authority', label: 'AUTORITATEA EMITENTĂ', sortable: true },
-    { 
-      key: 'cvtFile', 
-      label: 'DOCUMENT CVT', 
+    {
+      key: 'cvtFile',
+      label: 'DOCUMENT CVT',
       sortable: false,
       render: (item) => {
         const hasCvt = item.cvt_file || item.cvtFile
@@ -464,10 +467,10 @@ const Metrology = () => {
         )
       }
     },
-    { 
-      key: 'created_info', 
-      label: 'CREAT DE / DATA', 
-      sortable: true, 
+    {
+      key: 'created_info',
+      label: 'CREAT DE / DATA',
+      sortable: true,
       render: (item) => (
         <div className="space-y-1">
           <div className="text-slate-800 dark:text-slate-200 font-medium text-sm">
@@ -483,9 +486,9 @@ const Metrology = () => {
 
   // Approvals columns
   const approvalsColumns = [
-    { 
-      key: 'name', 
-      label: 'NUMELE', 
+    {
+      key: 'name',
+      label: 'NUMELE',
       sortable: true,
       render: (item) => (
         <button
@@ -498,9 +501,9 @@ const Metrology = () => {
     },
     { key: 'provider', label: 'FURNIZOR', sortable: true },
     { key: 'cabinet', label: 'CABINET', sortable: true },
-    { 
-      key: 'game_mix', 
-      label: 'GAME MIX', 
+    {
+      key: 'game_mix',
+      label: 'GAME MIX',
       sortable: true,
       render: (item) => (
         <div className="text-slate-800 dark:text-slate-200 font-medium">
@@ -508,9 +511,9 @@ const Metrology = () => {
         </div>
       )
     },
-    { 
-      key: 'checksum_info', 
-      label: 'CHECKSUMS', 
+    {
+      key: 'checksum_info',
+      label: 'CHECKSUMS',
       sortable: false,
       render: (item) => (
         <div className="space-y-1">
@@ -523,10 +526,10 @@ const Metrology = () => {
         </div>
       )
     },
-    { 
-      key: 'created_info', 
-      label: 'CREAT DE / DATA', 
-      sortable: true, 
+    {
+      key: 'created_info',
+      label: 'CREAT DE / DATA',
+      sortable: true,
       render: (item) => (
         <div className="space-y-1">
           <div className="text-slate-800 dark:text-slate-200 font-medium text-sm">
@@ -539,30 +542,30 @@ const Metrology = () => {
       )
     }
   ]
-  
+
   // Helper functions pentru a obține numele provider și cabinet
   const getProviderName = (providerId) => {
     if (!providerId) return ''
     const provider = providers.find(p => p.id === providerId || p.name === providerId)
     return provider ? provider.name : (typeof providerId === 'string' ? providerId : '')
   }
-  
+
   const getCabinetName = (cabinetId) => {
     if (!cabinetId) return ''
     const cabinet = cabinets.find(c => c.id === cabinetId || c.name === cabinetId)
     return cabinet ? cabinet.name : (typeof cabinetId === 'string' ? cabinetId : '')
   }
-  
+
   // Filter approvals by symbol search term - EXTINS: caută în toate câmpurile relevante
   const filteredApprovals = approvals.filter(approval => {
     if (!symbolSearchTerm) return true
-    
+
     const searchTerm = symbolSearchTerm.toLowerCase().trim()
     if (!searchTerm) return true
-    
+
     // Normalizează și caută în toate câmpurile relevante
     const normalize = (str) => (str || '').toString().toLowerCase().trim()
-    
+
     // Câmpuri de căutare - folosim numele reale pentru provider și cabinet
     const name = normalize(approval.name)
     const approvalNumber = normalize(approval.approval_number)
@@ -571,7 +574,7 @@ const Metrology = () => {
     const gameMix = normalize(getGameMixName(approval.game_mix_name || approval.game_mix, gameMixes))
     const approvalType = normalize(approval.approval_type)
     const notes = normalize(approval.notes)
-    
+
     // Caută în toate câmpurile - potrivire parțială în orice parte a textului
     return (
       name.includes(searchTerm) ||
@@ -587,19 +590,19 @@ const Metrology = () => {
   // Filter software by search term - EXTINS: caută în toate câmpurile relevante
   const filteredSoftware = software.filter(sw => {
     if (!softwareSearchTerm) return true
-    
+
     const searchTerm = softwareSearchTerm.toLowerCase().trim()
     if (!searchTerm) return true
-    
+
     // Normalizează și caută în toate câmpurile relevante
     const normalize = (str) => (str || '').toString().toLowerCase().trim()
-    
+
     // Câmpuri de căutare
     const softwareName = normalize(sw.software_name || sw.name)
     const version = normalize(sw.version)
     const provider = normalize(getProviderName(sw.provider))
     const status = normalize(sw.status)
-    
+
     // Caută în toate câmpurile - potrivire parțială în orice parte a textului
     return (
       softwareName.includes(searchTerm) ||
@@ -613,7 +616,7 @@ const Metrology = () => {
   const getSerialNumbersCount = (item) => {
     if (!item.serial_numbers) return 0
     try {
-      const parsed = typeof item.serial_numbers === 'string' 
+      const parsed = typeof item.serial_numbers === 'string'
         ? JSON.parse(item.serial_numbers)
         : item.serial_numbers
       return Array.isArray(parsed) ? parsed.length : 0
@@ -673,7 +676,7 @@ const Metrology = () => {
       console.warn('⚠️ No serial numbers found for commission:', item.id, item.name)
       return 0
     }
-    
+
     let total = 0
     let foundCount = 0
     serials.forEach(serial => {
@@ -686,7 +689,7 @@ const Metrology = () => {
         }
       }
     })
-    
+
     if (total === 0 && serials.length > 0) {
       console.warn(`⚠️ Commission ${item.id} (${item.name}): ${serials.length} serials, ${foundCount} found in slots, but total gaming_places = 0`)
       console.warn('   First 3 serials:', serials.slice(0, 3))
@@ -698,7 +701,7 @@ const Metrology = () => {
         }
       }
     }
-    
+
     return total
   }
 
@@ -716,9 +719,9 @@ const Metrology = () => {
 
   // Commissions columns
   const commissionsColumns = [
-    { 
-      key: 'name', 
-      label: 'NUME', 
+    {
+      key: 'name',
+      label: 'NUME',
       sortable: true,
       render: (item) => (
         <button
@@ -729,9 +732,9 @@ const Metrology = () => {
         </button>
       )
     },
-    { 
-      key: 'commission_date', 
-      label: 'DATA COMISIE', 
+    {
+      key: 'commission_date',
+      label: 'DATA COMISIE',
       sortable: true,
       render: (item) => {
         if (!item.commission_date) return <div className="text-slate-600 dark:text-slate-400">N/A</div>
@@ -751,11 +754,11 @@ const Metrology = () => {
           } else {
             return <div className="text-slate-600 dark:text-slate-400">N/A</div>
           }
-          
+
           if (isNaN(date.getTime())) {
             return <div className="text-slate-600 dark:text-slate-400">N/A</div>
           }
-          
+
           const day = String(date.getDate()).padStart(2, '0')
           const month = String(date.getMonth() + 1).padStart(2, '0')
           const year = date.getFullYear()
@@ -769,9 +772,9 @@ const Metrology = () => {
         }
       }
     },
-    { 
-      key: 'expiry_date', 
-      label: 'DATA VALABILITĂȚII', 
+    {
+      key: 'expiry_date',
+      label: 'DATA VALABILITĂȚII',
       sortable: true,
       render: (item) => {
         if (!item.expiry_date) return <div className="text-slate-600 dark:text-slate-400">N/A</div>
@@ -791,11 +794,11 @@ const Metrology = () => {
           } else {
             return <div className="text-slate-600 dark:text-slate-400">N/A</div>
           }
-          
+
           if (isNaN(date.getTime())) {
             return <div className="text-slate-600 dark:text-slate-400">N/A</div>
           }
-          
+
           const day = String(date.getDate()).padStart(2, '0')
           const month = String(date.getMonth() + 1).padStart(2, '0')
           const year = date.getFullYear()
@@ -809,9 +812,9 @@ const Metrology = () => {
         }
       }
     },
-    { 
-      key: 'days_until_expiry', 
-      label: 'ZILE PÂNĂ LA EXPIRARE', 
+    {
+      key: 'days_until_expiry',
+      label: 'ZILE PÂNĂ LA EXPIRARE',
       sortable: true,
       render: (item) => {
         const days = getDaysUntilExpiry(item.expiry_date)
@@ -819,21 +822,20 @@ const Metrology = () => {
         const isExpired = days < 0
         const isExpiringSoon = days <= 30 && days >= 0
         return (
-          <div className={`font-medium ${
-            isExpired 
-              ? 'text-red-600 dark:text-red-400' 
-              : isExpiringSoon 
-                ? 'text-amber-600 dark:text-amber-400' 
-                : 'text-slate-600 dark:text-slate-400'
-          }`}>
+          <div className={`font-medium ${isExpired
+            ? 'text-red-600 dark:text-red-400'
+            : isExpiringSoon
+              ? 'text-amber-600 dark:text-amber-400'
+              : 'text-slate-600 dark:text-slate-400'
+            }`}>
             {isExpired ? `Expirat (${Math.abs(days)} zile)` : `${days} zile`}
           </div>
         )
       }
     },
-    { 
-      key: 'slot_count', 
-      label: 'NUMĂR LOCURI DE JOC', 
+    {
+      key: 'slot_count',
+      label: 'NUMĂR LOCURI DE JOC',
       sortable: true,
       render: (item) => {
         const count = getGamingPlacesCount(item)
@@ -852,9 +854,9 @@ const Metrology = () => {
         )
       }
     },
-    { 
-      key: 'software', 
-      label: 'SOFTWARE', 
+    {
+      key: 'software',
+      label: 'SOFTWARE',
       sortable: true,
       render: (item) => {
         const software = item.software || item.software_name || '-'
@@ -869,9 +871,9 @@ const Metrology = () => {
 
   // Software columns
   const softwareColumns = [
-    { 
-      key: 'software_name', 
-      label: 'NUME SOFTWARE', 
+    {
+      key: 'software_name',
+      label: 'NUME SOFTWARE',
       sortable: true,
       render: (item) => (
         <div className="text-slate-800 dark:text-slate-200 font-medium">
@@ -881,9 +883,9 @@ const Metrology = () => {
     },
     { key: 'version', label: 'VERSIUNE', sortable: true },
     { key: 'provider', label: 'FURNIZOR', sortable: true },
-    { 
-      key: 'release_date', 
-      label: 'DATA LANSARE', 
+    {
+      key: 'release_date',
+      label: 'DATA LANSARE',
       sortable: true,
       render: (item) => (
         <div className="text-slate-600">
@@ -892,10 +894,10 @@ const Metrology = () => {
       )
     },
     { key: 'status', label: 'STATUS', sortable: true },
-    { 
-      key: 'created_info', 
-      label: 'CREAT DE / DATA', 
-      sortable: true, 
+    {
+      key: 'created_info',
+      label: 'CREAT DE / DATA',
+      sortable: true,
       render: (item) => (
         <div className="space-y-1">
           <div className="text-slate-800 dark:text-slate-200 font-medium text-sm">
@@ -913,9 +915,9 @@ const Metrology = () => {
   const authoritiesColumns = [
     { key: 'name', label: 'NUME AUTORITATE', sortable: true },
     { key: 'address', label: 'ADRESĂ', sortable: true },
-    { 
-      key: 'prices', 
-      label: 'PREȚURI', 
+    {
+      key: 'prices',
+      label: 'PREȚURI',
       sortable: false,
       render: (item) => (
         <div className="space-y-1">
@@ -940,10 +942,10 @@ const Metrology = () => {
         </div>
       )
     },
-    { 
-      key: 'created_info', 
-      label: 'CREAT DE / DATA', 
-      sortable: true, 
+    {
+      key: 'created_info',
+      label: 'CREAT DE / DATA',
+      sortable: true,
       render: (item) => (
         <div className="space-y-1">
           <div className="text-slate-800 dark:text-slate-200 font-medium text-sm">
@@ -998,11 +1000,10 @@ const Metrology = () => {
             <div className="flex space-x-1 bg-slate-100 rounded-xl p-1">
               <button
                 onClick={() => setActiveTab(null)}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  !activeTab
-                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${!activeTab
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <Activity size={20} />
@@ -1011,11 +1012,10 @@ const Metrology = () => {
               </button>
               <button
                 onClick={() => setActiveTab('approvals')}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === 'approvals'
-                    ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === 'approvals'
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <FileCheck size={20} />
@@ -1024,11 +1024,10 @@ const Metrology = () => {
               </button>
               <button
                 onClick={() => setActiveTab('commissions')}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === 'commissions'
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === 'commissions'
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <Users size={20} />
@@ -1037,11 +1036,10 @@ const Metrology = () => {
               </button>
               <button
                 onClick={() => setActiveTab('software')}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === 'software'
-                    ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg shadow-purple-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === 'software'
+                  ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg shadow-purple-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <FileText size={20} />
@@ -1050,11 +1048,10 @@ const Metrology = () => {
               </button>
               <button
                 onClick={() => setActiveTab('authorities')}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === 'authorities'
-                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === 'authorities'
+                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <Settings size={20} />
@@ -1109,6 +1106,7 @@ const Metrology = () => {
                 onSelectAll={handleSelectAll}
                 onSelectItem={handleSelectItem}
                 moduleColor="cyan"
+                compact={true}
               />
             )}
           </div>
@@ -1189,11 +1187,10 @@ const Metrology = () => {
             <div className="flex space-x-1 bg-slate-100 rounded-xl p-1">
               <button
                 onClick={() => setActiveTab(null)}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === null
-                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === null
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <Activity size={20} />
@@ -1202,11 +1199,10 @@ const Metrology = () => {
               </button>
               <button
                 onClick={() => setActiveTab('approvals')}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === 'approvals'
-                    ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === 'approvals'
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <FileCheck size={20} />
@@ -1215,11 +1211,10 @@ const Metrology = () => {
               </button>
               <button
                 onClick={() => setActiveTab('commissions')}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === 'commissions'
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === 'commissions'
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <Users size={20} />
@@ -1228,11 +1223,10 @@ const Metrology = () => {
               </button>
               <button
                 onClick={() => setActiveTab('software')}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === 'software'
-                    ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg shadow-purple-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === 'software'
+                  ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg shadow-purple-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <FileText size={20} />
@@ -1241,11 +1235,10 @@ const Metrology = () => {
               </button>
               <button
                 onClick={() => setActiveTab('authorities')}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === 'authorities'
-                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === 'authorities'
+                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <Settings size={20} />
@@ -1372,11 +1365,10 @@ const Metrology = () => {
             <div className="flex space-x-1 bg-slate-100 rounded-xl p-1">
               <button
                 onClick={() => setActiveTab(null)}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === null
-                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === null
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <Activity size={20} />
@@ -1385,11 +1377,10 @@ const Metrology = () => {
               </button>
               <button
                 onClick={() => setActiveTab('approvals')}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === 'approvals'
-                    ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === 'approvals'
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <FileCheck size={20} />
@@ -1398,11 +1389,10 @@ const Metrology = () => {
               </button>
               <button
                 onClick={() => setActiveTab('commissions')}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === 'commissions'
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === 'commissions'
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <Users size={20} />
@@ -1411,11 +1401,10 @@ const Metrology = () => {
               </button>
               <button
                 onClick={() => setActiveTab('software')}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === 'software'
-                    ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg shadow-purple-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === 'software'
+                  ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg shadow-purple-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <FileText size={20} />
@@ -1424,11 +1413,10 @@ const Metrology = () => {
               </button>
               <button
                 onClick={() => setActiveTab('authorities')}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === 'authorities'
-                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === 'authorities'
+                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <Settings size={20} />
@@ -1532,11 +1520,10 @@ const Metrology = () => {
             <div className="flex space-x-1 bg-slate-100 rounded-xl p-1">
               <button
                 onClick={() => setActiveTab(null)}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === null
-                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === null
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <Activity size={20} />
@@ -1545,11 +1532,10 @@ const Metrology = () => {
               </button>
               <button
                 onClick={() => setActiveTab('approvals')}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === 'approvals'
-                    ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === 'approvals'
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <FileCheck size={20} />
@@ -1558,11 +1544,10 @@ const Metrology = () => {
               </button>
               <button
                 onClick={() => setActiveTab('commissions')}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === 'commissions'
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === 'commissions'
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <Users size={20} />
@@ -1571,11 +1556,10 @@ const Metrology = () => {
               </button>
               <button
                 onClick={() => setActiveTab('software')}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === 'software'
-                    ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg shadow-purple-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === 'software'
+                  ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg shadow-purple-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <FileText size={20} />
@@ -1584,11 +1568,10 @@ const Metrology = () => {
               </button>
               <button
                 onClick={() => setActiveTab('authorities')}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === 'authorities'
-                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === 'authorities'
+                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <Settings size={20} />
@@ -1721,11 +1704,10 @@ const Metrology = () => {
             <div className="flex space-x-1 bg-slate-100 rounded-xl p-1">
               <button
                 onClick={() => setActiveTab(null)}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === null
-                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === null
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <Activity size={20} />
@@ -1734,11 +1716,10 @@ const Metrology = () => {
               </button>
               <button
                 onClick={() => setActiveTab('approvals')}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === 'approvals'
-                    ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === 'approvals'
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg shadow-blue-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <FileCheck size={20} />
@@ -1747,11 +1728,10 @@ const Metrology = () => {
               </button>
               <button
                 onClick={() => setActiveTab('commissions')}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === 'commissions'
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === 'commissions'
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <Users size={20} />
@@ -1760,11 +1740,10 @@ const Metrology = () => {
               </button>
               <button
                 onClick={() => setActiveTab('software')}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === 'software'
-                    ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg shadow-purple-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === 'software'
+                  ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg shadow-purple-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <FileText size={20} />
@@ -1773,11 +1752,10 @@ const Metrology = () => {
               </button>
               <button
                 onClick={() => setActiveTab('authorities')}
-                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${
-                  activeTab === 'authorities'
-                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/25'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-                }`}
+                className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all duration-200 ${activeTab === 'authorities'
+                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/25'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <Settings size={20} />

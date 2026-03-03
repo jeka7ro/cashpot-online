@@ -67,21 +67,21 @@ const { Pool } = pg
 const app = express()
 const PORT = process.env.PORT || 5001
 
-  // CRITICAL FIX - 2025-10-19 11:43 - FORCE RENDER REBUILD FOR ROUTES
-  // BUILD DINAMIC - generează automat la fiecare restart
-  const now = new Date()
-  const BUILD_NUMBER = Math.floor(now.getTime() / 1000).toString().slice(-6) // Ultimele 6 cifre din timestamp
-  const BUILD_DATE = now.toLocaleString('ro-RO', { 
-    day: '2-digit', 
-    month: '2-digit', 
-    year: 'numeric', 
-    hour: '2-digit', 
-    minute: '2-digit',
-    hour12: false 
-  })
-  console.log(`🚀 BUILD #${BUILD_NUMBER} - ${BUILD_DATE}`)
-  console.log('🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK')
-  console.log('📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!')
+// CRITICAL FIX - 2025-10-19 11:43 - FORCE RENDER REBUILD FOR ROUTES
+// BUILD DINAMIC - generează automat la fiecare restart
+const now = new Date()
+const BUILD_NUMBER = Math.floor(now.getTime() / 1000).toString().slice(-6) // Ultimele 6 cifre din timestamp
+const BUILD_DATE = now.toLocaleString('ro-RO', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false
+})
+console.log(`🚀 BUILD #${BUILD_NUMBER} - ${BUILD_DATE}`)
+console.log('🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK')
+console.log('📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!')
 
 // Authentication middleware to extract user from JWT
 const authenticateUser = async (req, res, next) => {
@@ -97,10 +97,10 @@ const authenticateUser = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'cashpot-secret-key-2024')
     const pool = req.app.get('pool')
-    
+
     if (pool) {
       const result = await pool.query('SELECT id, username, full_name, role FROM users WHERE id = $1', [decoded.userId])
-      
+
       if (result.rows.length > 0) {
         req.user = {
           userId: result.rows[0].id,
@@ -114,7 +114,7 @@ const authenticateUser = async (req, res, next) => {
     } else {
       req.user = { userId: decoded.userId, username: decoded.username, full_name: decoded.username }
     }
-    
+
     next()
   } catch (error) {
     console.error('Auth middleware error:', error)
@@ -165,10 +165,10 @@ const connectAndInitDB = async () => {
     const result = await pool.query('SELECT NOW()')
     console.log('✅ Connected to PostgreSQL')
     console.log('⏰ Database time:', result.rows[0].now)
-    
+
     // Initialize database schema in background
     await initializeDatabase()
-    
+
     // Start scheduled imports for expenditures (după inițializarea bazei de date)
     console.log('🔄 Pornire scheduler pentru import automat cheltuieli...')
     scheduleExpendituresImports(pool)
@@ -297,7 +297,7 @@ const initializeDatabase = async () => {
     } catch (error) {
       console.log('Note: manufacture_year column might already exist:', error.message)
     }
-    
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS slots (
         id SERIAL PRIMARY KEY,
@@ -326,7 +326,7 @@ const initializeDatabase = async () => {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `)
-    
+
     // Add address column if it doesn't exist
     await pool.query(`
       ALTER TABLE slots 
@@ -508,7 +508,7 @@ const initializeDatabase = async () => {
       await pool.query('CREATE INDEX IF NOT EXISTS idx_electric_nlc_code ON electric_invoices_nlc(nlc_code)')
       await pool.query('CREATE INDEX IF NOT EXISTS idx_electric_nlc_location ON electric_invoices_nlc(location_name)')
       await pool.query('CREATE INDEX IF NOT EXISTS idx_electric_nlc_period ON electric_invoices_nlc(perioada_facturare)')
-      
+
       // Adaugă coloană pentru suma totală a facturii (extrasă direct din factură, nu calculată din NLC-uri)
       try {
         await pool.query('ALTER TABLE electric_invoices_nlc ADD COLUMN IF NOT EXISTS invoice_total_amount DECIMAL(15,2)')
@@ -517,7 +517,7 @@ const initializeDatabase = async () => {
       } catch (error) {
         console.log('⚠️ invoice_total_amount column already exists or error:', error.message)
       }
-      
+
       console.log('✅ Created electric_invoices_nlc table for centralizing NLC data')
     } catch (error) {
       console.log('⚠️ electric_invoices_nlc table creation skipped:', error.message)
@@ -788,7 +788,7 @@ const initializeDatabase = async () => {
 
     // Add created_by and created_at columns to all tables
     const tables = ['providers', 'cabinets', 'game_mixes', 'slots', 'locations', 'warehouse', 'metrology', 'jackpots', 'invoices', 'legalDocuments', 'onjnReports', 'authorities', 'users']
-    
+
     for (const table of tables) {
       try {
         await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal'`)
@@ -817,7 +817,7 @@ const initializeDatabase = async () => {
 
     // Create admin user if not exists
     const adminCheck = await pool.query('SELECT * FROM users WHERE username = $1', ['admin'])
-    
+
     if (adminCheck.rows.length === 0) {
       const hashedPassword = await bcrypt.hash('admin123', 10)
       await pool.query(
@@ -838,21 +838,21 @@ const initializeDatabase = async () => {
     const userCount = await pool.query('SELECT COUNT(*) FROM users')
     if (parseInt(userCount.rows[0].count) < 4) {
       const bcrypt = require('bcryptjs')
-      
+
       // Create Vadim Balica user
       const vadimPassword = await bcrypt.hash('vadim123', 10)
       await pool.query(
         'INSERT INTO users (username, password, full_name, email, role, avatar) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (username) DO NOTHING',
         ['vadim', vadimPassword, 'Vadim Balica', 'vadim@cashpot.com', 'user', '/assets/default-avatar.svg']
       )
-      
+
       // Create Andrei Chiperi user
       const andreiPassword = await bcrypt.hash('andrei123', 10)
       await pool.query(
         'INSERT INTO users (username, password, full_name, email, role, avatar) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (username) DO NOTHING',
         ['andrei', andreiPassword, 'Andrei Chiperi', 'andrei@cashpot.com', 'user', '/assets/default-avatar.svg']
       )
-      
+
       console.log('✅ Additional users created')
     }
 
@@ -884,23 +884,23 @@ const initializeDatabase = async () => {
       `)
       console.log('✅ Sample locations created')
 
-    // Create sample proprietari
-    await pool.query(`
+      // Create sample proprietari
+      await pool.query(`
       INSERT INTO proprietari (name, contact_person, email, phone, address, cnp_cui, type, status, notes) VALUES
       ('Ion Popescu', 'Ion Popescu', 'ion.popescu@email.com', '+40712345678', 'Str. Mihai Viteazu nr. 10, București', '1234567890123', 'Persoana Fizica', 'Activ', 'Proprietar locație BRML București'),
       ('SC Imobiliare Cluj SRL', 'Maria Ionescu', 'maria@imobiliare-cluj.ro', '+40723456789', 'Bd. Eroilor nr. 25, Cluj-Napoca', 'RO12345678', 'Persoana Juridica', 'Activ', 'Companie imobiliară - proprietar locație Cluj'),
       ('Gheorghe Marinescu', 'Gheorghe Marinescu', 'g.marinescu@yahoo.com', '+40734567890', 'Str. Libertății nr. 5, Timișoara', '9876543210987', 'Persoana Fizica', 'Activ', 'Proprietar locație RMC Timișoara')
     `)
-    console.log('✅ Sample proprietari created')
+      console.log('✅ Sample proprietari created')
 
-    // Create sample contracts for property rental
-    await pool.query(`
+      // Create sample contracts for property rental
+      await pool.query(`
       INSERT INTO contracts (contract_number, title, location_id, proprietar_id, type, status, start_date, end_date, monthly_rent, currency, deposit, payment_terms, description) VALUES
       ('CT-CH-2024-001', 'Contract Chirie BRML București', 2, 1, 'Chirie Locație', 'Active', '2024-01-01', '2025-12-31', 5000.00, 'RON', 10000.00, 'Lunar, până în data de 5', 'Contract de chirie pentru locația din București'),
       ('CT-CH-2024-002', 'Contract Chirie BRML Cluj', 3, 2, 'Chirie Locație', 'Active', '2024-03-01', '2025-06-30', 3500.00, 'RON', 7000.00, 'Lunar, până în data de 10', 'Contract de chirie pentru locația din Cluj'),
       ('CT-CH-2024-003', 'Contract Chirie RMC Timișoara', 4, 3, 'Chirie Locație', 'Active', '2024-06-01', '2026-03-31', 2800.00, 'RON', 5600.00, 'Lunar, până în data de 15', 'Contract de chirie pentru locația din Timișoara')
     `)
-    console.log('✅ Sample contracts created')
+      console.log('✅ Sample contracts created')
     }
 
     // Create metrology sub-pages tables
@@ -988,7 +988,7 @@ const initializeDatabase = async () => {
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `)
-      
+
       // Add attachments column if it doesn't exist
       await pool.query(`
         ALTER TABLE commissions ADD COLUMN IF NOT EXISTS attachments JSONB
@@ -1041,25 +1041,25 @@ const initializeDatabase = async () => {
     }
 
     // Promotions table already created above - consolidated version
-      
-      // Add missing columns if they don't exist
-      try {
-        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS total_amount DECIMAL(15,2) DEFAULT 0")
-        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS awarded_amount DECIMAL(15,2) DEFAULT 0")
-        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS locations JSONB DEFAULT '[]'")
-        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS notes TEXT")
-        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS banner_path VARCHAR(500)")
-        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS regulation_path VARCHAR(500)")
-        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS banner_url TEXT")
-        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS documents_url TEXT")
-        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'")
-        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255)")
-        await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Active'")
-        console.log('✅ Added missing columns to promotions table')
-      } catch (e) {
-        console.log('⚠️ Error adding columns to promotions:', e.message)
-      }
-    
+
+    // Add missing columns if they don't exist
+    try {
+      await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS total_amount DECIMAL(15,2) DEFAULT 0")
+      await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS awarded_amount DECIMAL(15,2) DEFAULT 0")
+      await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS locations JSONB DEFAULT '[]'")
+      await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS notes TEXT")
+      await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS banner_path VARCHAR(500)")
+      await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS regulation_path VARCHAR(500)")
+      await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS banner_url TEXT")
+      await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS documents_url TEXT")
+      await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'")
+      await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255)")
+      await pool.query("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Active'")
+      console.log('✅ Added missing columns to promotions table')
+    } catch (e) {
+      console.log('⚠️ Error adding columns to promotions:', e.message)
+    }
+
     // Remove CASCADE constraint from slot_history if it exists
     try {
       // First, check if the constraint exists
@@ -1069,9 +1069,9 @@ const initializeDatabase = async () => {
         WHERE table_name = 'slot_history' 
         AND constraint_type = 'FOREIGN KEY'
       `)
-      
+
       console.log('🔍 Found constraints on slot_history:', constraintCheck.rows)
-      
+
       for (const row of constraintCheck.rows) {
         const constraintName = row.constraint_name
         try {
@@ -1081,7 +1081,7 @@ const initializeDatabase = async () => {
           console.log(`⚠️ Could not drop constraint ${constraintName}:`, dropError.message)
         }
       }
-      
+
       if (constraintCheck.rows.length === 0) {
         console.log('✅ No foreign key constraints found on slot_history table')
       }
@@ -1238,7 +1238,7 @@ const initializeDatabase = async () => {
     } catch (error) {
       console.log('⚠️ Expenditures sync table may already exist:', error.message)
     }
-    
+
     // Add data_source column to expenditures_sync (for Google Sheets tracking)
     try {
       await pool.query(`
@@ -1249,7 +1249,7 @@ const initializeDatabase = async () => {
     } catch (error) {
       console.log('⚠️ data_source column may already exist:', error.message)
     }
-    
+
     // Add description column to expenditures_sync (for detailed explanations)
     try {
       await pool.query(`
@@ -1260,7 +1260,7 @@ const initializeDatabase = async () => {
     } catch (error) {
       console.log('⚠️ description column may already exist:', error.message)
     }
-    
+
     // CRITICAL: Create UNIQUE INDEX to prevent duplicates at database level!
     try {
       await pool.query(`
@@ -1445,8 +1445,8 @@ console.log('🌐 CORS allowed origins:', allowedOrigins)
 // PRIMARY HEALTH CHECK - NO DB DEPENDENCY (for Render health checks)
 app.get('/health', (req, res) => {
   try {
-    res.status(200).json({ 
-      status: 'OK', 
+    res.status(200).json({
+      status: 'OK',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       version: '1.0.49',
@@ -1454,8 +1454,8 @@ app.get('/health', (req, res) => {
     })
   } catch (error) {
     console.error('Health check error:', error)
-    res.status(200).json({ 
-      status: 'OK', 
+    res.status(200).json({
+      status: 'OK',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       version: '1.0.49',
@@ -1473,9 +1473,9 @@ app.get('/health/detailed', async (req, res) => {
   } catch (err) {
     dbStatus = 'Disconnected'
   }
-  
-  res.json({ 
-    status: 'OK', 
+
+  res.json({
+    status: 'OK',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     version: '1.0.49',
@@ -1500,7 +1500,7 @@ app.get('/api/global-settings', async (req, res) => {
     result.rows.forEach(row => {
       settings[row.setting_key] = row.setting_value
     })
-    
+
     // Return format expected by frontend: { login_settings: {...} }
     res.json({
       login_settings: settings.login_settings || {}
@@ -1625,32 +1625,32 @@ app.post('/api/promotions', async (req, res) => {
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
-    
-    const { 
-      name, description, start_date, end_date, location, locations, prizes, 
-      status, notes, banner_url, documents_url, attachments 
+
+    const {
+      name, description, start_date, end_date, location, locations, prizes,
+      status, notes, banner_url, documents_url, attachments
     } = req.body
     const createdBy = (req.user && (req.user.full_name || req.user.username)) || 'Eugeniu Cazmal'
-    
+
     console.log('🚨 DIRECT POST data:', { name, description, start_date, end_date, location, locations, prizes })
-    
+
     // Calculate total amount from prizes
     const prizesArray = Array.isArray(prizes) ? prizes : []
     const totalAmount = prizesArray.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0)
-    
+
     // Handle locations array
     const locationsArray = Array.isArray(locations) ? locations : []
-    
+
     // Parse attachments
     const attachmentsArray = Array.isArray(attachments) ? attachments : []
-    
+
     // Use first location's dates if no global dates provided
     const globalStartDate = start_date || (locationsArray[0]?.start_date) || new Date().toISOString().split('T')[0]
     const globalEndDate = end_date || (locationsArray[0]?.end_date) || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    
+
     // Get first location name as default location
     const defaultLocation = location || (locationsArray.length > 0 ? locationsArray[0].location : 'Default Location')
-    
+
     const result = await pool.query(
       `INSERT INTO promotions 
        (name, description, start_date, end_date, total_amount, awarded_amount, location, locations, 
@@ -1658,24 +1658,24 @@ app.post('/api/promotions', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, CURRENT_TIMESTAMP) 
        RETURNING *`,
       [
-        name || 'Untitled Promotion', 
-        description || '', 
-        globalStartDate, 
-        globalEndDate, 
-        totalAmount, 
-        0, 
-        defaultLocation, 
-        JSON.stringify(locationsArray), 
-        status || 'Active', 
-        JSON.stringify(prizesArray), 
-        notes || '', 
+        name || 'Untitled Promotion',
+        description || '',
+        globalStartDate,
+        globalEndDate,
+        totalAmount,
+        0,
+        defaultLocation,
+        JSON.stringify(locationsArray),
+        status || 'Active',
+        JSON.stringify(prizesArray),
+        notes || '',
         banner_url || null,
         documents_url || null,
         JSON.stringify(attachmentsArray),
         createdBy
       ]
     )
-    
+
     console.log('✅ DIRECT POST Promotion created:', result.rows[0].id)
     res.status(201).json(result.rows[0])
   } catch (error) {
@@ -1700,7 +1700,7 @@ const storage = multer.diskStorage({
     } else if (req.originalUrl.includes('/locations')) {
       uploadDir = 'uploads/locations'
     }
-    
+
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true })
     }
@@ -1722,7 +1722,7 @@ const storage = multer.diskStorage({
   }
 })
 
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   fileFilter: (req, file, cb) => {
     // Allow PDF and image files
@@ -1753,7 +1753,7 @@ app.post('/api/slots/import-marina', async (req, res) => {
   console.log('📥 Importing slots from Marina...')
   try {
     const { items } = req.body
-    
+
     if (!items || !Array.isArray(items)) {
       return res.status(400).json({ success: false, error: 'Items array is required', imported: 0 })
     }
@@ -1771,7 +1771,7 @@ app.post('/api/slots/import-marina', async (req, res) => {
         // Check if slot already exists by serial number
         const existingQuery = 'SELECT id FROM slots WHERE serial_number = $1'
         const existingResult = await pool.query(existingQuery, [item.serial_number])
-        
+
         if (existingResult.rows.length > 0) {
           // Update existing slot
           const updateQuery = `
@@ -1818,7 +1818,7 @@ app.post('/api/slots/import-marina', async (req, res) => {
             item.manufacture_year || null
           ])
         }
-        
+
         imported++
       } catch (itemError) {
         console.error(`Error importing slot ${item.serial_number}:`, itemError)
@@ -1828,7 +1828,7 @@ app.post('/api/slots/import-marina', async (req, res) => {
         })
       }
     }
-    
+
     console.log(`✅ Imported ${imported} slots from Marina`)
     res.json({
       success: true,
@@ -1860,20 +1860,20 @@ app.get('/api/pdf/:companyId', async (req, res) => {
   try {
     const { companyId } = req.params
     const result = await pool.query('SELECT cui_file FROM companies WHERE id = $1', [companyId])
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Company not found' })
     }
-    
+
     const cuiFile = result.rows[0].cui_file
     if (!cuiFile) {
       return res.status(404).json({ error: 'CUI file not found' })
     }
-    
+
     // Extract base64 data
     const base64Data = cuiFile.split(',')[1]
     const pdfBuffer = Buffer.from(base64Data, 'base64')
-    
+
     res.setHeader('Content-Type', 'application/pdf')
     res.setHeader('Content-Disposition', 'inline')
     res.send(pdfBuffer)
@@ -1888,20 +1888,20 @@ app.get('/api/cvt-pdf/:metrologyId', async (req, res) => {
   try {
     const { metrologyId } = req.params
     const result = await pool.query('SELECT cvt_file FROM metrology WHERE id = $1', [metrologyId])
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Metrology record not found' })
     }
-    
+
     const cvtFile = result.rows[0].cvt_file
     if (!cvtFile) {
       return res.status(404).json({ error: 'CVT file not found' })
     }
-    
+
     // Extract base64 data
     const base64Data = cvtFile.split(',')[1]
     const pdfBuffer = Buffer.from(base64Data, 'base64')
-    
+
     res.setHeader('Content-Type', 'application/pdf')
     res.setHeader('Content-Disposition', 'inline')
     res.send(pdfBuffer)
@@ -1998,7 +1998,7 @@ app.get('/api/auth/verify', async (req, res) => {
     }
 
     const token = authHeader.split(' ')[1]
-    
+
     if (!token) {
       return res.status(401).json({
         success: false,
@@ -2025,7 +2025,7 @@ app.get('/api/auth/verify', async (req, res) => {
     }
 
     const result = await pool.query('SELECT * FROM users WHERE id = $1', [decoded.userId])
-    
+
     if (result.rows.length === 0) {
       console.warn(`⚠️ [verify] User not found for ID: ${decoded.userId}`)
       return res.status(401).json({
@@ -2163,7 +2163,7 @@ app.get('/api/auth/verify', async (req, res) => {
     if (process.env.NODE_ENV === 'development') {
       console.error('Error stack:', error.stack)
     }
-    
+
     // Different error types
     if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
       return res.status(401).json({
@@ -2171,7 +2171,7 @@ app.get('/api/auth/verify', async (req, res) => {
         message: 'Invalid or expired token'
       })
     }
-    
+
     // Database / connection errors → 503 so frontend shows "backend temporarily unavailable"
     if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.message?.includes('Connection') || error.message?.includes('timeout')) {
       return res.status(503).json({
@@ -2185,7 +2185,7 @@ app.get('/api/auth/verify', async (req, res) => {
         message: 'Database temporarily unavailable'
       })
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -2284,7 +2284,7 @@ app.get('/api/locations', async (req, res) => {
 app.post('/api/locations', async (req, res) => {
   try {
     const { name, address, company, surface, status, coordinates, contact_person, nlc_code, notes, plan_file } = req.body
-    
+
     console.log('📍 POST /api/locations - Creating new location:')
     console.log('   Name:', name)
     console.log('   NLC Code:', nlc_code || 'N/A')
@@ -2295,15 +2295,15 @@ app.post('/api/locations', async (req, res) => {
       console.log('   plan_file length:', plan_file.length, 'chars')
       console.log('   plan_file preview:', plan_file.substring(0, 100) + '...')
     }
-    
+
     const result = await pool.query(
       'INSERT INTO locations (name, address, company, surface, status, coordinates, contact_person, nlc_code, plan_file, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
       [name, address, company, surface, status || 'Active', coordinates, contact_person, nlc_code || null, plan_file || null, notes]
     )
-    
+
     console.log('✅ Location created with ID:', result.rows[0].id)
     console.log('   plan_file saved:', !!result.rows[0].plan_file)
-    
+
     const newLocation = { ...result.rows[0], capacity: 0 }
     res.json(newLocation)
   } catch (error) {
@@ -2316,7 +2316,7 @@ app.put('/api/locations/:id', async (req, res) => {
   try {
     const { id } = req.params
     const { name, address, company, surface, status, coordinates, contact_person, nlc_code, notes, plan_file } = req.body
-    
+
     console.log('📍 PUT /api/locations/:id - Updating location:', id)
     console.log('   Name:', name)
     console.log('   NLC Code:', nlc_code || 'N/A')
@@ -2327,7 +2327,7 @@ app.put('/api/locations/:id', async (req, res) => {
       console.log('   plan_file length:', plan_file.length, 'chars')
       console.log('   plan_file preview:', plan_file.substring(0, 100) + '...')
     }
-    
+
     // If plan_file is provided, update it; otherwise keep existing
     let updateQuery
     let queryParams
@@ -2340,15 +2340,15 @@ app.put('/api/locations/:id', async (req, res) => {
       updateQuery = 'UPDATE locations SET name = $1, address = $2, company = $3, surface = $4, status = $5, coordinates = $6, contact_person = $7, nlc_code = $8, notes = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10 RETURNING *'
       queryParams = [name, address, company, surface, status, coordinates, contact_person, nlc_code || null, notes, id]
     }
-    
+
     const result = await pool.query(updateQuery, queryParams)
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Location not found' })
     }
-    
+
     console.log('✅ Location updated successfully')
     console.log('   plan_file in DB now:', !!result.rows[0].plan_file)
-    
+
     res.json(result.rows[0])
   } catch (error) {
     console.error('❌ PUT /api/locations/:id error:', error)
@@ -2373,45 +2373,45 @@ app.delete('/api/locations/:id', async (req, res) => {
 app.post('/api/locations/:id/sync-competitors', async (req, res) => {
   try {
     const { id } = req.params
-    
+
     console.log(`🔄 Syncing competitors for location ${id}...`)
-    
+
     // Get location details
     const locationResult = await pool.query('SELECT * FROM locations WHERE id = $1', [id])
     if (locationResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Location not found' })
     }
-    
+
     const location = locationResult.rows[0]
-    
+
     // Extract city from address (assume format: "Strada X, Oraș, Județ")
     const addressParts = (location.address || '').split(',').map(p => p.trim())
     const city = addressParts[addressParts.length - 2] || addressParts[0]
     const county = addressParts[addressParts.length - 1] || ''
-    
+
     console.log(`   City: ${city}, County: ${county}`)
-    
+
     // Fetch ONJN data (scraping LIVE din site ONJN!)
     console.log(`   Scraping LIVE ONJN pentru ${city}...`)
-    
+
     const https = await import('https')
     const cheerio = await import('cheerio')
     const { load } = cheerio
-    
+
     const BASE_URL = 'https://onjn.gov.ro'
     const LIST_PATH = '/ro/equipments'
-    
+
     let onjnData = []
-    
+
     try {
       // Scrape ONJN Class 1 pentru orașul respectiv
       const params = new URLSearchParams()
       params.set('city', city)
       params.set('page', '1')
-      
+
       const url = `${BASE_URL}${LIST_PATH}?${params}`
       console.log(`   URL: ${url}`)
-      
+
       const response = await new Promise((resolve, reject) => {
         https.default.get(url, (res) => {
           let data = ''
@@ -2419,24 +2419,24 @@ app.post('/api/locations/:id/sync-competitors', async (req, res) => {
           res.on('end', () => resolve({ data }))
         }).on('error', reject)
       })
-      
+
       const $ = load(response.data)
-      
+
       // Parse table rows (group by address pentru unique locations)
       const locations = new Map()
-      
+
       $('table tbody tr').each((_, row) => {
         const cells = $(row).find('td')
         if (cells.length < 6) return
-        
+
         const operator = $(cells[3]).text().trim()
         const address = $(cells[5]).text().trim()
         const cityFromTable = $(cells[6]).text().trim()
         const countyFromTable = $(cells[7]).text().trim()
-        
+
         // Group by address (1 location poate avea multiple sloturi)
         const key = `${operator}_${address}`
-        
+
         if (!locations.has(key)) {
           locations.set(key, {
             location_name: `${operator} ${cityFromTable}`,
@@ -2450,13 +2450,13 @@ app.post('/api/locations/:id/sync-competitors', async (req, res) => {
           locations.get(key).slot_count++
         }
       })
-      
+
       onjnData = Array.from(locations.values())
       console.log(`   Scraped ${onjnData.length} unique locations din ONJN`)
     } catch (scrapeError) {
       console.error(`   ❌ ONJN scraping failed: ${scrapeError.message}`)
       console.log(`   Returnez empty (NU crapă cu 500!)`)
-      
+
       return res.json({
         success: true,
         message: `Nu s-au putut încărca date ONJN pentru ${city}`,
@@ -2469,7 +2469,7 @@ app.post('/api/locations/:id/sync-competitors', async (req, res) => {
         }
       })
     }
-    
+
     if (onjnData.length === 0) {
       console.log(`   ⚠️ NU există competitori în ${city}`)
       return res.json({
@@ -2484,37 +2484,37 @@ app.post('/api/locations/:id/sync-competitors', async (req, res) => {
         }
       })
     }
-    
+
     const onjnResponse = {
       data: {
         success: true,
         locations: onjnData
       }
     }
-    
+
     // Filter out CASHPOT/SMARTFLIX locations + DOAR același oraș!
     const competitorLocations = onjnResponse.data.locations.filter(loc => {
       const operator = (loc.operator || '').toLowerCase()
       const locCity = (loc.city || '').toLowerCase().trim()
       const targetCity = city.toLowerCase().trim()
-      
+
       // Exclude CASHPOT/SMARTFLIX
       if (operator.includes('cashpot') || operator.includes('smartflix')) {
         return false
       }
-      
+
       // Include DOAR competitori din ACELAȘI ORAȘ
       // Match exact sau parțial (pentru "Râmnicu Vâlcea" vs "Ramnicu Valcea")
-      const cityMatch = locCity === targetCity || 
-                       locCity.includes(targetCity) || 
-                       targetCity.includes(locCity) ||
-                       locCity.replace(/[^a-z0-9]/g, '') === targetCity.replace(/[^a-z0-9]/g, '')
-      
+      const cityMatch = locCity === targetCity ||
+        locCity.includes(targetCity) ||
+        targetCity.includes(locCity) ||
+        locCity.replace(/[^a-z0-9]/g, '') === targetCity.replace(/[^a-z0-9]/g, '')
+
       return cityMatch
     })
-    
+
     console.log(`   Found ${competitorLocations.length} competitors în ${city} (filtrat din ${onjnResponse.data.locations.length} total)`)
-    
+
     if (competitorLocations.length === 0) {
       console.log(`   ⚠️ NU există competitori în ${city}!`)
       return res.json({
@@ -2529,7 +2529,7 @@ app.post('/api/locations/:id/sync-competitors', async (req, res) => {
         }
       })
     }
-    
+
     // Brand logo mapping
     const BRAND_LOGOS = {
       'MILLION': { emoji: '💎', color: '#FFD700' },
@@ -2548,7 +2548,7 @@ app.post('/api/locations/:id/sync-competitors', async (req, res) => {
       'BET': { emoji: '🎯', color: '#FF6347' },
       'CASINO': { emoji: '🏢', color: '#696969' }
     }
-    
+
     // Geocode function (simplified - uses Nominatim)
     const geocodeAddress = async (address) => {
       try {
@@ -2556,7 +2556,7 @@ app.post('/api/locations/:id/sync-competitors', async (req, res) => {
         const addressWithCountry = cleanAddress.toLowerCase().includes('romania') || cleanAddress.toLowerCase().includes('românia')
           ? cleanAddress
           : `${cleanAddress}, Romania`
-        
+
         const response = await axios.get(`https://nominatim.openstreetmap.org/search`, {
           params: {
             q: addressWithCountry,
@@ -2566,7 +2566,7 @@ app.post('/api/locations/:id/sync-competitors', async (req, res) => {
           headers: { 'User-Agent': 'CASHPOT/1.0' },
           timeout: 5000
         })
-        
+
         if (response.data && response.data.length > 0) {
           return {
             lat: parseFloat(response.data[0].lat),
@@ -2579,19 +2579,19 @@ app.post('/api/locations/:id/sync-competitors', async (req, res) => {
         return null
       }
     }
-    
+
     // Process competitors (limit to 15 for performance)
     const competitors = []
     const mainCoords = location.coordinates ? JSON.parse(location.coordinates) : null
-    
+
     for (let i = 0; i < Math.min(competitorLocations.length, 15); i++) {
       const comp = competitorLocations[i]
-      
+
       // Auto-detect logo
       const brandUpper = (comp.operator || '').toUpperCase()
       let logo = '🏢' // default
       let logoColor = '#696969'
-      
+
       for (const [key, value] of Object.entries(BRAND_LOGOS)) {
         if (brandUpper.includes(key)) {
           logo = value.emoji
@@ -2599,10 +2599,10 @@ app.post('/api/locations/:id/sync-competitors', async (req, res) => {
           break
         }
       }
-      
+
       // Geocode address
       let coords = await geocodeAddress(comp.address || `${comp.city}, ${comp.county}`)
-      
+
       // If geocoding fails and we have main location coords, use random offset
       if (!coords && mainCoords) {
         const angle = Math.random() * 2 * Math.PI
@@ -2612,7 +2612,7 @@ app.post('/api/locations/:id/sync-competitors', async (req, res) => {
           lng: mainCoords.lng + Math.sin(angle) * radius
         }
       }
-      
+
       if (coords) {
         competitors.push({
           name: comp.location_name || comp.operator,
@@ -2628,13 +2628,13 @@ app.post('/api/locations/:id/sync-competitors', async (req, res) => {
           logo_color: logoColor
         })
       }
-      
+
       // Rate limiting for Nominatim (1 req/sec)
       await new Promise(resolve => setTimeout(resolve, 1000))
     }
-    
+
     console.log(`   Successfully processed ${competitors.length} competitors`)
-    
+
     // Save to database
     const competitorsData = {
       updated_at: new Date().toISOString(),
@@ -2643,19 +2643,19 @@ app.post('/api/locations/:id/sync-competitors', async (req, res) => {
       total: competitors.length,
       competitors: competitors
     }
-    
+
     console.log(`💾 Salvare în DB pentru location ${id}...`)
     console.log(`   Total competitori: ${competitors.length}`)
     console.log(`   Mărime JSON: ${JSON.stringify(competitorsData).length} chars`)
-    
+
     try {
       await pool.query(
         'UPDATE locations SET competitors = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
         [JSON.stringify(competitorsData), id]
       )
-      
+
       console.log(`✅ Competitors synced for location ${id}`)
-      
+
       res.json({
         success: true,
         message: `Successfully synced ${competitors.length} competitors în ${city}`,
@@ -2676,16 +2676,16 @@ app.put('/api/locations/:id/competitors', async (req, res) => {
   try {
     const { id } = req.params
     const { competitors } = req.body // Full competitors JSONB object
-    
+
     console.log(`📝 Updating competitors for location ${id}...`)
-    
+
     await pool.query(
       'UPDATE locations SET competitors = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
       [JSON.stringify(competitors), id]
     )
-    
+
     console.log(`✅ Competitors updated for location ${id}`)
-    
+
     res.json({
       success: true,
       message: 'Competitors updated successfully',
@@ -2701,7 +2701,7 @@ app.put('/api/locations/:id/competitors', async (req, res) => {
 app.get('/api/competitors', async (req, res) => {
   try {
     console.log('📊 GET /api/competitors - Fetching all competitors...')
-    
+
     // Fetch all locations with competitors data
     const result = await pool.query(`
       SELECT 
@@ -2714,10 +2714,10 @@ app.get('/api/competitors', async (req, res) => {
       WHERE competitors IS NOT NULL
       ORDER BY name ASC
     `)
-    
+
     // Flatten competitors from all locations
     const allCompetitors = []
-    
+
     result.rows.forEach(location => {
       if (location.competitors && location.competitors.competitors) {
         location.competitors.competitors.forEach(comp => {
@@ -2732,9 +2732,9 @@ app.get('/api/competitors', async (req, res) => {
         })
       }
     })
-    
+
     console.log(`✅ Found ${allCompetitors.length} total competitors from ${result.rows.length} locations`)
-    
+
     res.json({
       success: true,
       total: allCompetitors.length,
@@ -2774,19 +2774,19 @@ app.post('/api/providers', async (req, res) => {
       'INSERT INTO providers (name, contact_person, company, contact, phone, status, logo, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
       [name, contact_person, company, contact, phone, status || 'Active', JSON.stringify(logo), notes]
     )
-    
+
     // Calculate games_count from game_mixes
     const gamesCountResult = await pool.query(`
       SELECT COALESCE(SUM(jsonb_array_length(games->'games')), 0) as games_count
       FROM game_mixes
       WHERE provider = $1
     `, [name])
-    
+
     const provider = {
       ...result.rows[0],
       games_count: parseInt(gamesCountResult.rows[0].games_count)
     }
-    
+
     res.json(provider)
   } catch (error) {
     res.status(500).json({ success: false, error: error.message })
@@ -2813,12 +2813,12 @@ app.put('/api/providers/:id', async (req, res) => {
     const nextStatus = (status ?? existing.status)
     const nextLogo = (logo !== undefined ? JSON.stringify(logo) : JSON.stringify(existing.logo))
     const nextNotes = (notes ?? existing.notes)
-    
+
     const result = await pool.query(
       'UPDATE providers SET name = $1, contact_person = $2, company = $3, contact = $4, phone = $5, status = $6, logo = $7, notes = $8, updated_at = CURRENT_TIMESTAMP WHERE id = $9 RETURNING *',
       [nextName, nextContactPerson, nextCompany, nextContact, nextPhone, nextStatus, nextLogo, nextNotes, id]
     )
-    
+
     // Update provider name in dependent tables if name changed
     if (oldName !== nextName) {
       // slots
@@ -2842,19 +2842,19 @@ app.put('/api/providers/:id', async (req, res) => {
       )
       console.log(`Updated provider name from "${oldName}" to "${nextName}" in game_mixes`)
     }
-    
+
     // Calculate games_count from game_mixes
     const gamesCountResult = await pool.query(`
       SELECT COALESCE(SUM(jsonb_array_length(games->'games')), 0) as games_count
       FROM game_mixes
       WHERE provider = $1
     `, [name])
-    
+
     const provider = {
       ...result.rows[0],
       games_count: parseInt(gamesCountResult.rows[0].games_count)
     }
-    
+
     res.json(provider)
   } catch (error) {
     res.status(500).json({ success: false, error: error.message })
@@ -2917,19 +2917,19 @@ app.put('/api/cabinets/:id', async (req, res) => {
   try {
     const { id } = req.params
     const { provider, name, model, platform, status, notes } = req.body
-    
+
     // Get old cabinet name before update
     const oldCabinetResult = await pool.query('SELECT name FROM cabinets WHERE id = $1', [id])
     if (oldCabinetResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Cabinet not found' })
     }
     const oldName = oldCabinetResult.rows[0].name
-    
+
     const result = await pool.query(
       'UPDATE cabinets SET provider = $1, name = $2, model = $3, platform = $4, status = $5, notes = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *',
       [provider, name, model, platform, status, notes, id]
     )
-    
+
     // Update cabinet name in slots if name changed
     if (oldName !== name) {
       await pool.query(
@@ -2938,7 +2938,7 @@ app.put('/api/cabinets/:id', async (req, res) => {
       )
       console.log(`Updated cabinet name from "${oldName}" to "${name}" in slots`)
     }
-    
+
     res.json(result.rows[0])
   } catch (error) {
     res.status(500).json({ success: false, error: error.message })
@@ -2964,7 +2964,7 @@ app.get('/api/slots', async (req, res) => {
     // Get all slots
     const slotsResult = await pool.query('SELECT * FROM slots ORDER BY created_at DESC')
     const slots = slotsResult.rows
-    
+
     // Get all platforms
     res.json(slots)
   } catch (error) {
@@ -2977,11 +2977,11 @@ app.get('/api/slots/:id', async (req, res) => {
   try {
     const { id } = req.params
     const result = await pool.query('SELECT * FROM slots WHERE id = $1', [id])
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Slot not found' })
     }
-    
+
     res.json(result.rows[0])
   } catch (error) {
     console.error('Slot GET error:', error)
@@ -2993,8 +2993,8 @@ app.post('/api/slots', async (req, res) => {
   try {
     const {
       name, serial_number, provider, location, game, cabinet, game_mix,
-      denomination, max_bet, rtp, gaming_places, property_type, 
-      commission_date, invoice_number, status, notes 
+      denomination, max_bet, rtp, gaming_places, property_type,
+      commission_date, invoice_number, status, notes
     } = req.body
     // Convert empty strings to null for numeric and date fields, provide defaults for required fields
     const cleanName = name || `Slot ${serial_number}` || 'Slot Machine'
@@ -3004,7 +3004,7 @@ app.post('/api/slots', async (req, res) => {
     const cleanGamingPlaces = gaming_places === '' ? 1 : gaming_places
     const cleanCommissionDate = commission_date === '' ? null : commission_date
     const cleanInvoiceNumber = invoice_number === '' ? null : invoice_number
-    
+
     // Get RTP from Game Mix if not provided
     let finalRtp = cleanRtp
     if (!finalRtp && game_mix) {
@@ -3017,12 +3017,12 @@ app.post('/api/slots', async (req, res) => {
         console.error('Error fetching RTP from game mix:', error)
       }
     }
-    
+
     const result = await pool.query(
       'INSERT INTO slots (name, slot_id, serial_number, provider, location, game, cabinet, game_mix, denomination, max_bet, rtp, gaming_places, property_type, commission_date, invoice_number, status, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING *',
       [cleanName, serial_number, serial_number, provider, location, game, cabinet, game_mix, cleanDenomination, cleanMaxBet, finalRtp, cleanGamingPlaces, property_type || 'Owned', cleanCommissionDate, cleanInvoiceNumber, status || 'Active', notes]
     )
-    
+
     res.json(result.rows[0])
   } catch (error) {
     res.status(500).json({ success: false, error: error.message })
@@ -3034,8 +3034,8 @@ app.put('/api/slots/:id', async (req, res) => {
     const { id } = req.params
     const {
       name, serial_number, provider, location, game, cabinet, game_mix,
-      denomination, max_bet, rtp, gaming_places, property_type, 
-      commission_date, invoice_number, status, notes 
+      denomination, max_bet, rtp, gaming_places, property_type,
+      commission_date, invoice_number, status, notes
     } = req.body
 
     // Get current slot data for comparison
@@ -3043,9 +3043,9 @@ app.put('/api/slots/:id', async (req, res) => {
     if (currentSlotResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Slot not found' })
     }
-    
+
     const currentSlot = currentSlotResult.rows[0]
-    
+
     // Convert empty strings to null for numeric and date fields, provide defaults for required fields
     const cleanName = name === '' ? 'Slot Machine' : name
     const cleanMaxBet = max_bet === '' ? null : max_bet
@@ -3054,7 +3054,7 @@ app.put('/api/slots/:id', async (req, res) => {
     const cleanGamingPlaces = gaming_places === '' ? null : gaming_places
     const cleanCommissionDate = commission_date === '' ? null : commission_date
     const cleanInvoiceNumber = invoice_number === '' ? null : invoice_number
-    
+
     // Get RTP from Game Mix if not provided
     let finalRtp = cleanRtp
     if (!finalRtp && game_mix) {
@@ -3067,7 +3067,7 @@ app.put('/api/slots/:id', async (req, res) => {
         console.error('Error fetching RTP from game mix:', error)
       }
     }
-    
+
     const result = await pool.query(
       'UPDATE slots SET name = $1, serial_number = $2, provider = $3, location = $4, game = $5, cabinet = $6, game_mix = $7, denomination = $8, max_bet = $9, rtp = $10, gaming_places = $11, property_type = $12, commission_date = $13, invoice_number = $14, status = $15, notes = $16, updated_at = CURRENT_TIMESTAMP WHERE id = $17 RETURNING *',
       [cleanName, serial_number, provider, location, game, cabinet, game_mix, cleanDenomination, cleanMaxBet, finalRtp, cleanGamingPlaces, property_type, cleanCommissionDate, cleanInvoiceNumber, status, notes, id]
@@ -3075,9 +3075,9 @@ app.put('/api/slots/:id', async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Slot not found' })
     }
-    
+
     const updatedSlot = result.rows[0]
-    
+
     // Save changes to history
     try {
       const changes = []
@@ -3086,11 +3086,11 @@ app.put('/api/slots/:id', async (req, res) => {
         'denomination', 'max_bet', 'rtp', 'gaming_places', 'property_type',
         'commission_date', 'invoice_number', 'status', 'notes'
       ]
-      
+
       fields.forEach(field => {
         const oldValue = currentSlot[field]
         const newValue = updatedSlot[field]
-        
+
         if (oldValue !== newValue) {
           changes.push({
             slot_id: parseInt(id),
@@ -3110,7 +3110,7 @@ app.put('/api/slots/:id', async (req, res) => {
           })
         }
       })
-      
+
       // Insert all changes into history
       if (changes.length > 0) {
         for (const change of changes) {
@@ -3132,7 +3132,7 @@ app.put('/api/slots/:id', async (req, res) => {
       console.error('Error saving slot history:', historyError)
       // Don't fail the main request if history saving fails
     }
-    
+
     res.json(updatedSlot)
   } catch (error) {
     res.status(500).json({ success: false, error: error.message })
@@ -3142,18 +3142,18 @@ app.put('/api/slots/:id', async (req, res) => {
 app.delete('/api/slots/:id', async (req, res) => {
   try {
     const { id } = req.params
-    
+
     // First, get the slot data before deleting
     const slotResult = await pool.query('SELECT * FROM slots WHERE id = $1', [id])
     if (slotResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Slot not found' })
     }
-    
+
     const deletedSlot = slotResult.rows[0]
-    
+
     // Delete the slot
     await pool.query('DELETE FROM slots WHERE id = $1', [id])
-    
+
     // Save deletion to history - record each field as deleted
     try {
       const fieldsToRecord = [
@@ -3164,7 +3164,7 @@ app.delete('/api/slots/:id', async (req, res) => {
         { field: 'game_mix', value: deletedSlot.game_mix },
         { field: 'status', value: deletedSlot.status }
       ]
-      
+
       for (const { field, value } of fieldsToRecord) {
         if (value !== null && value !== undefined) {
           await pool.query(`
@@ -3183,13 +3183,13 @@ app.delete('/api/slots/:id', async (req, res) => {
           ])
         }
       }
-      
+
       console.log(`📝 Saved deletion to slot history for slot ${id} (${deletedSlot.serial_number})`)
     } catch (historyError) {
       console.error('Error saving slot deletion history:', historyError)
       // Don't fail the main request if history saving fails
     }
-    
+
     res.json({ success: true, message: 'Slot deleted successfully' })
   } catch (error) {
     res.status(500).json({ success: false, error: error.message })
@@ -3210,11 +3210,11 @@ app.get('/api/gameMixes/:id', async (req, res) => {
   try {
     const { id } = req.params
     const result = await pool.query('SELECT * FROM game_mixes WHERE id = $1', [id])
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Game mix not found' })
     }
-    
+
     res.json(result.rows[0])
   } catch (error) {
     console.error('Game mix GET error:', error)
@@ -3225,13 +3225,13 @@ app.get('/api/gameMixes/:id', async (req, res) => {
 app.post('/api/gameMixes', async (req, res) => {
   try {
     const { name, provider, games, rtp, denomination, max_bet, gaming_places, status, notes } = req.body
-    
+
     // Convert empty strings to null for numeric fields
     const cleanRtp = rtp === '' ? null : rtp
     const cleanDenomination = denomination === '' ? 0.01 : denomination
     const cleanMaxBet = max_bet === '' ? null : max_bet
     const cleanGamingPlaces = gaming_places === '' ? 1 : gaming_places
-    
+
     const result = await pool.query(
       'INSERT INTO game_mixes (name, provider, games, rtp, denomination, max_bet, gaming_places, status, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
       [name, provider, JSON.stringify(games), cleanRtp, cleanDenomination, cleanMaxBet, cleanGamingPlaces, status || 'Active', notes]
@@ -3246,25 +3246,25 @@ app.put('/api/gameMixes/:id', async (req, res) => {
   try {
     const { id } = req.params
     const { name, provider, games, rtp, denomination, max_bet, gaming_places, status, notes } = req.body
-    
+
     // Get old game mix name before update
     const oldGameMixResult = await pool.query('SELECT name FROM game_mixes WHERE id = $1', [id])
     if (oldGameMixResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Game mix not found' })
     }
     const oldName = oldGameMixResult.rows[0].name
-    
+
     // Convert empty strings to null for numeric fields
     const cleanRtp = rtp === '' ? null : rtp
     const cleanDenomination = denomination === '' ? null : denomination
     const cleanMaxBet = max_bet === '' ? null : max_bet
     const cleanGamingPlaces = gaming_places === '' ? null : gaming_places
-    
+
     const result = await pool.query(
       'UPDATE game_mixes SET name = $1, provider = $2, games = $3, rtp = $4, denomination = $5, max_bet = $6, gaming_places = $7, status = $8, notes = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10 RETURNING *',
       [name, provider, JSON.stringify(games), cleanRtp, cleanDenomination, cleanMaxBet, cleanGamingPlaces, status, notes, id]
     )
-    
+
     // Update game mix name in slots if name changed
     if (oldName !== name) {
       await pool.query(
@@ -3273,7 +3273,7 @@ app.put('/api/gameMixes/:id', async (req, res) => {
       )
       console.log(`Updated game mix name from "${oldName}" to "${name}" in slots`)
     }
-    
+
     res.json(result.rows[0])
   } catch (error) {
     res.status(500).json({ success: false, error: error.message })
@@ -3301,7 +3301,7 @@ app.get('/api/users/:id', async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'User not found' })
     }
-    
+
     // Parse preferences if it's a string
     const user = result.rows[0]
     if (typeof user.preferences === 'string') {
@@ -3312,7 +3312,7 @@ app.get('/api/users/:id', async (req, res) => {
         user.preferences = {}
       }
     }
-    
+
     res.json(user)
   } catch (error) {
     console.error('Error fetching user:', error)
@@ -3324,11 +3324,11 @@ app.get('/api/users/:id/preferences', async (req, res) => {
   try {
     const { id } = req.params
     const result = await pool.query('SELECT preferences FROM users WHERE id = $1', [id])
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'User not found' })
     }
-    
+
     res.json({ success: true, preferences: result.rows[0].preferences || {} })
   } catch (error) {
     console.error('Error fetching user preferences:', error)
@@ -3340,16 +3340,16 @@ app.put('/api/users/:id/preferences', async (req, res) => {
   try {
     const { id } = req.params
     const { preferences } = req.body
-    
+
     const result = await pool.query(
       'UPDATE users SET preferences = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, preferences',
       [JSON.stringify(preferences), id]
     )
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'User not found' })
     }
-    
+
     res.json({ success: true, preferences: result.rows[0].preferences })
   } catch (error) {
     console.error('Error updating user preferences:', error)
@@ -3394,17 +3394,17 @@ const normalizeDate = (value) => {
 
 app.post('/api/contracts', async (req, res) => {
   try {
-    const { 
-      contract_number, 
-      title, 
-      location_id, 
-      proprietar_id, 
-      type, 
-      status, 
-      start_date, 
-      end_date, 
-      monthly_rent, 
-      currency, 
+    const {
+      contract_number,
+      title,
+      location_id,
+      proprietar_id,
+      type,
+      status,
+      start_date,
+      end_date,
+      monthly_rent,
+      currency,
       deposit,
       payment_terms,
       description,
@@ -3412,7 +3412,7 @@ app.post('/api/contracts', async (req, res) => {
       contractFile,
       annexes
     } = req.body
-    
+
     const cleanMonthlyRent = normalizeNumber(monthly_rent)
     const cleanDeposit = normalizeNumber(deposit)
     const cleanSurface = normalizeNumber(surface_area)
@@ -3433,7 +3433,7 @@ app.post('/api/contracts', async (req, res) => {
       contractFile || null,
       JSON.stringify(annexes || [])
     ])
-    
+
     res.json(result.rows[0])
   } catch (error) {
     console.error('Contracts POST error:', error)
@@ -3444,19 +3444,19 @@ app.post('/api/contracts', async (req, res) => {
 app.put('/api/contracts/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { 
-      contract_number, 
-      title, 
+    const {
+      contract_number,
+      title,
       location_id,
       proprietar_id,
-      type, 
-      status, 
-      start_date, 
-      end_date, 
-      monthly_rent, 
-      currency, 
+      type,
+      status,
+      start_date,
+      end_date,
+      monthly_rent,
+      currency,
       deposit,
-      payment_terms, 
+      payment_terms,
       description,
       surface_area,
       contractFile,
@@ -3514,7 +3514,7 @@ app.delete('/api/contracts/:id', async (req, res) => {
   try {
     const { id } = req.params
     const result = await pool.query('DELETE FROM contracts WHERE id = $1 RETURNING *', [id])
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Contract not found' })
     }
@@ -3542,24 +3542,24 @@ app.get('/api/proprietari', async (req, res) => {
 
 app.post('/api/proprietari', async (req, res) => {
   try {
-    const { 
-      name, 
-      contact_person, 
-      email, 
-      phone, 
-      address, 
-      cnp_cui, 
-      type, 
-      status, 
-      notes 
+    const {
+      name,
+      contact_person,
+      email,
+      phone,
+      address,
+      cnp_cui,
+      type,
+      status,
+      notes
     } = req.body
-    
+
     const result = await pool.query(`
       INSERT INTO proprietari (name, contact_person, email, phone, address, cnp_cui, type, status, notes)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `, [name, contact_person, email, phone, address, cnp_cui, type, status, notes])
-    
+
     res.json(result.rows[0])
   } catch (error) {
     console.error('Proprietari POST error:', error)
@@ -3570,18 +3570,18 @@ app.post('/api/proprietari', async (req, res) => {
 app.put('/api/proprietari/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { 
-      name, 
-      contact_person, 
-      email, 
-      phone, 
-      address, 
-      cnp_cui, 
-      type, 
-      status, 
-      notes 
+    const {
+      name,
+      contact_person,
+      email,
+      phone,
+      address,
+      cnp_cui,
+      type,
+      status,
+      notes
     } = req.body
-    
+
     const result = await pool.query(`
       UPDATE proprietari 
       SET name = $1, contact_person = $2, email = $3, phone = $4, address = $5, 
@@ -3589,11 +3589,11 @@ app.put('/api/proprietari/:id', async (req, res) => {
       WHERE id = $10
       RETURNING *
     `, [name, contact_person, email, phone, address, cnp_cui, type, status, notes, id])
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Proprietar not found' })
     }
-    
+
     res.json(result.rows[0])
   } catch (error) {
     console.error('Proprietari PUT error:', error)
@@ -3605,11 +3605,11 @@ app.delete('/api/proprietari/:id', async (req, res) => {
   try {
     const { id } = req.params
     const result = await pool.query('DELETE FROM proprietari WHERE id = $1 RETURNING *', [id])
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Proprietar not found' })
     }
-    
+
     res.json({ success: true, message: 'Proprietar deleted successfully' })
   } catch (error) {
     console.error('Proprietari DELETE error:', error)
@@ -3708,7 +3708,7 @@ app.delete('/api/platforms/:id', async (req, res) => {
   try {
     const { id } = req.params
     const result = await pool.query('DELETE FROM platforms WHERE id = $1 RETURNING *', [id])
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Platform not found' })
     }
@@ -3733,9 +3733,9 @@ app.get('/api/jackpots', async (req, res) => {
 
 app.post('/api/jackpots', async (req, res) => {
   try {
-    const { 
-      serial_number, jackpot_name, jackpot_type, current_amount, max_amount, 
-      progress_percentage, status, winner, triggered_date, notes 
+    const {
+      serial_number, jackpot_name, jackpot_type, current_amount, max_amount,
+      progress_percentage, status, winner, triggered_date, notes
     } = req.body
     const result = await pool.query(
       'INSERT INTO jackpots (serial_number, jackpot_name, jackpot_type, current_amount, max_amount, progress_percentage, status, winner, triggered_date, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
@@ -3751,9 +3751,9 @@ app.post('/api/jackpots', async (req, res) => {
 app.put('/api/jackpots/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { 
-      serial_number, jackpot_name, jackpot_type, current_amount, max_amount, 
-      progress_percentage, status, winner, triggered_date, notes 
+    const {
+      serial_number, jackpot_name, jackpot_type, current_amount, max_amount,
+      progress_percentage, status, winner, triggered_date, notes
     } = req.body
     const result = await pool.query(
       'UPDATE jackpots SET serial_number = $1, jackpot_name = $2, jackpot_type = $3, current_amount = $4, max_amount = $5, progress_percentage = $6, status = $7, winner = $8, triggered_date = $9, notes = $10, updated_at = CURRENT_TIMESTAMP WHERE id = $11 RETURNING *',
@@ -3805,14 +3805,32 @@ app.delete('/api/metrology', async (req, res) => {
 })
 
 app.post('/api/metrology', async (req, res) => {
+  // --- DEBUG INJECTION START ---
+  const debugData = new Date().toISOString() + ' Received POST /api/metrology:\n' +
+    'body keys: ' + Object.keys(req.body).join(', ') + '\n' +
+    'cvt_series: ' + req.body.cvt_series + '\n' +
+    'cvt_number: ' + req.body.cvt_number + '\n' +
+    'cvt_file typeof: ' + typeof req.body.cvt_file + '\n' +
+    'cvtFile typeof: ' + typeof req.body.cvtFile + '\n' +
+    'expiry_date: ' + req.body.expiry_date + '\n' +
+    'cvt_date: ' + req.body.cvt_date + '\n\n';
+  import('fs').then(fs => fs.appendFileSync('debug-ui-metrology.log', debugData)).catch(console.error);
+  // --- DEBUG INJECTION END ---
+
   try {
-    const { 
-      cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFile, cvt_file, notes 
+    const {
+      cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFile, cvt_file, cvt_filename, notes
     } = req.body
-    
+
     // Accept BOTH cvtFile (old) and cvt_file (new) for compatibility
     const cvtFileData = cvt_file || cvtFile
-    
+
+    // BACKEND FALLBACK FOR UNIQUE cvt_number
+    let finalCvtNumber = cvt_number;
+    if (!finalCvtNumber || finalCvtNumber === 'N/A' || finalCvtNumber === '') {
+      finalCvtNumber = cvt_series ? cvt_series : `AUTO-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    }
+
     // Calculate expiry_date automatically for Periodică and Inițială (1 year - 1 day from cvt_date)
     let calculatedExpiryDate = expiry_date
     if (cvt_date && (cvt_type === 'Periodică' || cvt_type === 'Inițială') && !expiry_date) {
@@ -3822,15 +3840,21 @@ app.post('/api/metrology', async (req, res) => {
       expiryDate.setDate(expiryDate.getDate() - 1)
       calculatedExpiryDate = expiryDate.toISOString().split('T')[0]
     }
-    
+
+    const cleanCvtDate = normalizeDate(cvt_date)
+    const cleanExpiryDate = normalizeDate(calculatedExpiryDate)
+
     const result = await pool.query(
-      'INSERT INTO metrology (cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvt_file, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *, cvt_file as "cvtFile"',
-      [cvt_series, cvt_number, serial_number, cvt_type, cvt_date, calculatedExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, notes, 'admin']
+      'INSERT INTO metrology (cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvt_file, cvt_filename, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *, cvt_file as "cvtFile"',
+      [cvt_series, finalCvtNumber, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, cvt_filename, notes, 'admin']
     )
-    
+
     res.status(201).json(result.rows[0])
   } catch (error) {
     console.error('Metrology POST error:', error)
+    import('fs').then(fs => {
+      fs.appendFileSync('debug-error.log', new Date().toISOString() + ' POST Metrology Error: ' + error.message + '\n')
+    }).catch(e => console.error('Error logging to file:', e))
     res.status(500).json({ success: false, error: error.message })
   }
 })
@@ -3838,16 +3862,16 @@ app.post('/api/metrology', async (req, res) => {
 app.put('/api/metrology/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { 
-      cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, 
-      provider, cabinet, game_mix, approval_type, software, cvtFile, cvt_file, cvt_filename, notes 
+    const {
+      cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority,
+      provider, cabinet, game_mix, approval_type, software, cvtFile, cvt_file, cvt_filename, notes
     } = req.body
-    
+
     console.log('Metrology PUT:', { id, cvt_series, hasFile: !!(cvt_file || cvtFile), cvt_filename })
-    
+
     // Accept BOTH cvtFile (old) and cvt_file (new) for compatibility
     const cvtFileData = cvt_file || cvtFile
-    
+
     // Calculate expiry_date automatically for Periodică and Inițială (1 year - 1 day from cvt_date)
     let calculatedExpiryDate = expiry_date
     if (cvt_date && (cvt_type === 'Periodică' || cvt_type === 'Inițială') && !expiry_date) {
@@ -3857,7 +3881,10 @@ app.put('/api/metrology/:id', async (req, res) => {
       expiryDate.setDate(expiryDate.getDate() - 1)
       calculatedExpiryDate = expiryDate.toISOString().split('T')[0]
     }
-    
+
+    const cleanCvtDate = normalizeDate(cvt_date)
+    const cleanExpiryDate = normalizeDate(calculatedExpiryDate)
+
     // Build update query - include cvt_filename
     let query, params
     if (cvtFileData) {
@@ -3866,8 +3893,8 @@ app.put('/api/metrology/:id', async (req, res) => {
         cvt_number = COALESCE($2, cvt_number), 
         serial_number = COALESCE($3, serial_number), 
         cvt_type = COALESCE($4, cvt_type), 
-        cvt_date = COALESCE($5, cvt_date), 
-        expiry_date = COALESCE($6, expiry_date), 
+        cvt_date = $5, 
+        expiry_date = $6, 
         issuing_authority = COALESCE($7, issuing_authority), 
         provider = COALESCE($8, provider), 
         cabinet = COALESCE($9, cabinet), 
@@ -3880,15 +3907,15 @@ app.put('/api/metrology/:id', async (req, res) => {
         updated_at = CURRENT_TIMESTAMP 
         WHERE id = $16 
         RETURNING *, cvt_file as "cvtFile"`
-      params = [cvt_series, cvt_number, serial_number, cvt_type, cvt_date, calculatedExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, cvt_filename, notes, id]
+      params = [cvt_series, cvt_number, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, cvt_filename, notes, id]
     } else {
       query = `UPDATE metrology SET 
         cvt_series = COALESCE($1, cvt_series), 
         cvt_number = COALESCE($2, cvt_number), 
         serial_number = COALESCE($3, serial_number), 
         cvt_type = COALESCE($4, cvt_type), 
-        cvt_date = COALESCE($5, cvt_date), 
-        expiry_date = COALESCE($6, expiry_date), 
+        cvt_date = $5, 
+        expiry_date = $6, 
         issuing_authority = COALESCE($7, issuing_authority), 
         provider = COALESCE($8, provider), 
         cabinet = COALESCE($9, cabinet), 
@@ -3899,14 +3926,14 @@ app.put('/api/metrology/:id', async (req, res) => {
         updated_at = CURRENT_TIMESTAMP 
         WHERE id = $14 
         RETURNING *, cvt_file as "cvtFile"`
-      params = [cvt_series, cvt_number, serial_number, cvt_type, cvt_date, calculatedExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, notes, id]
+      params = [cvt_series, cvt_number, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, notes, id]
     }
-    
+
     const result = await pool.query(query, params)
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Metrology record not found' })
     }
-    
+
     res.json(result.rows[0])
   } catch (error) {
     console.error('Metrology PUT error:', error)
@@ -3941,27 +3968,27 @@ app.get('/api/invoices', async (req, res) => {
 
 app.post('/api/invoices', upload.single('pdf_file'), async (req, res) => {
   try {
-    const { 
+    const {
       invoice_number, serial_numbers, buyer, seller, type, amount, currency, rates, locations
     } = req.body
-    
+
     console.log('Invoice POST data:', { invoice_number, serial_numbers, buyer, seller, type, amount, currency, rates, locations })
-    
+
     // Get PDF file path if uploaded
     const pdfPath = req.file ? `/uploads/invoices/${req.file.filename}` : null
-    
+
     // Parse serial numbers from textarea
     const serialNumbersArray = serial_numbers
       .split('\n')
       .map(s => s.trim())
       .filter(s => s.length > 0)
-    
+
     // Create invoice record
     const result = await pool.query(
       'INSERT INTO invoices (invoice_number, serial_number, company, seller, location, amount, currency, issue_date, status, invoice_type, description, file_path) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *',
       [invoice_number, JSON.stringify(serialNumbersArray), buyer, seller, JSON.stringify(locations), amount, currency || 'RON', new Date().toISOString().split('T')[0], 'Pending', type || 'Sale', rates || '', pdfPath]
     )
-    
+
     // Update property_type in slots based on invoice type
     if (serialNumbersArray.length > 0 && type) {
       const propertyType = type === 'Vânzare' ? 'Owned' : 'Rented'
@@ -3974,7 +4001,7 @@ app.post('/api/invoices', upload.single('pdf_file'), async (req, res) => {
         console.log(`Updated slot ${serialNumber} property_type to ${propertyType}`)
       }
     }
-    
+
     res.status(201).json(result.rows[0])
   } catch (error) {
     console.error('Invoices POST error:', error)
@@ -4000,19 +4027,19 @@ app.get('/api/invoices/:id', async (req, res) => {
 app.put('/api/invoices/:id', upload.single('pdf_file'), async (req, res) => {
   try {
     const { id } = req.params
-    const { 
+    const {
       invoice_number, serial_numbers, buyer, seller, type, amount, currency, rates, locations
     } = req.body
-    
+
     // Get PDF file path if uploaded
     const pdfPath = req.file ? `/uploads/invoices/${req.file.filename}` : null
-    
+
     // Parse serial numbers from textarea
     const serialNumbersArray = serial_numbers
       .split('\n')
       .map(s => s.trim())
       .filter(s => s.length > 0)
-    
+
     const result = await pool.query(
       'UPDATE invoices SET invoice_number = $1, serial_number = $2, company = $3, seller = $4, location = $5, amount = $6, currency = $7, issue_date = $8, status = $9, invoice_type = $10, description = $11, file_path = $12, updated_at = CURRENT_TIMESTAMP WHERE id = $13 RETURNING *',
       [invoice_number, JSON.stringify(serialNumbersArray), buyer, seller, JSON.stringify(locations), amount, currency, new Date().toISOString().split('T')[0], 'Pending', type, rates || '', pdfPath, id]
@@ -4020,7 +4047,7 @@ app.put('/api/invoices/:id', upload.single('pdf_file'), async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Invoice not found' })
     }
-    
+
     // Update property_type in slots based on invoice type
     if (serialNumbersArray.length > 0 && type) {
       const propertyType = type === 'Vânzare' ? 'Owned' : 'Rented'
@@ -4031,7 +4058,7 @@ app.put('/api/invoices/:id', upload.single('pdf_file'), async (req, res) => {
         )
       }
     }
-    
+
     res.json(result.rows[0])
   } catch (error) {
     console.error('Invoices PUT error:', error)
@@ -4102,7 +4129,7 @@ app.post('/api/warehouse/bulk', authenticateUser, async (req, res) => {
     const { items } = req.body
     const userId = req.user?.userId || 1
     const username = req.user?.username || 'admin'
-    
+
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ success: false, error: 'Items array is required' })
     }
@@ -4160,9 +4187,9 @@ app.post('/api/warehouse/bulk', authenticateUser, async (req, res) => {
       }
 
       await client.query('COMMIT')
-      res.json({ 
-        success: true, 
-        saved, 
+      res.json({
+        success: true,
+        saved,
         total: items.length,
         errors: errors.length > 0 ? errors : undefined
       })
@@ -4182,21 +4209,21 @@ app.post('/api/warehouse/bulk', authenticateUser, async (req, res) => {
 app.post('/api/warehouse/import-products', async (req, res) => {
   try {
     const { products, city, supplier } = req.body
-    
+
     if (!products || !Array.isArray(products) || products.length === 0) {
       return res.status(400).json({ success: false, error: 'Products array is required' })
     }
-    
+
     // City is optional - if not provided, use null or 'Depozit'
     const location = city || null
     const supplierName = supplier || 'General'
-    
+
     // Ensure "General" supplier exists (or create it)
     // For now, we'll just use the supplier name provided
-    
+
     const importedProducts = []
     const errors = []
-    
+
     for (const product of products) {
       try {
         // Extract product data - adapt based on your API structure
@@ -4216,13 +4243,13 @@ app.post('/api/warehouse/import-products', async (req, res) => {
           created_by: req.user?.username || 'API Import',
           created_at: new Date()
         }
-        
+
         // Insert into warehouse table
         const result = await pool.query(
           'INSERT INTO warehouse (serial_number, provider, location, cabinet, game_mix, status, notes, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP) RETURNING *',
           [productData.serial_number, productData.provider, productData.location, productData.cabinet, productData.game_mix, productData.status, productData.notes, productData.created_by]
         )
-        
+
         importedProducts.push(result.rows[0])
       } catch (error) {
         console.error('Error importing product:', error)
@@ -4232,7 +4259,7 @@ app.post('/api/warehouse/import-products', async (req, res) => {
         })
       }
     }
-    
+
     res.json({
       success: true,
       imported: importedProducts.length,
@@ -4363,27 +4390,27 @@ app.get('/api/onjn-operators/refresh-status', (req, res) => {
 app.post('/api/onjn-operators/import-json', async (req, res) => {
   try {
     const pool = req.app.get('pool')
-    
+
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
-    
+
     // Check if already importing
     const currentProgress = refreshProgressManager.get()
     if (currentProgress && currentProgress.status === 'running') {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Import deja în curs. Vă rugăm să așteptați finalizarea.' 
+      return res.status(400).json({
+        success: false,
+        error: 'Import deja în curs. Vă rugăm să așteptați finalizarea.'
       })
     }
-    
+
     // Try multiple possible locations for the JSON file
     const possiblePaths = [
       path.join(__dirname, 'backend', 'onjn-scraped-data.json'),
       path.join(__dirname, 'onjn-scraped-data.json'),
       path.join(__dirname, '..', 'backend', 'onjn-scraped-data.json')
     ]
-    
+
     let jsonFilePath = null
     for (const possiblePath of possiblePaths) {
       if (fs.existsSync(possiblePath)) {
@@ -4391,20 +4418,20 @@ app.post('/api/onjn-operators/import-json', async (req, res) => {
         break
       }
     }
-    
+
     if (!jsonFilePath) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Fișierul JSON nu a fost găsit pe server' 
+      return res.status(404).json({
+        success: false,
+        error: 'Fișierul JSON nu a fost găsit pe server'
       })
     }
-    
+
     // Read and parse JSON file
     const rawData = fs.readFileSync(jsonFilePath, 'utf8')
     const data = JSON.parse(rawData)
-    
+
     console.log(`📊 Importing ${data.length} slots from JSON file`)
-    
+
     // Set progress to running
     refreshProgressManager.set({
       status: 'running',
@@ -4417,16 +4444,16 @@ app.post('/api/onjn-operators/import-json', async (req, res) => {
       errors: 0,
       startTime: new Date()
     })
-    
+
     let inserted = 0
     let updated = 0
     let errors = 0
-    
+
     // Process in batches of 100
     const batchSize = 100
     for (let i = 0; i < data.length; i += batchSize) {
       const batch = data.slice(i, i + batchSize)
-      
+
       for (const slot of batch) {
         try {
           // Check if slot exists
@@ -4434,7 +4461,7 @@ app.post('/api/onjn-operators/import-json', async (req, res) => {
             'SELECT id FROM onjn_operators WHERE serial_number = $1',
             [slot.serial_number]
           )
-          
+
           if (existing.rows.length > 0) {
             // Update existing
             await pool.query(`
@@ -4486,7 +4513,7 @@ app.post('/api/onjn-operators/import-json', async (req, res) => {
           errors++
         }
       }
-      
+
       // Update progress
       const progress = Math.round(((i + batch.length) / data.length) * 100)
       const currentProgress = refreshProgressManager.get()
@@ -4499,7 +4526,7 @@ app.post('/api/onjn-operators/import-json', async (req, res) => {
         errors
       })
     }
-    
+
     // Mark as completed
     const finalProgress = refreshProgressManager.get()
     refreshProgressManager.set({
@@ -4510,7 +4537,7 @@ app.post('/api/onjn-operators/import-json', async (req, res) => {
       updated,
       errors
     })
-    
+
     res.json({
       success: true,
       message: 'Import completat cu succes!',
@@ -4519,10 +4546,10 @@ app.post('/api/onjn-operators/import-json', async (req, res) => {
       updated,
       errors
     })
-    
+
   } catch (error) {
     console.error('JSON import error:', error)
-    
+
     // Mark as failed
     const failedProgress = refreshProgressManager.get()
     refreshProgressManager.set({
@@ -4530,10 +4557,10 @@ app.post('/api/onjn-operators/import-json', async (req, res) => {
       status: 'failed',
       currentStep: `Eroare: ${error.message}`
     })
-    
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
+
+    res.status(500).json({
+      success: false,
+      error: error.message
     })
   }
 })
@@ -4554,7 +4581,7 @@ app.get('/api/approvals', async (req, res) => {
   try {
     const pool = req.app.get('pool')
     const result = await pool.query('SELECT * FROM approvals ORDER BY created_at DESC')
-    
+
     // Parse attachments JSON strings to objects for frontend
     const rows = result.rows.map(row => {
       if (row.attachments && typeof row.attachments === 'string') {
@@ -4569,7 +4596,7 @@ app.get('/api/approvals', async (req, res) => {
       }
       return row
     })
-    
+
     res.json(rows)
   } catch (error) {
     console.error('Approvals GET error:', error)
@@ -4584,10 +4611,10 @@ app.post('/api/approvals', authenticateUser, upload.single('file'), async (req, 
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
-    
+
     const { name, provider, cabinet, game_mix, checksum_md5, checksum_sha256, notes } = req.body
     const createdBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
-    
+
     let attachments = []
     if (req.file) {
       // Handle file upload - could be uploaded to S3 or stored locally
@@ -4598,14 +4625,14 @@ app.post('/api/approvals', authenticateUser, upload.single('file'), async (req, 
         uploadedAt: new Date().toISOString()
       })
     }
-    
+
     const result = await pool.query(
       `INSERT INTO approvals (name, provider, cabinet, game_mix, checksum_md5, checksum_sha256, attachments, notes, created_by, created_at) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP) 
        RETURNING *`,
       [name, provider, cabinet, game_mix, checksum_md5, checksum_sha256, JSON.stringify(attachments), notes, createdBy]
     )
-    
+
     res.status(201).json(result.rows[0])
   } catch (error) {
     console.error('Approvals POST error:', error)
@@ -4620,29 +4647,29 @@ app.put('/api/approvals/:id', authenticateUser, async (req, res) => {
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
-    
+
     const { id } = req.params
-    const { 
-      name, 
-      provider, 
-      cabinet, 
-      game_mix, 
+    const {
+      name,
+      provider,
+      cabinet,
+      game_mix,
       game_mix_name,
-      checksum_md5, 
-      checksum_sha256, 
+      checksum_md5,
+      checksum_sha256,
       notes,
       attachments,  // Citește attachments din body (base64) - EXACT CA LA CONTRACTS!
       issuing_authority
     } = req.body
-    
+
     console.log('Approvals PUT:', { id, name, attachmentsLength: attachments?.length })
-    
+
     // Verifică dacă approval există
     const existingResult = await pool.query('SELECT * FROM approvals WHERE id = $1', [id])
     if (existingResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Approval not found' })
     }
-    
+
     // Folosește attachments din body direct (sunt deja în format JSON string sau array)
     let attachmentsToSave = attachments
     if (typeof attachments === 'string') {
@@ -4653,7 +4680,7 @@ app.put('/api/approvals/:id', authenticateUser, async (req, res) => {
     } else {
       attachmentsToSave = existingResult.rows[0].attachments || '[]'
     }
-    
+
     const result = await pool.query(
       `UPDATE approvals 
        SET name = COALESCE($1, name), 
@@ -4671,7 +4698,7 @@ app.put('/api/approvals/:id', authenticateUser, async (req, res) => {
        RETURNING *`,
       [name, provider, cabinet, game_mix, game_mix_name, checksum_md5, checksum_sha256, attachmentsToSave, notes, issuing_authority, id]
     )
-    
+
     console.log('Approvals PUT success:', result.rows[0]?.id)
     res.json(result.rows[0])
   } catch (error) {
@@ -4686,7 +4713,7 @@ app.put('/api/approvals/:id', authenticateUser, async (req, res) => {
 app.get('/api/brands', async (req, res) => {
   try {
     const pool = req.app.get('pool')
-    
+
     // Get brands with slot counts from onjn_operators
     const result = await pool.query(`
       SELECT 
@@ -4698,7 +4725,7 @@ app.get('/api/brands', async (req, res) => {
       GROUP BY b.id
       ORDER BY b.brand_name ASC
     `)
-    
+
     res.json(result.rows)
   } catch (error) {
     console.error('Brands GET error:', error)
@@ -4712,23 +4739,23 @@ app.get('/api/brands/:brandName', async (req, res) => {
     const pool = req.app.get('pool')
     const { brandName } = req.params
     const decodedBrandName = decodeURIComponent(brandName)
-    
+
     // Get brand info
     const brandResult = await pool.query(`
       SELECT * FROM brands WHERE brand_name = $1
     `, [decodedBrandName])
-    
+
     if (brandResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Brand not found' })
     }
-    
+
     // Get all slots for this brand
     const slotsResult = await pool.query(`
       SELECT * FROM onjn_operators 
       WHERE brand_name = $1 
       ORDER BY city, slot_address
     `, [decodedBrandName])
-    
+
     res.json({
       brand: brandResult.rows[0],
       slots: slotsResult.rows
@@ -4760,16 +4787,16 @@ app.post('/api/authorities', authenticateUser, async (req, res) => {
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
-    
+
     const { name, address, price_initiala, price_reparatie, price_periodica, notes } = req.body
-    
+
     const result = await pool.query(
       `INSERT INTO authorities (name, address, price_initiala, price_reparatie, price_periodica, notes, created_at, updated_at) 
        VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) 
        RETURNING *`,
       [name, address, price_initiala, price_reparatie, price_periodica, notes]
     )
-    
+
     res.json(result.rows[0])
   } catch (error) {
     console.error('Authorities POST error:', error)
@@ -4784,10 +4811,10 @@ app.put('/api/authorities/:id', authenticateUser, async (req, res) => {
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
-    
+
     const { id } = req.params
     const { name, address, price_initiala, price_reparatie, price_periodica, notes } = req.body
-    
+
     const result = await pool.query(
       `UPDATE authorities 
        SET name = $1, address = $2, price_initiala = $3, price_reparatie = $4, price_periodica = $5, notes = $6, updated_at = CURRENT_TIMESTAMP 
@@ -4795,7 +4822,7 @@ app.put('/api/authorities/:id', authenticateUser, async (req, res) => {
        RETURNING *`,
       [name, address, price_initiala, price_reparatie, price_periodica, notes, id]
     )
-    
+
     res.json(result.rows[0])
   } catch (error) {
     console.error('Authorities PUT error:', error)
@@ -4810,10 +4837,10 @@ app.delete('/api/authorities/:id', authenticateUser, async (req, res) => {
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
-    
+
     const { id } = req.params
     await pool.query('DELETE FROM authorities WHERE id = $1', [id])
-    
+
     res.json({ success: true })
   } catch (error) {
     console.error('Authorities DELETE error:', error)
@@ -4842,16 +4869,16 @@ app.post('/api/software', authenticateUser, async (req, res) => {
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
-    
+
     const { name, version, provider, cabinet, game_mix, approval, notes } = req.body
-    
+
     const result = await pool.query(
       `INSERT INTO software (name, version, provider, cabinet, game_mix, notes, created_at, updated_at) 
        VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) 
        RETURNING *`,
       [name, version, provider, cabinet, game_mix, notes]
     )
-    
+
     res.json(result.rows[0])
   } catch (error) {
     console.error('Software POST error:', error)
@@ -4866,10 +4893,10 @@ app.put('/api/software/:id', authenticateUser, async (req, res) => {
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
-    
+
     const { id } = req.params
     const { name, version, provider, cabinet, game_mix, approval, notes } = req.body
-    
+
     const result = await pool.query(
       `UPDATE software 
        SET name = $1, version = $2, provider = $3, cabinet = $4, game_mix = $5, notes = $6, updated_at = CURRENT_TIMESTAMP 
@@ -4877,7 +4904,7 @@ app.put('/api/software/:id', authenticateUser, async (req, res) => {
        RETURNING *`,
       [name, version, provider, cabinet, game_mix, notes, id]
     )
-    
+
     res.json(result.rows[0])
   } catch (error) {
     console.error('Software PUT error:', error)
@@ -4892,10 +4919,10 @@ app.delete('/api/software/:id', authenticateUser, async (req, res) => {
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database pool not available' })
     }
-    
+
     const { id } = req.params
     await pool.query('DELETE FROM software WHERE id = $1', [id])
-    
+
     res.json({ success: true })
   } catch (error) {
     console.error('Software DELETE error:', error)
@@ -4907,13 +4934,13 @@ app.delete('/api/software/:id', authenticateUser, async (req, res) => {
 app.post('/api/cyber/sync-locations', async (req, res) => {
   try {
     console.log('🔄 Syncing locations from Cyber...')
-    
+
     // Load Cyber locations data
     const locationsPath = path.join(__dirname, 'cyber-data', 'locations.json')
     const cyberLocations = JSON.parse(fs.readFileSync(locationsPath, 'utf8'))
-    
+
     let syncedCount = 0
-    
+
     for (const cyberLocation of cyberLocations) {
       try {
         const exists = await pool.query('SELECT id FROM locations WHERE name = $1', [cyberLocation.name])
@@ -4929,7 +4956,7 @@ app.post('/api/cyber/sync-locations', async (req, res) => {
         console.log(`   ⚠️ Location ${cyberLocation.name} error:`, error.message)
       }
     }
-    
+
     res.json({ success: true, message: `Locations sync completed: ${syncedCount} new locations added`, syncedCount })
   } catch (error) {
     console.error('Error syncing locations:', error)
@@ -4940,13 +4967,13 @@ app.post('/api/cyber/sync-locations', async (req, res) => {
 app.post('/api/cyber/sync-game-mixes', async (req, res) => {
   try {
     console.log('🔄 Syncing game mixes from Cyber...')
-    
+
     // Load Cyber game mixes data
     const gameMixesPath = path.join(__dirname, 'cyber-data', 'game-mixes.json')
     const cyberGameMixes = JSON.parse(fs.readFileSync(gameMixesPath, 'utf8'))
-    
+
     let syncedCount = 0
-    
+
     for (const cyberGameMix of cyberGameMixes) {
       try {
         const exists = await pool.query('SELECT id FROM game_mixes WHERE name = $1', [cyberGameMix.name])
@@ -4962,7 +4989,7 @@ app.post('/api/cyber/sync-game-mixes', async (req, res) => {
         console.log(`   ⚠️ Game mix ${cyberGameMix.name} error:`, error.message)
       }
     }
-    
+
     res.json({ success: true, message: `Game mixes sync completed: ${syncedCount} new game mixes added`, syncedCount })
   } catch (error) {
     console.error('Error syncing game mixes:', error)
@@ -4973,13 +5000,13 @@ app.post('/api/cyber/sync-game-mixes', async (req, res) => {
 app.post('/api/cyber/sync-cabinets', async (req, res) => {
   try {
     console.log('🔄 Syncing cabinets from Cyber...')
-    
+
     // Load Cyber cabinets data
     const cabinetsPath = path.join(__dirname, 'cyber-data', 'cabinets.json')
     const cyberCabinets = JSON.parse(fs.readFileSync(cabinetsPath, 'utf8'))
-    
+
     let syncedCount = 0
-    
+
     for (const cyberCabinet of cyberCabinets) {
       try {
         const exists = await pool.query('SELECT id FROM cabinets WHERE name = $1 OR model = $1', [cyberCabinet.name])
@@ -4995,7 +5022,7 @@ app.post('/api/cyber/sync-cabinets', async (req, res) => {
         console.log(`   ⚠️ Cabinet ${cyberCabinet.name} error:`, error.message)
       }
     }
-    
+
     res.json({ success: true, message: `Cabinets sync completed: ${syncedCount} new cabinets added`, syncedCount })
   } catch (error) {
     console.error('Error syncing cabinets:', error)
@@ -5006,13 +5033,13 @@ app.post('/api/cyber/sync-cabinets', async (req, res) => {
 app.post('/api/cyber/sync-providers', async (req, res) => {
   try {
     console.log('🔄 Syncing providers from Cyber...')
-    
+
     // Load Cyber providers data
     const providersPath = path.join(__dirname, 'cyber-data', 'providers.json')
     const cyberProviders = JSON.parse(fs.readFileSync(providersPath, 'utf8'))
-    
+
     let syncedCount = 0
-    
+
     for (const cyberProvider of cyberProviders) {
       try {
         const exists = await pool.query('SELECT id FROM providers WHERE name = $1', [cyberProvider.name])
@@ -5028,7 +5055,7 @@ app.post('/api/cyber/sync-providers', async (req, res) => {
         console.log(`   ⚠️ Provider ${cyberProvider.name} error:`, error.message)
       }
     }
-    
+
     res.json({ success: true, message: `Providers sync completed: ${syncedCount} new providers added`, syncedCount })
   } catch (error) {
     console.error('Error syncing providers:', error)
@@ -5040,25 +5067,25 @@ app.post('/api/cyber/sync-providers', async (req, res) => {
 app.post('/api/cyber/sync-slots', async (req, res) => {
   try {
     console.log('🔄 SYNCING Cyber slots to main slots table...')
-    
+
     const pool = req.app.get('pool')
     const slotsPath = path.join(__dirname, 'cyber-data', 'slots.json')
-    
+
     if (!fs.existsSync(slotsPath)) {
       return res.status(404).json({ error: 'Cyber slots data not found' })
     }
-    
+
     const cyberSlots = JSON.parse(fs.readFileSync(slotsPath, 'utf8'))
     console.log(`📥 Found ${cyberSlots.length} Cyber slots to sync`)
-    
+
     // STEP 1: Extract and auto-populate unique entities
     console.log('📊 Extracting unique entities from Cyber data...')
-    
+
     const uniqueLocations = new Set()
     const uniqueProviders = new Set()
     const uniqueCabinets = new Set()
     const uniqueGameMixes = new Set()
-    
+
     cyberSlots.forEach(slot => {
       if (slot.location && slot.location !== 'Unknown' && slot.location !== 'N/A') {
         uniqueLocations.add(slot.location)
@@ -5071,19 +5098,19 @@ app.post('/api/cyber/sync-slots', async (req, res) => {
       }
       if (slot.game_mix && slot.game_mix !== 'N/A') {
         // Cleanup: Extract only part after " - " (ex: "EGT - Union" -> "Union")
-        const cleanGameMix = slot.game_mix.includes(' - ') 
+        const cleanGameMix = slot.game_mix.includes(' - ')
           ? slot.game_mix.split(' - ')[1].trim()
           : slot.game_mix
         if (cleanGameMix) uniqueGameMixes.add(cleanGameMix)
       }
     })
-    
+
     console.log(`🔍 Found unique entities:`)
     console.log(`   📍 Locations: ${uniqueLocations.size}`)
     console.log(`   🎮 Providers: ${uniqueProviders.size}`)
     console.log(`   🎰 Cabinets: ${uniqueCabinets.size}`)
     console.log(`   🎲 Game Mixes: ${uniqueGameMixes.size}`)
-    
+
     // STEP 2: Auto-populate Locations
     for (const location of uniqueLocations) {
       try {
@@ -5099,7 +5126,7 @@ app.post('/api/cyber/sync-slots', async (req, res) => {
         console.log(`   ⚠️ Location ${location} error:`, error.message)
       }
     }
-    
+
     // STEP 3: Auto-populate Providers
     for (const provider of uniqueProviders) {
       try {
@@ -5115,7 +5142,7 @@ app.post('/api/cyber/sync-slots', async (req, res) => {
         console.log(`   ⚠️ Provider ${provider} error:`, error.message)
       }
     }
-    
+
     // STEP 4: Auto-populate Cabinets
     for (const cabinet of uniqueCabinets) {
       try {
@@ -5131,7 +5158,7 @@ app.post('/api/cyber/sync-slots', async (req, res) => {
         console.log(`   ⚠️ Cabinet ${cabinet} error:`, error.message)
       }
     }
-    
+
     // STEP 5: Auto-populate Game Mixes
     for (const gameMix of uniqueGameMixes) {
       try {
@@ -5147,18 +5174,18 @@ app.post('/api/cyber/sync-slots', async (req, res) => {
         console.log(`   ⚠️ Game mix ${gameMix} error:`, error.message)
       }
     }
-    
+
     console.log('✅ All unique entities populated!')
-    
+
     // STEP 6: Keep existing slots - only update/add new ones
     console.log('🔄 Preserving existing slots - will update/add only new ones')
-    
+
     // STEP 7: Insert Cyber slots in BATCH with cleaned game_mix
     console.log('🚀 Starting BATCH insert...')
     const values = []
     const params = []
     let paramCount = 1
-    
+
     cyberSlots.forEach(cyberSlot => {
       // Cleanup game_mix - extract only part after " - "
       const cleanGameMix = cyberSlot.game_mix && cyberSlot.game_mix.includes(' - ')
@@ -5176,24 +5203,24 @@ app.post('/api/cyber/sync-slots', async (req, res) => {
         cyberSlot.created_at || new Date().toISOString(),
         'Cyber Import'
       ]
-      
+
       const placeholders = rowValues.map((_, idx) => `$${paramCount + idx}`).join(', ')
       values.push(`(${placeholders})`)
       params.push(...rowValues)
       paramCount += rowValues.length
     })
-    
+
     const insertQuery = `
       INSERT INTO slots (
         serial_number, slot_id, provider, cabinet, game_mix, status, 
         location, updated_at, created_at, created_by
       ) VALUES ${values.join(', ')}
     `
-    
+
     await pool.query(insertQuery, params)
     const insertedCount = cyberSlots.length
     console.log(`✅ BATCH INSERT completed: ${insertedCount} slots`)
-    
+
     console.log(`✅ SYNCED ${insertedCount} slots from Cyber to main table`)
     res.json({
       success: true,
@@ -5248,18 +5275,18 @@ app.post('/api/commissions', authenticateUser, async (req, res) => {
   try {
     const { name, serial_numbers, commission_date, expiry_date, notes } = req.body
     const createdBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
-    
+
     // Parse serial numbers from textarea - split by newlines and filter empty
     const serialNumbersArray = serial_numbers
       .split('\n')
       .map(s => s.trim())
       .filter(s => s.length > 0)
-    
+
     const result = await pool.query(
       'INSERT INTO commissions (name, serial_numbers, commission_date, expiry_date, notes, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP) RETURNING *',
       [name, JSON.stringify(serialNumbersArray), commission_date, expiry_date, notes, createdBy]
     )
-    
+
     // Update commission_date in slots table for each serial number
     if (serialNumbersArray.length > 0) {
       for (const serialNumber of serialNumbersArray) {
@@ -5269,7 +5296,7 @@ app.post('/api/commissions', authenticateUser, async (req, res) => {
         )
       }
     }
-    
+
     res.status(201).json(result.rows[0])
   } catch (error) {
     console.error('Commissions POST error:', error)
@@ -5283,7 +5310,7 @@ app.put('/api/commissions/:id', authenticateUser, async (req, res) => {
     const { id } = req.params
     const { name, serial_numbers, commission_date, expiry_date, notes, attachments } = req.body
     const updatedBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
-    
+
     // Parse serial numbers - handle both string and array
     let serialNumbersArray = []
     if (Array.isArray(serial_numbers)) {
@@ -5294,7 +5321,7 @@ app.put('/api/commissions/:id', authenticateUser, async (req, res) => {
         .map(s => s.trim())
         .filter(s => s.length > 0)
     }
-    
+
     // Parse attachments - handle both string (JSON) and array
     let attachmentsData = null
     if (attachments) {
@@ -5308,16 +5335,16 @@ app.put('/api/commissions/:id', authenticateUser, async (req, res) => {
         attachmentsData = attachments
       }
     }
-    
+
     const result = await pool.query(
       'UPDATE commissions SET name = $1, serial_numbers = $2, commission_date = $3, expiry_date = $4, notes = $5, attachments = $6, updated_by = $7, updated_at = CURRENT_TIMESTAMP WHERE id = $8 RETURNING *',
       [name, JSON.stringify(serialNumbersArray), commission_date, expiry_date, notes, attachmentsData ? JSON.stringify(attachmentsData) : null, updatedBy, id]
     )
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Commission not found' })
     }
-    
+
     // Update commission_date in slots table for each serial number
     if (serialNumbersArray.length > 0) {
       for (const serialNumber of serialNumbersArray) {
@@ -5327,7 +5354,7 @@ app.put('/api/commissions/:id', authenticateUser, async (req, res) => {
         )
       }
     }
-    
+
     res.json(result.rows[0])
   } catch (error) {
     console.error('Commissions PUT error:', error)
@@ -5359,15 +5386,15 @@ app.get('/api/restore-dashboard/:userId', authenticateUser, async (req, res) => 
   try {
     const { userId } = req.params
     const result = await pool.query('SELECT preferences FROM users WHERE id = $1', [userId])
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'User not found' })
     }
-    
-    const preferences = typeof result.rows[0].preferences === 'string' 
-      ? JSON.parse(result.rows[0].preferences) 
+
+    const preferences = typeof result.rows[0].preferences === 'string'
+      ? JSON.parse(result.rows[0].preferences)
       : result.rows[0].preferences || {}
-    
+
     res.json({ success: true, preferences })
   } catch (error) {
     console.error('Error getting dashboard config:', error)
@@ -5378,12 +5405,12 @@ app.get('/api/restore-dashboard/:userId', authenticateUser, async (req, res) => 
 // Import all data from external database - DIRECT IMPORT (no script file)
 app.post('/api/import/all-data', authenticateUser, async (req, res) => {
   // Return immediately - import runs in background
-  res.json({ 
-    success: true, 
+  res.json({
+    success: true,
     message: 'Import started in background. Check /api/import/status for progress.',
     note: 'This may take several minutes depending on data size.'
   })
-  
+
   // Run import in background (don't await)
   importAllDataDirect(pool).catch(error => {
     console.error('❌ Import error:', error)
@@ -5394,15 +5421,15 @@ app.post('/api/import/all-data', authenticateUser, async (req, res) => {
 async function importAllDataDirect(localPool) {
   const pkg = await import('pg')
   const { Pool } = pkg
-  
+
   // Try LAN first, then external
   let externalPool = null
   let externalDbHost = '192.168.1.39'
-  
+
   try {
     console.log('🚀 Starting DIRECT data import from external database...')
     console.log(`🔌 Trying LAN connection: ${externalDbHost}:26257`)
-    
+
     externalPool = new Pool({
       user: process.env.EXPENDITURES_DB_USER || 'cashpot',
       password: process.env.EXPENDITURES_DB_PASSWORD || '129hj8oahwd7yaw3e21321',
@@ -5413,15 +5440,15 @@ async function importAllDataDirect(localPool) {
       max: 5,
       connectionTimeoutMillis: 10000 // Quick timeout
     })
-    
+
     await externalPool.query('SELECT NOW()')
     console.log(`✅ Connected to LAN DB: ${externalDbHost}`)
   } catch (lanError) {
     console.log(`⚠️ LAN failed, trying external IP: 82.76.35.50`)
     if (externalPool) {
-      await externalPool.end().catch(() => {})
+      await externalPool.end().catch(() => { })
     }
-    
+
     externalPool = new Pool({
       user: process.env.EXPENDITURES_DB_USER || 'cashpot',
       password: process.env.EXPENDITURES_DB_PASSWORD || '129hj8oahwd7yaw3e21321',
@@ -5432,11 +5459,11 @@ async function importAllDataDirect(localPool) {
       max: 5,
       connectionTimeoutMillis: 30000
     })
-    
+
     await externalPool.query('SELECT NOW()')
     console.log(`✅ Connected to External DB: 82.76.35.50`)
   }
-  
+
   try {
     // Get table list
     const tablesResult = await externalPool.query(`
@@ -5447,44 +5474,44 @@ async function importAllDataDirect(localPool) {
       AND table_name NOT LIKE 'pg_%'
       ORDER BY table_name
     `)
-    
+
     const tables = tablesResult.rows.map(r => r.table_name)
     console.log(`📋 Found ${tables.length} tables to import`)
-    
+
     let totalImported = 0
     let totalSkipped = 0
-    
+
     // Import each table
     for (const tableName of tables) {
       try {
         console.log(`\n📊 Importing: ${tableName}`)
-        
+
         // Get data from external
         const externalData = await externalPool.query(`SELECT * FROM ${tableName} LIMIT 10000`) // Limit pentru viteză
         console.log(`   Found ${externalData.rows.length} rows`)
-        
+
         if (externalData.rows.length === 0) continue
-        
+
         const columns = externalData.fields.map(f => f.name)
         const columnsStr = columns.join(', ')
         const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ')
-        
+
         // Import with ON CONFLICT for duplicates
         let imported = 0
         let skipped = 0
-        
+
         for (const row of externalData.rows) {
           try {
             const values = columns.map(col => row[col])
-            
+
             // Special handling for expenditures_sync
             if (tableName === 'expenditures_sync' || tableName === 'casino_payments') {
               // Skip if importing to expenditures_sync - use sync endpoint instead
               continue
             }
-            
+
             let insertSQL = `INSERT INTO ${tableName} (${columnsStr}) VALUES (${placeholders})`
-            
+
             // Add ON CONFLICT if id exists
             if (columns.includes('id')) {
               insertSQL += ` ON CONFLICT (id) DO UPDATE SET ${columns
@@ -5494,7 +5521,7 @@ async function importAllDataDirect(localPool) {
             } else {
               insertSQL += ` ON CONFLICT DO NOTHING`
             }
-            
+
             const result = await localPool.query(insertSQL, values)
             if (result.rowCount > 0) imported++
             else skipped++
@@ -5503,18 +5530,18 @@ async function importAllDataDirect(localPool) {
             else console.error(`   Error row:`, rowError.message)
           }
         }
-        
+
         totalImported += imported
         totalSkipped += skipped
         console.log(`   ✅ ${imported} imported, ${skipped} skipped`)
-        
+
       } catch (tableError) {
         console.error(`❌ Error importing ${tableName}:`, tableError.message)
       }
     }
-    
+
     console.log(`\n✅ IMPORT COMPLETE: ${totalImported} imported, ${totalSkipped} skipped`)
-    
+
   } finally {
     if (externalPool) {
       await externalPool.end()
@@ -5528,7 +5555,7 @@ app.get('/api/import/status', authenticateUser, async (req, res) => {
     if (!pool) {
       return res.status(500).json({ success: false, error: 'Database not available' })
     }
-    
+
     // Get all tables and their row counts
     const tablesResult = await pool.query(`
       SELECT 
@@ -5539,7 +5566,7 @@ app.get('/api/import/status', authenticateUser, async (req, res) => {
       AND table_type = 'BASE TABLE'
       ORDER BY table_name
     `)
-    
+
     const tablesWithCounts = await Promise.all(
       tablesResult.rows.map(async (table) => {
         try {
@@ -5559,9 +5586,9 @@ app.get('/api/import/status', authenticateUser, async (req, res) => {
         }
       })
     )
-    
+
     const totalRows = tablesWithCounts.reduce((sum, table) => sum + table.rowCount, 0)
-    
+
     res.json({
       success: true,
       totalTables: tablesWithCounts.length,
@@ -5570,9 +5597,9 @@ app.get('/api/import/status', authenticateUser, async (req, res) => {
     })
   } catch (error) {
     console.error('❌ Error getting import status:', error)
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      error: error.message
     })
   }
 })
@@ -5581,7 +5608,7 @@ app.get('/api/import/status', authenticateUser, async (req, res) => {
 app.post('/api/restore-dashboard/:userId', authenticateUser, async (req, res) => {
   try {
     const { userId } = req.params
-    
+
     const defaultDashboardConfig = {
       statCards: [
         { id: 'companies', title: 'Companii', visible: true, order: 1 },
@@ -5610,35 +5637,35 @@ app.post('/api/restore-dashboard/:userId', authenticateUser, async (req, res) =>
         { id: 'tasks', title: 'Sarcini', visible: false, order: 8 }
       ]
     }
-    
+
     const defaultCardSizes = {
       companies: 'medium', locations: 'medium', providers: 'medium', cabinets: 'medium',
       gameMixes: 'medium', slots: 'medium', games: 'medium', warehouse: 'medium',
       metrology: 'medium', jackpots: 'medium', invoices: 'medium', onjnReports: 'medium',
       legalDocuments: 'medium', users: 'medium'
     }
-    
+
     const defaultWidgetSizes = {
       quickActions: 'medium', recentActivity: 'medium', databaseBackup: 'medium',
       currencyRate: 'small', onjnCalendar: 'large', systemHealth: 'large',
       gamesLibrary: 'large', tasks: 'medium'
     }
-    
+
     const preferences = {
       dashboard: defaultDashboardConfig,
       cardSizes: defaultCardSizes,
       widgetSizes: defaultWidgetSizes
     }
-    
+
     const result = await pool.query(
       'UPDATE users SET preferences = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, username',
       [JSON.stringify(preferences), userId]
     )
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'User not found' })
     }
-    
+
     res.json({ success: true, message: 'Dashboard configuration restored', user: result.rows[0] })
   } catch (error) {
     console.error('Error restoring dashboard config:', error)

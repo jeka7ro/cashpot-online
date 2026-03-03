@@ -33,23 +33,92 @@ const Dashboard = () => {
     try {
       setLoading(true)
 
+      // Fetch the entire range + previous year for comparison, just like P&L
+      const start = new Date(dateRange.startDate)
+      const end = new Date(dateRange.endDate)
+      const fetchStart = `${start.getFullYear() - 1}-01-01`
+      const fetchEnd = `${end.getFullYear()}-12-31`
+
       // Build params with visibleLocations filter (EXACT SAME AS P&L PAGE)
       const params = {
-        startDate: dateRange.startDate,
-        endDate: dateRange.endDate
+        startDate: fetchStart,
+        endDate: fetchEnd
       }
 
       if (visibleLocations && visibleLocations.length > 0) {
         params.includeLocations = visibleLocations.join(',')
       }
 
-      const response = await axios.get('/api/incasari/dashboard/summary', {
-        params,
+      const response = await axios.get('/api/incasari/monthly-by-location', {
+        params: {
+          ...params,
+          _t: Date.now()
+        },
         headers: {
           Authorization: `Bearer ${token}`
         }
       })
-      setDashboardData(response.data)
+      
+      if (response.data?.success && Array.isArray(response.data.rows)) {
+        let currentGgr = 0, currentExp = 0, currentPl = 0
+        let prevGgr = 0, prevExp = 0, prevPl = 0
+        
+        // Count distinct locations that had activity (for "Cheltuieli" transactions approximation and locations count)
+        const activeLocationsSet = new Set()
+        let expCountApproximation = 0
+
+        const sDate = new Date(dateRange.startDate)
+        const eDate = new Date(dateRange.endDate)
+
+        response.data.rows.forEach(row => {
+          const rowDate = new Date(row.year, row.month - 1, 1)
+
+          // Current period constraint (matching year/month)
+          const matchesCurrent = rowDate >= new Date(sDate.getFullYear(), sDate.getMonth(), 1) &&
+                                 rowDate <= new Date(eDate.getFullYear(), eDate.getMonth(), 1)
+          
+          // Previous period constraint
+          const matchesPrevious = rowDate >= new Date(sDate.getFullYear() - 1, sDate.getMonth(), 1) &&
+                                  rowDate <= new Date(eDate.getFullYear() - 1, eDate.getMonth(), 1)
+          
+          const ggr = Number(row.totalGgr || 0)
+          const exp = Number(row.totalExpenditures || 0)
+          const pl = ggr - exp
+
+          if (matchesCurrent) {
+            currentGgr += ggr
+            currentExp += exp
+            currentPl += pl
+            if (ggr !== 0 || exp !== 0) activeLocationsSet.add(row.locationName)
+            if (exp > 0) expCountApproximation += 1 // simple approximation
+          }
+          if (matchesPrevious) {
+            prevGgr += ggr
+            prevExp += exp
+            prevPl += pl
+          }
+        })
+
+        const calculateTrend = (cur, prev) => prev !== 0 ? ((cur - prev) / Math.abs(prev)) * 100 : 0
+
+        setDashboardData({
+          pl: {
+            profit: currentPl,
+            margin: currentGgr > 0 ? (currentPl / currentGgr) * 100 : 0,
+            trend: calculateTrend(currentPl, prevPl)
+          },
+          expenses: {
+            total: currentExp,
+            count: expCountApproximation,
+            trend: calculateTrend(currentExp, prevExp)
+          },
+          revenue: {
+            total: currentGgr,
+            locations: activeLocationsSet.size,
+            trend: calculateTrend(currentGgr, prevGgr)
+          }
+        })
+      }
     } catch (error) {
       console.error('Error loading dashboard data:', error)
       toast.error('Eroare la încărcarea datelor dashboard')
