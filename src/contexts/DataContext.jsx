@@ -112,7 +112,7 @@ export const DataProvider = ({ children }) => {
     setLoading(true)
 
     // Check cache first - dar verificăm că conține TOATE entitățile esențiale
-    const cacheKey = 'dataCache_v2'
+    const cacheKey = 'dataCache_v3'
     const cacheTime = sessionStorage.getItem('dataCacheTime')
     const now = Date.now()
 

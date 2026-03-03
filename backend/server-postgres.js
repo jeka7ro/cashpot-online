@@ -3786,7 +3786,13 @@ app.delete('/api/jackpots/:id', async (req, res) => {
 // Metrology API
 app.get('/api/metrology', async (req, res) => {
   try {
-    const result = await pool.query('SELECT *, cvt_file as "cvtFile" FROM metrology ORDER BY created_at DESC')
+    const result = await pool.query(`
+      SELECT id, cvt_series, cvt_number, serial_number, cvt_type, cvt_date, 
+             expiry_date, issuing_authority, provider, cabinet, game_mix, 
+             approval_type, software, notes, created_by, updated_by, created_at, updated_at,
+             CASE WHEN cvt_file IS NOT NULL AND length(cvt_file) > 0 THEN 'true' ELSE null END as "cvtFile"
+      FROM metrology ORDER BY created_at DESC
+    `)
     res.json(result.rows)
   } catch (error) {
     console.error('Metrology GET error:', error)
