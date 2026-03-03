@@ -395,17 +395,16 @@ const Metrology = () => {
           year: 'numeric',
           month: '2-digit',
           day: '2-digit'
-        }) : 'N/A'
+        }) : '-'
 
         const expiryDate = item.expiry_date ? new Date(item.expiry_date).toLocaleDateString('ro-RO', {
           year: 'numeric',
           month: '2-digit',
           day: '2-digit'
-        }) : 'N/A'
+        }) : '-'
 
-        // Calculate remaining days
-        let daysRemaining = 'N/A'
-        let colorClass = 'text-green-600 bg-green-50'
+        let daysRemaining = null
+        let badgeClass = 'text-green-700 font-bold'
 
         if (item.expiry_date) {
           const today = new Date()
@@ -414,25 +413,29 @@ const Metrology = () => {
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
           if (diffDays < 0) {
-            colorClass = 'text-red-600 bg-red-50'
+            badgeClass = 'text-red-600 font-bold'
             daysRemaining = `Expirat (${Math.abs(diffDays)} zile)`
           } else if (diffDays <= 30) {
-            colorClass = 'text-orange-600 bg-orange-50'
-            daysRemaining = `${diffDays} zile`
+            badgeClass = 'text-orange-600 font-bold'
+            daysRemaining = `${diffDays} zile rămase`
           } else {
-            colorClass = 'text-green-600 bg-green-50'
-            daysRemaining = `${diffDays} zile`
+            badgeClass = 'text-green-600 font-bold'
+            daysRemaining = `${diffDays} zile rămase`
           }
         }
 
         return (
-          <div className="space-y-2">
-            <div className="text-slate-600 text-sm space-y-1">
-              <div>CVT: {cvtDate}</div>
-              <div>Expirare: {expiryDate}</div>
+          <div className="flex flex-col gap-1 w-max">
+            <div className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
+              CVT: {cvtDate}
             </div>
-            {daysRemaining !== 'N/A' && (
-              <div className={`text-sm ${colorClass.split(' ')[0]}`}>
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] font-bold text-slate-800 dark:text-slate-100">
+                Exp: {expiryDate}
+              </span>
+            </div>
+            {daysRemaining && (
+              <div className={`text-[12px] ${badgeClass}`}>
                 {daysRemaining}
               </div>
             )}
@@ -516,13 +519,9 @@ const Metrology = () => {
       label: 'CHECKSUMS',
       sortable: false,
       render: (item) => (
-        <div className="space-y-1">
-          <div className="text-xs text-slate-600">
-            MD5: {item.checksum_md5 || 'N/A'}
-          </div>
-          <div className="text-xs text-slate-600">
-            SHA256: {item.checksum_sha256 || 'N/A'}
-          </div>
+        <div className="flex flex-col gap-0.5 w-max text-[11px] text-slate-500 font-mono">
+          <div>MD5: {item.checksum_md5 || '-'}</div>
+          <div>SHA256: {item.checksum_sha256 || '-'}</div>
         </div>
       )
     },
@@ -531,12 +530,12 @@ const Metrology = () => {
       label: 'CREAT DE / DATA',
       sortable: true,
       render: (item) => (
-        <div className="space-y-1">
-          <div className="text-slate-800 dark:text-slate-200 font-medium text-sm">
+        <div className="flex flex-col gap-0.5 w-max">
+          <div className="text-[13px] font-bold text-slate-800 dark:text-slate-100">
             {item.created_by || 'Necunoscut'}
           </div>
-          <div className="text-slate-500 dark:text-slate-400 text-xs">
-            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+          <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : '-'}
           </div>
         </div>
       )
@@ -733,102 +732,59 @@ const Metrology = () => {
       )
     },
     {
-      key: 'commission_date',
-      label: 'DATA COMISIE',
+      key: 'commission_dates_combined',
+      label: 'DATE COMISIE & EXPIRARE',
       sortable: true,
       render: (item) => {
-        if (!item.commission_date) return <div className="text-slate-600 dark:text-slate-400">N/A</div>
+        let comDate = '-'
+        let expDate = '-'
+
         try {
-          // Parsează data corect - poate fi string ISO sau deja un obiect Date
-          let date
-          if (item.commission_date instanceof Date) {
-            date = item.commission_date
-          } else if (typeof item.commission_date === 'string') {
-            // Dacă e deja în format ISO complet, folosește direct
-            if (item.commission_date.includes('T')) {
-              date = new Date(item.commission_date)
-            } else {
-              // Dacă e doar YYYY-MM-DD, adaugă T00:00:00
-              date = new Date(item.commission_date + 'T00:00:00')
-            }
-          } else {
-            return <div className="text-slate-600 dark:text-slate-400">N/A</div>
+          if (item.commission_date) {
+            const d = new Date(typeof item.commission_date === 'string' && !item.commission_date.includes('T') ? item.commission_date + 'T00:00:00' : item.commission_date)
+            if (!isNaN(d.getTime())) comDate = `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`
           }
+        } catch (e) { }
 
-          if (isNaN(date.getTime())) {
-            return <div className="text-slate-600 dark:text-slate-400">N/A</div>
-          }
-
-          const day = String(date.getDate()).padStart(2, '0')
-          const month = String(date.getMonth() + 1).padStart(2, '0')
-          const year = date.getFullYear()
-          return (
-            <div className="text-slate-600 dark:text-slate-400">
-              {`${day}.${month}.${year}`}
-            </div>
-          )
-        } catch (e) {
-          return <div className="text-slate-600 dark:text-slate-400">N/A</div>
-        }
-      }
-    },
-    {
-      key: 'expiry_date',
-      label: 'DATA VALABILITĂȚII',
-      sortable: true,
-      render: (item) => {
-        if (!item.expiry_date) return <div className="text-slate-600 dark:text-slate-400">N/A</div>
         try {
-          // Parsează data corect - poate fi string ISO sau deja un obiect Date
-          let date
-          if (item.expiry_date instanceof Date) {
-            date = item.expiry_date
-          } else if (typeof item.expiry_date === 'string') {
-            // Dacă e deja în format ISO complet, folosește direct
-            if (item.expiry_date.includes('T')) {
-              date = new Date(item.expiry_date)
-            } else {
-              // Dacă e doar YYYY-MM-DD, adaugă T00:00:00
-              date = new Date(item.expiry_date + 'T00:00:00')
-            }
-          } else {
-            return <div className="text-slate-600 dark:text-slate-400">N/A</div>
+          if (item.expiry_date) {
+            const d = new Date(typeof item.expiry_date === 'string' && !item.expiry_date.includes('T') ? item.expiry_date + 'T00:00:00' : item.expiry_date)
+            if (!isNaN(d.getTime())) expDate = `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`
           }
+        } catch (e) { }
 
-          if (isNaN(date.getTime())) {
-            return <div className="text-slate-600 dark:text-slate-400">N/A</div>
-          }
-
-          const day = String(date.getDate()).padStart(2, '0')
-          const month = String(date.getMonth() + 1).padStart(2, '0')
-          const year = date.getFullYear()
-          return (
-            <div className="text-slate-600 dark:text-slate-400">
-              {`${day}.${month}.${year}`}
-            </div>
-          )
-        } catch (e) {
-          return <div className="text-slate-600 dark:text-slate-400">N/A</div>
-        }
-      }
-    },
-    {
-      key: 'days_until_expiry',
-      label: 'ZILE PÂNĂ LA EXPIRARE',
-      sortable: true,
-      render: (item) => {
+        let daysRemaining = null
+        let badgeClass = 'text-green-700 font-bold'
         const days = getDaysUntilExpiry(item.expiry_date)
-        if (days === null) return <div className="text-slate-400">N/A</div>
-        const isExpired = days < 0
-        const isExpiringSoon = days <= 30 && days >= 0
+
+        if (days !== null) {
+          if (days < 0) {
+            badgeClass = 'text-red-600 font-bold'
+            daysRemaining = `Expirat (${Math.abs(days)} zile)`
+          } else if (days <= 30) {
+            badgeClass = 'text-orange-600 font-bold'
+            daysRemaining = `${days} zile rămase`
+          } else {
+            badgeClass = 'text-green-600 font-bold'
+            daysRemaining = `${days} zile rămase`
+          }
+        }
+
         return (
-          <div className={`font-medium ${isExpired
-            ? 'text-red-600 dark:text-red-400'
-            : isExpiringSoon
-              ? 'text-amber-600 dark:text-amber-400'
-              : 'text-slate-600 dark:text-slate-400'
-            }`}>
-            {isExpired ? `Expirat (${Math.abs(days)} zile)` : `${days} zile`}
+          <div className="flex flex-col gap-1 w-max">
+            <div className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
+              Comisie: {comDate}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] font-bold text-slate-800 dark:text-slate-100">
+                Exp: {expDate}
+              </span>
+            </div>
+            {daysRemaining && (
+              <div className={`text-[12px] ${badgeClass}`}>
+                {daysRemaining}
+              </div>
+            )}
           </div>
         )
       }
@@ -899,12 +855,12 @@ const Metrology = () => {
       label: 'CREAT DE / DATA',
       sortable: true,
       render: (item) => (
-        <div className="space-y-1">
-          <div className="text-slate-800 dark:text-slate-200 font-medium text-sm">
+        <div className="flex flex-col gap-0.5 w-max">
+          <div className="text-[13px] font-bold text-slate-800 dark:text-slate-100">
             {item.created_by || 'Necunoscut'}
           </div>
-          <div className="text-slate-500 dark:text-slate-400 text-xs">
-            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+          <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : '-'}
           </div>
         </div>
       )
@@ -920,25 +876,11 @@ const Metrology = () => {
       label: 'PREȚURI',
       sortable: false,
       render: (item) => (
-        <div className="space-y-1">
-          {item.price_initiala && (
-            <div className="text-xs">
-              <span className="text-slate-600">Inițială:</span> {item.price_initiala} LEI
-            </div>
-          )}
-          {item.price_reparatie && (
-            <div className="text-xs">
-              <span className="text-slate-600">Reparație:</span> {item.price_reparatie} LEI
-            </div>
-          )}
-          {item.price_periodica && (
-            <div className="text-xs">
-              <span className="text-slate-600">Periodică:</span> {item.price_periodica} LEI
-            </div>
-          )}
-          {!item.price_initiala && !item.price_reparatie && !item.price_periodica && (
-            <span className="text-slate-400">-</span>
-          )}
+        <div className="flex flex-col gap-0.5 w-max text-[12px] text-slate-600 dark:text-slate-300">
+          {item.price_initiala && <div><span className="font-semibold text-slate-800 dark:text-slate-100">Inițială:</span> {item.price_initiala} LEI</div>}
+          {item.price_reparatie && <div><span className="font-semibold text-slate-800 dark:text-slate-100">Reparație:</span> {item.price_reparatie} LEI</div>}
+          {item.price_periodica && <div><span className="font-semibold text-slate-800 dark:text-slate-100">Periodică:</span> {item.price_periodica} LEI</div>}
+          {!item.price_initiala && !item.price_reparatie && !item.price_periodica && <span className="text-slate-400">-</span>}
         </div>
       )
     },
@@ -947,12 +889,12 @@ const Metrology = () => {
       label: 'CREAT DE / DATA',
       sortable: true,
       render: (item) => (
-        <div className="space-y-1">
-          <div className="text-slate-800 dark:text-slate-200 font-medium text-sm">
+        <div className="flex flex-col gap-0.5 w-max">
+          <div className="text-[13px] font-bold text-slate-800 dark:text-slate-100">
             {item.created_by || 'Necunoscut'}
           </div>
-          <div className="text-slate-500 dark:text-slate-400 text-xs">
-            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+          <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : '-'}
           </div>
         </div>
       )
