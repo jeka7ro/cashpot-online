@@ -165,7 +165,7 @@ export const DataProvider = ({ children }) => {
       const entities = Object.keys(entityConfig)
 
       // OPTIMIZED: Load only essential data initially
-      const essentialEntities = ['companies', 'locations', 'providers', 'cabinets', 'gameMixes', 'slots']
+      const essentialEntities = ['companies', 'locations', 'providers', 'cabinets', 'gameMixes', 'slots', 'warehouse', 'metrology']
       const backgroundEntities = entities.filter(e => !essentialEntities.includes(e))
 
       // Funcție FĂRĂ retry (maxRetries = 0!) + CIRCUIT BREAKER
