@@ -3,7 +3,7 @@ import Layout from '../components/Layout'
 import ExportButtons from '../components/ExportButtons'
 import { useData } from '../contexts/DataContext'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Activity, Plus, Search, Upload, Download, FileCheck, Settings, Wrench, ArrowLeft, Eye, Calendar, Users, FileText } from 'lucide-react'
+import { Activity, Plus, Search, Upload, Download, FileCheck, Settings, Wrench, ArrowLeft, Eye, Calendar, Users, FileText, AlertCircle, Clock } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import DataTable from '../components/DataTable'
 import MetrologyModal from '../components/modals/MetrologyModal'
@@ -388,54 +388,46 @@ const Metrology = () => {
     { key: 'software', label: 'SOFTWARE', sortable: true },
     {
       key: 'cvt_dates_combined',
-      label: 'DATE CVT & EXPIRARE',
+      label: 'VALABILITATE',
       sortable: true,
       render: (item) => {
-        const cvtDate = item.cvt_date ? new Date(item.cvt_date).toLocaleDateString('ro-RO', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit'
-        }) : '-'
-
-        const expiryDate = item.expiry_date ? new Date(item.expiry_date).toLocaleDateString('ro-RO', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit'
-        }) : '-'
+        const cvtDate = item.cvt_date ? new Date(item.cvt_date).toLocaleDateString('ro-RO', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '-'
+        const expiryDate = item.expiry_date ? new Date(item.expiry_date).toLocaleDateString('ro-RO', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '-'
 
         let daysRemaining = null
-        let badgeClass = 'text-green-700 font-bold'
+        let badgeClass = ''
+        let icon = null
 
         if (item.expiry_date) {
           const today = new Date()
           const expiry = new Date(item.expiry_date)
-          const diffTime = expiry - today
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+          const diffDays = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24))
 
           if (diffDays < 0) {
-            badgeClass = 'text-red-600 font-bold'
-            daysRemaining = `Expirat (${Math.abs(diffDays)} zile)`
+            badgeClass = 'text-red-700 bg-red-100/80 dark:text-red-400 dark:bg-red-900/30 ring-1 ring-red-600/20'
+            daysRemaining = `Expirat (${Math.abs(diffDays)}z)`
+            icon = <AlertCircle size={12} className="shrink-0" />
           } else if (diffDays <= 30) {
-            badgeClass = 'text-orange-600 font-bold'
-            daysRemaining = `${diffDays} zile rămase`
+            badgeClass = 'text-orange-700 bg-orange-100/80 dark:text-orange-400 dark:bg-orange-900/30 ring-1 ring-orange-600/20'
+            daysRemaining = `${diffDays} zile`
+            icon = <Clock size={12} className="shrink-0" />
           } else {
-            badgeClass = 'text-green-600 font-bold'
-            daysRemaining = `${diffDays} zile rămase`
+            badgeClass = 'text-green-700 bg-green-100/80 dark:text-green-400 dark:bg-green-900/30 ring-1 ring-emerald-600/20'
+            daysRemaining = `${diffDays} zile`
+            icon = <Clock size={12} className="shrink-0" />
           }
         }
 
         return (
-          <div className="flex flex-col gap-1 w-max">
-            <div className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
-              CVT: {cvtDate}
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[13px] font-bold text-slate-800 dark:text-slate-100">
-                Exp: {expiryDate}
-              </span>
+          <div className="flex flex-col gap-2 w-max items-start">
+            <div className="flex items-center gap-2 text-[13px]">
+              <span className="text-slate-500 dark:text-slate-400 font-medium" title="Data emitere CVT">{cvtDate}</span>
+              <span className="text-slate-300 dark:text-slate-600">→</span>
+              <span className="text-slate-800 dark:text-slate-200 font-bold" title="Data expirare CVT">{expiryDate}</span>
             </div>
             {daysRemaining && (
-              <div className={`text-[12px] ${badgeClass}`}>
+              <div className={`px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 w-fit font-bold text-[11px] ${badgeClass}`}>
+                {icon}
                 {daysRemaining}
               </div>
             )}
@@ -733,7 +725,7 @@ const Metrology = () => {
     },
     {
       key: 'commission_dates_combined',
-      label: 'DATE COMISIE & EXPIRARE',
+      label: 'VALABILITATE',
       sortable: true,
       render: (item) => {
         let comDate = '-'
@@ -754,34 +746,36 @@ const Metrology = () => {
         } catch (e) { }
 
         let daysRemaining = null
-        let badgeClass = 'text-green-700 font-bold'
+        let badgeClass = ''
+        let icon = null
         const days = getDaysUntilExpiry(item.expiry_date)
 
         if (days !== null) {
           if (days < 0) {
-            badgeClass = 'text-red-600 font-bold'
-            daysRemaining = `Expirat (${Math.abs(days)} zile)`
+            badgeClass = 'text-red-700 bg-red-100/80 dark:text-red-400 dark:bg-red-900/30 ring-1 ring-red-600/20'
+            daysRemaining = `Expirat (${Math.abs(days)}z)`
+            icon = <AlertCircle size={12} className="shrink-0" />
           } else if (days <= 30) {
-            badgeClass = 'text-orange-600 font-bold'
-            daysRemaining = `${days} zile rămase`
+            badgeClass = 'text-orange-700 bg-orange-100/80 dark:text-orange-400 dark:bg-orange-900/30 ring-1 ring-orange-600/20'
+            daysRemaining = `${days} zile`
+            icon = <Clock size={12} className="shrink-0" />
           } else {
-            badgeClass = 'text-green-600 font-bold'
-            daysRemaining = `${days} zile rămase`
+            badgeClass = 'text-green-700 bg-green-100/80 dark:text-green-400 dark:bg-green-900/30 ring-1 ring-emerald-600/20'
+            daysRemaining = `${days} zile`
+            icon = <Clock size={12} className="shrink-0" />
           }
         }
 
         return (
-          <div className="flex flex-col gap-1 w-max">
-            <div className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
-              Comisie: {comDate}
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[13px] font-bold text-slate-800 dark:text-slate-100">
-                Exp: {expDate}
-              </span>
+          <div className="flex flex-col gap-2 w-max items-start">
+            <div className="flex items-center gap-2 text-[13px]">
+              <span className="text-slate-500 dark:text-slate-400 font-medium" title="Data Comisie">{comDate}</span>
+              <span className="text-slate-300 dark:text-slate-600">→</span>
+              <span className="text-slate-800 dark:text-slate-200 font-bold" title="Data Expirare">{expDate}</span>
             </div>
             {daysRemaining && (
-              <div className={`text-[12px] ${badgeClass}`}>
+              <div className={`px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 w-fit font-bold text-[11px] ${badgeClass}`}>
+                {icon}
                 {daysRemaining}
               </div>
             )}
