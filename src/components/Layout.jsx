@@ -400,12 +400,6 @@ const Layout = ({ children }) => {
 
   // Filter menu items based on user permissions
   const menuItems = allMenuItems.filter(item => {
-    // FORCE Products to show for debugging
-    if (item.id === 'products') {
-      console.log('🔍 PRODUCTS ITEM FOUND:', item)
-      return true
-    }
-
     // Admin sees everything - NO FILTERING FOR ADMIN
     if (user?.role === 'admin') return true
 
@@ -654,9 +648,6 @@ const Layout = ({ children }) => {
 
             <nav className="space-y-1">
               {menuItems.map(item => {
-                if (item.id === 'products') {
-                  console.log('🎯 RENDERING PRODUCTS:', item.label, item.path)
-                }
                 const isActive = location.pathname === item.path
                 return (
                   <Link
@@ -664,8 +655,8 @@ const Layout = ({ children }) => {
                     to={item.path}
                     onDoubleClick={() => setSidebarOpen(!sidebarOpen)}
                     className={`w-full flex items-center ${sidebarOpen ? 'justify-between' : 'justify-center'} p-2 md:p-3 rounded-2xl text-left transition-all duration-200 group ${isActive
-                        ? 'bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 text-white shadow-xl shadow-blue-500/25 ring-2 ring-blue-200/50'
-                        : 'text-slate-700 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-700/60 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]'
+                      ? 'bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 text-white shadow-xl shadow-blue-500/25 ring-2 ring-blue-200/50'
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-700/60 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]'
                       }`}
                     title={!sidebarOpen ? item.label : ''}
                   >
@@ -680,8 +671,8 @@ const Layout = ({ children }) => {
                     </div>
                     {sidebarOpen && item.count !== null && (
                       <span className={`text-xs px-3 md:px-4 py-1.5 md:py-2 rounded-full font-bold transition-all duration-200 ${isActive
-                          ? 'bg-white/20 text-white backdrop-blur-sm border border-white/30'
-                          : 'bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-slate-600 dark:to-slate-700 text-blue-700 dark:text-slate-300 group-hover:from-blue-200 group-hover:to-indigo-200 dark:group-hover:from-slate-500 dark:group-hover:to-slate-600'
+                        ? 'bg-white/20 text-white backdrop-blur-sm border border-white/30'
+                        : 'bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-slate-600 dark:to-slate-700 text-blue-700 dark:text-slate-300 group-hover:from-blue-200 group-hover:to-indigo-200 dark:group-hover:from-slate-500 dark:group-hover:to-slate-600'
                         }`}>
                         {item.count}
                       </span>
