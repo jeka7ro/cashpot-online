@@ -6,12 +6,12 @@ import { useData } from '../contexts/DataContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { getVersion, getBuild, getBuildDate, getBuildWithDateTime } from '../utils/version'
 import { hasPermission, MODULES, getDefaultPermissionsForRole } from '../utils/permissions'
-import { 
-  Menu, 
-  X, 
-  User, 
-  LogOut, 
-  Bell, 
+import {
+  Menu,
+  X,
+  User,
+  LogOut,
+  Bell,
   Settings,
   Building2,
   MapPin,
@@ -44,13 +44,13 @@ const Layout = ({ children }) => {
   const [currentTime, setCurrentTime] = useState(new Date())
   const [showNotifications, setShowNotifications] = useState(false)
   const { user, logout } = useAuth()
-  
+
   // Show sidebar for all users, but filter menu items based on permissions
   const shouldShowSidebar = true
   const { companies, locations, providers, platforms, cabinets, gameMixes, slots, warehouse, metrology, approvals, jackpots, invoices, onjnReports, legalDocuments, users, promotions, tasks, messages, notifications, loadAllData } = useData()
   const { theme, toggleTheme } = useTheme()
   const location = useLocation()
-  
+
   // Load settings from localStorage
   const [settings, setSettings] = React.useState({
     logo: { type: 'upload', url: '', file: null },
@@ -58,7 +58,7 @@ const Layout = ({ children }) => {
     appTitle: 'CASHPOT V7',
     appSubtitle: 'Gaming Management System'
   })
-  
+
   // Cache pentru logo-ul persistent - nu se refresh-ează la schimbarea paginii
   const [cachedLogo, setCachedLogo] = React.useState(null)
 
@@ -75,10 +75,10 @@ const Layout = ({ children }) => {
     if (cachedLogoUrl) {
       setCachedLogo(cachedLogoUrl)
     }
-    
+
     // Load settings from server first, then localStorage as fallback - DOAR O DATĂ!
     if (!isSettingsLoadAttempted.current) {
-    loadSettingsFromServer()
+      loadSettingsFromServer()
     }
   }, [])
 
@@ -132,7 +132,7 @@ const Layout = ({ children }) => {
     }
 
     loadSettingsFromLocalStorage(globalLoginSettings)
-    }
+  }
 
   const loadSettingsFromLocalStorage = (globalLoginSettings = {}) => {
     let personalSettings = {}
@@ -149,7 +149,7 @@ const Layout = ({ children }) => {
     } catch (error) {
       console.log('⚠️ Could not load personal settings - using defaults')
     }
-    
+
     // Combină setările: globale pentru login, personale pentru restul
     const combinedSettings = {
       ...settings, // default values
@@ -158,7 +158,7 @@ const Layout = ({ children }) => {
     }
 
     setSettings(combinedSettings)
-    
+
     // Cache logo-ul pentru a nu se refresh-ui la schimbarea paginii
     if (combinedSettings.logo?.file || combinedSettings.logo?.url) {
       const logoUrl = combinedSettings.logo.file || combinedSettings.logo.url
@@ -168,7 +168,7 @@ const Layout = ({ children }) => {
         localStorage.setItem('cachedLogo', logoUrl)
       }
     }
-    
+
     // Update favicon if it exists
     if (combinedSettings.favicon && combinedSettings.favicon.file) {
       const link = document.querySelector("link[rel~='icon']")
@@ -206,192 +206,192 @@ const Layout = ({ children }) => {
   }, [showNotifications])
 
   const allMenuItems = [
-    { 
-      id: 'dashboard', 
-      label: 'Dashboard', 
-      icon: BarChart3, 
+    {
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: BarChart3,
       path: '/dashboard',
       count: null,
       module: MODULES.DASHBOARD
     },
-    { 
-      id: 'incasari', 
-      label: 'Încasări', 
-      icon: DollarSign, 
+    {
+      id: 'incasari',
+      label: 'Încasări',
+      icon: DollarSign,
       path: '/incasari',
       count: null,
       module: MODULES.INCASARI
     },
-    { 
-      id: 'expenditures', 
-      label: 'Cheltuieli', 
-      icon: TrendingDown, 
+    {
+      id: 'expenditures',
+      label: 'Cheltuieli',
+      icon: TrendingDown,
       path: '/expenditures',
       count: null,
       module: MODULES.EXPENDITURES
     },
-    { 
-      id: 'pl', 
-      label: 'P&L', 
-      icon: BarChart3, 
+    {
+      id: 'pl',
+      label: 'P&L',
+      icon: BarChart3,
       path: '/pl',
       count: null,
       module: MODULES.INCASARI
     },
-    { 
-      id: 'slot-taxes', 
-      label: 'Taxe Sloturi', 
-      icon: DollarSign, 
+    {
+      id: 'slot-taxes',
+      label: 'Taxe Sloturi',
+      icon: DollarSign,
       path: '/slot-taxes',
       count: null,
       module: MODULES.LEGAL
     },
-    { 
-      id: 'companies', 
-      label: 'Companii', 
-      icon: Building2, 
+    {
+      id: 'companies',
+      label: 'Companii',
+      icon: Building2,
       path: '/companies',
       count: companies.length,
       module: MODULES.COMPANIES
     },
-    { 
-      id: 'locations', 
-      label: 'Locații', 
-      icon: MapPin, 
+    {
+      id: 'locations',
+      label: 'Locații',
+      icon: MapPin,
       path: '/locations',
       count: locations.length,
       module: MODULES.LOCATIONS
     },
-    { 
-      id: 'competitors', 
-      label: 'Concurență', 
-      icon: Users, 
+    {
+      id: 'competitors',
+      label: 'Concurență',
+      icon: Users,
       path: '/competitors',
       module: MODULES.LOCATIONS // Același permision ca Locații
     },
-    { 
-      id: 'providers', 
-      label: 'Furnizori', 
-      icon: Users, 
+    {
+      id: 'providers',
+      label: 'Furnizori',
+      icon: Users,
       path: '/providers',
       count: providers.length,
       module: MODULES.PROVIDERS
     },
-    { 
-      id: 'cabinets', 
-      label: 'Cabinete', 
-      icon: Gamepad2, 
+    {
+      id: 'cabinets',
+      label: 'Cabinete',
+      icon: Gamepad2,
       path: '/cabinets',
       count: cabinets.length,
       module: MODULES.CABINETS
     },
-    { 
-      id: 'game-mixes', 
-      label: 'Game Mixes', 
-      icon: MixIcon, 
+    {
+      id: 'game-mixes',
+      label: 'Game Mixes',
+      icon: MixIcon,
       path: '/game-mixes',
       count: gameMixes.length,
       module: MODULES.GAME_MIXES
     },
-    { 
-      id: 'slots', 
-      label: 'Sloturi', 
-      icon: Dices, 
+    {
+      id: 'slots',
+      label: 'Sloturi',
+      icon: Dices,
       path: '/slots',
       count: slots.length,
       module: MODULES.SLOTS
     },
-    { 
-      id: 'warehouse', 
-      label: 'Depozit', 
-      icon: Package, 
+    {
+      id: 'warehouse',
+      label: 'Depozit',
+      icon: Package,
       path: '/warehouse',
       count: warehouse.length,
       module: MODULES.WAREHOUSE
     },
-    { 
-      id: 'products', 
-      label: 'Produse', 
-      icon: ShoppingCart, 
+    {
+      id: 'products',
+      label: 'Produse',
+      icon: ShoppingCart,
       path: '/products',
       count: 0,
       module: MODULES.WAREHOUSE
     },
-    { 
-      id: 'metrology', 
-      label: 'Metrologie CVT', 
-      icon: Activity, 
+    {
+      id: 'metrology',
+      label: 'Metrologie CVT',
+      icon: Activity,
       path: '/metrology',
       count: metrology.length,
       module: MODULES.METROLOGY
     },
-    { 
-      id: 'jackpots', 
-      label: 'Jackpots', 
-      icon: Trophy, 
+    {
+      id: 'jackpots',
+      label: 'Jackpots',
+      icon: Trophy,
       path: '/jackpots',
       count: jackpots.length,
       module: MODULES.JACKPOTS
     },
-    { 
-      id: 'invoices', 
-      label: 'Facturi', 
-      icon: FileText, 
+    {
+      id: 'invoices',
+      label: 'Facturi',
+      icon: FileText,
       path: '/invoices',
       count: invoices.length,
       module: MODULES.INVOICES
     },
-    { 
-      id: 'onjn-reports', 
-      label: 'ONJN', 
-      icon: Shield, 
+    {
+      id: 'onjn-reports',
+      label: 'ONJN',
+      icon: Shield,
       path: '/onjn-reports',
       count: onjnReports.length,
       module: MODULES.ONJN
     },
-    { 
-      id: 'legal-documents', 
-      label: 'Documente Legale', 
-      icon: DocIcon, 
+    {
+      id: 'legal-documents',
+      label: 'Documente Legale',
+      icon: DocIcon,
       path: '/legal-documents',
       count: legalDocuments.length,
       module: MODULES.LEGAL
     },
-    { 
-      id: 'marketing', 
-      label: 'Marketing', 
-      icon: TrendingUp, 
+    {
+      id: 'marketing',
+      label: 'Marketing',
+      icon: TrendingUp,
       path: '/marketing',
       count: promotions?.length || 0,
       module: MODULES.MARKETING
     },
-    { 
-      id: 'tasks', 
-      label: 'Sarcini', 
-      icon: CheckSquare, 
+    {
+      id: 'tasks',
+      label: 'Sarcini',
+      icon: CheckSquare,
       path: '/tasks',
       count: tasks?.length || 0
     },
-    { 
-      id: 'messages', 
-      label: 'Mesaje', 
-      icon: MessageSquare, 
+    {
+      id: 'messages',
+      label: 'Mesaje',
+      icon: MessageSquare,
       path: '/messages',
       count: messages?.filter(msg => msg.recipient_id === user?.userId && !msg.is_read).length || 0
     },
-    { 
-      id: 'users', 
-      label: 'Utilizatori', 
-      icon: UserIcon, 
+    {
+      id: 'users',
+      label: 'Utilizatori',
+      icon: UserIcon,
       path: '/users',
       count: users.length,
       module: MODULES.USERS,
       requiresAdmin: true
     },
-    { 
-      id: 'settings', 
-      label: 'Setări', 
-      icon: Settings, 
+    {
+      id: 'settings',
+      label: 'Setări',
+      icon: Settings,
       path: '/settings',
       count: null,
       module: MODULES.SETTINGS
@@ -405,21 +405,21 @@ const Layout = ({ children }) => {
       console.log('🔍 PRODUCTS ITEM FOUND:', item)
       return true
     }
-    
+
     // Admin sees everything - NO FILTERING FOR ADMIN
     if (user?.role === 'admin') return true
-    
+
     // Check if item requires admin role
     if (item.requiresAdmin && user?.role !== 'admin') return false
-    
+
     // Allow items without module (like Tasks and Messages) for all authenticated users
     if (!item.module) return true
-    
+
     // Get user permissions (from database or default for role)
-    const userPermissions = user?.permissions && Object.keys(user.permissions).length > 0 
-      ? user.permissions 
+    const userPermissions = user?.permissions && Object.keys(user.permissions).length > 0
+      ? user.permissions
       : getDefaultPermissionsForRole(user?.role)
-    
+
     // Check if user has view permission for this module
     return hasPermission(userPermissions, item.module, 'view')
   })
@@ -427,7 +427,7 @@ const Layout = ({ children }) => {
   const currentPage = menuItems.find(item => item.path === location.pathname)
 
   // Calculate unread notifications count
-  const unreadNotificationsCount = notifications.filter(notif => !notif.is_read).length + 
+  const unreadNotificationsCount = notifications.filter(notif => !notif.is_read).length +
     messages.filter(msg => msg.recipient_id === user?.userId && !msg.is_read).length
 
   // Header style adaptat pentru dark mode
@@ -444,18 +444,18 @@ const Layout = ({ children }) => {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2 md:space-x-4">
             {shouldShowSidebar && (
-              <button 
-                onClick={() => setSidebarOpen(!sidebarOpen)} 
-                className={`p-2 rounded-xl transition-all duration-200 hover:shadow-lg ${theme === 'dark' ? 'hover:bg-slate-700/80' : 'hover:bg-slate-100/80'}`}
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className={`md:hidden p-2 rounded-xl transition-all duration-200 hover:shadow-lg ${theme === 'dark' ? 'hover:bg-slate-700/80' : 'hover:bg-slate-100/80'}`}
               >
                 <Menu size={20} />
               </button>
             )}
             <div className="flex items-center">
               {cachedLogo || settings.logo.file || settings.logo.url ? (
-                <img 
-                  src={cachedLogo || settings.logo.file || settings.logo.url} 
-                  alt="Logo" 
+                <img
+                  src={cachedLogo || settings.logo.file || settings.logo.url}
+                  alt="Logo"
                   className="h-8 md:h-12 object-contain"
                   onError={(e) => {
                     e.target.style.display = 'none'
@@ -475,7 +475,7 @@ const Layout = ({ children }) => {
               <div className="text-white font-semibold text-sm">
                 {currentTime.toLocaleString('ro-RO', {
                   day: '2-digit',
-                  month: '2-digit', 
+                  month: '2-digit',
                   year: 'numeric',
                   hour: '2-digit',
                   minute: '2-digit',
@@ -483,8 +483,8 @@ const Layout = ({ children }) => {
                 })}
               </div>
               <div className="text-white/70 text-xs">
-                {window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-                  ? '🖥️ Local' 
+                {window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+                  ? '🖥️ Local'
                   : '☁️ Online'
                 }
               </div>
@@ -492,9 +492,9 @@ const Layout = ({ children }) => {
                 v{getVersion()} Build {getBuildWithDateTime()}
               </div>
             </div>
-            
+
             {/* Dark Mode Toggle */}
-            <button 
+            <button
               onClick={toggleTheme}
               className="p-2 rounded-xl hover:bg-white/20 transition-all duration-200 hover:shadow-lg group"
               title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
@@ -505,10 +505,10 @@ const Layout = ({ children }) => {
                 <Moon size={18} className="group-hover:scale-110 transition-transform text-white" />
               )}
             </button>
-            
+
             {/* Notifications Bell */}
             <div className="relative hidden sm:block notification-container">
-              <button 
+              <button
                 onClick={() => setShowNotifications(!showNotifications)}
                 className="p-2 rounded-xl hover:bg-white/20 transition-all duration-200 hover:shadow-lg group"
               >
@@ -532,14 +532,14 @@ const Layout = ({ children }) => {
                       </div>
                       <h3 className="text-lg font-bold text-white">Notificări</h3>
                     </div>
-                    <button 
+                    <button
                       onClick={() => setShowNotifications(false)}
                       className="relative z-10 text-white hover:bg-white/20 rounded-2xl p-2 transition-all duration-200"
                     >
                       <X size={20} />
                     </button>
                   </div>
-                  
+
                   {/* Content */}
                   <div className="max-h-80 overflow-y-auto">
                     {unreadNotificationsCount === 0 ? (
@@ -568,7 +568,7 @@ const Layout = ({ children }) => {
                             </div>
                           </div>
                         ))}
-                        
+
                         {/* System notifications */}
                         {notifications.filter(notif => !notif.is_read).slice(0, 5).map((notification) => (
                           <div key={`notif-${notification.id}`} className="p-4 hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-indigo-50/50 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20 transition-all duration-200">
@@ -588,11 +588,11 @@ const Layout = ({ children }) => {
                       </div>
                     )}
                   </div>
-                  
+
                   {unreadNotificationsCount > 0 && (
                     <div className="p-4 border-t border-gray-200/50 dark:border-slate-700/50 bg-gradient-to-r from-blue-50/30 to-indigo-50/30 dark:from-blue-900/10 dark:to-indigo-900/10">
-                      <a 
-                        href="/messages" 
+                      <a
+                        href="/messages"
                         className="block w-full text-center text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
                         onClick={() => setShowNotifications(false)}
                       >
@@ -605,10 +605,10 @@ const Layout = ({ children }) => {
             </div>
             <div className="flex items-center space-x-3 md:space-x-4">
               {user?.avatar ? (
-                <img 
-                  src={user.avatar} 
-                  alt={user?.fullName || user?.username || 'Admin'} 
-                  className="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-white/50 dark:border-slate-500/50 shadow-xl object-cover" 
+                <img
+                  src={user.avatar}
+                  alt={user?.fullName || user?.username || 'Admin'}
+                  className="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-white/50 dark:border-slate-500/50 shadow-xl object-cover"
                 />
               ) : (
                 <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-white font-semibold text-base md:text-lg border-2 border-white/50 dark:border-slate-500/50 shadow-xl">
@@ -621,7 +621,7 @@ const Layout = ({ children }) => {
                 </div>
               </div>
             </div>
-            <button 
+            <button
               onClick={logout}
               className="p-2 bg-gradient-to-r from-red-500 to-red-600 rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-red-500/25 group"
             >
@@ -633,57 +633,71 @@ const Layout = ({ children }) => {
 
       {/* Modern Glassmorphism Sidebar - Only show for admin/manager users */}
       {shouldShowSidebar && (
-        <div className={`${sidebarOpen ? 'w-64 md:w-72' : 'w-0 md:w-20'} bg-white/70 dark:bg-slate-800/90 backdrop-blur-xl border-r border-white/30 dark:border-slate-700/50 transition-all duration-300 flex flex-col mt-14 md:mt-20 shadow-2xl shadow-slate-500/10 dark:shadow-slate-900/20 fixed md:relative z-20 h-full ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-        <div className="flex-1 sidebar-scroll p-2 md:p-3" style={{maxHeight: 'calc(100vh - 5rem)'}}>
-          <nav className="space-y-1">
-            {menuItems.map(item => {
-              if (item.id === 'products') {
-                console.log('🎯 RENDERING PRODUCTS:', item.label, item.path)
-              }
-              const isActive = location.pathname === item.path
-              return (
-                <Link
-                  key={item.id}
-                  to={item.path}
-                  onDoubleClick={() => setSidebarOpen(!sidebarOpen)}
-                  className={`w-full flex items-center ${sidebarOpen ? 'justify-between' : 'justify-center'} p-2 md:p-3 rounded-2xl text-left transition-all duration-200 group ${
-                    isActive 
-                      ? 'bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 text-white shadow-xl shadow-blue-500/25 ring-2 ring-blue-200/50' 
-                      : 'text-slate-700 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-700/60 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]'
-                  }`}
-                  title={!sidebarOpen ? item.label : ''}
-                >
-                  <div className={`flex items-center ${sidebarOpen ? 'space-x-3' : 'justify-center'}`}>
-                    <item.icon className={`text-lg md:text-xl transition-transform group-hover:scale-110 ${isActive ? 'drop-shadow-lg' : ''}`} />
-                    {sidebarOpen && (
-                      <span className={`font-semibold text-sm md:text-base transition-colors ${
-                        isActive ? 'text-white' : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'
-                      }`}>
-                        {item.label}
+        <div className={`${sidebarOpen ? 'w-64 md:w-72' : 'w-0 md:w-20'} relative bg-white/70 dark:bg-slate-800/90 backdrop-blur-xl border-r border-white/30 dark:border-slate-700/50 transition-all duration-300 flex flex-col mt-14 md:mt-20 shadow-2xl shadow-slate-500/10 dark:shadow-slate-900/20 fixed md:relative z-20 h-full ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+          <div className="flex-1 sidebar-scroll relative p-2 md:p-3" style={{ maxHeight: 'calc(100vh - 5rem)' }}>
+
+            {/* ETORO STYLE TOGGLE FOR DESKTOP */}
+            <div className="hidden md:flex mb-2">
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-2 w-full flex text-slate-400 hover:text-slate-800 dark:text-slate-500 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50 rounded-xl transition-all duration-300"
+                style={{ justifyContent: sidebarOpen ? 'flex-end' : 'center' }}
+                title={sidebarOpen ? "Restrânge meniul" : "Extinde meniul"}
+              >
+                {sidebarOpen ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><path d="M9 3v18" /><path d="m16 15-3-3 3-3" /></svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><path d="M9 3v18" /><path d="m14 9 3 3-3 3" /></svg>
+                )}
+              </button>
+            </div>
+
+            <nav className="space-y-1">
+              {menuItems.map(item => {
+                if (item.id === 'products') {
+                  console.log('🎯 RENDERING PRODUCTS:', item.label, item.path)
+                }
+                const isActive = location.pathname === item.path
+                return (
+                  <Link
+                    key={item.id}
+                    to={item.path}
+                    onDoubleClick={() => setSidebarOpen(!sidebarOpen)}
+                    className={`w-full flex items-center ${sidebarOpen ? 'justify-between' : 'justify-center'} p-2 md:p-3 rounded-2xl text-left transition-all duration-200 group ${isActive
+                        ? 'bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 text-white shadow-xl shadow-blue-500/25 ring-2 ring-blue-200/50'
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-700/60 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]'
+                      }`}
+                    title={!sidebarOpen ? item.label : ''}
+                  >
+                    <div className={`flex items-center ${sidebarOpen ? 'space-x-3' : 'justify-center'}`}>
+                      <item.icon className={`text-lg md:text-xl transition-transform group-hover:scale-110 ${isActive ? 'drop-shadow-lg' : ''}`} />
+                      {sidebarOpen && (
+                        <span className={`font-semibold text-sm md:text-base transition-colors ${isActive ? 'text-white' : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'
+                          }`}>
+                          {item.label}
+                        </span>
+                      )}
+                    </div>
+                    {sidebarOpen && item.count !== null && (
+                      <span className={`text-xs px-3 md:px-4 py-1.5 md:py-2 rounded-full font-bold transition-all duration-200 ${isActive
+                          ? 'bg-white/20 text-white backdrop-blur-sm border border-white/30'
+                          : 'bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-slate-600 dark:to-slate-700 text-blue-700 dark:text-slate-300 group-hover:from-blue-200 group-hover:to-indigo-200 dark:group-hover:from-slate-500 dark:group-hover:to-slate-600'
+                        }`}>
+                        {item.count}
                       </span>
                     )}
-                  </div>
-                  {sidebarOpen && item.count !== null && (
-                    <span className={`text-xs px-3 md:px-4 py-1.5 md:py-2 rounded-full font-bold transition-all duration-200 ${
-                      isActive 
-                        ? 'bg-white/20 text-white backdrop-blur-sm border border-white/30' 
-                        : 'bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-slate-600 dark:to-slate-700 text-blue-700 dark:text-slate-300 group-hover:from-blue-200 group-hover:to-indigo-200 dark:group-hover:from-slate-500 dark:group-hover:to-slate-600'
-                    }`}>
-                      {item.count}
-                    </span>
-                  )}
-                </Link>
-              )
-            })}
-          </nav>
+                  </Link>
+                )
+              })}
+            </nav>
+          </div>
         </div>
-      </div>
       )}
 
       {/* Mobile Overlay */}
       {shouldShowSidebar && sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-10 md:hidden" 
+        <div
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-10 md:hidden"
           onClick={() => setSidebarOpen(false)}
         ></div>
       )}
