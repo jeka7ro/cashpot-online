@@ -112,7 +112,7 @@ export const DataProvider = ({ children }) => {
     setLoading(true)
 
     // Check cache first - dar verificăm că conține TOATE entitățile esențiale
-    const cacheKey = 'dataCache_v1'
+    const cacheKey = 'dataCache_v2'
     const cacheTime = sessionStorage.getItem('dataCacheTime')
     const now = Date.now()
 
@@ -124,7 +124,7 @@ export const DataProvider = ({ children }) => {
         try {
           const parsedCache = JSON.parse(cached)
           // Verifică dacă cache-ul conține TOATE entitățile esențiale cu date
-          const essentialEntities = ['companies', 'locations', 'providers', 'cabinets', 'gameMixes', 'slots', 'warehouse']
+          const essentialEntities = ['companies', 'locations', 'providers', 'cabinets', 'gameMixes', 'slots', 'warehouse', 'metrology']
           const hasAllEssentialData = essentialEntities.every(entity => {
             const cachedData = parsedCache[entity]
             return Array.isArray(cachedData) && cachedData.length >= 0 // Acceptăm și array-uri goale dacă există
