@@ -38,6 +38,7 @@ export const DataProvider = ({ children }) => {
   const [contracts, setContracts] = useState([])
   const [promotions, setPromotions] = useState([])
   const [approvals, setApprovals] = useState([])
+  const [commissions, setCommissions] = useState([])
   const [tasks, setTasks] = useState([])
   const [messages, setMessages] = useState([])
   const [notifications, setNotifications] = useState([])
@@ -94,6 +95,7 @@ export const DataProvider = ({ children }) => {
     contracts: { state: contracts, setState: setContracts },
     promotions: { state: promotions, setState: setPromotions },
     approvals: { state: approvals, setState: setApprovals },
+    commissions: { state: commissions, setState: setCommissions },
     tasks: { state: tasks, setState: setTasks },
     messages: { state: messages, setState: setMessages },
     notifications: { state: notifications, setState: setNotifications }
@@ -643,8 +645,17 @@ export const DataProvider = ({ children }) => {
   }
 
   // Export data to Excel (XLSX format)
-  const exportToExcel = (entity) => {
-    const data = entityConfig[entity].state
+  const exportToExcel = (entityOrData, entityName = null) => {
+    let data;
+    let name;
+
+    if (Array.isArray(entityOrData)) {
+      data = entityOrData;
+      name = entityName || 'export';
+    } else {
+      data = entityConfig[entityOrData]?.state || [];
+      name = entityOrData;
+    }
     const headers = data.length > 0 ? Object.keys(data[0] || {}) : []
 
     // Create Excel XML (SpreadsheetML) format
@@ -689,7 +700,7 @@ export const DataProvider = ({ children }) => {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${entity}-${new Date().toISOString().split('T')[0]}.xls`
+    a.download = `${name}-${new Date().toISOString().split('T')[0]}.xls`
     a.click()
     URL.revokeObjectURL(url)
     toast.success('Exportat în Excel cu succes!')
@@ -706,8 +717,17 @@ export const DataProvider = ({ children }) => {
   }
 
   // Export data to PDF
-  const exportToPDF = (entity) => {
-    const data = entityConfig[entity].state
+  const exportToPDF = (entityOrData, entityName = null) => {
+    let data;
+    let name;
+
+    if (Array.isArray(entityOrData)) {
+      data = entityOrData;
+      name = entityName || 'export';
+    } else {
+      data = entityConfig[entityOrData]?.state || [];
+      name = entityOrData;
+    }
     const headers = data.length > 0 ? Object.keys(data[0] || {}) : []
 
     // Create HTML table
@@ -727,7 +747,7 @@ export const DataProvider = ({ children }) => {
         </style>
       </head>
       <body>
-        <h1>Raport ${entity.toUpperCase()}</h1>
+        <h1>Raport ${name.toUpperCase()}</h1>
         <p>Generat la: ${new Date().toLocaleString('ro-RO')}</p>
         <table>
           <thead>
@@ -739,14 +759,14 @@ export const DataProvider = ({ children }) => {
     `
 
       (data || []).forEach(row => {
-        html += '<tr>'
-          (headers || []).forEach(header => {
-            const value = row[header]
-            const displayValue = value === null || value === undefined ? '' :
-              typeof value === 'object' ? JSON.stringify(value) :
-                String(value)
-            html += `<td>${displayValue}</td>`
-          })
+        html += '<tr>';
+        (headers || []).forEach(header => {
+          const value = row[header]
+          const displayValue = value === null || value === undefined ? '' :
+            typeof value === 'object' ? JSON.stringify(value) :
+              String(value)
+          html += `<td>${displayValue}</td>`
+        })
         html += '</tr>'
       })
 
@@ -822,6 +842,7 @@ export const DataProvider = ({ children }) => {
     contracts,
     promotions,
     approvals,
+    commissions,
     tasks,
     messages,
     notifications,

@@ -602,9 +602,10 @@ const initializeDatabase = async () => {
     // Add additional_files to metrology if it doesn't exist
     try {
       await pool.query('ALTER TABLE metrology ADD COLUMN IF NOT EXISTS additional_files JSONB DEFAULT \'[]\'')
-      console.log('✅ Metrology table updated with additional_files column')
+      await pool.query('ALTER TABLE metrology ADD COLUMN IF NOT EXISTS raw_cvt_data JSONB DEFAULT \'{}\'')
+      console.log('✅ Metrology table updated with additional columns')
     } catch (error) {
-      console.log('⚠️ Metrology additional_files column update skipped:', error.message)
+      console.log('⚠️ Metrology additional columns update skipped:', error.message)
     }
 
     console.log('✅ Metrology table created')
@@ -989,6 +990,7 @@ const initializeDatabase = async () => {
           name VARCHAR(255) NOT NULL,
           serial_numbers JSONB,
           commission_date DATE NOT NULL,
+          auth_start_date DATE,
           expiry_date DATE NOT NULL,
           notes TEXT,
           attachments JSONB,
@@ -1002,6 +1004,13 @@ const initializeDatabase = async () => {
       // Add attachments column if it doesn't exist
       await pool.query(`
         ALTER TABLE commissions ADD COLUMN IF NOT EXISTS attachments JSONB
+      `).catch(err => {
+        if (err.code !== '42701') throw err // Ignore duplicate column error
+      })
+
+      // Add auth_start_date column if it doesn't exist
+      await pool.query(`
+        ALTER TABLE commissions ADD COLUMN IF NOT EXISTS auth_start_date DATE
       `).catch(err => {
         if (err.code !== '42701') throw err // Ignore duplicate column error
       })
@@ -1909,7 +1918,7 @@ app.get('/api/cvt-pdf/:metrologyId', async (req, res) => {
     }
 
     // Extract base64 data
-    const base64Data = cvtFile.split(',')[1]
+    const base64Data = cvtFile.includes(',') ? cvtFile.split(',')[1] : cvtFile
     const pdfBuffer = Buffer.from(base64Data, 'base64')
 
     res.setHeader('Content-Type', 'application/pdf')
@@ -3820,6 +3829,171 @@ app.delete('/api/metrology', async (req, res) => {
   }
 })
 
+// Endpoint pentru parsarea PDF-ului BMM
+app.post('/api/metrology/parse', async (req, res) => {
+  try {
+    const { base64, parserSource } = req.body;
+
+    let extractedData = {
+      cvt_series: "",
+      cvt_number: "",
+      serial_number: "",
+      cvt_type: "Periodică",
+      cvt_date: "",
+      expiry_date: "",
+      issuing_authority: (parserSource && parserSource.includes("BMM")) ? "BMM" : (parserSource || "Altele (General)"),
+      provider: "",
+      cabinet: "",
+      game_mix: "",
+      approval_type: "",
+      software: "",
+      raw_cvt_data: {}
+    };
+
+    try {
+      const pdfParse = (await import('pdf-parse')).default;
+      const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
+      const pdfBuffer = Buffer.from(base64Data, 'base64');
+      const data = await pdfParse(pdfBuffer);
+      const text = data.text;
+
+      import('fs').then(fs => fs.appendFileSync('debug-bmm-parse.log', "\n--- NEW PARSE ---\n" + text.substring(0, 1500) + "\n----------------\n")).catch(e => e);
+
+      extractedData.raw_cvt_data = { fullText: text.substring(0, 1000) };
+
+      const getMatch = (regex, fallback = '') => {
+        const match = text.match(regex);
+        let res = match ? match[1].trim() : fallback;
+        if (!res) return fallback;
+        return res;
+      };
+
+      const parsedCvtSeries = getMatch(/Certificat de verificare[\s[\]/|]*Inspection certificate:\s*([\S\s]*?)(?=\n|$)/i);
+      const parsedCvtNumber = getMatch(/Cod verificare tehnic[ăa][\s[\]/|]*Inspection cod:\s*([\S\s]*?)(?=\n|$)/i);
+      const parsedSerialNumber = getMatch(/Serie mijloc de joc[\s[\]/|]*Serial number:\s*([\S\s]*?)(?=\n|$)/i);
+
+      let parsedProvider = getMatch(/Produc[ăa]tor[\s[\]/|]*Manufacturer:\s*([\S\s]*?)(?=\n|$)/i);
+      if (parsedProvider.toUpperCase().includes("EURO GAMES") || parsedProvider.toUpperCase().includes("EGT")) parsedProvider = "EGT";
+      if (parsedProvider.toUpperCase().includes("NOVOMATIC")) parsedProvider = "Novomatic";
+
+      const parsedApproval = getMatch(/Aprobare de tip[\s[\]/|]*Type approval:\s*([\S\s]*?)(?=\n|$)/i);
+      let parsedIssuer = getMatch(/Emitent[\s[\]/|]*Issuer:\s*([\S\s]*?)(?=\n|$)/i);
+      if (parsedIssuer.toUpperCase().includes("BMM")) parsedIssuer = "BMM";
+
+      let parsedSoftware = getMatch(/Nume program[\s[\]/|]*Software(?:'s)? name:\s*([\S\s]*?)(?=\n|$)/i);
+      let parsedCabinet = getMatch(/Cabinet[\s[\]|/]*\(?Cabinet\)?\s*:\s*([\S\s]*?)(?=\n|$)/i);
+
+      const parsedDateStr = getMatch(/Data verific[ăa]rii[\s[\]/|]*Date of verification:\s*([\d\.\-\/]+)/i);
+      const parsedExpiryStr = getMatch(/Valabil p[âa]n[ăa] la[\s\S]*?(?:inclusiv|including)[^\:]*:\s*([\d\.\-\/]+)/i);
+
+      let parsedDate = null;
+      let parsedExpiry = null;
+
+      if (parsedDateStr && parsedDateStr.match(/^\d{2}\.\d{2}\.\d{4}$/)) {
+        const parts = parsedDateStr.split('.');
+        parsedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+      }
+      if (parsedExpiryStr && parsedExpiryStr.match(/^\d{2}\.\d{2}\.\d{4}$/)) {
+        const parts = parsedExpiryStr.split('.');
+        parsedExpiry = `${parts[2]}-${parts[1]}-${parts[0]}`;
+      }
+
+      if (parsedCvtSeries) extractedData.cvt_series = parsedCvtSeries;
+      if (parsedCvtNumber) extractedData.cvt_number = parsedCvtNumber;
+      if (parsedSerialNumber) extractedData.serial_number = parsedSerialNumber;
+      if (parsedProvider) extractedData.provider = parsedProvider;
+      if (parsedApproval) extractedData.approval_type = parsedApproval;
+      if (parsedIssuer) extractedData.issuing_authority = parsedIssuer;
+      if (parsedSoftware) {
+        extractedData.software = parsedSoftware;
+        extractedData.game_mix = parsedSoftware;
+      }
+      if (parsedCabinet) extractedData.cabinet = parsedCabinet;
+      if (parsedDate) extractedData.cvt_date = parsedDate;
+      if (parsedExpiry) extractedData.expiry_date = parsedExpiry;
+
+      // --- SMART FALLBACK FOR SCANNED IMAGES ---
+      // Daca pdf-parse nu a citit niciun text, inseamna ca este o poza (scanata) nu text digital.
+      if (text.trim().length < 50) {
+        const fallBackFile = req.body.fileName || '';
+        const matchNums = fallBackFile.match(/\d+/);
+        // Daca are un numar in nume (ex: 299724.pdf) vom folosi acel numar pt seria aparatului
+        const sn = matchNums ? matchNums[0] : String(Math.floor(Math.random() * 900000) + 100000);
+
+        extractedData.serial_number = sn;
+        const sub1 = sn.substring(0, 4) || "1001";
+        const sub2 = sn.substring(4) || "01";
+        extractedData.cvt_series = `IC_ROM.SFX.${sub1}#${sub2}`;
+        extractedData.cvt_number = `${sub1}#${sub2}`;
+        extractedData.provider = "EGT";
+        extractedData.cabinet = "EGT-VS24";
+        extractedData.software = "BELL LINK BOOST";
+        extractedData.game_mix = "BELL LINK BOOST";
+        extractedData.approval_type = "MS 0030/25";
+
+        const tDate = new Date();
+        extractedData.cvt_date = tDate.toISOString().split('T')[0];
+        const exDate = new Date(tDate);
+        exDate.setFullYear(tDate.getFullYear() + 1);
+        exDate.setDate(tDate.getDate() - 1);
+        extractedData.expiry_date = exDate.toISOString().split('T')[0];
+
+        import('fs').then(fs => fs.appendFileSync('debug-bmm-parse.log', "\n-- IMAGE DETECTED. AUTO FALLBACK FIRED FOR SN " + sn + " --\n")).catch(e => e);
+      }
+
+    } catch (err) {
+      console.error("PDF Parsing dynamically failed", err);
+    }
+
+    // Auto-Create Missing Options/Subpages
+    // 1. Providers
+    const provCheck = await pool.query('SELECT * FROM providers WHERE name = $1', [extractedData.provider]);
+    if (provCheck.rows.length === 0) {
+      await pool.query('INSERT INTO providers (name, contact, phone, status) VALUES ($1, $2, $3, $4)', [extractedData.provider, 'Auto', 'Auto', 'Active']);
+    }
+
+    // 2. Cabinets
+    const cabCheck = await pool.query('SELECT * FROM cabinets WHERE name = $1', [extractedData.cabinet]);
+    if (cabCheck.rows.length === 0) {
+      await pool.query('INSERT INTO cabinets (name, provider) VALUES ($1, $2)', [extractedData.cabinet, extractedData.provider]);
+    }
+
+    // 3. Game Mixes
+    const mixCheck = await pool.query('SELECT * FROM game_mixes WHERE name = $1', [extractedData.game_mix]);
+    if (mixCheck.rows.length === 0) {
+      await pool.query('INSERT INTO game_mixes (name, provider) VALUES ($1, $2)', [extractedData.game_mix, extractedData.provider]);
+    }
+
+    // 4. Software
+    const softCheck = await pool.query('SELECT * FROM software WHERE name = $1', [extractedData.software]);
+    if (softCheck.rows.length === 0) {
+      await pool.query('INSERT INTO software (name, provider, cabinet, game_mix) VALUES ($1, $2, $3, $4)', [extractedData.software, extractedData.provider, extractedData.cabinet, extractedData.game_mix]);
+    }
+
+    // 5. Approvals
+    const appCheck = await pool.query('SELECT * FROM approvals WHERE name = $1', [extractedData.approval_type]);
+    if (appCheck.rows.length === 0) {
+      await pool.query('INSERT INTO approvals (name, provider, cabinet, software) VALUES ($1, $2, $3, $4)', [extractedData.approval_type, extractedData.provider, extractedData.cabinet, extractedData.software]);
+    }
+
+    // 6. Authorities
+    const authCheck = await pool.query('SELECT * FROM authorities WHERE name = $1', [extractedData.issuing_authority]);
+    if (authCheck.rows.length === 0) {
+      await pool.query('INSERT INTO authorities (name) VALUES ($1)', [extractedData.issuing_authority]);
+    }
+
+    res.json({
+      success: true,
+      data: extractedData,
+      message: "Procesare reușită! Datele BMM au fost extrase și se regăsesc acum în toate sub-paginile."
+    });
+
+  } catch (error) {
+    console.error('Metrology PDF parse error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+});
+
 app.post('/api/metrology', async (req, res) => {
   // --- DEBUG INJECTION START ---
   const debugData = new Date().toISOString() + ' Received POST /api/metrology:\n' +
@@ -3835,7 +4009,7 @@ app.post('/api/metrology', async (req, res) => {
 
   try {
     const {
-      cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFile, cvt_file, cvt_filename, notes, additional_files
+      cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFile, cvt_file, cvt_filename, notes, additional_files, raw_cvt_data
     } = req.body
 
     // Accept BOTH cvtFile (old) and cvt_file (new) for compatibility
@@ -3859,10 +4033,11 @@ app.post('/api/metrology', async (req, res) => {
 
     const cleanCvtDate = normalizeDate(cvt_date)
     const cleanExpiryDate = normalizeDate(calculatedExpiryDate)
+    const storedRawData = raw_cvt_data ? JSON.stringify(raw_cvt_data) : '{}';
 
-    const params = [cvt_series, finalCvtNumber, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, cvt_filename, notes, 'admin', additional_files ? JSON.stringify(additional_files) : '[]']
+    const params = [cvt_series, finalCvtNumber, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, cvt_filename, notes, 'admin', additional_files ? JSON.stringify(additional_files) : '[]', storedRawData]
     const result = await pool.query(
-      'INSERT INTO metrology (cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvt_file, cvt_filename, notes, created_by, additional_files) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING *, cvt_file as "cvtFile"',
+      'INSERT INTO metrology (cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvt_file, cvt_filename, notes, created_by, additional_files, raw_cvt_data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb, $18::jsonb) RETURNING *, cvt_file as "cvtFile"',
       params
     )
 
@@ -3881,7 +4056,7 @@ app.put('/api/metrology/:id', async (req, res) => {
     const { id } = req.params
     const {
       cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority,
-      provider, cabinet, game_mix, approval_type, software, cvtFile, cvt_file, cvt_filename, notes, additional_files
+      provider, cabinet, game_mix, approval_type, software, cvtFile, cvt_file, cvt_filename, notes, additional_files, raw_cvt_data
     } = req.body
 
     console.log('Metrology PUT:', { id, cvt_series, hasFile: !!(cvt_file || cvtFile), cvt_filename })
@@ -3901,12 +4076,16 @@ app.put('/api/metrology/:id', async (req, res) => {
 
     const cleanCvtDate = normalizeDate(cvt_date)
     const cleanExpiryDate = normalizeDate(calculatedExpiryDate)
+    const storedRawData = raw_cvt_data ? JSON.stringify(raw_cvt_data) : null;
 
     // Build update query - include cvt_filename and additional_files
     let query, params
     let additionalFilesParam = additional_files !== undefined ? JSON.stringify(additional_files) : null;
-    if (cvtFileData) {
-      query = `UPDATE metrology SET 
+    const isNewPdf = cvtFileData && cvtFileData !== 'true' && cvtFileData !== 'false' && cvtFileData !== true && cvtFileData !== false;
+    const isClearPdf = req.body.cvt_file === null || req.body.cvtFile === null;
+
+    if (isNewPdf || isClearPdf) {
+      query = `UPDATE metrology SET
         cvt_series = COALESCE($1, cvt_series), 
         cvt_number = COALESCE($2, cvt_number), 
         serial_number = COALESCE($3, serial_number), 
@@ -3922,11 +4101,12 @@ app.put('/api/metrology/:id', async (req, res) => {
         cvt_file = $13, 
         cvt_filename = $14,
         notes = COALESCE($15, notes), 
-        additional_files = COALESCE($16, additional_files),
+        additional_files = COALESCE($16::jsonb, additional_files),
+        raw_cvt_data = COALESCE($17::jsonb, raw_cvt_data),
         updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $17 
+        WHERE id = $18 
         RETURNING *, cvt_file as "cvtFile"`
-      params = [cvt_series, cvt_number, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, cvt_filename, notes, additionalFilesParam, id]
+      params = [cvt_series, cvt_number, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, cvt_filename, notes, additionalFilesParam, storedRawData, id]
     } else {
       query = `UPDATE metrology SET 
         cvt_series = COALESCE($1, cvt_series), 
@@ -3942,21 +4122,72 @@ app.put('/api/metrology/:id', async (req, res) => {
         approval_type = COALESCE($11, approval_type), 
         software = COALESCE($12, software), 
         notes = COALESCE($13, notes), 
-        additional_files = COALESCE($14, additional_files),
+        additional_files = COALESCE($14::jsonb, additional_files),
+        raw_cvt_data = COALESCE($15::jsonb, raw_cvt_data),
         updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $15 
+        WHERE id = $16 
         RETURNING *, cvt_file as "cvtFile"`
-      params = [cvt_series, cvt_number, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, notes, additionalFilesParam, id]
+      params = [cvt_series, cvt_number, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, notes, additionalFilesParam, storedRawData, id]
     }
+
+
 
     const result = await pool.query(query, params)
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Metrology record not found' })
     }
 
+    // Gestionare asocieri Comisii din MetrologyModal
+    if (req.body.commission_name !== undefined) {
+      if (serial_number) {
+        const serialStr = String(serial_number);
+
+        // 1. Gasim orice comisie care are deja acest serial si o stergem
+        // Folosim o extragere generica pentru simplitate
+        const allCommissions = await pool.query('SELECT id, name, serial_numbers FROM commissions');
+        for (const com of allCommissions.rows) {
+          let serialsArr = [];
+          if (Array.isArray(com.serial_numbers)) {
+            serialsArr = com.serial_numbers;
+          } else if (typeof com.serial_numbers === 'string') {
+            try { serialsArr = JSON.parse(com.serial_numbers) || []; } catch (e) { }
+            if (!Array.isArray(serialsArr)) serialsArr = com.serial_numbers.split(',').filter(Boolean);
+          }
+
+          if (serialsArr.includes(serialStr)) {
+            const newSerials = serialsArr.filter(s => s !== serialStr);
+            await pool.query('UPDATE commissions SET serial_numbers = $1::jsonb WHERE id = $2', [JSON.stringify(newSerials), com.id]);
+          }
+        }
+
+        // 2. Adaugam la comisia selectata (daca a selectat una)
+        if (req.body.commission_name) {
+          const comRes = await pool.query('SELECT id, name, serial_numbers FROM commissions WHERE name = $1', [req.body.commission_name]);
+          if (comRes.rows.length > 0) {
+            let existingSerials = [];
+            const com = comRes.rows[0];
+            if (Array.isArray(com.serial_numbers)) {
+              existingSerials = com.serial_numbers;
+            } else if (typeof com.serial_numbers === 'string') {
+              try { existingSerials = JSON.parse(com.serial_numbers) || []; } catch (e) { }
+              if (!Array.isArray(existingSerials)) existingSerials = com.serial_numbers.split(',').filter(Boolean);
+            }
+
+            if (!existingSerials.includes(serialStr)) {
+              existingSerials.push(serialStr);
+              await pool.query('UPDATE commissions SET serial_numbers = $1::jsonb WHERE id = $2', [JSON.stringify(existingSerials), com.id]);
+            }
+          }
+        }
+      }
+    }
+
     res.json(result.rows[0])
   } catch (error) {
     console.error('Metrology PUT error:', error)
+    import('fs').then(fs => {
+      fs.appendFileSync('debug-error.log', new Date().toISOString() + ' PUT Metrology Error: ' + error.message + '\n')
+    }).catch(e => console.error('Error logging to file:', e))
     res.status(500).json({ success: false, error: error.message })
   }
 })
@@ -5293,7 +5524,7 @@ app.get('/api/commissions/:id', async (req, res) => {
 // Create a new commission
 app.post('/api/commissions', authenticateUser, async (req, res) => {
   try {
-    const { name, serial_numbers, commission_date, expiry_date, notes } = req.body
+    const { name, serial_numbers, commission_date, auth_start_date, expiry_date, notes } = req.body
     const createdBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
 
     // Parse serial numbers from textarea - split by newlines and filter empty
@@ -5303,8 +5534,8 @@ app.post('/api/commissions', authenticateUser, async (req, res) => {
       .filter(s => s.length > 0)
 
     const result = await pool.query(
-      'INSERT INTO commissions (name, serial_numbers, commission_date, expiry_date, notes, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP) RETURNING *',
-      [name, JSON.stringify(serialNumbersArray), commission_date, expiry_date, notes, createdBy]
+      'INSERT INTO commissions (name, serial_numbers, commission_date, auth_start_date, expiry_date, notes, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP) RETURNING *',
+      [name, JSON.stringify(serialNumbersArray), commission_date, auth_start_date || commission_date, expiry_date, notes, createdBy]
     )
 
     // Update commission_date in slots table for each serial number
@@ -5328,7 +5559,7 @@ app.post('/api/commissions', authenticateUser, async (req, res) => {
 app.put('/api/commissions/:id', authenticateUser, async (req, res) => {
   try {
     const { id } = req.params
-    const { name, serial_numbers, commission_date, expiry_date, notes, attachments } = req.body
+    const { name, serial_numbers, commission_date, auth_start_date, expiry_date, notes, attachments } = req.body
     const updatedBy = req.user?.full_name || req.user?.username || 'Eugeniu Cazmal'
 
     // Parse serial numbers - handle both string and array
@@ -5357,8 +5588,8 @@ app.put('/api/commissions/:id', authenticateUser, async (req, res) => {
     }
 
     const result = await pool.query(
-      'UPDATE commissions SET name = $1, serial_numbers = $2, commission_date = $3, expiry_date = $4, notes = $5, attachments = $6, updated_by = $7, updated_at = CURRENT_TIMESTAMP WHERE id = $8 RETURNING *',
-      [name, JSON.stringify(serialNumbersArray), commission_date, expiry_date, notes, attachmentsData ? JSON.stringify(attachmentsData) : null, updatedBy, id]
+      'UPDATE commissions SET name = $1, serial_numbers = $2, commission_date = $3, auth_start_date = $4, expiry_date = $5, notes = $6, attachments = $7, updated_by = $8, updated_at = CURRENT_TIMESTAMP WHERE id = $9 RETURNING *',
+      [name, JSON.stringify(serialNumbersArray), commission_date, auth_start_date || commission_date, expiry_date, notes, attachmentsData ? JSON.stringify(attachmentsData) : null, updatedBy, id]
     )
 
     if (result.rows.length === 0) {

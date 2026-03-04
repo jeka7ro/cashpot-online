@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
 import { Eye, Download, FileText, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import DeleteConfirmModal from './modals/DeleteConfirmModal'
 
-const MultiPDFViewer = ({ 
-  files = [], 
+const MultiPDFViewer = ({
+  files = [],
   title = "Documente",
   placeholder = "Nu există documente de afișat",
   placeholderSubtext = "Atașează documente pentru vizualizare",
@@ -10,13 +11,15 @@ const MultiPDFViewer = ({
 }) => {
   const [activeFileIndex, setActiveFileIndex] = useState(0)
   const [showFullscreen, setShowFullscreen] = useState(false)
+  const [fileToDelete, setFileToDelete] = useState(null)
 
   // Normalize files to array format
   const normalizedFiles = Array.isArray(files) ? files : (files ? [files] : [])
-  
+
   // Helper function to get absolute URL for backend files
-  const getAbsoluteUrl = (url) => {
-    if (!url) return null
+  const getAbsoluteUrl = (rawUrl) => {
+    if (!rawUrl || typeof rawUrl === 'boolean' || rawUrl === 'true' || rawUrl === 'false') return null
+    const url = String(rawUrl)
     // Already absolute URL
     if (url.startsWith('http://') || url.startsWith('https://')) return url
     // Data URL (base64)
@@ -24,14 +27,14 @@ const MultiPDFViewer = ({
     // Blob URL
     if (url.startsWith('blob:')) return url
     // Relative URL - make absolute using backend URL (ALWAYS backend, not frontend!)
-    const backendUrl = import.meta.env.PROD 
-      ? 'https://cashpot-backend.onrender.com' 
+    const backendUrl = import.meta.env.PROD
+      ? 'https://cashpot-backend.onrender.com'
       : 'http://localhost:5001'
     // Handle both /uploads/... and uploads/...
     const cleanPath = url.startsWith('/') ? url : '/' + url
     return `${backendUrl}${cleanPath}`
   }
-  
+
   if (normalizedFiles.length === 0) {
     return (
       <div className="aspect-[3/4] bg-slate-100 dark:bg-slate-700 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center">
@@ -76,7 +79,7 @@ const MultiPDFViewer = ({
               </button>
             </div>
           </div>
-          
+
           {/* File thumbnails/list */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {normalizedFiles.map((file, index) => {
@@ -86,11 +89,10 @@ const MultiPDFViewer = ({
                 <button
                   key={index}
                   onClick={() => setActiveFileIndex(index)}
-                  className={`p-2 rounded-lg border-2 transition-all text-left ${
-                    isActive 
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' 
-                      : 'border-slate-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-700'
-                  }`}
+                  className={`p-2 rounded-lg border-2 transition-all text-left ${isActive
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+                    : 'border-slate-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-700'
+                    }`}
                 >
                   <div className="flex items-center space-x-2">
                     <FileText className={`w-4 h-4 ${isActive ? 'text-blue-600' : 'text-slate-500'}`} />
@@ -165,11 +167,7 @@ const MultiPDFViewer = ({
         </button>
         {onDelete && activeFile && (
           <button
-            onClick={() => {
-              if (window.confirm(`Sigur vrei să ștergi "${activeFile?.name || 'acest document'}"?`)) {
-                onDelete(activeFile)
-              }
-            }}
+            onClick={() => setFileToDelete(activeFile)}
             className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors flex items-center space-x-2"
           >
             <X className="w-4 h-4" />
@@ -190,22 +188,20 @@ const MultiPDFViewer = ({
               const fUrl = getAbsoluteUrl(rawFUrl)
               const fName = file?.name || file?.type || `Document ${index + 1}`
               const isActive = index === activeFileIndex
-              
+
               return (
-                <div 
+                <div
                   key={index}
-                  className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
-                    isActive 
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                      : 'border-slate-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-700'
-                  }`}
+                  className={`flex items-center justify-between p-3 rounded-lg border transition-all ${isActive
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                    : 'border-slate-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-700'
+                    }`}
                 >
                   <div className="flex items-center space-x-3 flex-1">
-                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                      isActive 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300'
-                    }`}>
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isActive
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300'
+                      }`}>
                       {index + 1}
                     </span>
                     <div className="flex-1">
@@ -234,11 +230,7 @@ const MultiPDFViewer = ({
                     </button>
                     {onDelete && (
                       <button
-                        onClick={() => {
-                          if (window.confirm(`Sigur vrei să ștergi "${fName}"?`)) {
-                            onDelete(file)
-                          }
-                        }}
+                        onClick={() => setFileToDelete(file)}
                         className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
                         title="Șterge"
                       >
@@ -252,6 +244,20 @@ const MultiPDFViewer = ({
           </div>
         </div>
       )}
+
+      <DeleteConfirmModal
+        isOpen={!!fileToDelete}
+        title="Confirmă Ștergerea PDF-ului"
+        message="Ești sigur că vrei să ștergi acest document?"
+        itemName={fileToDelete?.name || 'Atașamentul selectat'}
+        onConfirm={() => {
+          if (fileToDelete) {
+            onDelete(fileToDelete)
+          }
+          setFileToDelete(null)
+        }}
+        onCancel={() => setFileToDelete(null)}
+      />
     </div>
   )
 }

@@ -1,20 +1,25 @@
 import React, { useState, useEffect } from 'react'
-import { X, Save, Activity, FileCheck, Calendar, CheckCircle, FileText } from 'lucide-react'
+import { X, Save, Activity, FileCheck, Calendar, CheckCircle, FileText, Wand2, Loader2, Sparkles } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 import axios from 'axios'
 import PDFViewer from '../PDFViewer'
 
 const MetrologyModal = ({ item, onClose, onSave }) => {
+  const [isParsing, setIsParsing] = useState(false)
+  const [parserSource, setParserSource] = useState('BMM Testlabs')
   const [authorities, setAuthorities] = useState([])
   const [providers, setProviders] = useState([])
   const [cabinets, setCabinets] = useState([])
   const [gameMixes, setGameMixes] = useState([])
   const [approvals, setApprovals] = useState([])
   const [software, setSoftware] = useState([])
+  const [commissions, setCommissions] = useState([])
   const [formData, setFormData] = useState({
     cvt_series: '',
     serial_number: '',
     cvt_type: 'Periodică',
     cvt_date: '',
+    commission_name: '',
     expiry_date: '',
     issuing_authority: '',
     provider: '',
@@ -25,41 +30,81 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
     cvtFile: null,
     cvtPreview: null,
     cvtFileName: null,
-    notes: ''
+    notes: '',
+    raw_cvt_data: {}
   })
 
+  const [pdfBlobUrl, setPdfBlobUrl] = useState(null)
+
   useEffect(() => {
-    // Load all data
-    const loadAllData = async () => {
-      try {
-        const [authoritiesRes, providersRes, cabinetsRes, gameMixesRes, approvalsRes, softwareRes] = await Promise.all([
-          fetch('/api/authorities'),
-          fetch('/api/providers'),
-          fetch('/api/cabinets'),
-          fetch('/api/gameMixes'),
-          fetch('/api/approvals'),
-          fetch('/api/software')
-        ])
-
-        const [authoritiesData, providersData, cabinetsData, gameMixesData, approvalsData, softwareData] = await Promise.all([
-          authoritiesRes.json(),
-          providersRes.json(),
-          cabinetsRes.json(),
-          gameMixesRes.json(),
-          approvalsRes.json(),
-          softwareRes.json()
-        ])
-
-        setAuthorities(Array.isArray(authoritiesData) ? authoritiesData : [])
-        setProviders(Array.isArray(providersData) ? providersData : [])
-        setCabinets(Array.isArray(cabinetsData) ? cabinetsData : [])
-        setGameMixes(Array.isArray(gameMixesData) ? gameMixesData : [])
-        setApprovals(Array.isArray(approvalsData) ? approvalsData : [])
-        setSoftware(Array.isArray(softwareData) ? softwareData : [])
-      } catch (error) {
-        console.error('Error loading data:', error)
-      }
+    const url = formData.cvtPreview;
+    if (!url || typeof url !== 'string' || url === 'true' || url === 'false') {
+      setPdfBlobUrl(null);
+      return;
     }
+
+    const isBase64 = url.startsWith('data:') || (url.length > 500 && !url.includes(' '));
+    if (isBase64) {
+      try {
+        const b64Data = url.includes(',') ? url.split(',')[1] : url;
+        const byteCharacters = atob(b64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        const blobUrl = URL.createObjectURL(blob);
+        setPdfBlobUrl(blobUrl);
+        return () => URL.revokeObjectURL(blobUrl);
+      } catch (e) {
+        console.error('Error creating PDF blob', e);
+        setPdfBlobUrl(url.startsWith('data:') ? url : `data:application/pdf;base64,${url}`); // fallback
+      }
+    } else if (/^https?:/i.test(url)) {
+      setPdfBlobUrl(url);
+    } else {
+      const backend = (typeof window !== 'undefined' && window.APP_BACKEND_URL) || 'https://cashpot-backend.onrender.com';
+      setPdfBlobUrl(`${backend}${url.startsWith('/') ? url : `/${url}`}`);
+    }
+  }, [formData.cvtPreview])
+
+  // Load all data function moved outside useEffect so it can be re-called after Smart Parse
+  const loadAllData = async () => {
+    try {
+      const [authoritiesRes, providersRes, cabinetsRes, gameMixesRes, approvalsRes, softwareRes, commissionsRes] = await Promise.all([
+        fetch('/api/authorities'),
+        fetch('/api/providers'),
+        fetch('/api/cabinets'),
+        fetch('/api/gameMixes'),
+        fetch('/api/approvals'),
+        fetch('/api/software'),
+        fetch('/api/commissions')
+      ])
+
+      const [authoritiesData, providersData, cabinetsData, gameMixesData, approvalsData, softwareData, commissionsData] = await Promise.all([
+        authoritiesRes.json(),
+        providersRes.json(),
+        cabinetsRes.json(),
+        gameMixesRes.json(),
+        approvalsRes.json(),
+        softwareRes.json(),
+        commissionsRes.json()
+      ])
+
+      setAuthorities(Array.isArray(authoritiesData) ? authoritiesData : [])
+      setProviders(Array.isArray(providersData) ? providersData : [])
+      setCabinets(Array.isArray(cabinetsData) ? cabinetsData : [])
+      setGameMixes(Array.isArray(gameMixesData) ? gameMixesData : [])
+      setApprovals(Array.isArray(approvalsData) ? approvalsData : [])
+      setSoftware(Array.isArray(softwareData) ? softwareData : [])
+      setCommissions(Array.isArray(commissionsData) ? commissionsData : [])
+    } catch (error) {
+      console.error('Error loading data:', error)
+    }
+  }
+
+  useEffect(() => {
     loadAllData()
 
     if (item) {
@@ -76,6 +121,7 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
         serial_number: item.serial_number || '',
         cvt_type: item.cvt_type || 'Periodică',
         cvt_date: formatDateForInput(item.cvt_date),
+        commission_name: item.commission_name || '',
         expiry_date: formatDateForInput(item.expiry_date),
         issuing_authority: item.issuing_authority || '',
         provider: item.provider || '',
@@ -86,7 +132,8 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
         cvtFile: item.cvt_file || item.cvtFile || null, // Base64 string from DB
         cvtPreview: item.cvt_file || item.cvtFile || null,
         cvtFileName: item.cvt_file ? 'Document CVT existent' : null,
-        notes: item.notes || ''
+        notes: item.notes || '',
+        raw_cvt_data: item.raw_cvt_data || {}
       })
     }
   }, [item])
@@ -208,8 +255,66 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
       setFormData(prev => ({
         ...prev,
         cvtFile: null,
-        cvtPreview: null
+        cvtPreview: null,
+        cvtFileName: null
       }))
+    }
+  }
+
+  const handleSmartParse = async () => {
+    if (!formData.cvtPreview) {
+      toast.error('Adaugă mai întâi un document CVT/PDF pentru scanare!');
+      return;
+    }
+
+    setIsParsing(true);
+    const loadingId = toast.loading('Se scanează documentul cu AI...', {
+      style: {
+        background: '#1e293b',
+        color: '#f8fafc',
+        border: '1px solid #3b82f6',
+      },
+    });
+
+    try {
+      // Send the base64 string to the parse API
+      const response = await axios.post('/api/metrology/parse', {
+        base64: formData.cvtPreview,
+        parserSource: parserSource
+      });
+
+      if (response.data && response.data.success) {
+        const extracted = response.data.data;
+
+        // Populate form data
+        setFormData(prev => ({
+          ...prev,
+          cvt_series: extracted.cvt_series || prev.cvt_series,
+          serial_number: extracted.serial_number || prev.serial_number,
+          cvt_type: extracted.cvt_type || prev.cvt_type,
+          cvt_date: extracted.cvt_date || prev.cvt_date,
+          expiry_date: extracted.expiry_date || prev.expiry_date,
+          issuing_authority: extracted.issuing_authority || prev.issuing_authority,
+          provider: extracted.provider || prev.provider,
+          cabinet: extracted.cabinet || prev.cabinet,
+          game_mix: extracted.game_mix || prev.game_mix,
+          approval_type: extracted.approval_type || prev.approval_type,
+          software: extracted.software || prev.software,
+          raw_cvt_data: extracted.raw_cvt_data || prev.raw_cvt_data
+        }));
+
+        toast.success(response.data.message || 'Date extrase și autocompletate cu succes!', { id: loadingId });
+
+        // Reload the sub-components to get newly created providers/software/authorities
+        await loadAllData();
+      } else {
+        toast.error('Eroare la procesarea documentului.', { id: loadingId });
+      }
+    } catch (error) {
+      console.error('Parse Error:', error);
+      toast.error('Eroare la citirea documentului (Verifică conexiunea).', { id: loadingId });
+    } finally {
+      setIsParsing(false);
     }
   }
 
@@ -269,89 +374,108 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
 
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
             {/* Informații CVT */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               <h3 className="text-lg font-semibold text-slate-800 border-b border-slate-200 pb-2">
                 Informații CVT
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
                   <label className="block text-sm font-semibold text-slate-700">Seria CVT</label>
-                  <input type="text" name="cvt_series" value={formData.cvt_series} onChange={handleChange} className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent" placeholder="Seria CVT" />
+                  <input type="text" name="cvt_series" value={formData.cvt_series} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent" placeholder="Seria CVT" />
                   <p className="text-xs text-slate-500">Seria de identificare CVT</p>
                 </div>
                 {/* Removed CVT number input; series is the primary identifier */}
-                <div className="space-y-2 md:col-span-2">
+                <div className="space-y-1">
                   <label className="block text-sm font-semibold text-slate-700">Număr de Serie Slot *</label>
-                  <input type="text" name="serial_number" value={formData.serial_number} onChange={handleChange} className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent" placeholder="Serial number slot" required />
-                  <p className="text-xs text-slate-500">Numărul de serie care leagă CVT-ul cu slot-ul din aplicație</p>
+                  <input type="text" name="serial_number" value={formData.serial_number} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent" placeholder="Serial number slot" required />
+                  <p className="text-xs text-slate-500">Care leagă CVT-ul cu slot-ul</p>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <label className="block text-sm font-semibold text-slate-700">Tip CVT *</label>
-                  <select name="cvt_type" value={formData.cvt_type} onChange={handleChange} className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent" required>
+                  <select name="cvt_type" value={formData.cvt_type} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent" required>
                     <option value="Periodică">Periodică</option>
                     <option value="Inițială">Inițială</option>
                     <option value="Reparație">Reparație</option>
                   </select>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <label className="block text-sm font-semibold text-slate-700">Data CVT *</label>
-                  <input type="date" name="cvt_date" value={formData.cvt_date} onChange={handleChange} className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent" required />
+                  <input type="date" name="cvt_date" value={formData.cvt_date} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent" required />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <label className="block text-sm font-semibold text-slate-700">Data expirării *</label>
                   <input
                     type="date"
                     name="expiry_date"
                     value={formData.expiry_date}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                     required
-                    disabled={formData.cvt_type === 'Periodică' || formData.cvt_type === 'Inițială'}
                   />
                   {formData.cvt_type === 'Periodică' || formData.cvt_type === 'Inițială' ? (
-                    <p className="text-xs text-slate-500">Calculat automat: 1 an - 1 zi</p>
+                    <p className="text-xs text-slate-500">Calculat automat</p>
                   ) : (
-                    <p className="text-xs text-slate-500">Completează manual pentru Reparație</p>
+                    <p className="text-xs text-slate-500">Setează manual</p>
                   )}
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <label className="block text-sm font-semibold text-slate-700">Autoritatea emitentă</label>
-                  <select name="issuing_authority" value={formData.issuing_authority} onChange={handleChange} className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent">
+                  <select name="issuing_authority" value={formData.issuing_authority} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent">
                     <option value="">Selectează autoritatea emitentă</option>
                     {authorities.map(authority => (
                       <option key={authority.id} value={authority.name}>
                         {authority.name}
                       </option>
                     ))}
+                    {formData.issuing_authority && !authorities.some(a => a.name === formData.issuing_authority) && (
+                      <option value={formData.issuing_authority}>{formData.issuing_authority} (Nou/Extras)</option>
+                    )}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-sm font-semibold text-slate-700">Comisie Asociată</label>
+                  <select name="commission_name" value={formData.commission_name} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent">
+                    <option value="">Fără comisie / Neselectată</option>
+                    {commissions.map(com => (
+                      <option key={com.id} value={com.name}>
+                        {com.name} ({com.commission_date ? new Date(com.commission_date).toLocaleDateString('ro-RO') : 'Fără dată'})
+                      </option>
+                    ))}
+                    {formData.commission_name && !commissions.some(c => c.name === formData.commission_name) && (
+                      <option value={formData.commission_name}>{formData.commission_name} (Nou/Extras)</option>
+                    )}
                   </select>
                 </div>
               </div>
             </div>
 
             {/* Informații Dispozitiv */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               <h3 className="text-lg font-semibold text-slate-800 border-b border-slate-200 pb-2">
                 Informații Dispozitiv
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
                   <label className="block text-sm font-semibold text-slate-700">Furnizor</label>
-                  <select name="provider" value={formData.provider} onChange={handleChange} className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent">
+                  <select name="provider" value={formData.provider} onChange={handleChange} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent">
                     <option value="">Selectează furnizorul</option>
                     {providers.map(provider => (
                       <option key={provider.id} value={provider.name}>
                         {provider.name}
                       </option>
                     ))}
+                    {formData.provider && !providers.some(p => p.name === formData.provider) && (
+                      <option value={formData.provider}>{formData.provider} (Nou/Extras)</option>
+                    )}
                   </select>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <label className="block text-sm font-semibold text-slate-700">Cabinet</label>
                   <select
                     name="cabinet"
                     value={formData.cabinet}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                     disabled={!formData.provider}
                   >
                     <option value="">
@@ -362,18 +486,21 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
                         {cabinet.name}
                       </option>
                     ))}
+                    {formData.cabinet && !getFilteredCabinets().some(c => c.name === formData.cabinet) && (
+                      <option value={formData.cabinet}>{formData.cabinet} (Nou/Extras)</option>
+                    )}
                   </select>
                   {!formData.provider && (
                     <p className="text-xs text-slate-500">Cabinetul depinde de furnizorul selectat</p>
                   )}
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <label className="block text-sm font-semibold text-slate-700">Game Mix</label>
                   <select
                     name="game_mix"
                     value={formData.game_mix}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                     disabled={!formData.provider}
                   >
                     <option value="">
@@ -384,18 +511,21 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
                         {gameMix.name}
                       </option>
                     ))}
+                    {formData.game_mix && !getFilteredGameMixes().some(gm => gm.name === formData.game_mix) && (
+                      <option value={formData.game_mix}>{formData.game_mix} (Nou/Extras)</option>
+                    )}
                   </select>
                   {!formData.provider && (
                     <p className="text-xs text-slate-500">Game mix-ul depinde de furnizorul selectat</p>
                   )}
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <label className="block text-sm font-semibold text-slate-700">Aprobare de Tip</label>
                   <select
                     name="approval_type"
                     value={formData.approval_type}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                     disabled={!formData.cabinet}
                   >
                     <option value="">
@@ -406,18 +536,21 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
                         {approval.name}
                       </option>
                     ))}
+                    {formData.approval_type && !getFilteredApprovals().some(a => a.name === formData.approval_type) && (
+                      <option value={formData.approval_type}>{formData.approval_type} (Nou/Extras)</option>
+                    )}
                   </select>
                   {!formData.cabinet && (
                     <p className="text-xs text-slate-500">Aprobarea de tip depinde de cabinetul selectat</p>
                   )}
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <label className="block text-sm font-semibold text-slate-700">Software</label>
                   <select
                     name="software"
                     value={formData.software}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                     disabled={!formData.game_mix}
                   >
                     <option value="">
@@ -428,6 +561,9 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
                         {soft.name}
                       </option>
                     ))}
+                    {formData.software && !getFilteredSoftware().some(s => s.name === formData.software) && (
+                      <option value={formData.software}>{formData.software} (Nou/Extras)</option>
+                    )}
                   </select>
                   {!formData.game_mix && (
                     <p className="text-xs text-slate-500">Software-ul depinde de game mix-ul selectat</p>
@@ -437,14 +573,14 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
             </div>
 
             {/* CVT PDF Upload Section */}
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-700">Document CVT (PDF)</label>
+            <div className="space-y-3">
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Document CVT (PDF)</label>
               <input
                 type="file"
                 name="cvtFile"
                 accept=".pdf"
                 onChange={handleFileChange}
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-cyan-50 file:text-cyan-700 hover:file:bg-cyan-100"
+                className="w-full relative px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-cyan-50 file:text-cyan-700 hover:file:bg-cyan-100 dark:border-slate-600 dark:bg-slate-700 dark:file:bg-slate-600 dark:file:text-slate-300 transition-colors"
               />
               {formData.cvtPreview && (
                 <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600">
@@ -475,16 +611,9 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
                   </div>
 
                   {/* PDF Viewer - FIXED pentru afișare corectă */}
-                  {formData.cvtPreview ? (
+                  {formData.cvtPreview && pdfBlobUrl && !pdfBlobUrl.startsWith('data:') ? (
                     <iframe
-                      src={(() => {
-                        const url = formData.cvtPreview;
-                        if (!url) return null;
-                        if (/^data:application\/pdf/i.test(url)) return url;
-                        if (/^https?:/i.test(url)) return url;
-                        const backend = (typeof window !== 'undefined' && window.APP_BACKEND_URL) || 'https://cashpot-backend.onrender.com';
-                        return `${backend}${url.startsWith('/') ? url : `/${url}`}`;
-                      })()}
+                      src={pdfBlobUrl}
                       className="w-full h-[600px] rounded-lg border-2 border-slate-300 dark:border-slate-600"
                       title="PDF Preview"
                       onError={(e) => {
@@ -506,12 +635,12 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
                   )}
                 </div>
               )}
-              <p className="text-xs text-slate-500">Încărcați documentul CVT în format PDF</p>
+              <p className="text-xs text-slate-500 mt-2">PDF - Maxim 10MB.</p>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1">
               <label className="block text-sm font-semibold text-slate-700">Note</label>
-              <textarea name="notes" value={formData.notes} onChange={handleChange} rows={4} className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent" placeholder="Note adiționale" />
+              <textarea name="notes" value={formData.notes} onChange={handleChange} rows={2} className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent" placeholder="Note adiționale" />
             </div>
             {/* Action Buttons */}
             <div className="flex justify-end space-x-4 pt-6 border-t border-slate-200">

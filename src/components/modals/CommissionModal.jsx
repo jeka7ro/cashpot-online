@@ -4,11 +4,12 @@ import { useData } from '../../contexts/DataContext'
 
 const CommissionModal = ({ item, onClose, onSave }) => {
   const { providers, cabinets } = useData()
-  
+
   const [formData, setFormData] = useState({
     name: '',
     serial_numbers: '',
     commission_date: '',
+    auth_start_date: '',
     expiry_date: '',
     notes: ''
   })
@@ -23,6 +24,10 @@ const CommissionModal = ({ item, onClose, onSave }) => {
           if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
             return dateString
           }
+          // ISO timestamp (e.g. 2026-03-27T23:00:00.000Z) - extract just the date part
+          if (dateString.includes('T')) {
+            return dateString.split('T')[0]
+          }
           // Altfel, parsează și formatează corect
           const date = new Date(dateString + 'T00:00:00')
           if (isNaN(date.getTime())) return ''
@@ -35,10 +40,24 @@ const CommissionModal = ({ item, onClose, onSave }) => {
         }
       }
 
+      // Convert serial_numbers from array to newline string for textarea
+      let serialStr = ''
+      if (Array.isArray(item.serial_numbers)) {
+        serialStr = item.serial_numbers.join('\n')
+      } else if (typeof item.serial_numbers === 'string') {
+        try {
+          const parsed = JSON.parse(item.serial_numbers)
+          serialStr = Array.isArray(parsed) ? parsed.join('\n') : item.serial_numbers
+        } catch (e) {
+          serialStr = item.serial_numbers
+        }
+      }
+
       setFormData({
         name: item.name || '',
-        serial_numbers: item.serial_numbers || '',
+        serial_numbers: serialStr,
         commission_date: formatDate(item.commission_date),
+        auth_start_date: formatDate(item.auth_start_date) || formatDate(item.commission_date),
         expiry_date: formatDate(item.expiry_date),
         notes: item.notes || ''
       })
@@ -52,13 +71,13 @@ const CommissionModal = ({ item, onClose, onSave }) => {
       [name]: value
     }))
 
-    // Auto-calculate expiry_date when commission_date changes
-    if (name === 'commission_date' && value) {
-      const commissionDate = new Date(value)
-      const expiryDate = new Date(commissionDate)
+    // Auto-calculate expiry_date when auth_start_date changes
+    if (name === 'auth_start_date' && value) {
+      const authDate = new Date(value)
+      const expiryDate = new Date(authDate)
       expiryDate.setFullYear(expiryDate.getFullYear() + 1)
       expiryDate.setDate(expiryDate.getDate() - 1)
-      
+
       setFormData(prev => ({
         ...prev,
         expiry_date: expiryDate.toISOString().split('T')[0]
@@ -129,6 +148,21 @@ const CommissionModal = ({ item, onClose, onSave }) => {
                 value={formData.commission_date}
                 onChange={handleChange}
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+            </div>
+
+            {/* Data Începerii Autorizației */}
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-700">
+                Data Începerii Autorizației *
+              </label>
+              <input
+                type="date"
+                name="auth_start_date"
+                value={formData.auth_start_date}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm bg-blue-50/30"
                 required
               />
             </div>
