@@ -53,14 +53,14 @@ const CVTDetail = () => {
   const handleFileUpload = async (event) => {
     const file = event.target.files[0]
     if (!file) return
-    
+
     if (file.size > 10 * 1024 * 1024) {
       toast.error('Fișierul este prea mare! Maxim 10MB.')
       return
     }
-    
+
     setUploading(true)
-    
+
     const reader = new FileReader()
     reader.onload = async (e) => {
       const base64String = e.target.result
@@ -136,16 +136,134 @@ const CVTDetail = () => {
     )
   }
 
+  // Helper array to keep track of blob URLs for cleanup
+  const [blobUrls, setBlobUrls] = useState([])
+
+  // Helper function to create Blob URLs from Base64
+  const getObjectUrlFromBase64 = (base64String) => {
+    if (!base64String) return null
+    if (!base64String.startsWith('data:')) return base64String // Assume normal URL
+
+    try {
+      const b64Data = base64String.split(',')[1] || base64String
+      const byteCharacters = atob(b64Data)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      const blob = new Blob([byteArray], { type: 'application/pdf' })
+      const blobUrl = URL.createObjectURL(blob)
+      return blobUrl
+    } catch (e) {
+      console.error('Error creating object URL from base64:', e)
+      return base64String // Fallback
+    }
+  }
+
   // Prepare CVT file for MultiPDFViewer
   const cvtFiles = []
   if (cvt.cvt_file || cvt.cvtFile) {
+    const fileUrl = getObjectUrlFromBase64(cvt.cvt_file || cvt.cvtFile)
+    if (fileUrl && fileUrl.startsWith('blob:')) blobUrls.push(fileUrl)
+
     cvtFiles.push({
       name: cvt.cvt_filename || `CVT ${cvt.cvt_series || cvt.cvt_number}`,
-      type: 'Document CVT',
-      file_path: cvt.cvt_file || cvt.cvtFile,
-      url: cvt.cvt_file || cvt.cvtFile,
+      type: 'Document Principal CVT',
+      file_path: fileUrl,
+      url: fileUrl,
       id: 'cvt-main'
     })
+  }
+
+  // Support for multiple files
+  if (cvt.additional_files && Array.isArray(cvt.additional_files)) {
+    cvt.additional_files.forEach((file, index) => {
+      const fileUrl = getObjectUrlFromBase64(file.url || file.file_path || file.base64)
+      if (fileUrl && fileUrl.startsWith('blob:')) blobUrls.push(fileUrl)
+
+      cvtFiles.push({
+        name: file.name || `Atașament ${index + 1}`,
+        type: file.type || 'Atașament',
+        file_path: fileUrl,
+        url: fileUrl,
+        id: `additional-${index}`
+      })
+    })
+  }
+
+  // Cleanup blobs unmount
+  useEffect(() => {
+    return () => {
+      blobUrls.forEach(url => {
+        try { URL.revokeObjectURL(url) } catch (e) { }
+      })
+    }
+  }, [blobUrls])
+
+  const handleAdditionalFileUpload = async (event) => {
+    const file = event.target.files[0]
+    if (!file) return
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Fișierul este prea mare! Maxim 10MB.')
+      return
+    }
+
+    setUploading(true)
+
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      const base64String = e.target.result
+      try {
+        const newFile = {
+          name: file.name,
+          type: 'Atașament Extra',
+          base64: base64String
+        }
+
+        const existingFiles = Array.isArray(cvt.additional_files) ? cvt.additional_files : []
+        const updatedFiles = [...existingFiles, newFile]
+
+        await updateItem('metrology', cvt.id, {
+          additional_files: updatedFiles
+        })
+        setCvt({ ...cvt, additional_files: updatedFiles })
+        toast.success('Atașament încărcat cu succes')
+      } catch (error) {
+        toast.error('Eroare la încărcarea atașamentului')
+      }
+      setUploading(false)
+    }
+    reader.onerror = () => {
+      toast.error('Eroare la citirea fișierului')
+      setUploading(false)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  // We add onDelete handler for MultiPDFViewer
+  const handleFileDelete = async (fileToDelete) => {
+    if (fileToDelete.id === 'cvt-main') {
+      try {
+        await updateItem('metrology', cvt.id, { cvt_file: null, cvt_filename: null })
+        setCvt({ ...cvt, cvt_file: null, cvtFile: null, cvt_filename: null })
+        toast.success('Documentul principal șters')
+      } catch (e) {
+        toast.error('Eroare la ștergerea documentului principal')
+      }
+    } else if (fileToDelete.id.startsWith('additional-')) {
+      const index = parseInt(fileToDelete.id.split('-')[1])
+      try {
+        const updatedFiles = [...(cvt.additional_files || [])]
+        updatedFiles.splice(index, 1)
+        await updateItem('metrology', cvt.id, { additional_files: updatedFiles })
+        setCvt({ ...cvt, additional_files: updatedFiles })
+        toast.success('Atașament șters')
+      } catch (e) {
+        toast.error('Eroare la ștergerea atașamentului')
+      }
+    }
   }
 
   return (
@@ -293,23 +411,46 @@ const CVTDetail = () => {
               <div className="bg-white dark:bg-slate-800 rounded-xl shadow border border-slate-200 dark:border-slate-700 p-6">
                 <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4 flex items-center">
                   <Upload className="w-5 h-5 mr-2 text-cyan-500" />
-                  Încarcă Document CVT
+                  Încarcă Documente
                 </h3>
-                <label className="block">
-                  <input
-                    type="file"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    accept=".pdf"
-                    disabled={uploading}
-                  />
-                  <div className={`w-full p-4 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg hover:border-cyan-500 transition-colors cursor-pointer text-center ${uploading ? 'opacity-50' : ''}`}>
-                    <Upload className={`w-6 h-6 text-slate-400 mx-auto mb-2 ${uploading ? 'animate-pulse' : ''}`} />
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
-                      {uploading ? 'Se încarcă...' : 'Adaugă/Înlocuiește PDF'}
-                    </p>
+
+                <div className="space-y-4">
+                  <div>
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block uppercase">Document Principal CVT</span>
+                    <label className="block">
+                      <input
+                        type="file"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                        accept=".pdf"
+                        disabled={uploading}
+                      />
+                      <div className={`w-full p-3 border border-dashed border-slate-300 dark:border-slate-600 rounded-lg hover:border-cyan-500 transition-colors cursor-pointer text-center ${uploading ? 'opacity-50' : 'bg-slate-50 dark:bg-slate-700/50'}`}>
+                        <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          {uploading ? 'Se încarcă...' : 'Adaugă/Înlocuiește Principal'}
+                        </p>
+                      </div>
+                    </label>
                   </div>
-                </label>
+
+                  <div>
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block uppercase">Atașamente Opționale</span>
+                    <label className="block">
+                      <input
+                        type="file"
+                        onChange={handleAdditionalFileUpload}
+                        className="hidden"
+                        accept=".pdf"
+                        disabled={uploading}
+                      />
+                      <div className={`w-full p-3 border border-dashed border-slate-300 dark:border-slate-600 rounded-lg hover:border-blue-500 transition-colors cursor-pointer text-center ${uploading ? 'opacity-50' : 'bg-slate-50 dark:bg-slate-700/50'}`}>
+                        <p className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center justify-center gap-2">
+                          <span className="text-lg font-bold">+</span> Adaugă Fișier Extra
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -320,13 +461,14 @@ const CVTDetail = () => {
                   <FileText className="w-5 h-5 mr-2 text-cyan-600" />
                   Document CVT
                 </h3>
-                
+
                 {/* MultiPDFViewer - AFIȘAT MEREU */}
-                <MultiPDFViewer 
+                <MultiPDFViewer
                   files={cvtFiles}
-                  title="Document CVT"
+                  title="Documente"
                   placeholder="Nu există document CVT încărcat"
-                  placeholderSubtext="Încarcă documentul PDF din panoul din stânga"
+                  placeholderSubtext="Încarcă un document principal sau anexă din panoul lateral"
+                  onDelete={handleFileDelete}
                 />
               </div>
             </div>

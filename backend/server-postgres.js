@@ -590,6 +590,7 @@ const initializeDatabase = async () => {
         approval_type VARCHAR(255),
         software VARCHAR(255),
         cvt_file TEXT,
+        additional_files JSONB DEFAULT '[]',
         notes TEXT,
         created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
         updated_by VARCHAR(255),
@@ -597,6 +598,15 @@ const initializeDatabase = async () => {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `)
+
+    // Add additional_files to metrology if it doesn't exist
+    try {
+      await pool.query('ALTER TABLE metrology ADD COLUMN IF NOT EXISTS additional_files JSONB DEFAULT \'[]\'')
+      console.log('✅ Metrology table updated with additional_files column')
+    } catch (error) {
+      console.log('⚠️ Metrology additional_files column update skipped:', error.message)
+    }
+
     console.log('✅ Metrology table created')
 
     // Invoices table (linked by serial_number)
@@ -3825,7 +3835,7 @@ app.post('/api/metrology', async (req, res) => {
 
   try {
     const {
-      cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFile, cvt_file, cvt_filename, notes
+      cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFile, cvt_file, cvt_filename, notes, additional_files
     } = req.body
 
     // Accept BOTH cvtFile (old) and cvt_file (new) for compatibility
@@ -3850,9 +3860,10 @@ app.post('/api/metrology', async (req, res) => {
     const cleanCvtDate = normalizeDate(cvt_date)
     const cleanExpiryDate = normalizeDate(calculatedExpiryDate)
 
+    const params = [cvt_series, finalCvtNumber, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, cvt_filename, notes, 'admin', additional_files ? JSON.stringify(additional_files) : '[]']
     const result = await pool.query(
-      'INSERT INTO metrology (cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvt_file, cvt_filename, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *, cvt_file as "cvtFile"',
-      [cvt_series, finalCvtNumber, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, cvt_filename, notes, 'admin']
+      'INSERT INTO metrology (cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvt_file, cvt_filename, notes, created_by, additional_files) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING *, cvt_file as "cvtFile"',
+      params
     )
 
     res.status(201).json(result.rows[0])
@@ -3870,7 +3881,7 @@ app.put('/api/metrology/:id', async (req, res) => {
     const { id } = req.params
     const {
       cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority,
-      provider, cabinet, game_mix, approval_type, software, cvtFile, cvt_file, cvt_filename, notes
+      provider, cabinet, game_mix, approval_type, software, cvtFile, cvt_file, cvt_filename, notes, additional_files
     } = req.body
 
     console.log('Metrology PUT:', { id, cvt_series, hasFile: !!(cvt_file || cvtFile), cvt_filename })
@@ -3891,8 +3902,9 @@ app.put('/api/metrology/:id', async (req, res) => {
     const cleanCvtDate = normalizeDate(cvt_date)
     const cleanExpiryDate = normalizeDate(calculatedExpiryDate)
 
-    // Build update query - include cvt_filename
+    // Build update query - include cvt_filename and additional_files
     let query, params
+    let additionalFilesParam = additional_files !== undefined ? JSON.stringify(additional_files) : null;
     if (cvtFileData) {
       query = `UPDATE metrology SET 
         cvt_series = COALESCE($1, cvt_series), 
@@ -3910,10 +3922,11 @@ app.put('/api/metrology/:id', async (req, res) => {
         cvt_file = $13, 
         cvt_filename = $14,
         notes = COALESCE($15, notes), 
+        additional_files = COALESCE($16, additional_files),
         updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $16 
+        WHERE id = $17 
         RETURNING *, cvt_file as "cvtFile"`
-      params = [cvt_series, cvt_number, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, cvt_filename, notes, id]
+      params = [cvt_series, cvt_number, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, cvt_filename, notes, additionalFilesParam, id]
     } else {
       query = `UPDATE metrology SET 
         cvt_series = COALESCE($1, cvt_series), 
@@ -3929,10 +3942,11 @@ app.put('/api/metrology/:id', async (req, res) => {
         approval_type = COALESCE($11, approval_type), 
         software = COALESCE($12, software), 
         notes = COALESCE($13, notes), 
+        additional_files = COALESCE($14, additional_files),
         updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $14 
+        WHERE id = $15 
         RETURNING *, cvt_file as "cvtFile"`
-      params = [cvt_series, cvt_number, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, notes, id]
+      params = [cvt_series, cvt_number, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, notes, additionalFilesParam, id]
     }
 
     const result = await pool.query(query, params)

@@ -3,7 +3,7 @@ import Layout from '../components/Layout'
 import ExportButtons from '../components/ExportButtons'
 import { useData } from '../contexts/DataContext'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Activity, Plus, Search, Upload, Download, FileCheck, Settings, Wrench, ArrowLeft, Eye, Calendar, Users, FileText, AlertCircle, Clock } from 'lucide-react'
+import { Activity, Plus, Search, Upload, Download, FileCheck, Settings, Wrench, ArrowLeft, Eye, Calendar, Users, FileText, AlertCircle, Clock, Trash2 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import DataTable from '../components/DataTable'
 import MetrologyModal from '../components/modals/MetrologyModal'
@@ -425,20 +425,26 @@ const Metrology = () => {
               <span className="text-slate-300 dark:text-slate-600">→</span>
               <span className="text-slate-800 dark:text-slate-200 font-bold" title="Data expirare CVT">{expiryDate}</span>
             </div>
-            {daysRemaining && (
-              <div className={`px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 w-fit font-bold text-[11px] ${badgeClass}`}>
-                {icon}
-                {daysRemaining}
-              </div>
-            )}
+            <div className="flex items-center gap-2 mt-0.5">
+              {daysRemaining && (
+                <div className={`px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 w-fit font-bold text-[11px] ${badgeClass}`}>
+                  {icon}
+                  {daysRemaining}
+                </div>
+              )}
+              {item.issuing_authority && (
+                <div className="px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 w-fit font-bold text-[11px] text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 ring-1 ring-slate-200 dark:ring-slate-700">
+                  {item.issuing_authority}
+                </div>
+              )}
+            </div>
           </div>
         )
       }
     },
-    { key: 'issuing_authority', label: 'AUTORITATEA EMITENTĂ', sortable: true },
     {
       key: 'cvtFile',
-      label: 'DOCUMENT CVT',
+      label: 'CVT',
       sortable: false,
       render: (item) => {
         const hasCvt = item.cvt_file || item.cvtFile
@@ -1016,6 +1022,12 @@ const Metrology = () => {
                 onExportExcel={() => exportToExcel(filteredMetrology, 'metrology')}
                 onExportPDF={() => exportToPDF(filteredMetrology, 'metrology')}
               />
+              {showBulkActions && (
+                <button onClick={handleBulkDelete} className="btn-danger flex items-center space-x-2">
+                  <Trash2 className="w-4 h-4" />
+                  <span>Șterge {selectedItems.length} selectate</span>
+                </button>
+              )}
             </div>
           </div>
 
