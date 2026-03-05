@@ -3912,33 +3912,17 @@ app.post('/api/metrology/parse', async (req, res) => {
       if (parsedDate) extractedData.cvt_date = parsedDate;
       if (parsedExpiry) extractedData.expiry_date = parsedExpiry;
 
-      // --- SMART FALLBACK FOR SCANNED IMAGES ---
-      // Daca pdf-parse nu a citit niciun text, inseamna ca este o poza (scanata) nu text digital.
+      // --- FALLBACK FOR SCANNED IMAGES ---
+      // PDF-ul este o imagine scanată, pdf-parse nu poate citi textul.
+      // Extragem doar serial_number din numele fișierului, restul rămân goale pt completare manuală.
       if (text.trim().length < 50) {
         const fallBackFile = req.body.fileName || '';
         const matchNums = fallBackFile.match(/\d+/);
-        // Daca are un numar in nume (ex: 299724.pdf) vom folosi acel numar pt seria aparatului
-        const sn = matchNums ? matchNums[0] : String(Math.floor(Math.random() * 900000) + 100000);
+        if (matchNums) {
+          extractedData.serial_number = matchNums[0];
+        }
 
-        extractedData.serial_number = sn;
-        const sub1 = sn.substring(0, 4) || "1001";
-        const sub2 = sn.substring(4) || "01";
-        extractedData.cvt_series = `IC_ROM.SFX.${sub1}#${sub2}`;
-        extractedData.cvt_number = `${sub1}#${sub2}`;
-        extractedData.provider = "EGT";
-        extractedData.cabinet = "EGT-VS24";
-        extractedData.software = "BELL LINK BOOST";
-        extractedData.game_mix = "BELL LINK BOOST";
-        extractedData.approval_type = "MS 0030/25";
-
-        const tDate = new Date();
-        extractedData.cvt_date = tDate.toISOString().split('T')[0];
-        const exDate = new Date(tDate);
-        exDate.setFullYear(tDate.getFullYear() + 1);
-        exDate.setDate(tDate.getDate() - 1);
-        extractedData.expiry_date = exDate.toISOString().split('T')[0];
-
-        import('fs').then(fs => fs.appendFileSync('debug-bmm-parse.log', "\n-- IMAGE DETECTED. AUTO FALLBACK FIRED FOR SN " + sn + " --\n")).catch(e => e);
+        import('fs').then(fs => fs.appendFileSync('debug-bmm-parse.log', "\n-- IMAGE PDF DETECTED. Only serial extracted from filename: " + (matchNums ? matchNums[0] : 'none') + " --\n")).catch(e => e);
       }
 
     } catch (err) {
