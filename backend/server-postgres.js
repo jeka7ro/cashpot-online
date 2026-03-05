@@ -3854,10 +3854,49 @@ app.post('/api/metrology/parse', async (req, res) => {
       const pdfParse = (await import('pdf-parse')).default;
       const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
       const pdfBuffer = Buffer.from(base64Data, 'base64');
-      const data = await pdfParse(pdfBuffer);
-      const text = data.text;
 
-      import('fs').then(fs => fs.appendFileSync('debug-bmm-parse.log', "\n--- NEW PARSE ---\n" + text.substring(0, 1500) + "\n----------------\n")).catch(e => e);
+      // Step 1: Try pdf-parse first (works on text-based PDFs)
+      let text = '';
+      try {
+        const data = await pdfParse(pdfBuffer);
+        text = data.text || '';
+      } catch (e) { text = ''; }
+
+      // Step 2: If no text extracted, use Tesseract OCR (for scanned image PDFs)
+      if (text.trim().length < 50) {
+        console.log('[PDF Parse] Text-based extraction failed, switching to OCR...');
+        try {
+          const { pdf: pdfToImg } = await import('pdf-to-img');
+          const Tesseract = (await import('tesseract.js')).default;
+
+          // Write temp PDF file for pdf-to-img
+          const tmpPath = `/tmp/cvt-parse-${Date.now()}.pdf`;
+          const fs = await import('fs');
+          fs.writeFileSync(tmpPath, pdfBuffer);
+
+          const document = await pdfToImg(tmpPath, { scale: 2 });
+          let ocrText = '';
+          let pageNum = 0;
+
+          for await (const image of document) {
+            pageNum++;
+            if (pageNum > 2) break; // Max 2 pages
+
+            const result = await Tesseract.recognize(image, 'ron+eng');
+            ocrText += result.data.text + '\n';
+          }
+
+          // Cleanup temp file
+          try { fs.unlinkSync(tmpPath); } catch (e) { }
+
+          text = ocrText;
+          console.log('[PDF Parse] OCR extracted', text.length, 'chars from', pageNum, 'pages');
+        } catch (ocrErr) {
+          console.error('[PDF Parse] OCR failed:', ocrErr.message);
+        }
+      }
+
+      import('fs').then(fs => fs.appendFileSync('debug-bmm-parse.log', "\n--- NEW PARSE ---\n" + text.substring(0, 2000) + "\n----------------\n")).catch(e => e);
 
       extractedData.raw_cvt_data = { fullText: text.substring(0, 1000) };
 
@@ -3868,23 +3907,31 @@ app.post('/api/metrology/parse', async (req, res) => {
         return res;
       };
 
-      const parsedCvtSeries = getMatch(/Certificat de verificare[\s[\]/|]*Inspection certificate:\s*([\S\s]*?)(?=\n|$)/i);
-      const parsedCvtNumber = getMatch(/Cod verificare tehnic[ăa][\s[\]/|]*Inspection cod:\s*([\S\s]*?)(?=\n|$)/i);
-      const parsedSerialNumber = getMatch(/Serie mijloc de joc[\s[\]/|]*Serial number:\s*([\S\s]*?)(?=\n|$)/i);
+      // --- Regex patterns adapted for OCR text (may have OCR artifacts like | instead of /) ---
+      const parsedCvtSeries = getMatch(/Certificat de verificare[^:]*(?:Inspection certificate)?[^:]*:\s*\|?\s*([A-Z_][\w.#]+)/i);
+      const parsedCvtNumber = getMatch(/Cod verificare tehnic[ăa][^:]*(?:Inspection cod)?[^:]*:\s*([A-Z][\w.#]+)/i);
+      const parsedSerialNumber = getMatch(/Serie mijloc de joc[^:]*(?:Serial number)?[^:]*:\s*\|?\s*(\d[\d\-]+)/i);
 
-      let parsedProvider = getMatch(/Produc[ăa]tor[\s[\]/|]*Manufacturer:\s*([\S\s]*?)(?=\n|$)/i);
+      let parsedProvider = getMatch(/Produc[ăa]tor[^:]*(?:Manufacturer)?[^:]*:\s*([^\n]+)/i);
       if (parsedProvider.toUpperCase().includes("EURO GAMES") || parsedProvider.toUpperCase().includes("EGT")) parsedProvider = "EGT";
       if (parsedProvider.toUpperCase().includes("NOVOMATIC")) parsedProvider = "Novomatic";
+      if (parsedProvider.toUpperCase().includes("INTERBLOCK")) parsedProvider = "InterBlock";
 
-      const parsedApproval = getMatch(/Aprobare de tip[\s[\]/|]*Type approval:\s*([\S\s]*?)(?=\n|$)/i);
-      let parsedIssuer = getMatch(/Emitent[\s[\]/|]*Issuer:\s*([\S\s]*?)(?=\n|$)/i);
+      const parsedApproval = getMatch(/Aprobare de tip[^:]*(?:Type approval)?[^:]*:\s*([^\n]+)/i);
+      let parsedIssuer = getMatch(/Emitent[^:]*(?:Issuer)?[^:]*:\s*([^\n]+)/i);
+      // Normalize known issuers
       if (parsedIssuer.toUpperCase().includes("BMM")) parsedIssuer = "BMM";
+      if (parsedIssuer.toUpperCase().includes("METRON")) parsedIssuer = "Metron Serv S.R.L.";
+      if (parsedIssuer.toUpperCase().includes("REGIO METRO")) parsedIssuer = "Regio Metro Cert S.R.L.";
 
-      let parsedSoftware = getMatch(/Nume program[\s[\]/|]*Software(?:'s)? name:\s*([\S\s]*?)(?=\n|$)/i);
-      let parsedCabinet = getMatch(/Cabinet[\s[\]|/]*\(?Cabinet\)?\s*:\s*([\S\s]*?)(?=\n|$)/i);
+      let parsedSoftware = getMatch(/Nume program[^:]*(?:Software)?[^:]*(?:name)?[^:]*:\s*([^\n]+)/i);
+      let parsedCabinet = getMatch(/Cabinet[^:]*\(?Cabinet\)?[^:]*:\s*([^\n]+)/i);
 
-      const parsedDateStr = getMatch(/Data verific[ăa]rii[\s[\]/|]*Date of verification:\s*([\d\.\-\/]+)/i);
-      const parsedExpiryStr = getMatch(/Valabil p[âa]n[ăa] la[\s\S]*?(?:inclusiv|including)[^\:]*:\s*([\d\.\-\/]+)/i);
+      // Also try to extract the full game type description (Tip mijloc de joc)
+      let parsedGameType = getMatch(/Tip\s*mijloc\s*(?:de|du)\s*(?:joc|Ra)[^:]*(?:Type of gam[^\n]*)?[^:]*:\s*([^\n]+)/i);
+
+      const parsedDateStr = getMatch(/Data verific[ăa]rii[^:]*(?:Date of verification)?[^:]*:\s*\|?\s*(\d{2}\.\d{2}\.\d{4})/i);
+      const parsedExpiryStr = getMatch(/Valabil p[âa]n[ăa] la[^:]*(?:inclusiv|including)?[^:]*:\s*\|?\s*(\d{2}\.\d{2}\.\d{4})/i);
 
       let parsedDate = null;
       let parsedExpiry = null;
@@ -3902,28 +3949,15 @@ app.post('/api/metrology/parse', async (req, res) => {
       if (parsedCvtNumber) extractedData.cvt_number = parsedCvtNumber;
       if (parsedSerialNumber) extractedData.serial_number = parsedSerialNumber;
       if (parsedProvider) extractedData.provider = parsedProvider;
-      if (parsedApproval) extractedData.approval_type = parsedApproval;
+      if (parsedApproval) extractedData.approval_type = parsedApproval.trim();
       if (parsedIssuer) extractedData.issuing_authority = parsedIssuer;
       if (parsedSoftware) {
-        extractedData.software = parsedSoftware;
-        extractedData.game_mix = parsedSoftware;
+        extractedData.software = parsedSoftware.trim();
+        extractedData.game_mix = parsedSoftware.trim();
       }
-      if (parsedCabinet) extractedData.cabinet = parsedCabinet;
+      if (parsedCabinet) extractedData.cabinet = parsedCabinet.trim();
       if (parsedDate) extractedData.cvt_date = parsedDate;
       if (parsedExpiry) extractedData.expiry_date = parsedExpiry;
-
-      // --- FALLBACK FOR SCANNED IMAGES ---
-      // PDF-ul este o imagine scanată, pdf-parse nu poate citi textul.
-      // Extragem doar serial_number din numele fișierului, restul rămân goale pt completare manuală.
-      if (text.trim().length < 50) {
-        const fallBackFile = req.body.fileName || '';
-        const matchNums = fallBackFile.match(/\d+/);
-        if (matchNums) {
-          extractedData.serial_number = matchNums[0];
-        }
-
-        import('fs').then(fs => fs.appendFileSync('debug-bmm-parse.log', "\n-- IMAGE PDF DETECTED. Only serial extracted from filename: " + (matchNums ? matchNums[0] : 'none') + " --\n")).catch(e => e);
-      }
 
     } catch (err) {
       console.error("PDF Parsing dynamically failed", err);
