@@ -1105,7 +1105,10 @@ const Metrology = () => {
             </div>
           </div>
 
-
+          <ONJNCalendarModal
+            isOpen={showONJNCalendar}
+            onClose={() => setShowONJNCalendar(false)}
+          />
 
           {/* Search and Filters */}
           <div className="card p-6">
