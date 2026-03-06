@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { X, Calendar, Clock, MapPin, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react'
+import axios from 'axios'
 
 const ONJNCalendarModal = ({ isOpen, onClose }) => {
   const [commissions, setCommissions] = useState([])
@@ -13,50 +14,6 @@ const ONJNCalendarModal = ({ isOpen, onClose }) => {
     'Iulie', 'August', 'Septembrie', 'Octombrie', 'Noiembrie', 'Decembrie'
   ]
 
-  // Mock data pentru demonstrație - în producție se va înlocui cu date reale de la ONJN
-  const mockCommissions = [
-    {
-      id: 1,
-      title: 'Comisia de Autorizare - Sloturi Electronice',
-      date: '2025-10-15',
-      time: '09:00',
-      location: 'București, Bd. Magheru 28-30',
-      type: 'Autorizare',
-      status: 'Programată',
-      description: 'Examinarea cererilor de autorizare pentru sloturi electronice'
-    },
-    {
-      id: 2,
-      title: 'Comisia de Metrologie - Verificare CVT',
-      date: '2025-10-22',
-      time: '10:30',
-      location: 'București, Bd. Magheru 28-30',
-      type: 'Metrologie',
-      status: 'Programată',
-      description: 'Verificarea certificatelor de verificare tehnică'
-    },
-    {
-      id: 3,
-      title: 'Comisia de Control - Inspecții Teren',
-      date: '2025-11-05',
-      time: '08:00',
-      location: 'Cluj-Napoca, Str. Memorandumului 28',
-      type: 'Control',
-      status: 'Programată',
-      description: 'Inspecții de control la operatorii de jocuri de noroc'
-    },
-    {
-      id: 4,
-      title: 'Comisia de Autorizare - Licențe',
-      date: '2025-11-12',
-      time: '14:00',
-      location: 'București, Bd. Magheru 28-30',
-      type: 'Autorizare',
-      status: 'Programată',
-      description: 'Examinarea cererilor de licențiere pentru operatori'
-    }
-  ]
-
   useEffect(() => {
     if (isOpen) {
       loadCommissions()
@@ -66,21 +23,26 @@ const ONJNCalendarModal = ({ isOpen, onClose }) => {
   const loadCommissions = async () => {
     setLoading(true)
     setError(null)
-    
+
     try {
-      // Simulare încărcare date - în producție se va face request la ONJN
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Filtrare după lună și an
-      const filteredCommissions = mockCommissions.filter(commission => {
-        const commissionDate = new Date(commission.date)
-        return commissionDate.getMonth() === selectedMonth && 
-               commissionDate.getFullYear() === selectedYear
-      })
-      
-      setCommissions(filteredCommissions)
+      const response = await axios.get('/api/onjn-calendar')
+
+      if (response.data && response.data.success) {
+        let allCommissions = response.data.commissions || []
+
+        // Filtrare după lună și an
+        const filteredCommissions = allCommissions.filter(commission => {
+          const commissionDate = new Date(commission.date)
+          return commissionDate.getMonth() === selectedMonth &&
+            commissionDate.getFullYear() === selectedYear
+        })
+
+        setCommissions(filteredCommissions)
+      } else {
+        setError('Date invalide de la ONJN')
+      }
     } catch (err) {
-      setError('Eroare la încărcarea calendarului ONJN')
+      setError('Nu s-a putut contacta serverul ONJN. Posibil serverul guvernului este offline temporar.')
       console.error('Error loading ONJN calendar:', err)
     } finally {
       setLoading(false)
@@ -244,9 +206,9 @@ const ONJNCalendarModal = ({ isOpen, onClose }) => {
                           {commission.status}
                         </span>
                       </div>
-                      
+
                       <p className="text-gray-600 mb-4">{commission.description}</p>
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="flex items-center space-x-2 text-gray-600">
                           <Calendar className="w-4 h-4" />
@@ -268,7 +230,7 @@ const ONJNCalendarModal = ({ isOpen, onClose }) => {
                         </div>
                       </div>
                     </div>
-                    
+
                     <button
                       onClick={() => window.open('https://onjn.gov.ro/structura-organizatorica/autorizare/', '_blank')}
                       className="ml-4 p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"

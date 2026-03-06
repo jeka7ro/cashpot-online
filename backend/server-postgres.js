@@ -3920,10 +3920,13 @@ app.post('/api/metrology/parse', async (req, res) => {
           let pageNum = 0;
 
           // INIT TESSERACT WORKER PROPERLY TO CONTROL MEMORY
-          const worker = await Tesseract.createWorker('ron', 1, {
+          const worker = await Tesseract.createWorker({
             cachePath: '/tmp',
             logger: m => console.log(m.status, Math.round((m.progress || 0) * 100) + '%')
           });
+
+          await worker.loadLanguage('ron');
+          await worker.initialize('ron');
 
           for await (const image of document) {
             pageNum++;
@@ -4704,6 +4707,70 @@ import onjnClass1Routes from './routes/onjnClass1.js'
 app.get('/api/onjn-operators/refresh-status', (req, res) => {
   res.json(refreshProgressManager.get())
 })
+
+// ONJN Calendar scraper route
+app.get('/api/onjn-calendar', async (req, res) => {
+  try {
+    const cheerio = await import('cheerio')
+    const https = await import('node:https')
+
+    const agent = new https.default.Agent({
+      rejectUnauthorized: false
+    })
+
+    const response = await axios.get('https://onjn.gov.ro/structura-organizatorica/autorizare/', {
+      httpsAgent: agent,
+      timeout: 10000
+    })
+
+    const { load } = cheerio
+    const $ = load(response.data)
+
+    const commissions = []
+    let idCounter = 1
+
+    $('table').each((i, table) => {
+      const text = $(table).text()
+      if (text.includes('Ianuarie') || text.includes('Februarie') || text.includes('Martie')) {
+        $(table).find('tr').each((j, row) => {
+          const cols = $(row).find('td, th')
+          if (cols.length >= 4) {
+            const data1 = $(cols[1]).text().trim()
+            const data2 = $(cols[3]).text().trim()
+
+            const dateRegex = /(\d{2})\.(\d{2})\.(\d{4})/g
+            const processMatches = (textToParse) => {
+              let match;
+              while ((match = dateRegex.exec(textToParse)) !== null) {
+                const [_, d, m, y] = match;
+                commissions.push({
+                  id: idCounter++,
+                  title: 'Ședința Comitetului de Supraveghere',
+                  date: `${y}-${m}-${d}`,
+                  time: '10:00',
+                  location: 'Sediul ONJN București',
+                  type: 'Autorizare',
+                  status: 'Programată',
+                  description: 'Examinarea cererilor pentru acordarea licențelor și autorizațiilor'
+                })
+              }
+            }
+
+            processMatches(data1)
+            processMatches(data2)
+          }
+        })
+      }
+    })
+
+    // If no data scraped (e.g., website structure changed or no dates), handle gracefully without crashing.
+    res.json({ success: true, commissions })
+  } catch (error) {
+    console.error('Error fetching ONJN calendar:', error.message)
+    res.status(500).json({ success: false, error: 'Nu s-a putut descărca programul de pe ONJN.gov.ro' })
+  }
+})
+
 
 // Public endpoint for JSON import (no authentication required)
 app.post('/api/onjn-operators/import-json', async (req, res) => {
