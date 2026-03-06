@@ -91,6 +91,18 @@ const SmartScanCvtModal = ({ onClose, onScanComplete }) => {
 
       if (response.data && response.data.success) {
         const extracted = response.data.data;
+
+        // Auto-calculate expiry date if missing
+        if (!extracted.expiry_date && extracted.cvt_date && (extracted.cvt_type === 'Periodică' || extracted.cvt_type === 'Inițială')) {
+          const cvtDateObj = new Date(extracted.cvt_date);
+          if (!isNaN(cvtDateObj.getTime())) {
+            const expiryDateObj = new Date(cvtDateObj);
+            expiryDateObj.setFullYear(expiryDateObj.getFullYear() + 1);
+            expiryDateObj.setDate(expiryDateObj.getDate() - 1);
+            extracted.expiry_date = expiryDateObj.toISOString().split('T')[0];
+          }
+        }
+
         toast.success(response.data.message || 'Date extrase și autocompletate cu succes!', { id: loadingId });
 
         // Pass the extracted data along with the base64 preview backward to Metrology.jsx

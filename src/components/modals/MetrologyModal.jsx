@@ -287,21 +287,38 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
         const extracted = response.data.data;
 
         // Populate form data
-        setFormData(prev => ({
-          ...prev,
-          cvt_series: extracted.cvt_series || prev.cvt_series,
-          serial_number: extracted.serial_number || prev.serial_number,
-          cvt_type: extracted.cvt_type || prev.cvt_type,
-          cvt_date: extracted.cvt_date || prev.cvt_date,
-          expiry_date: extracted.expiry_date || prev.expiry_date,
-          issuing_authority: extracted.issuing_authority || prev.issuing_authority,
-          provider: extracted.provider || prev.provider,
-          cabinet: extracted.cabinet || prev.cabinet,
-          game_mix: extracted.game_mix || prev.game_mix,
-          approval_type: extracted.approval_type || prev.approval_type,
-          software: extracted.software || prev.software,
-          raw_cvt_data: extracted.raw_cvt_data || prev.raw_cvt_data
-        }));
+        setFormData(prev => {
+          const newType = extracted.cvt_type || prev.cvt_type;
+          const newCvtDate = extracted.cvt_date || prev.cvt_date;
+          let newExpiryDate = extracted.expiry_date || prev.expiry_date;
+
+          // Auto-calculate expiry date if it wasn't extracted but we have a cvt_date
+          if (!extracted.expiry_date && newCvtDate && (newType === 'Periodică' || newType === 'Inițială')) {
+            const cvtDateObj = new Date(newCvtDate);
+            if (!isNaN(cvtDateObj.getTime())) {
+              const expiryDateObj = new Date(cvtDateObj);
+              expiryDateObj.setFullYear(expiryDateObj.getFullYear() + 1);
+              expiryDateObj.setDate(expiryDateObj.getDate() - 1);
+              newExpiryDate = expiryDateObj.toISOString().split('T')[0];
+            }
+          }
+
+          return {
+            ...prev,
+            cvt_series: extracted.cvt_series || prev.cvt_series,
+            serial_number: extracted.serial_number || prev.serial_number,
+            cvt_type: newType,
+            cvt_date: newCvtDate,
+            expiry_date: newExpiryDate,
+            issuing_authority: extracted.issuing_authority || prev.issuing_authority,
+            provider: extracted.provider || prev.provider,
+            cabinet: extracted.cabinet || prev.cabinet,
+            game_mix: extracted.game_mix || prev.game_mix,
+            approval_type: extracted.approval_type || prev.approval_type,
+            software: extracted.software || prev.software,
+            raw_cvt_data: extracted.raw_cvt_data || prev.raw_cvt_data
+          };
+        });
 
         toast.success(response.data.message || 'Date extrase și autocompletate cu succes!', { id: loadingId });
 

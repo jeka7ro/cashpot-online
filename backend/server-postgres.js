@@ -797,6 +797,46 @@ const initializeDatabase = async () => {
       console.log('⚠️ Authorities table may already exist:', error.message)
     }
 
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS software (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          provider VARCHAR(255),
+          cabinet VARCHAR(255),
+          game_mix VARCHAR(255),
+          description TEXT,
+          status VARCHAR(50) DEFAULT 'Active',
+          created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+      console.log('✅ Software table created')
+    } catch (error) {
+      console.log('⚠️ Software table may already exist:', error.message)
+    }
+
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS approvals (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          provider VARCHAR(255),
+          cabinet VARCHAR(255),
+          software VARCHAR(255),
+          description TEXT,
+          status VARCHAR(50) DEFAULT 'Active',
+          created_by VARCHAR(255) DEFAULT 'Eugeniu Cazmal',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+      console.log('✅ Approvals table created')
+    } catch (error) {
+      console.log('⚠️ Approvals table may already exist:', error.message)
+    }
+
     // Add created_by and created_at columns to all tables
     const tables = ['providers', 'cabinets', 'game_mixes', 'slots', 'locations', 'warehouse', 'metrology', 'jackpots', 'invoices', 'legalDocuments', 'onjnReports', 'authorities', 'users']
 
@@ -3874,17 +3914,27 @@ app.post('/api/metrology/parse', async (req, res) => {
           const fs = await import('fs');
           fs.writeFileSync(tmpPath, pdfBuffer);
 
-          const document = await pdfToImg(tmpPath, { scale: 2 });
+          // REDUCE SCALE TO AVOID OOM (Out Of Memory) ON RENDER 512MB
+          const document = await pdfToImg(tmpPath, { scale: 1 });
           let ocrText = '';
           let pageNum = 0;
 
+          // INIT TESSERACT WORKER PROPERLY TO CONTROL MEMORY
+          const worker = await Tesseract.createWorker('ron', 1, {
+            cachePath: '/tmp',
+            logger: m => console.log(m.status, Math.round((m.progress || 0) * 100) + '%')
+          });
+
           for await (const image of document) {
             pageNum++;
-            if (pageNum > 2) break; // Max 2 pages
+            // ONLY PROCESS PAGE 1 TO AVOID MASSIVE MEMORY SPIKES
+            if (pageNum > 1) break;
 
-            const result = await Tesseract.recognize(image, 'ron+eng');
+            const result = await worker.recognize(image);
             ocrText += result.data.text + '\n';
           }
+
+          await worker.terminate(); // VERY IMPORTANT: FREE MEMORY
 
           // Cleanup temp file
           try { fs.unlinkSync(tmpPath); } catch (e) { }
@@ -3931,7 +3981,7 @@ app.post('/api/metrology/parse', async (req, res) => {
       let parsedGameType = getMatch(/Tip\s*mijloc\s*(?:de|du)\s*(?:joc|Ra)[^:]*(?:Type of gam[^\n]*)?[^:]*:\s*([^\n]+)/i);
 
       const parsedDateStr = getMatch(/Data verific[ăa]rii[^:]*(?:Date of verification)?[^:]*:\s*\|?\s*(\d{2}\.\d{2}\.\d{4})/i);
-      const parsedExpiryStr = getMatch(/Valabil p[âa]n[ăa] la[^:]*(?:inclusiv|including)?[^:]*:\s*\|?\s*(\d{2}\.\d{2}\.\d{4})/i);
+      const parsedExpiryStr = getMatch(/(?:Valabil p[âa]n[ăa] la|Data valabilit[ăa]?[țt]ii?)[^:]*(?:inclusiv|including)?[^:]*:\s*\|?\s*(\d{2}\.\d{2}\.\d{4})/i);
 
       let parsedDate = null;
       let parsedExpiry = null;
