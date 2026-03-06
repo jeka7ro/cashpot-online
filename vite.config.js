@@ -1,16 +1,25 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   base: '/',
+  resolve: {
+    alias: {
+      // Force single React copy — prevents "more than one copy of React" error
+      'react': path.resolve('./node_modules/react'),
+      'react-dom': path.resolve('./node_modules/react-dom'),
+    },
+    dedupe: ['react', 'react-dom'],
+  },
   server: {
     host: process.env.VITE_HOST || '0.0.0.0', // Allow external access when needed
     port: parseInt(process.env.VITE_PORT || '5173'), // Default 5173, can override with VITE_PORT=9858
     proxy: {
       '/api': {
-        target: process.env.VITE_API_URL || 'http://localhost:5001',
+        target: process.env.VITE_API_URL || 'http://127.0.0.1:5001',
         changeOrigin: true,
         secure: false,
         configure: (proxy, _options) => {
@@ -26,12 +35,12 @@ export default defineConfig({
         },
       },
       '/uploads': {
-        target: process.env.VITE_API_URL || 'http://localhost:5001',
+        target: process.env.VITE_API_URL || 'http://127.0.0.1:5001',
         changeOrigin: true,
         secure: false,
       },
       '/health': {
-        target: process.env.VITE_API_URL || 'http://localhost:5001',
+        target: process.env.VITE_API_URL || 'http://127.0.0.1:5001',
         changeOrigin: true,
         secure: false,
         configure: (proxy, _options) => {
@@ -47,7 +56,7 @@ export default defineConfig({
         },
       },
       '/legal': {
-        target: process.env.VITE_API_URL || 'http://localhost:5001',
+        target: process.env.VITE_API_URL || 'http://127.0.0.1:5001',
         changeOrigin: true,
         secure: false,
       }

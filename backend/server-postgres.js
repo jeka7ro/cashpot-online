@@ -3891,16 +3891,26 @@ app.post('/api/metrology/parse', async (req, res) => {
     };
 
     try {
-      const pdfParse = (await import('pdf-parse')).default;
       const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
       const pdfBuffer = Buffer.from(base64Data, 'base64');
 
       // Step 1: Try pdf-parse first (works on text-based PDFs)
       let text = '';
       try {
-        const data = await pdfParse(pdfBuffer);
-        text = data.text || '';
-      } catch (e) { text = ''; }
+        const pdfMod = await import('pdf-parse');
+        // pdf-parse v2+ exports PDFParse class; v1 exports default function
+        if (typeof pdfMod.default === 'function') {
+          const data = await pdfMod.default(pdfBuffer);
+          text = data.text || '';
+        } else if (pdfMod.PDFParse) {
+          const parser = new pdfMod.PDFParse(null, { verbosity: 0 });
+          await parser.loadPDF(pdfBuffer);
+          text = parser.getRawTextContent?.() || '';
+        }
+      } catch (e) {
+        console.log('[PDF Parse] pdf-parse text extraction failed:', e.message);
+        text = '';
+      }
 
       // Step 2: If no text extracted, use Tesseract OCR (for scanned image PDFs)
       if (text.trim().length < 50) {
@@ -3914,27 +3924,29 @@ app.post('/api/metrology/parse', async (req, res) => {
           const fs = await import('fs');
           fs.writeFileSync(tmpPath, pdfBuffer);
 
-          // REDUCE SCALE TO AVOID OOM (Out Of Memory) ON RENDER 512MB
-          const document = await pdfToImg(tmpPath, { scale: 1 });
+          // Scale 2.0 for local dev (high quality OCR), use 0.4 on Render.com 512MB
+          // Only true when actually running ON Render.com (RENDER env is set by the platform)
+          const isRender = process.env.RENDER === 'true';
+          const ocrScale = isRender ? 0.4 : 2.0;
+          const maxPages = isRender ? 1 : 2;
+          console.log(`[PDF Parse] Using OCR scale ${ocrScale}, max ${maxPages} pages`);
+          const document = await pdfToImg(tmpPath, { scale: ocrScale });
           let ocrText = '';
           let pageNum = 0;
 
-          // INIT TESSERACT WORKER PROPERLY TO CONTROL MEMORY
-          const worker = await Tesseract.createWorker({
-            cachePath: '/tmp',
-            logger: m => console.log(m.status, Math.round((m.progress || 0) * 100) + '%')
+          // INIT TESSERACT WORKER — v5+ API: pass lang directly to createWorker
+          const worker = await Tesseract.createWorker('ron', 1, {
+            cachePath: '/tmp'
           });
-
-          await worker.loadLanguage('ron');
-          await worker.initialize('ron');
 
           for await (const image of document) {
             pageNum++;
-            // ONLY PROCESS PAGE 1 TO AVOID MASSIVE MEMORY SPIKES
-            if (pageNum > 1) break;
+            if (pageNum > maxPages) break;
 
+            console.log(`[PDF Parse] OCR processing page ${pageNum}...`);
             const result = await worker.recognize(image);
             ocrText += result.data.text + '\n';
+            console.log(`[PDF Parse] Page ${pageNum}: ${result.data.text.length} chars extracted`);
           }
 
           await worker.terminate(); // VERY IMPORTANT: FREE MEMORY
@@ -3953,6 +3965,7 @@ app.post('/api/metrology/parse', async (req, res) => {
 
       extractedData.raw_cvt_data = { fullText: text.substring(0, 1000) };
 
+      // --- Flexible regex helper: tries multiple patterns ---
       const getMatch = (regex, fallback = '') => {
         const match = text.match(regex);
         let res = match ? match[1].trim() : fallback;
@@ -3960,31 +3973,101 @@ app.post('/api/metrology/parse', async (req, res) => {
         return res;
       };
 
-      // --- Regex patterns adapted for OCR text (may have OCR artifacts like | instead of /) ---
-      const parsedCvtSeries = getMatch(/Certificat de verificare[^:]*(?:Inspection certificate)?[^:]*:\s*\|?\s*([A-Z_][\w.#]+)/i);
-      const parsedCvtNumber = getMatch(/Cod verificare tehnic[ăa][^:]*(?:Inspection cod)?[^:]*:\s*([A-Z][\w.#]+)/i);
-      const parsedSerialNumber = getMatch(/Serie mijloc de joc[^:]*(?:Serial number)?[^:]*:\s*\|?\s*(\d[\d\-]+)/i);
+      const getFirstMatch = (patterns, fallback = '') => {
+        for (const regex of patterns) {
+          const match = text.match(regex);
+          if (match && match[1]?.trim()) return match[1].trim();
+        }
+        return fallback;
+      };
 
-      let parsedProvider = getMatch(/Produc[ăa]tor[^:]*(?:Manufacturer)?[^:]*:\s*([^\n]+)/i);
+      // --- CVT Series (Certificat de verificare / Inspection certificate) ---
+      // OCR example: "Certificat de verificare/ Inspection certificate: | IC_ROM.SFX.1002.01%91"
+      const parsedCvtSeries = getFirstMatch([
+        /Certificat de verificare[^:]*(?:Inspection certificate)?[^:]*:\s*\|?\s*([A-Z_][\w.#%]+)/i,
+        /Certificat[^:]*:\s*\|?\s*([A-Z_][\w.#%]+)/i,
+        /BMM-VT-[\d]+/i  // fallback: the BMM seal number from header
+      ]);
+
+      // --- CVT Number (Cod verificare tehnică) ---
+      // OCR example: "Cod verificare tehnică/ /nspection cod: ROM.SFX.1002.01%91"
+      const parsedCvtNumber = getFirstMatch([
+        /Cod verificare tehnic[ăa][^:]*(?:Inspection|nspection)?[^:]*:\s*\|?\s*([A-Z][\w.#%]+)/i,
+        /cod[^:]*:\s*([A-Z][\w.#%]+)/i
+      ]);
+
+      // --- Serial Number ---
+      // OCR example: "Serie mijloc de joc/ Serial number: 118856"
+      const parsedSerialNumber = getFirstMatch([
+        /Serie mijloc de joc[^:]*(?:Serial number)?[^:]*:\s*\|?\s*(\d[\d\-]+)/i,
+        /Serial number[^:]*:\s*\|?\s*(\d[\d\-]+)/i,
+        /Serie[^:]*:\s*\|?\s*(\d[\d\-]+)/i
+      ]);
+
+      // --- Provider (Producător / Manufacturer) ---
+      // OCR example: "Producător/ Manufacturer: EURO GAMES TECHNOLOGY Ltd., BULGARIA"
+      let parsedProvider = getFirstMatch([
+        /Produc[ăa]tor[^:]*(?:Manufacturer)?[^:]*:\s*([^\n]+)/i,
+        /Manufacturer[^:]*:\s*([^\n]+)/i
+      ]);
       if (parsedProvider.toUpperCase().includes("EURO GAMES") || parsedProvider.toUpperCase().includes("EGT")) parsedProvider = "EGT";
       if (parsedProvider.toUpperCase().includes("NOVOMATIC")) parsedProvider = "Novomatic";
       if (parsedProvider.toUpperCase().includes("INTERBLOCK")) parsedProvider = "InterBlock";
+      if (parsedProvider.toUpperCase().includes("AMATIC")) parsedProvider = "Amatic";
 
-      const parsedApproval = getMatch(/Aprobare de tip[^:]*(?:Type approval)?[^:]*:\s*([^\n]+)/i);
-      let parsedIssuer = getMatch(/Emitent[^:]*(?:Issuer)?[^:]*:\s*([^\n]+)/i);
+      // --- Approval type (Aprobare de tip / Marca de autentificare) ---
+      const parsedApproval = getFirstMatch([
+        /Aprobare de tip[^:]*(?:Type approval)?[^:]*:\s*([^\n]+)/i,
+        /Marca de autentificare[^:]*(?:Authentication mark)?[^:]*:\s*\|?\s*([^\n]+)/i
+      ]);
+
+      // --- Issuer (Emitent) ---
+      // OCR example: "[Emitent] lsuer,___________ |otetron Serv SRL." → tricky!
+      let parsedIssuer = getFirstMatch([
+        /Emitent[^:]*(?:Issuer|lsuer)?[^:]*:\s*([^\n]+)/i,
+        /\[?Emitent\]?\s*[^:_]*[_|:,]+\s*\|?\s*([^\n_]+)/i,
+        /Issuer[^:]*:\s*([^\n]+)/i
+      ]);
+      // Clean OCR artifacts from issuer
+      parsedIssuer = parsedIssuer.replace(/^[\s|_,]+/, '').replace(/[_|]+$/, '').trim();
       // Normalize known issuers
       if (parsedIssuer.toUpperCase().includes("BMM")) parsedIssuer = "BMM";
-      if (parsedIssuer.toUpperCase().includes("METRON")) parsedIssuer = "Metron Serv S.R.L.";
+      if (parsedIssuer.toUpperCase().includes("METRON") || parsedIssuer.toLowerCase().includes("etron")) parsedIssuer = "Metron Serv S.R.L.";
       if (parsedIssuer.toUpperCase().includes("REGIO METRO")) parsedIssuer = "Regio Metro Cert S.R.L.";
+      if (parsedIssuer.toUpperCase().includes("RMC")) parsedIssuer = "RMC";
 
-      let parsedSoftware = getMatch(/Nume program[^:]*(?:Software)?[^:]*(?:name)?[^:]*:\s*([^\n]+)/i);
-      let parsedCabinet = getMatch(/Cabinet[^:]*\(?Cabinet\)?[^:]*:\s*([^\n]+)/i);
+      // --- Software ---
+      // OCR example: "Nume program/ Software's name: UNION COLLECTION"
+      let parsedSoftware = getFirstMatch([
+        /Nume program[^:]*(?:Software)?[^:]*(?:name)?[^:]*:\s*([^\n]+)/i,
+        /Software[''']?s?\s*name[^:]*:\s*([^\n]+)/i
+      ]);
 
-      // Also try to extract the full game type description (Tip mijloc de joc)
-      let parsedGameType = getMatch(/Tip\s*mijloc\s*(?:de|du)\s*(?:joc|Ra)[^:]*(?:Type of gam[^\n]*)?[^:]*:\s*([^\n]+)/i);
+      // --- Cabinet ---
+      // OCR example: "Cabinet/ (Cabinet): EGT-VS13 (P-27/32H St))"
+      let parsedCabinet = getFirstMatch([
+        /Cabinet[^:]*\(?Cabinet\)?[^:]*:\s*([^\n]+)/i,
+        /Cabinet[^:]*:\s*([^\n]+)/i
+      ]);
 
-      const parsedDateStr = getMatch(/Data verific[ăa]rii[^:]*(?:Date of verification)?[^:]*:\s*\|?\s*(\d{2}\.\d{2}\.\d{4})/i);
-      const parsedExpiryStr = getMatch(/(?:Valabil p[âa]n[ăa] la|Data valabilit[ăa]?[țt]ii?)[^:]*(?:inclusiv|including)?[^:]*:\s*\|?\s*(\d{2}\.\d{2}\.\d{4})/i);
+      // --- Game type (Tip mijloc de joc) ---
+      let parsedGameType = getFirstMatch([
+        /Tip\s*mijloc\s*(?:de|du)\s*(?:joc|Ra)[^:]*(?:Type of gam[^\n]*)?[^:]*:\s*([^\n]+)/i,
+        /Type of gaming device[^:]*:\s*([^\n]+)/i
+      ]);
+
+      // --- Verification date ---
+      // OCR example: "Data verificării/ Date of verification: 03.03.2026"
+      const parsedDateStr = getFirstMatch([
+        /Data verific[ăa]rii[^:]*(?:Date of verification)?[^:]*:\s*\|?\s*(\d{2}\.\d{2}\.\d{4})/i,
+        /Date of verification[^:]*:\s*\|?\s*(\d{2}\.\d{2}\.\d{4})/i
+      ]);
+
+      // --- Expiry date ---
+      const parsedExpiryStr = getFirstMatch([
+        /(?:Valabil p[âa]n[ăa] la|Data valabilit[ăa]?[țt]ii?)[^:]*(?:inclusiv|including)?[^:]*:\s*\|?\s*(\d{2}\.\d{2}\.\d{4})/i,
+        /Data expir[ăa]rii[^:]*:\s*\|?\s*(\d{2}\.\d{2}\.\d{4})/i
+      ]);
 
       let parsedDate = null;
       let parsedExpiry = null;
@@ -3996,6 +4079,17 @@ app.post('/api/metrology/parse', async (req, res) => {
       if (parsedExpiryStr && parsedExpiryStr.match(/^\d{2}\.\d{2}\.\d{4}$/)) {
         const parts = parsedExpiryStr.split('.');
         parsedExpiry = `${parts[2]}-${parts[1]}-${parts[0]}`;
+      }
+
+      // Auto-calculate expiry if not found (cvt_date + 1 year - 1 day)
+      if (!parsedExpiry && parsedDate) {
+        const d = new Date(parsedDate);
+        if (!isNaN(d.getTime())) {
+          d.setFullYear(d.getFullYear() + 1);
+          d.setDate(d.getDate() - 1);
+          parsedExpiry = d.toISOString().split('T')[0];
+          console.log('[PDF Parse] Auto-calculated expiry:', parsedExpiry);
+        }
       }
 
       if (parsedCvtSeries) extractedData.cvt_series = parsedCvtSeries;
@@ -4018,39 +4112,51 @@ app.post('/api/metrology/parse', async (req, res) => {
 
     // Auto-Create Missing Options/Subpages
     // 1. Providers
-    const provCheck = await pool.query('SELECT * FROM providers WHERE name = $1', [extractedData.provider]);
-    if (provCheck.rows.length === 0) {
-      await pool.query('INSERT INTO providers (name, contact, phone, status) VALUES ($1, $2, $3, $4)', [extractedData.provider, 'Auto', 'Auto', 'Active']);
+    if (extractedData.provider) {
+      const provCheck = await pool.query('SELECT * FROM providers WHERE name = $1', [extractedData.provider]);
+      if (provCheck.rows.length === 0) {
+        await pool.query('INSERT INTO providers (name, contact, phone, status) VALUES ($1, $2, $3, $4)', [extractedData.provider, 'Auto', 'Auto', 'Active']);
+      }
     }
 
     // 2. Cabinets
-    const cabCheck = await pool.query('SELECT * FROM cabinets WHERE name = $1', [extractedData.cabinet]);
-    if (cabCheck.rows.length === 0) {
-      await pool.query('INSERT INTO cabinets (name, provider) VALUES ($1, $2)', [extractedData.cabinet, extractedData.provider]);
+    if (extractedData.cabinet) {
+      const cabCheck = await pool.query('SELECT * FROM cabinets WHERE name = $1', [extractedData.cabinet]);
+      if (cabCheck.rows.length === 0) {
+        await pool.query('INSERT INTO cabinets (name, provider) VALUES ($1, $2)', [extractedData.cabinet, extractedData.provider]);
+      }
     }
 
     // 3. Game Mixes
-    const mixCheck = await pool.query('SELECT * FROM game_mixes WHERE name = $1', [extractedData.game_mix]);
-    if (mixCheck.rows.length === 0) {
-      await pool.query('INSERT INTO game_mixes (name, provider) VALUES ($1, $2)', [extractedData.game_mix, extractedData.provider]);
+    if (extractedData.game_mix) {
+      const mixCheck = await pool.query('SELECT * FROM game_mixes WHERE name = $1', [extractedData.game_mix]);
+      if (mixCheck.rows.length === 0) {
+        await pool.query('INSERT INTO game_mixes (name, provider) VALUES ($1, $2)', [extractedData.game_mix, extractedData.provider]);
+      }
     }
 
     // 4. Software
-    const softCheck = await pool.query('SELECT * FROM software WHERE name = $1', [extractedData.software]);
-    if (softCheck.rows.length === 0) {
-      await pool.query('INSERT INTO software (name, provider, cabinet, game_mix) VALUES ($1, $2, $3, $4)', [extractedData.software, extractedData.provider, extractedData.cabinet, extractedData.game_mix]);
+    if (extractedData.software) {
+      const softCheck = await pool.query('SELECT * FROM software WHERE name = $1', [extractedData.software]);
+      if (softCheck.rows.length === 0) {
+        await pool.query('INSERT INTO software (name, provider, cabinet, game_mix) VALUES ($1, $2, $3, $4)', [extractedData.software, extractedData.provider, extractedData.cabinet, extractedData.game_mix]);
+      }
     }
 
     // 5. Approvals
-    const appCheck = await pool.query('SELECT * FROM approvals WHERE name = $1', [extractedData.approval_type]);
-    if (appCheck.rows.length === 0) {
-      await pool.query('INSERT INTO approvals (name, provider, cabinet, software) VALUES ($1, $2, $3, $4)', [extractedData.approval_type, extractedData.provider, extractedData.cabinet, extractedData.software]);
+    if (extractedData.approval_type) {
+      const appCheck = await pool.query('SELECT * FROM approvals WHERE name = $1', [extractedData.approval_type]);
+      if (appCheck.rows.length === 0) {
+        await pool.query('INSERT INTO approvals (name, provider, cabinet, software) VALUES ($1, $2, $3, $4)', [extractedData.approval_type, extractedData.provider, extractedData.cabinet, extractedData.software]);
+      }
     }
 
     // 6. Authorities
-    const authCheck = await pool.query('SELECT * FROM authorities WHERE name = $1', [extractedData.issuing_authority]);
-    if (authCheck.rows.length === 0) {
-      await pool.query('INSERT INTO authorities (name) VALUES ($1)', [extractedData.issuing_authority]);
+    if (extractedData.issuing_authority && extractedData.issuing_authority !== "Altele (General)") {
+      const authCheck = await pool.query('SELECT * FROM authorities WHERE name = $1', [extractedData.issuing_authority]);
+      if (authCheck.rows.length === 0) {
+        await pool.query('INSERT INTO authorities (name) VALUES ($1)', [extractedData.issuing_authority]);
+      }
     }
 
     res.json({
@@ -4713,6 +4819,7 @@ app.get('/api/onjn-calendar', async (req, res) => {
   try {
     const cheerio = await import('cheerio')
     const https = await import('node:https')
+    const axios = (await import('axios')).default
 
     const agent = new https.default.Agent({
       rejectUnauthorized: false

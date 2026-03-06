@@ -373,7 +373,7 @@ const ONJNClass2 = () => {
           {loading ? (
             <div className="p-8 text-center text-slate-500">Se încarcă...</div>
           ) : error ? (
-            <div className="p-8 text-center text-red-600">{error}</div>
+            <div className="p-8 text-center text-red-600">{ typeof error === "object" ? (error?.message || "Eroare") : error }</div>
           ) : items.length === 0 ? (
             <div className="p-8 text-center text-slate-500">Nu există rezultate</div>
           ) : (

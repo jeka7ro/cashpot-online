@@ -101,7 +101,7 @@ const ArticleModal = ({ isOpen, onClose, law, articleNumber }) => {
           {error && (
             <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
               <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
-              <span className="text-red-700 dark:text-red-300">{error}</span>
+              <span className="text-red-700 dark:text-red-300">{ typeof error === "object" ? (error?.message || "Eroare") : error }</span>
             </div>
           )}
 

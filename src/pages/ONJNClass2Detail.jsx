@@ -68,7 +68,7 @@ const ONJNClass2Detail = () => {
           {loading ? (
             <div className="text-center text-slate-500">Se încarcă...</div>
           ) : error ? (
-            <div className="text-center text-red-600">{error}</div>
+            <div className="text-center text-red-600">{ typeof error === "object" ? (error?.message || "Eroare") : error }</div>
           ) : !data ? (
             <div className="text-center text-slate-500">Nu există date</div>
           ) : (

@@ -171,7 +171,7 @@ const ONJNCalendarModal = ({ isOpen, onClose }) => {
               <div className="text-center">
                 <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-gray-700 mb-2">Eroare la încărcare</h3>
-                <p className="text-gray-500 mb-4">{error}</p>
+                <p className="text-gray-500 mb-4">{ typeof error === "object" ? (error?.message || "Eroare") : error }</p>
                 <button
                   onClick={loadCommissions}
                   className="btn-primary"

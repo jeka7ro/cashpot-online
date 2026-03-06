@@ -266,7 +266,7 @@ const SlotHistory = () => {
       <Layout>
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
-            <p className="text-red-600 dark:text-red-400 text-lg">{error}</p>
+            <p className="text-red-600 dark:text-red-400 text-lg">{ typeof error === "object" ? (error?.message || "Eroare") : error }</p>
             <button
               onClick={() => fetchHistory()}
               className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"

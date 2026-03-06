@@ -103,7 +103,7 @@ const ONJNClass2Operator = () => {
           ) : error ? (
             <div className="text-center py-8 text-red-600">
               <p className="font-semibold">Eroare</p>
-              <p className="text-sm mt-2">{error}</p>
+              <p className="text-sm mt-2">{ typeof error === "object" ? (error?.message || "Eroare") : error }</p>
             </div>
           ) : beneficiaries.length === 0 ? (
             <div className="text-slate-500">Nu există date pentru operatorul "{operatorName}"</div>

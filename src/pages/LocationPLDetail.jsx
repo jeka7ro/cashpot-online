@@ -591,7 +591,7 @@ const LocationPLDetail = () => {
               <RefreshCw className="w-5 h-5 animate-spin" /> Se încarcă datele...
             </div>
           ) : error ? (
-            <div className="text-center py-12 text-rose-400 text-sm">{error}</div>
+            <div className="text-center py-12 text-rose-400 text-sm">{ typeof error === "object" ? (error?.message || "Eroare") : error }</div>
           ) : displayed.length === 0 ? (
             <div className="text-center py-12 text-slate-500 text-sm">
               Nu există date pentru această perioadă / filtre.

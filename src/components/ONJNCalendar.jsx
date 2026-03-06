@@ -245,7 +245,7 @@ const ONJNCalendar = () => {
         <div className="flex items-center justify-center py-8">
           <div className="text-center">
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-2" />
-            <p className="text-red-600 font-medium">{error}</p>
+            <p className="text-red-600 font-medium">{ typeof error === "object" ? (error?.message || "Eroare") : error }</p>
           </div>
         </div>
       ) : commissions.length === 0 ? (

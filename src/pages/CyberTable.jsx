@@ -703,7 +703,7 @@ const CyberTable = () => {
               <AlertCircle className="w-5 h-5 mt-0.5" />
               <div>
                 <p className="font-semibold">Eroare la încărcare</p>
-                <p className="text-sm whitespace-pre-wrap">{error}</p>
+                <p className="text-sm whitespace-pre-wrap">{ typeof error === "object" ? (error?.message || "Eroare") : error }</p>
               </div>
             </div>
           )}
