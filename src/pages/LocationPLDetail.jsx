@@ -9,7 +9,7 @@ import {
 import Layout from '../components/Layout'
 import KPICard from '../components/KPICard'
 import axios from 'axios'
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, XAxis, YAxis } from 'recharts'
 
 import * as XLSX from 'xlsx'
 
@@ -225,6 +225,33 @@ const LocationPLDetail = () => {
       .map(([prov, s]) => ({ provider: prov, ...s }))
       .sort((a, b) => b.totalProfit - a.totalProfit)
   }, [displayed])
+
+  /* ── aggregate by location (only for 'all' mode) ──────────────── */
+  const locationStats = useMemo(() => {
+    if (!isAllLocations) return []
+    const stats = {}
+    displayed.forEach(r => {
+      const loc = r.locationName || 'Necunoscut'
+      if (!stats[loc]) stats[loc] = { count: 0, totalIn: 0, totalOut: 0, totalWin: 0, totalBet: 0, totalProfit: 0, totalJackpot: 0, totalRaffle: 0 }
+      stats[loc].count++
+      stats[loc].totalIn += r.totalIn
+      stats[loc].totalOut += r.totalOut
+      stats[loc].totalWin += r.totalWin
+      stats[loc].totalBet += r.totalBet
+      stats[loc].totalJackpot += r.totalJackpot || 0
+      stats[loc].totalRaffle += r.totalRaffle || 0
+      stats[loc].totalProfit += r.totalProfit
+    })
+    return Object.entries(stats)
+      .map(([location, s]) => ({ location, ...s }))
+      .sort((a, b) => b.totalProfit - a.totalProfit)
+  }, [displayed, isAllLocations])
+
+  /* ── GGR by location for bar chart ────────────────────────────── */
+  const locationGgrStats = useMemo(() => {
+    if (!isAllLocations) return []
+    return locationStats.map(s => ({ name: s.location, value: s.totalProfit }))
+  }, [locationStats, isAllLocations])
 
   /* ── aggregate for pie charts (BET) ───────────────────────────── */
   const cabinetBetStats = useMemo(() => {
@@ -487,8 +514,62 @@ const LocationPLDetail = () => {
               </div>
             )}
 
-            {/* Right: Pie Charts (BET by Cabinet / Mix) */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full">
+            {/* Centralizator Locații (only in 'all' mode) */}
+            {isAllLocations && locationStats.length > 0 && (
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden flex flex-col h-full">
+                <div className="px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 shrink-0">
+                  <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Centralizator Locații</h3>
+                </div>
+                <div className="overflow-x-auto flex-1">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Locație</th>
+                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Aparate</th>
+                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">IN (lei)</th>
+                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">BET (lei)</th>
+                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Jackpot</th>
+                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Raffles</th>
+                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">%WIN/BET</th>
+                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">%IN/OUT</th>
+                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">GGR (lei)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
+                      {locationStats.map(s => {
+                        const winBet = s.totalBet > 0 ? (s.totalWin / s.totalBet) * 100 : 0
+                        const inOut = s.totalOut > 0 ? (s.totalIn / s.totalOut) * 100 : 0
+                        return (
+                          <tr key={s.location} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                            <td className="px-4 py-2 text-slate-800 dark:text-slate-200 font-medium">{s.location}</td>
+                            <td className="px-4 py-2 text-right text-slate-500 dark:text-slate-400 tabular-nums">{s.count}</td>
+                            <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalIn)}</td>
+                            <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalBet)}</td>
+                            <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalJackpot)}</td>
+                            <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalRaffle)}</td>
+                            <td className="px-4 py-2 text-right tabular-nums">
+                              <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${winBet >= 98 ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300'
+                                : winBet >= 95 ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                                  : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                                }`}>
+                                {pct(winBet)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{pct(inOut)}</td>
+                            <td className={`px-4 py-2 text-right font-bold tabular-nums ${s.totalProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>
+                              {fmt(s.totalProfit)}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Charts Row: Pie Charts + GGR Bar */}
+            <div className={`grid gap-4 h-full ${isAllLocations ? 'grid-cols-1 lg:grid-cols-3' : 'grid-cols-1 lg:grid-cols-2'}`}>
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col">
                 <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4 text-center shrink-0">Distribuție BET pe Cabinete (Top 10)</h3>
                 <div className="flex-1 min-h-[200px]">
@@ -590,6 +671,27 @@ const LocationPLDetail = () => {
               </div>
             </div>
 
+              {/* GGR by Location Bar Chart (only in 'all' mode) */}
+              {isAllLocations && locationGgrStats.length > 0 && (
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col">
+                  <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4 text-center shrink-0">GGR pe Locații</h3>
+                  <div className="flex-1 min-h-[250px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={locationGgrStats} layout="vertical" margin={{ left: 10, right: 20 }}>
+                        <XAxis type="number" tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={v => fmt(v)} />
+                        <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} width={120} />
+                        <Tooltip formatter={(value) => [fmt(value) + ' lei', 'GGR']} contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '8px', fontSize: '12px', color: '#f8fafc' }} />
+                        <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                          {locationGgrStats.map((entry, index) => (
+                            <Cell key={`bar-${index}`} fill={entry.value >= 0 ? COLORS[index % COLORS.length] : '#ef4444'} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
           </div>
         )}
 
@@ -631,7 +733,7 @@ const LocationPLDetail = () => {
                     return (
                       <tr key={row.serialNumber} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                         <td className="px-3 py-2 text-slate-500 text-xs">{idx + 1}</td>
-                        {isAllLocations && <td className="px-3 py-2 text-xs font-medium text-blue-600 dark:text-blue-400">{row.locationName || '—'}</td>}
+                        {isAllLocations && <td className="px-3 py-2 text-slate-800 dark:text-slate-200 font-medium">{row.locationName || '—'}</td>}
                         <td className="px-3 py-2 font-mono text-xs text-slate-500 dark:text-slate-400">{row.serialNumber}</td>
                         <td className="px-3 py-2 text-slate-800 dark:text-slate-200 font-medium">{row.provider}</td>
                         <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{row.cabinet}</td>

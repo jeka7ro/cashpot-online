@@ -4830,7 +4830,10 @@ router.get('/slots-by-location', authenticateToken, async (req, res) => {
     if (Array.isArray(locationsData2)) {
       locationsData2.forEach(loc => {
         if (loc && typeof loc.id !== 'undefined') {
-          locationIdNameMap.set(Number(loc.id), normalizeLocationName(loc.name || loc.location || `Loc ${loc.id}`))
+          const rawName = (loc.name || loc.location || `Loc ${loc.id}`).toString().trim()
+          // Capitalize first letter of each word for display
+          const displayName = rawName.replace(/\b\w/g, c => c.toUpperCase())
+          locationIdNameMap.set(Number(loc.id), displayName)
         }
       })
     }
