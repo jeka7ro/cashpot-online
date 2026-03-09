@@ -3438,7 +3438,12 @@ const Incasari = () => {
                       <tr key={label} className={`${rowClass} hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors`}>
                         <td className="py-2 px-3 font-medium text-xs">
                           <button
-                            onClick={() => setDateRange({ startDate: periodDateRange.start, endDate: periodDateRange.end })}
+                            onClick={() => {
+                              setDateRange({ startDate: periodDateRange.start, endDate: periodDateRange.end })
+                              setTimeout(() => {
+                                document.getElementById('location-pl-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                              }, 100)
+                            }}
                             className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-semibold hover:underline transition-colors text-left"
                           >
                             {label}
@@ -3492,7 +3497,7 @@ const Incasari = () => {
           </div>
 
           {/* Prezentare pe locații pentru perioada selectată */}
-          <div className="bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm p-10 mb-10">
+          <div id="location-pl-table" className="bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm p-10 mb-10">
             <div className="flex items-center justify-between mb-10">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
