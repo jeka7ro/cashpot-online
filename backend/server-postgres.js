@@ -4256,17 +4256,21 @@ app.post('/api/metrology', async (req, res) => {
     }
 
     // Calculate expiry_date automatically for Periodică and Inițială (1 year - 1 day from cvt_date)
+    // Fallback: if no cvt_date provided, use today
+    const safeCvtDate = cvt_date || new Date().toISOString().split('T')[0];
     let calculatedExpiryDate = expiry_date
-    if (cvt_date && (cvt_type === 'Periodică' || cvt_type === 'Inițială') && !expiry_date) {
-      const cvtDate = new Date(cvt_date)
+    if (safeCvtDate && (cvt_type === 'Periodică' || cvt_type === 'Inițială') && !expiry_date) {
+      const cvtDate = new Date(safeCvtDate)
       const expiryDate = new Date(cvtDate)
       expiryDate.setFullYear(expiryDate.getFullYear() + 1)
       expiryDate.setDate(expiryDate.getDate() - 1)
       calculatedExpiryDate = expiryDate.toISOString().split('T')[0]
     }
+    // Fallback for expiry date too
+    const safeExpiryDate = calculatedExpiryDate || (() => { const d = new Date(safeCvtDate); d.setFullYear(d.getFullYear() + 1); d.setDate(d.getDate() - 1); return d.toISOString().split('T')[0]; })();
 
-    const cleanCvtDate = normalizeDate(cvt_date)
-    const cleanExpiryDate = normalizeDate(calculatedExpiryDate)
+    const cleanCvtDate = normalizeDate(safeCvtDate)
+    const cleanExpiryDate = normalizeDate(safeExpiryDate)
     const storedRawData = raw_cvt_data ? JSON.stringify(raw_cvt_data) : '{}';
 
     const params = [cvt_series, finalCvtNumber, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, cvt_filename, notes, 'admin', additional_files ? JSON.stringify(additional_files) : '[]', storedRawData]
