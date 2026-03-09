@@ -1,12 +1,11 @@
 /**
  * Client-side PDF OCR
- * 
- * Loads pdf.js from CDN (avoids ALL Vite/Rollup bundling issues)
- * Uses tesseract.js (npm) for OCR
+ * pdf.js loaded from /pdfjs/ (same domain, in public/ folder)
+ * tesseract.js from npm
  */
 import Tesseract from 'tesseract.js';
 
-// Load pdf.js from CDN via script tag — bulletproof, no bundling
+// Load pdf.js from local public/ folder — same domain, no CORS, no CDN
 function loadPdfJs() {
   return new Promise((resolve, reject) => {
     if (window.pdfjsLib) {
@@ -14,33 +13,42 @@ function loadPdfJs() {
       return;
     }
     const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs';
+    script.src = '/pdfjs/pdf.min.mjs';
     script.type = 'module';
-    // For module scripts, we need a different approach — use classic JS
-    script.remove();
+
+    // Module scripts don't set window globals — use classic script instead
+    const classicUrl = '/pdfjs/pdf.min.mjs';
     
-    const classicScript = document.createElement('script');
-    classicScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.js';
-    classicScript.onload = () => {
-      const lib = window.pdfjsLib;
-      if (!lib) {
-        reject(new Error('pdfjsLib not found on window after loading'));
-        return;
-      }
-      lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.js';
-      console.log('[OCR] pdf.js v4.4.168 loaded from CDN');
-      resolve(lib);
-    };
-    classicScript.onerror = () => reject(new Error('Failed to load pdf.js from CDN'));
-    document.head.appendChild(classicScript);
+    // Try loading as module with import()
+    import(/* @vite-ignore */ classicUrl)
+      .then(mod => {
+        const lib = mod;
+        lib.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs';
+        window.pdfjsLib = lib;
+        console.log('[OCR] pdf.js loaded from /pdfjs/');
+        resolve(lib);
+      })
+      .catch(err => {
+        console.error('[OCR] Module import failed, trying script tag:', err.message);
+        // Fallback: create script tag
+        const s = document.createElement('script');
+        s.src = '/pdfjs/pdf.min.mjs';
+        s.onload = () => {
+          if (window.pdfjsLib) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs';
+            resolve(window.pdfjsLib);
+          } else {
+            reject(new Error('pdfjsLib not available after script load'));
+          }
+        };
+        s.onerror = () => reject(new Error('Script load failed'));
+        document.head.appendChild(s);
+      });
   });
 }
 
 /**
  * Extract text from a PDF
- * @param {string} base64DataUrl - PDF as data:application/pdf;base64,...
- * @param {function} onProgress - Optional (stage, percent) callback
- * @returns {Promise<string>} extracted text
  */
 export async function extractTextFromPdf(base64DataUrl, onProgress) {
   const notify = (stage, pct) => onProgress && onProgress(stage, pct);
