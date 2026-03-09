@@ -2988,9 +2988,21 @@ const Incasari = () => {
   const todaySlotsCount = getTodaySlotsCount()
   const yesterdaySlotsCount = getYesterdaySlotsCount()
 
-  const overviewRowConfigs = [
+  const overviewRowConfigs = (() => {
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+    const fmtDate = (d) => {
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const dd = String(d.getDate()).padStart(2, '0')
+      return `${y}-${m}-${dd}`
+    }
+    return [
     {
       label: 'Azi',
+      periodDateRange: { start: fmtDate(today), end: fmtDate(today) },
       data: {
         ...overview.today,
         slotsCount: todaySlotsCount !== null ? todaySlotsCount : (overview.today?.slotsCount || overview.today?.slots || 0)
@@ -3001,6 +3013,7 @@ const Incasari = () => {
     },
     {
       label: 'Ieri',
+      periodDateRange: { start: fmtDate(yesterday), end: fmtDate(yesterday) },
       data: {
         ...overview.yesterday,
         slotsCount: yesterdaySlotsCount !== null ? yesterdaySlotsCount : (overview.yesterday?.slotsCount || overview.yesterday?.slots || 0)
@@ -3011,6 +3024,7 @@ const Incasari = () => {
     },
     {
       label: 'Luna curentă',
+      periodDateRange: { start: fmtDate(new Date(now.getFullYear(), now.getMonth(), 1)), end: fmtDate(new Date(now.getFullYear(), now.getMonth() + 1, 0)) },
       data: {
         ...overview.currentMonth,
         slotsCount: currentMonthSlotsCount !== null ? currentMonthSlotsCount : (overview.currentMonth?.slotsCount || overview.currentMonth?.slots || 0)
@@ -3021,6 +3035,7 @@ const Incasari = () => {
     },
     {
       label: 'Luna trecută',
+      periodDateRange: { start: fmtDate(new Date(now.getFullYear(), now.getMonth() - 1, 1)), end: fmtDate(new Date(now.getFullYear(), now.getMonth(), 0)) },
       data: {
         ...overview.lastMonth,
         slotsCount: lastMonthSlotsCount !== null ? lastMonthSlotsCount : (overview.lastMonth?.slotsCount || overview.lastMonth?.slots || 0)
@@ -3031,12 +3046,14 @@ const Incasari = () => {
     },
     {
       label: 'Anul curent',
+      periodDateRange: { start: fmtDate(new Date(now.getFullYear(), 0, 1)), end: fmtDate(new Date(now.getFullYear(), 11, 31)) },
       data: overview.currentYear,
       dynamics: calculateOverviewDynamics.ggr.currentYear,
       inDynamics: calculateOverviewDynamics.in.currentYear,
       bonusCostDynamics: calculateOverviewDynamics.bonusCost.currentYear
     }
   ]
+  })()
 
   return (
     <Layout>
@@ -3378,7 +3395,7 @@ const Incasari = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {overviewRowConfigs.map(({ label, data, dynamics, inDynamics, bonusCostDynamics }, idx) => {
+                  {overviewRowConfigs.map(({ label, data, dynamics, inDynamics, bonusCostDynamics, periodDateRange }, idx) => {
                     const marketingValue = calcMarketingValue(data)
                     const bonusValue = calcBonusCostPercent(data)
                     const rowClass =
@@ -3418,8 +3435,15 @@ const Incasari = () => {
                     }
 
                     return (
-                      <tr key={label} className={rowClass}>
-                        <td className="py-2 px-3 font-medium text-xs">{label}</td>
+                      <tr key={label} className={`${rowClass} hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors`}>
+                        <td className="py-2 px-3 font-medium text-xs">
+                          <button
+                            onClick={() => navigate(`/incasari/location-pl/${encodeURIComponent('all')}?dateRange=${periodDateRange.start}_${periodDateRange.end}`)}
+                            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-semibold hover:underline transition-colors text-left"
+                          >
+                            {label}
+                          </button>
+                        </td>
                         <td className="py-2 px-3 text-right text-xs">{formatNumber(data?.slotsCount || 0)}</td>
                         {/* GGR + dynamics inline */}
                         <td className="py-2 px-3 text-right">
