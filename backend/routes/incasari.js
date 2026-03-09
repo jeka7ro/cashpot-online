@@ -4824,15 +4824,26 @@ router.get('/slots-by-location', authenticateToken, async (req, res) => {
       }
     }
 
+    // Build locationId → locationName map
+    const locationsData2 = loadExportedData('locations.json')
+    const locationIdNameMap = new Map()
+    if (Array.isArray(locationsData2)) {
+      locationsData2.forEach(loc => {
+        if (loc && typeof loc.id !== 'undefined') {
+          locationIdNameMap.set(Number(loc.id), normalizeLocationName(loc.name || loc.location || `Loc ${loc.id}`))
+        }
+      })
+    }
+
     // 3. Încearcă Cyber — sursă primară
     try {
       const cp = await getCyberPool()
       const placeholders = locationIds.map(() => '?').join(',')
 
-      // Doar machine_types pentru Mix (name) și Producător (manufacturer) — cabinet/serial vin din slots.json
       const [cyberRows] = await cp.query(`
         SELECT
           mas.machine_id,
+          mas.location_id,
           mt.name AS game_mix,
           mt.manufacturer AS provider,
           COALESCE(SUM(mas.in),      0) AS total_in,
@@ -4849,15 +4860,15 @@ router.get('/slots-by-location', authenticateToken, async (req, res) => {
         LEFT JOIN cyberslot_dbn.machine_types mt ON mt.id = mas.machine_type_id
         WHERE mas.date >= ? AND mas.date <= ?
           AND mas.location_id IN (${placeholders})
-        GROUP BY mas.machine_id, mt.name, mt.manufacturer
+        GROUP BY mas.machine_id, mas.location_id, mt.name, mt.manufacturer
         ORDER BY total_in DESC
       `, [startDate, endDate, ...locationIds])
 
-      console.log(`✅ [slots-by-location] Cyber: ${cyberRows.length} aparate pentru "${decodedLocation}"`)
+      console.log(`✅ [slots-by-location] Cyber: ${cyberRows.length} aparate pentru "${decodedLocation || 'ALL'}"`)
 
       const rows = cyberRows.map(r => {
         const mId = Number(r.machine_id)
-        // Serial, cabinet vin din slots.json (slot.id = machine_id din Cyber)
+        const locId = Number(r.location_id)
         const meta = slotByMachineId.get(mId) || {}
         const serialDisplay = meta.serial_number ? String(meta.serial_number).trim() : String(mId)
         const totalIn = Number(r.total_in || 0)
@@ -4868,9 +4879,10 @@ router.get('/slots-by-location', authenticateToken, async (req, res) => {
         return {
           serialNumber: serialDisplay,
           machineId: mId,
+          locationName: locationIdNameMap.get(locId) || `Loc ${locId}`,
           provider: r.provider || meta.provider || '—',
           cabinet: meta.cabinet || '—',
-          gameMix: r.game_mix || null,   // direct din machine_types via machine_type_id
+          gameMix: r.game_mix || null,
           totalIn,
           totalOut,
           totalProfit: totalIn - totalOut,
@@ -4887,7 +4899,7 @@ router.get('/slots-by-location', authenticateToken, async (req, res) => {
         }
       })
 
-      return res.json({ success: true, location: decodedLocation, locationIds, startDate, endDate, rows, source: 'cyber' })
+      return res.json({ success: true, location: decodedLocation || 'all', locationIds, startDate, endDate, rows, source: 'cyber' })
 
     } catch (cyberErr) {
       console.warn(`⚠️ [slots-by-location] Cyber unavailable (${cyberErr.message}), fallback la PostgreSQL`)

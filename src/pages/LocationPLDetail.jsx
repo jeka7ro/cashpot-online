@@ -107,6 +107,7 @@ const LocationPLDetail = () => {
   const [sortDir, setSortDir] = useState('desc')
   const [provFilter, setProvFilter] = useState('all')
   const [cabFilter, setCabFilter] = useState('all')
+  const [locFilter, setLocFilter] = useState('all')
   const [activeQuick, setActiveQuick] = useState(null)
 
   const decoded = decodeURIComponent(locationName)
@@ -176,10 +177,12 @@ const LocationPLDetail = () => {
   /* ── filter options ─────────────────────────────────────── */
   const providers = useMemo(() => ['all', ...new Set(slots.map(s => s.provider).filter(Boolean).sort())], [slots])
   const cabinets = useMemo(() => ['all', ...new Set(slots.map(s => s.cabinet).filter(Boolean).sort())], [slots])
+  const locations = useMemo(() => ['all', ...new Set(slots.map(s => s.locationName).filter(Boolean).sort())], [slots])
 
   /* ── filtered + sorted rows ─────────────────────────────── */
   const displayed = useMemo(() => {
     let d = slots
+    if (locFilter !== 'all') d = d.filter(r => r.locationName === locFilter)
     if (provFilter !== 'all') d = d.filter(r => r.provider === provFilter)
     if (cabFilter !== 'all') d = d.filter(r => r.cabinet === cabFilter)
     if (search) {
@@ -196,7 +199,7 @@ const LocationPLDetail = () => {
       if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va)
       return sortDir === 'asc' ? va - vb : vb - va
     })
-  }, [slots, search, sortCol, sortDir, provFilter, cabFilter])
+  }, [slots, search, sortCol, sortDir, provFilter, cabFilter, locFilter])
 
   const handleSort = (col) => {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -393,6 +396,12 @@ const LocationPLDetail = () => {
                     text-slate-800 dark:text-slate-200 placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500/30 focus:outline-none"
                 />
               </div>
+              {isAllLocations && (
+                <select value={locFilter} onChange={e => setLocFilter(e.target.value)}
+                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:outline-none">
+                  {locations.map(l => <option key={l} value={l}>{l === 'all' ? 'Toate Locațiile' : l}</option>)}
+                </select>
+              )}
               <select value={provFilter} onChange={e => setProvFilter(e.target.value)}
                 className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:outline-none">
                 {providers.map(p => <option key={p} value={p}>{p === 'all' ? 'Toți Providerii' : p}</option>)}
@@ -602,6 +611,7 @@ const LocationPLDetail = () => {
                 <thead className="bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
                   <tr>
                     <th className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 w-8">#</th>
+                    {isAllLocations && <Th col="locationName">Locație</Th>}
                     <Th col="serialNumber">Serial</Th>
                     <Th col="provider">Provider</Th>
                     <Th col="cabinet">Cabinet</Th>
@@ -621,6 +631,7 @@ const LocationPLDetail = () => {
                     return (
                       <tr key={row.serialNumber} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                         <td className="px-3 py-2 text-slate-500 text-xs">{idx + 1}</td>
+                        {isAllLocations && <td className="px-3 py-2 text-xs font-medium text-blue-600 dark:text-blue-400">{row.locationName || '—'}</td>}
                         <td className="px-3 py-2 font-mono text-xs text-slate-500 dark:text-slate-400">{row.serialNumber}</td>
                         <td className="px-3 py-2 text-slate-800 dark:text-slate-200 font-medium">{row.provider}</td>
                         <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{row.cabinet}</td>
@@ -647,7 +658,7 @@ const LocationPLDetail = () => {
                 </tbody>
                 <tfoot className="bg-slate-100 dark:bg-slate-800 border-t-2 border-slate-300 dark:border-slate-600">
                   <tr className="font-bold text-slate-900 dark:text-slate-100 text-sm">
-                    <td colSpan={5} className="px-3 py-2.5 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <td colSpan={isAllLocations ? 6 : 5} className="px-3 py-2.5 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       TOTAL · {displayed.length} aparate
                     </td>
                     <td className="px-3 py-2.5 text-right text-slate-800 dark:text-slate-200 tabular-nums">{fmt(totals.in)}</td>
