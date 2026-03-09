@@ -458,7 +458,9 @@ const LocationPLDetail = () => {
 
         {/* ── Mid Section: Stats & Charts ────────────────────────── */}
         {!loading && !error && displayed.length > 0 && (
-          <div className="grid grid-cols-1 2xl:grid-cols-2 gap-4 mt-2 mb-4">
+          <>
+          {/* ── Summary Tables Row ────────────────────────────── */}
+          <div className={`grid gap-4 mt-2 mb-4 ${isAllLocations ? 'grid-cols-1 2xl:grid-cols-2' : 'grid-cols-1'}`}>
 
             {/* Left: Provider Summary Table */}
             {providerStats.length > 0 && (
@@ -541,7 +543,7 @@ const LocationPLDetail = () => {
                         const inOut = s.totalOut > 0 ? (s.totalIn / s.totalOut) * 100 : 0
                         return (
                           <tr key={s.location} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                            <td className="px-4 py-2 text-slate-800 dark:text-slate-200 font-medium">{s.location}</td>
+                            <td className="px-4 py-2 text-slate-800 dark:text-slate-200 font-medium capitalize">{s.location}</td>
                             <td className="px-4 py-2 text-right text-slate-500 dark:text-slate-400 tabular-nums">{s.count}</td>
                             <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalIn)}</td>
                             <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalBet)}</td>
@@ -567,9 +569,10 @@ const LocationPLDetail = () => {
                 </div>
               </div>
             )}
+          </div>
 
             {/* Charts Row: Pie Charts + GGR Bar */}
-            <div className={`grid gap-4 h-full ${isAllLocations ? 'grid-cols-1 lg:grid-cols-3' : 'grid-cols-1 lg:grid-cols-2'}`}>
+            <div className={`grid gap-4 mb-4 ${isAllLocations ? 'grid-cols-1 lg:grid-cols-3' : 'grid-cols-1 lg:grid-cols-2'}`}>
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col">
                 <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4 text-center shrink-0">Distribuție BET pe Cabinete (Top 10)</h3>
                 <div className="flex-1 min-h-[200px]">
@@ -669,7 +672,6 @@ const LocationPLDetail = () => {
                   </ResponsiveContainer>
                 </div>
               </div>
-            </div>
 
               {/* GGR by Location Bar Chart (only in 'all' mode) */}
               {isAllLocations && locationGgrStats.length > 0 && (
@@ -691,8 +693,8 @@ const LocationPLDetail = () => {
                   </div>
                 </div>
               )}
-
-          </div>
+            </div>
+          </>
         )}
 
         {/* ── Table ────────────────────────────────────────── */}
@@ -733,7 +735,7 @@ const LocationPLDetail = () => {
                     return (
                       <tr key={row.serialNumber} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                         <td className="px-3 py-2 text-slate-500 text-xs">{idx + 1}</td>
-                        {isAllLocations && <td className="px-3 py-2 text-slate-800 dark:text-slate-200 font-medium">{row.locationName || '—'}</td>}
+                        {isAllLocations && <td className="px-3 py-2 text-slate-800 dark:text-slate-200 font-medium capitalize">{row.locationName || '—'}</td>}
                         <td className="px-3 py-2 font-mono text-xs text-slate-500 dark:text-slate-400">{row.serialNumber}</td>
                         <td className="px-3 py-2 text-slate-800 dark:text-slate-200 font-medium">{row.provider}</td>
                         <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{row.cabinet}</td>
