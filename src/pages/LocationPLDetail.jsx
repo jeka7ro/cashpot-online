@@ -472,40 +472,31 @@ const LocationPLDetail = () => {
                   <table className="w-full text-sm">
                     <thead className="bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
                       <tr>
-                        <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Producător</th>
-                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Aparate</th>
-                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">IN (lei)</th>
-                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">BET (lei)</th>
-                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Jackpot</th>
-                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Raffles</th>
-                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">%WIN/BET</th>
-                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">%IN/OUT</th>
-                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">GGR (lei)</th>
+                        <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Producător</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Ap.</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">IN</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">GGR</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">%WIN/BET</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
                       {providerStats.map(s => {
                         const winBet = s.totalBet > 0 ? (s.totalWin / s.totalBet) * 100 : 0
-                        const inOut = s.totalOut > 0 ? (s.totalIn / s.totalOut) * 100 : 0
                         return (
                           <tr key={s.provider} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                            <td className="px-4 py-2 text-slate-800 dark:text-slate-200 font-medium">{s.provider}</td>
-                            <td className="px-4 py-2 text-right text-slate-500 dark:text-slate-400 tabular-nums">{s.count}</td>
-                            <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalIn)}</td>
-                            <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalBet)}</td>
-                            <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalJackpot)}</td>
-                            <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalRaffle)}</td>
-                            <td className="px-4 py-2 text-right tabular-nums">
+                            <td className="px-3 py-2 text-slate-800 dark:text-slate-200 font-medium">{s.provider}</td>
+                            <td className="px-3 py-2 text-right text-slate-500 dark:text-slate-400 tabular-nums">{s.count}</td>
+                            <td className="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalIn)}</td>
+                            <td className={`px-3 py-2 text-right font-bold tabular-nums ${s.totalProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>
+                              {fmt(s.totalProfit)}
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums">
                               <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${winBet >= 98 ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300'
                                 : winBet >= 95 ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
                                   : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
                                 }`}>
                                 {pct(winBet)}
                               </span>
-                            </td>
-                            <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{pct(inOut)}</td>
-                            <td className={`px-4 py-2 text-right font-bold tabular-nums ${s.totalProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>
-                              {fmt(s.totalProfit)}
                             </td>
                           </tr>
                         )
@@ -526,40 +517,31 @@ const LocationPLDetail = () => {
                   <table className="w-full text-sm">
                     <thead className="bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
                       <tr>
-                        <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Locație</th>
-                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Aparate</th>
-                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">IN (lei)</th>
-                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">BET (lei)</th>
-                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Jackpot</th>
-                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Raffles</th>
-                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">%WIN/BET</th>
-                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">%IN/OUT</th>
-                        <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">GGR (lei)</th>
+                        <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Locație</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Ap.</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">IN</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">GGR</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">%WIN/BET</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
                       {locationStats.map(s => {
                         const winBet = s.totalBet > 0 ? (s.totalWin / s.totalBet) * 100 : 0
-                        const inOut = s.totalOut > 0 ? (s.totalIn / s.totalOut) * 100 : 0
                         return (
                           <tr key={s.location} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                            <td className="px-4 py-2 text-slate-800 dark:text-slate-200 font-medium capitalize">{s.location}</td>
-                            <td className="px-4 py-2 text-right text-slate-500 dark:text-slate-400 tabular-nums">{s.count}</td>
-                            <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalIn)}</td>
-                            <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalBet)}</td>
-                            <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalJackpot)}</td>
-                            <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalRaffle)}</td>
-                            <td className="px-4 py-2 text-right tabular-nums">
+                            <td className="px-3 py-2 text-slate-800 dark:text-slate-200 font-medium capitalize">{s.location}</td>
+                            <td className="px-3 py-2 text-right text-slate-500 dark:text-slate-400 tabular-nums">{s.count}</td>
+                            <td className="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalIn)}</td>
+                            <td className={`px-3 py-2 text-right font-bold tabular-nums ${s.totalProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>
+                              {fmt(s.totalProfit)}
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums">
                               <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${winBet >= 98 ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300'
                                 : winBet >= 95 ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
                                   : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
                                 }`}>
                                 {pct(winBet)}
                               </span>
-                            </td>
-                            <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{pct(inOut)}</td>
-                            <td className={`px-4 py-2 text-right font-bold tabular-nums ${s.totalProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>
-                              {fmt(s.totalProfit)}
                             </td>
                           </tr>
                         )
