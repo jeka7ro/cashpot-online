@@ -4090,19 +4090,67 @@ app.post('/api/metrology/parse', async (req, res) => {
         }
       }
 
-      if (parsedCvtSeries) extractedData.cvt_series = parsedCvtSeries;
-      if (parsedCvtNumber) extractedData.cvt_number = parsedCvtNumber;
+      // --- OCR artifact cleanup helper ---
+      const cleanOcr = (val) => {
+        if (!val) return val;
+        return val
+          .replace(/%/g, '8')                    // % → 8
+          .replace(/\|(?=[A-Z])/g, 'I')          // |M → IM (| before uppercase = I)
+          .replace(/\|(?=\d)/g, '/')             // |0 → /0 (| before digit = /)
+          .replace(/^['"'`]+/, '')               // Strip leading quotes/apostrophes
+          .replace(/['"'`]+$/, '')               // Strip trailing quotes
+          .trim();
+      };
+
+      // --- Fix issuing_authority: derive from header or known names in text ---
+      let finalIssuer = parsedIssuer;
+      if (!finalIssuer || finalIssuer.match(/^MIS-AT-/i) || finalIssuer.match(/^[_|,\s]+$/)) {
+        // Issuer regex failed or got authentication mark instead — detect from text content
+        if (/bmm[\s-]*testlabs|BMM-VT-/i.test(text)) {
+          finalIssuer = 'BMM';
+        } else if (/[Mm]etron|otetron/i.test(text)) {
+          finalIssuer = 'Metron Serv S.R.L.';
+        } else if (/[Rr]egio\s*[Mm]etro/i.test(text)) {
+          finalIssuer = 'Regio Metro Cert S.R.L.';
+        } else {
+          finalIssuer = parsedIssuer || '';
+        }
+      }
+
+      // --- Fix approval_type: use Aprobare de tip (e.g. BMM 0264/24), NOT Marca de autentificare ---
+      const parsedApprovalTip = getFirstMatch([
+        /Aprobare de tip[^:]*(?:Type approval)?[^:]*:\s*([^\n]+)/i
+      ]);
+      const parsedAuthMark = getFirstMatch([
+        /Marca de autentificare[^:]*(?:Authentication mark)?[^:]*:\s*\|?\s*([^\n]+)/i
+      ]);
+
+      if (cleanOcr(parsedCvtSeries)) extractedData.cvt_series = cleanOcr(parsedCvtSeries);
+      if (cleanOcr(parsedCvtNumber)) extractedData.cvt_number = cleanOcr(parsedCvtNumber);
       if (parsedSerialNumber) extractedData.serial_number = parsedSerialNumber;
       if (parsedProvider) extractedData.provider = parsedProvider;
-      if (parsedApproval) extractedData.approval_type = parsedApproval.trim();
-      if (parsedIssuer) extractedData.issuing_authority = parsedIssuer;
+      if (parsedApprovalTip) extractedData.approval_type = cleanOcr(parsedApprovalTip);
+      else if (parsedAuthMark) extractedData.approval_type = cleanOcr(parsedAuthMark);
+      if (finalIssuer) extractedData.issuing_authority = finalIssuer;
       if (parsedSoftware) {
-        extractedData.software = parsedSoftware.trim();
-        extractedData.game_mix = parsedSoftware.trim();
+        extractedData.software = cleanOcr(parsedSoftware);
+        extractedData.game_mix = cleanOcr(parsedSoftware);
       }
-      if (parsedCabinet) extractedData.cabinet = parsedCabinet.trim();
+      if (parsedCabinet) extractedData.cabinet = cleanOcr(parsedCabinet);
       if (parsedDate) extractedData.cvt_date = parsedDate;
       if (parsedExpiry) extractedData.expiry_date = parsedExpiry;
+
+      console.log('[PDF Parse] Extracted fields:', JSON.stringify({
+        cvt_series: extractedData.cvt_series,
+        serial_number: extractedData.serial_number,
+        provider: extractedData.provider,
+        issuing_authority: extractedData.issuing_authority,
+        approval_type: extractedData.approval_type,
+        cabinet: extractedData.cabinet,
+        software: extractedData.software,
+        cvt_date: extractedData.cvt_date,
+        expiry_date: extractedData.expiry_date
+      }));
 
     } catch (err) {
       console.error("PDF Parsing dynamically failed", err);
