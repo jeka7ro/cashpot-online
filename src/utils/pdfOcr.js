@@ -1,55 +1,33 @@
 /**
  * Client-side PDF OCR
- * pdf.js loaded from /pdfjs/ (same domain, in public/ folder)
+ * pdf.js v3.11.174 loaded from /pdfjs/ (same domain, UMD .js build)
  * tesseract.js from npm
  */
 import Tesseract from 'tesseract.js';
 
-// Load pdf.js from local public/ folder — same domain, no CORS, no CDN
+// Load pdf.js UMD build — sets window.pdfjsLib
 function loadPdfJs() {
   return new Promise((resolve, reject) => {
     if (window.pdfjsLib) {
       resolve(window.pdfjsLib);
       return;
     }
-    const script = document.createElement('script');
-    script.src = '/pdfjs/pdf.min.mjs';
-    script.type = 'module';
-
-    // Module scripts don't set window globals — use classic script instead
-    const classicUrl = '/pdfjs/pdf.min.mjs';
-    
-    // Try loading as module with import()
-    import(/* @vite-ignore */ classicUrl)
-      .then(mod => {
-        const lib = mod;
-        lib.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs';
-        window.pdfjsLib = lib;
-        console.log('[OCR] pdf.js loaded from /pdfjs/');
-        resolve(lib);
-      })
-      .catch(err => {
-        console.error('[OCR] Module import failed, trying script tag:', err.message);
-        // Fallback: create script tag
-        const s = document.createElement('script');
-        s.src = '/pdfjs/pdf.min.mjs';
-        s.onload = () => {
-          if (window.pdfjsLib) {
-            window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs';
-            resolve(window.pdfjsLib);
-          } else {
-            reject(new Error('pdfjsLib not available after script load'));
-          }
-        };
-        s.onerror = () => reject(new Error('Script load failed'));
-        document.head.appendChild(s);
-      });
+    const s = document.createElement('script');
+    s.src = '/pdfjs/pdf.min.js';
+    s.onload = () => {
+      if (!window.pdfjsLib) {
+        reject(new Error('pdfjsLib not available'));
+        return;
+      }
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.js';
+      console.log('[OCR] pdf.js loaded OK');
+      resolve(window.pdfjsLib);
+    };
+    s.onerror = () => reject(new Error('Script load failed'));
+    document.head.appendChild(s);
   });
 }
 
-/**
- * Extract text from a PDF
- */
 export async function extractTextFromPdf(base64DataUrl, onProgress) {
   const notify = (stage, pct) => onProgress && onProgress(stage, pct);
 

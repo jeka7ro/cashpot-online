@@ -2810,6 +2810,7 @@ const Incasari = () => {
   // Calculează dinamica pentru fiecare perioadă
   const calculateOverviewDynamics = useMemo(() => {
     const dynamics = {}
+    const inDynamics = {}
     const bonusCostDynamics = {}
 
     const calcBonusCost = (data) => {
@@ -2819,62 +2820,44 @@ const Incasari = () => {
       return bet > 0 ? (marketing / bet) * 100 : 0
     }
 
+    const calcDyn = (cur, prev) => prev > 0 ? ((cur - prev) / prev) * 100 : 0
+
     // Azi: compara cu Ieri
     if (overview.today && overview.yesterday) {
-      const todayGgr = Number(overview.today.ggr || overview.today.profit || 0)
-      const yesterdayGgr = Number(overview.yesterday.ggr || overview.yesterday.profit || 0)
-      dynamics.today = yesterdayGgr > 0 ? ((todayGgr - yesterdayGgr) / yesterdayGgr) * 100 : 0
-
-      const todayBonusCost = calcBonusCost(overview.today)
-      const yesterdayBonusCost = calcBonusCost(overview.yesterday)
-      bonusCostDynamics.today = yesterdayBonusCost > 0 ? todayBonusCost - yesterdayBonusCost : null
+      dynamics.today = calcDyn(Number(overview.today.ggr || 0), Number(overview.yesterday.ggr || 0))
+      inDynamics.today = calcDyn(Number(overview.today.in || 0), Number(overview.yesterday.in || 0))
+      bonusCostDynamics.today = (() => { const t = calcBonusCost(overview.today), y = calcBonusCost(overview.yesterday); return y > 0 ? t - y : null })()
     }
 
     // Ieri: compara cu alaltăieri
     if (overview.yesterday && overview.dayBeforeYesterday) {
-      const yesterdayGgr = Number(overview.yesterday.ggr || overview.yesterday.profit || 0)
-      const dayBeforeYesterdayGgr = Number(overview.dayBeforeYesterday.ggr || overview.dayBeforeYesterday.profit || 0)
-      dynamics.yesterday = dayBeforeYesterdayGgr > 0 ? ((yesterdayGgr - dayBeforeYesterdayGgr) / dayBeforeYesterdayGgr) * 100 : 0
-
-      const yesterdayBonusCost = calcBonusCost(overview.yesterday)
-      const dayBeforeYesterdayBonusCost = calcBonusCost(overview.dayBeforeYesterday)
-      bonusCostDynamics.yesterday = dayBeforeYesterdayBonusCost > 0 ? yesterdayBonusCost - dayBeforeYesterdayBonusCost : null
+      dynamics.yesterday = calcDyn(Number(overview.yesterday.ggr || 0), Number(overview.dayBeforeYesterday.ggr || 0))
+      inDynamics.yesterday = calcDyn(Number(overview.yesterday.in || 0), Number(overview.dayBeforeYesterday.in || 0))
+      bonusCostDynamics.yesterday = (() => { const y = calcBonusCost(overview.yesterday), d = calcBonusCost(overview.dayBeforeYesterday); return d > 0 ? y - d : null })()
     }
 
     // Luna curentă: compara cu aceleași zile din luna trecută
     if (overview.currentMonth && overview.sameDaysLastMonth) {
-      const currentMonthGgr = Number(overview.currentMonth.ggr || overview.currentMonth.profit || 0)
-      const sameDaysLastMonthGgr = Number(overview.sameDaysLastMonth.ggr || overview.sameDaysLastMonth.profit || 0)
-      dynamics.currentMonth = sameDaysLastMonthGgr > 0 ? ((currentMonthGgr - sameDaysLastMonthGgr) / sameDaysLastMonthGgr) * 100 : 0
-
-      const currentMonthBonusCost = calcBonusCost(overview.currentMonth)
-      const sameDaysLastMonthBonusCost = calcBonusCost(overview.sameDaysLastMonth)
-      bonusCostDynamics.currentMonth = sameDaysLastMonthBonusCost > 0 ? currentMonthBonusCost - sameDaysLastMonthBonusCost : null
+      dynamics.currentMonth = calcDyn(Number(overview.currentMonth.ggr || 0), Number(overview.sameDaysLastMonth.ggr || 0))
+      inDynamics.currentMonth = calcDyn(Number(overview.currentMonth.in || 0), Number(overview.sameDaysLastMonth.in || 0))
+      bonusCostDynamics.currentMonth = (() => { const c = calcBonusCost(overview.currentMonth), s = calcBonusCost(overview.sameDaysLastMonth); return s > 0 ? c - s : null })()
     }
 
     // Luna trecută: compara cu luna precedentă
     if (overview.lastMonth && overview.previousMonth) {
-      const lastMonthGgr = Number(overview.lastMonth.ggr || overview.lastMonth.profit || 0)
-      const previousMonthGgr = Number(overview.previousMonth.ggr || overview.previousMonth.profit || 0)
-      dynamics.lastMonth = previousMonthGgr > 0 ? ((lastMonthGgr - previousMonthGgr) / previousMonthGgr) * 100 : 0
-
-      const lastMonthBonusCost = calcBonusCost(overview.lastMonth)
-      const previousMonthBonusCost = calcBonusCost(overview.previousMonth)
-      bonusCostDynamics.lastMonth = previousMonthBonusCost > 0 ? lastMonthBonusCost - previousMonthBonusCost : null
+      dynamics.lastMonth = calcDyn(Number(overview.lastMonth.ggr || 0), Number(overview.previousMonth.ggr || 0))
+      inDynamics.lastMonth = calcDyn(Number(overview.lastMonth.in || 0), Number(overview.previousMonth.in || 0))
+      bonusCostDynamics.lastMonth = (() => { const l = calcBonusCost(overview.lastMonth), p = calcBonusCost(overview.previousMonth); return p > 0 ? l - p : null })()
     }
 
     // Anul curent: compara cu aceeași perioadă din anul trecut
     if (overview.currentYear && overview.lastYear) {
-      const currentYearGgr = Number(overview.currentYear.ggr || overview.currentYear.profit || 0)
-      const lastYearGgr = Number(overview.lastYear.ggr || overview.lastYear.profit || 0)
-      dynamics.currentYear = lastYearGgr > 0 ? ((currentYearGgr - lastYearGgr) / lastYearGgr) * 100 : 0
-
-      const currentYearBonusCost = calcBonusCost(overview.currentYear)
-      const lastYearBonusCost = calcBonusCost(overview.lastYear)
-      bonusCostDynamics.currentYear = lastYearBonusCost > 0 ? currentYearBonusCost - lastYearBonusCost : null
+      dynamics.currentYear = calcDyn(Number(overview.currentYear.ggr || 0), Number(overview.lastYear.ggr || 0))
+      inDynamics.currentYear = calcDyn(Number(overview.currentYear.in || 0), Number(overview.lastYear.in || 0))
+      bonusCostDynamics.currentYear = (() => { const c = calcBonusCost(overview.currentYear), l = calcBonusCost(overview.lastYear); return l > 0 ? c - l : null })()
     }
 
-    return { ggr: dynamics, bonusCost: bonusCostDynamics }
+    return { ggr: dynamics, in: inDynamics, bonusCost: bonusCostDynamics }
   }, [overview])
 
   // Calculează slotsCount pentru luna curentă din slotsByMonthLocation
@@ -3013,6 +2996,7 @@ const Incasari = () => {
         slotsCount: todaySlotsCount !== null ? todaySlotsCount : (overview.today?.slotsCount || overview.today?.slots || 0)
       },
       dynamics: calculateOverviewDynamics.ggr.today,
+      inDynamics: calculateOverviewDynamics.in.today,
       bonusCostDynamics: calculateOverviewDynamics.bonusCost.today
     },
     {
@@ -3022,6 +3006,7 @@ const Incasari = () => {
         slotsCount: yesterdaySlotsCount !== null ? yesterdaySlotsCount : (overview.yesterday?.slotsCount || overview.yesterday?.slots || 0)
       },
       dynamics: calculateOverviewDynamics.ggr.yesterday,
+      inDynamics: calculateOverviewDynamics.in.yesterday,
       bonusCostDynamics: calculateOverviewDynamics.bonusCost.yesterday
     },
     {
@@ -3031,6 +3016,7 @@ const Incasari = () => {
         slotsCount: currentMonthSlotsCount !== null ? currentMonthSlotsCount : (overview.currentMonth?.slotsCount || overview.currentMonth?.slots || 0)
       },
       dynamics: calculateOverviewDynamics.ggr.currentMonth,
+      inDynamics: calculateOverviewDynamics.in.currentMonth,
       bonusCostDynamics: calculateOverviewDynamics.bonusCost.currentMonth
     },
     {
@@ -3040,12 +3026,14 @@ const Incasari = () => {
         slotsCount: lastMonthSlotsCount !== null ? lastMonthSlotsCount : (overview.lastMonth?.slotsCount || overview.lastMonth?.slots || 0)
       },
       dynamics: calculateOverviewDynamics.ggr.lastMonth,
+      inDynamics: calculateOverviewDynamics.in.lastMonth,
       bonusCostDynamics: calculateOverviewDynamics.bonusCost.lastMonth
     },
     {
       label: 'Anul curent',
       data: overview.currentYear,
       dynamics: calculateOverviewDynamics.ggr.currentYear,
+      inDynamics: calculateOverviewDynamics.in.currentYear,
       bonusCostDynamics: calculateOverviewDynamics.bonusCost.currentYear
     }
   ]
@@ -3346,52 +3334,51 @@ const Incasari = () => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-700">
-                    <th className="text-left py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                    <th className="text-left py-2 px-3 font-semibold text-slate-700 dark:text-slate-300 text-xs">
                       Perioadă
                     </th>
-                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300 text-xs">
                       Sloturi
                     </th>
-                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                      GGR
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300 text-xs">
+                      <div>GGR</div>
+                      <div className="text-[10px] font-normal text-slate-400">& dinamică</div>
                     </th>
-                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                      Dinamica GGR
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300 text-xs">
+                      <div>IN</div>
+                      <div className="text-[10px] font-normal text-slate-400">& dinamică</div>
                     </th>
-                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                      IN
-                    </th>
-                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                      OUT
-                    </th>
-                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300 text-xs">
                       BET
                     </th>
-                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                      Marketing
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300 text-xs">
+                      <div>Marketing</div>
                     </th>
-                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                      Bonus cost (%)
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300 text-xs">
+                      <div>Bonus</div>
+                      <div className="text-[10px] font-normal text-slate-400">cost (%)</div>
                     </th>
-                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300 text-xs">
                       JACKPOT
                     </th>
-                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300 text-xs">
                       HH
                     </th>
-                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                      CASHBACK
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300 text-xs">
+                      <div>CASH</div>
+                      <div className="text-[10px] font-normal text-slate-400">BACK</div>
                     </th>
-                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
-                      Zi naștere
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300 text-xs">
+                      <div>Zi</div>
+                      <div className="text-[10px] font-normal text-slate-400">naștere</div>
                     </th>
-                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300">
+                    <th className="text-right py-2 px-3 font-semibold text-slate-700 dark:text-slate-300 text-xs">
                       Tombolă
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {overviewRowConfigs.map(({ label, data, dynamics, bonusCostDynamics }, idx) => {
+                  {overviewRowConfigs.map(({ label, data, dynamics, inDynamics, bonusCostDynamics }, idx) => {
                     const marketingValue = calcMarketingValue(data)
                     const bonusValue = calcBonusCostPercent(data)
                     const rowClass =
@@ -3399,63 +3386,75 @@ const Incasari = () => {
                         ? ''
                         : 'border-b border-slate-100 dark:border-slate-800'
 
-                    // Calculează dinamica pentru GGR
-                    const ggrDynamics = dynamics !== undefined && dynamics !== null ? dynamics : null
-                    const isPositive = ggrDynamics !== null && ggrDynamics >= 0
+                    // GGR dynamics
+                    const ggrDyn = dynamics !== undefined && dynamics !== null ? dynamics : null
+                    const ggrPos = ggrDyn !== null && ggrDyn >= 0
 
-                    // Calculează dinamica pentru Bonus Cost
-                    const bonusDynamics = bonusCostDynamics !== undefined && bonusCostDynamics !== null ? bonusCostDynamics : null
-                    const isBonusPositive = bonusDynamics !== null && bonusDynamics >= 0
+                    // IN dynamics
+                    const inDyn = inDynamics !== undefined && inDynamics !== null ? inDynamics : null
+                    const inPos = inDyn !== null && inDyn >= 0
+
+                    // Bonus cost dynamics
+                    const bonusDyn = bonusCostDynamics !== undefined && bonusCostDynamics !== null ? bonusCostDynamics : null
+                    const isBonusPositive = bonusDyn !== null && bonusDyn >= 0
+
+                    const DynBadge = ({ value, positive, invertColor }) => {
+                      if (value === null) return null
+                      const color = invertColor
+                        ? (positive ? 'text-red-500 dark:text-red-400' : 'text-emerald-500 dark:text-emerald-400')
+                        : (positive ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400')
+                      return (
+                        <div className={`flex items-center justify-end gap-0.5 ${color}`}>
+                          {positive ? (
+                            <TrendingUp className="w-3 h-3" />
+                          ) : (
+                            <TrendingDown className="w-3 h-3" />
+                          )}
+                          <span className="text-xs font-semibold">
+                            {positive ? '+' : ''}{Math.round(value)}%
+                          </span>
+                        </div>
+                      )
+                    }
 
                     return (
                       <tr key={label} className={rowClass}>
-                        <td className="py-2 px-3 font-medium">{label}</td>
-                        <td className="py-2 px-3 text-right">{formatNumber(data?.slotsCount || 0)}</td>
-                        <td className="py-2 px-3 text-right text-emerald-500 font-semibold">
-                          {formatNumber(data?.ggr || 0)}
-                        </td>
+                        <td className="py-2 px-3 font-medium text-xs">{label}</td>
+                        <td className="py-2 px-3 text-right text-xs">{formatNumber(data?.slotsCount || 0)}</td>
+                        {/* GGR + dynamics merged */}
                         <td className="py-2 px-3 text-right">
-                          {ggrDynamics !== null ? (
-                            <div className={`flex items-center justify-end gap-1 ${isPositive ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
-                              {isPositive ? (
-                                <TrendingUp className="w-4 h-4" />
-                              ) : (
-                                <TrendingDown className="w-4 h-4" />
-                              )}
-                              <span className={`font-semibold ${isPositive ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
-                                {isPositive ? '+' : ''}{Math.round(ggrDynamics)}%
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-slate-400">-</span>
-                          )}
+                          <div className="text-emerald-500 font-semibold text-xs">{formatNumber(data?.ggr || 0)}</div>
+                          <DynBadge value={ggrDyn} positive={ggrPos} />
                         </td>
-                        <td className="py-2 px-3 text-right">{formatNumber(data?.in || 0)}</td>
-                        <td className="py-2 px-3 text-right">{formatNumber(data?.out || 0)}</td>
-                        <td className="py-2 px-3 text-right">{formatNumber(data?.bet || 0)}</td>
-                        <td className="py-2 px-3 text-right">{formatNumber(marketingValue)}</td>
+                        {/* IN + dynamics merged */}
+                        <td className="py-2 px-3 text-right">
+                          <div className="text-xs">{formatNumber(data?.in || 0)}</div>
+                          <DynBadge value={inDyn} positive={inPos} />
+                        </td>
+                        <td className="py-2 px-3 text-right text-xs">{formatNumber(data?.bet || 0)}</td>
+                        <td className="py-2 px-3 text-right text-xs">{formatNumber(marketingValue)}</td>
                         <td className="py-2 px-3 text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <span>{formatPercent(bonusValue)}</span>
-                            {bonusDynamics !== null && (
+                            <span className="text-xs">{formatPercent(bonusValue)}</span>
+                            {bonusDyn !== null && (
                               <div className={`flex items-center gap-0.5 ${isBonusPositive ? 'text-red-500 dark:text-red-400' : 'text-emerald-500 dark:text-emerald-400'}`}>
                                 {isBonusPositive ? (
                                   <TrendingUp className="w-3 h-3" />
                                 ) : (
                                   <TrendingDown className="w-3 h-3" />
                                 )}
-                                <span className={`text-xs font-semibold ${isBonusPositive ? 'text-red-500 dark:text-red-400' : 'text-emerald-500 dark:text-emerald-400'}`}>
-                                  {isBonusPositive ? '+' : ''}{bonusDynamics.toFixed(2)}%
+                                <span className={`text-[10px] font-semibold ${isBonusPositive ? 'text-red-500 dark:text-red-400' : 'text-emerald-500 dark:text-emerald-400'}`}>
+                                  {isBonusPositive ? '+' : ''}{bonusDyn.toFixed(2)}%
                                 </span>
                               </div>
                             )}
                           </div>
                         </td>
-                        <td className="py-2 px-3 text-right">{formatNumber(data?.jackpot || 0)}</td>
-                        <td className="py-2 px-3 text-right">{formatNumber(data?.hh || 0)}</td>
-                        <td className="py-2 px-3 text-right">{formatNumber(data?.cb_real || 0)}</td>
-                        <td className="py-2 px-3 text-right">{formatNumber(data?.cb_birthday || 0)}</td>
-                        <td className="py-2 px-3 text-right">{formatNumber(data?.cb_raffle || 0)}</td>
+                        <td className="py-2 px-3 text-right text-xs">{formatNumber(data?.jackpot || 0)}</td>
+                        <td className="py-2 px-3 text-right text-xs">{formatNumber(data?.hh || 0)}</td>
+                        <td className="py-2 px-3 text-right text-xs">{formatNumber(data?.cb_real || 0)}</td>
+                        <td className="py-2 px-3 text-right text-xs">{formatNumber(data?.cb_birthday || 0)}</td>
+                        <td className="py-2 px-3 text-right text-xs">{formatNumber(data?.cb_raffle || 0)}</td>
                       </tr>
                     )
                   })}
