@@ -85,6 +85,18 @@ const fmt = (v, dec = 0) =>
 
 const pct = (v) => `${Number(v ?? 0).toFixed(2)}%`
 
+/* ── dynamics badge ───────────────────────────────────────── */
+const DynBadge = ({ current, previous }) => {
+  if (!previous || previous === 0) return <span className="text-slate-400 text-[10px]">—</span>
+  const change = ((current - previous) / previous) * 100
+  const isUp = change >= 0
+  return (
+    <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${isUp ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' : 'bg-rose-500/20 text-rose-700 dark:text-rose-300'}`}>
+      {isUp ? '▲' : '▼'}{Math.abs(change).toFixed(1)}%
+    </span>
+  )
+}
+
 /* ── sort icon ─────────────────────────────────────────────── */
 const SortIcon = ({ col, sortCol, sortDir }) => {
   if (sortCol !== col) return <ChevronsUpDown className="w-3 h-3 opacity-30 inline ml-1" />
@@ -100,6 +112,7 @@ const LocationPLDetail = () => {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [slots, setSlots] = useState([])
+  const [prevSlots, setPrevSlots] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
@@ -134,6 +147,33 @@ const LocationPLDetail = () => {
     setSearchParams({ dateRange: `${s}_${e}` }, { replace: true })
   }, [setSearchParams])
 
+  /* ── compute previous comparison period ─────────────────── */
+  const prevPeriod = useMemo(() => {
+    const s = new Date(dateRange.startDate + 'T00:00:00')
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    // Cap end date at yesterday — today's data is incomplete
+    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1)
+    const rawEnd = new Date(dateRange.endDate + 'T00:00:00')
+    const e = rawEnd > yesterday ? yesterday : rawEnd
+    const days = Math.round((e - s) / 86400000) + 1
+    if (days === 1) {
+      // single day: compare with previous day
+      const prev = new Date(s); prev.setDate(prev.getDate() - 1)
+      return { startDate: fmtDate(prev), endDate: fmtDate(prev) }
+    }
+    if (days <= 31) {
+      // month-ish: shift back by 1 month, same number of days
+      const ps = new Date(s.getFullYear(), s.getMonth() - 1, s.getDate())
+      const pe = new Date(ps.getTime() + (days - 1) * 86400000)
+      return { startDate: fmtDate(ps), endDate: fmtDate(pe) }
+    }
+    // year-ish: shift back by 1 year, cap at same day offset
+    const ps = new Date(s.getFullYear() - 1, s.getMonth(), s.getDate())
+    const pe = new Date(ps.getTime() + (days - 1) * 86400000)
+    return { startDate: fmtDate(ps), endDate: fmtDate(pe) }
+  }, [dateRange])
+
   /* ── fetch ──────────────────────────────────────────────── */
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -144,18 +184,27 @@ const LocationPLDetail = () => {
           endDate: dateRange.endDate
         }
       if (!isAllLocations) params.location = decoded
-      const res = await axios.get('/api/incasari/slots-by-location', { params })
+      const prevParams = {
+        startDate: prevPeriod.startDate,
+        endDate: prevPeriod.endDate
+      }
+      if (!isAllLocations) prevParams.location = decoded
+      const [res, prevRes] = await Promise.all([
+        axios.get('/api/incasari/slots-by-location', { params }),
+        axios.get('/api/incasari/slots-by-location', { params: prevParams }).catch(() => ({ data: { rows: [] } }))
+      ])
       if (res.data?.success) {
         setSlots(res.data.rows || [])
       } else {
         setError(res.data?.error || 'Eroare necunoscută')
       }
+      setPrevSlots(prevRes.data?.rows || [])
     } catch (err) {
       setError(err.response?.data?.error || err.message)
     } finally {
       setLoading(false)
     }
-  }, [locationName, dateRange.startDate, dateRange.endDate])
+  }, [locationName, dateRange.startDate, dateRange.endDate, prevPeriod.startDate, prevPeriod.endDate])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -173,6 +222,27 @@ const LocationPLDetail = () => {
       cbReal: acc.cbReal + (r.totalCbReal || 0),
       cbBirthday: acc.cbBirthday + (r.totalCbBirthday || 0)
     }), { in: 0, out: 0, profit: 0, bet: 0, win: 0, jackpot: 0, raffle: 0, hh: 0, cbReal: 0, cbBirthday: 0 }), [slots])
+
+  /* ── previous period IN maps for dynamics ─────────────────── */
+  const prevInByProvider = useMemo(() => {
+    const m = {}
+    prevSlots.forEach(r => { const k = r.provider || '—'; m[k] = (m[k] || 0) + r.totalIn })
+    return m
+  }, [prevSlots])
+
+  const prevInByLocation = useMemo(() => {
+    const m = {}
+    prevSlots.forEach(r => { const k = r.locationName || '—'; m[k] = (m[k] || 0) + r.totalIn })
+    return m
+  }, [prevSlots])
+
+  const prevInBySerial = useMemo(() => {
+    const m = {}
+    prevSlots.forEach(r => { m[r.serialNumber] = (m[r.serialNumber] || 0) + r.totalIn })
+    return m
+  }, [prevSlots])
+
+  const prevTotalIn = useMemo(() => prevSlots.reduce((s, r) => s + r.totalIn, 0), [prevSlots])
 
   /* ── filter options ─────────────────────────────────────── */
   const providers = useMemo(() => ['all', ...new Set(slots.map(s => s.provider).filter(Boolean).sort())], [slots])
@@ -194,12 +264,16 @@ const LocationPLDetail = () => {
         r.gameMix?.toLowerCase().includes(q)
       )
     }
-    return [...d].sort((a, b) => {
+    return [...d].map(r => {
+      const prev = prevInBySerial[r.serialNumber]
+      const dynInPct = prev > 0 ? ((r.totalIn - prev) / prev) * 100 : null
+      return { ...r, dynInPct }
+    }).sort((a, b) => {
       const va = a[sortCol] ?? 0, vb = b[sortCol] ?? 0
       if (typeof va === 'string') return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va)
       return sortDir === 'asc' ? va - vb : vb - va
     })
-  }, [slots, search, sortCol, sortDir, provFilter, cabFilter, locFilter])
+  }, [slots, search, sortCol, sortDir, provFilter, cabFilter, locFilter, prevInBySerial])
 
   const handleSort = (col) => {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -258,10 +332,12 @@ const LocationPLDetail = () => {
     const stats = {}
     displayed.forEach(r => {
       const key = r.cabinet || 'Necunoscut'
-      stats[key] = (stats[key] || 0) + r.totalBet
+      if (!stats[key]) stats[key] = { total: 0, count: 0 }
+      stats[key].total += r.totalBet
+      stats[key].count++
     })
     return Object.entries(stats)
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, s]) => ({ name, value: Math.round(s.total / s.count) }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 10)
   }, [displayed])
@@ -270,10 +346,12 @@ const LocationPLDetail = () => {
     const stats = {}
     displayed.forEach(r => {
       const key = r.gameMix || 'Necunoscut'
-      stats[key] = (stats[key] || 0) + r.totalBet
+      if (!stats[key]) stats[key] = { total: 0, count: 0 }
+      stats[key].total += r.totalBet
+      stats[key].count++
     })
     return Object.entries(stats)
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, s]) => ({ name, value: Math.round(s.total / s.count) }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 10)
   }, [displayed])
@@ -333,112 +411,65 @@ const LocationPLDetail = () => {
     <Layout>
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-6 space-y-4">
 
-        {/* ── Header row ─────────────────────────────────── */}
-        <div className="flex items-start gap-4 flex-wrap">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors mt-1"
-          >
-            <ArrowLeft className="w-4 h-4" /> Înapoi
+        {/* ── Row 1: Back + Title + Period + Actions ──────────── */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">
+            <ArrowLeft className="w-3 h-3" /> Înapoi
           </button>
-
-          <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold text-white">{isAllLocations ? 'Toate locațiile' : decoded}</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              Încasări per aparat ·{' '}
-              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                {dateRange.startDate} → {dateRange.endDate}
-              </span>
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={fetchData}
-              disabled={loading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Reîncarcă
+          <h1 className="text-lg font-bold text-slate-900 dark:text-white">{isAllLocations ? 'Toate locațiile' : decoded}</h1>
+          <span className="text-[11px] text-slate-400">·</span>
+          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">{dateRange.startDate} → {dateRange.endDate}</span>
+          <div className="ml-auto flex items-center gap-1.5 shrink-0">
+            <button onClick={fetchData} disabled={loading}
+              className="flex items-center gap-1 px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-50">
+              <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} /> Reîncarcă
             </button>
-            <button
-              onClick={exportExcel}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium transition-colors"
-            >
-              <Download className="w-3.5 h-3.5" /> Export Excel
+            <button onClick={exportExcel}
+              className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-medium transition-colors">
+              <Download className="w-3 h-3" /> Export
             </button>
           </div>
         </div>
 
-        {/* ── Controls Row (Dates + Filters) ──────────────────────── */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            {/* Left: Dates */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {QUICK_PERIODS.map(({ id, label, icon: Icon, get }) => {
-                const isActive = activeQuick === id
-                return (
-                  <button
-                    key={id}
-                    onClick={() => { const { s, e } = get(); setPeriod(s, e, id) }}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
-                      border transition-all whitespace-nowrap
-                      ${isActive
-                        ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-500/20'
-                        : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white hover:border-slate-400 dark:hover:border-slate-500'
-                      }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    {label}
-                  </button>
-                )
-              })}
-              <div className="flex items-center gap-1.5 ml-2 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1">
-                <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                <input
-                  type="date"
-                  value={dateRange.startDate}
-                  onChange={e => setPeriod(e.target.value, dateRange.endDate)}
-                  className="bg-transparent text-xs text-slate-800 dark:text-slate-200 focus:outline-none w-28"
-                />
-                <span className="text-slate-600 text-xs">→</span>
-                <input
-                  type="date"
-                  value={dateRange.endDate}
-                  onChange={e => setPeriod(dateRange.startDate, e.target.value)}
-                  className="bg-transparent text-xs text-slate-800 dark:text-slate-200 focus:outline-none w-28"
-                />
-              </div>
-            </div>
-
-            {/* Right: Filters */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Serial, provider, cabinet, mix..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 w-64 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs
-                    text-slate-800 dark:text-slate-200 placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500/30 focus:outline-none"
-                />
-              </div>
-              {isAllLocations && (
-                <select value={locFilter} onChange={e => setLocFilter(e.target.value)}
-                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:outline-none">
-                  {locations.map(l => <option key={l} value={l}>{l === 'all' ? 'Toate Locațiile' : l}</option>)}
-                </select>
-              )}
-              <select value={provFilter} onChange={e => setProvFilter(e.target.value)}
-                className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:outline-none">
-                {providers.map(p => <option key={p} value={p}>{p === 'all' ? 'Toți Providerii' : p}</option>)}
-              </select>
-              <select value={cabFilter} onChange={e => setCabFilter(e.target.value)}
-                className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:outline-none">
-                {cabinets.map(c => <option key={c} value={c}>{c === 'all' ? 'Toate Cabinetele' : c}</option>)}
-              </select>
-            </div>
+        {/* ── Row 2: Period pills + Filters (all inline) ──────── */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {QUICK_PERIODS.map(({ id, label, icon: Icon, get }) => (
+            <button key={id} onClick={() => { const { s, e } = get(); setPeriod(s, e, id) }}
+              className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-all whitespace-nowrap
+                ${activeQuick === id
+                  ? 'bg-emerald-600 border-emerald-500 text-white'
+                  : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}>
+              <Icon className="w-2.5 h-2.5" />{label}
+            </button>
+          ))}
+          <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5">
+            <Calendar className="w-2.5 h-2.5 text-slate-500" />
+            <input type="date" value={dateRange.startDate} onChange={e => setPeriod(e.target.value, dateRange.endDate)}
+              className="bg-transparent text-[10px] text-slate-800 dark:text-slate-200 focus:outline-none w-[5.5rem]" />
+            <span className="text-slate-400 text-[10px]">→</span>
+            <input type="date" value={dateRange.endDate} onChange={e => setPeriod(dateRange.startDate, e.target.value)}
+              className="bg-transparent text-[10px] text-slate-800 dark:text-slate-200 focus:outline-none w-[5.5rem]" />
           </div>
+          <div className="h-3.5 w-px bg-slate-300 dark:bg-slate-700 mx-0.5" />
+          <div className="relative inline-flex items-center self-center flex-1 min-w-[6rem]">
+            <Search className="absolute left-1.5 w-2.5 h-2.5 text-slate-400" />
+            <input type="text" placeholder="Caută..." value={search} onChange={e => setSearch(e.target.value)}
+              className="pl-5 pr-1.5 py-0.5 w-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-[10px] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none" />
+          </div>
+          {isAllLocations && (
+            <select value={locFilter} onChange={e => setLocFilter(e.target.value)}
+              className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-[10px] text-slate-800 dark:text-slate-200 focus:outline-none capitalize">
+              {locations.map(l => <option key={l} value={l}>{l === 'all' ? 'Locații' : l}</option>)}
+            </select>
+          )}
+          <select value={provFilter} onChange={e => setProvFilter(e.target.value)}
+            className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-[10px] text-slate-800 dark:text-slate-200 focus:outline-none">
+            {providers.map(p => <option key={p} value={p}>{p === 'all' ? 'Provideri' : p}</option>)}
+          </select>
+          <select value={cabFilter} onChange={e => setCabFilter(e.target.value)}
+            className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-[10px] text-slate-800 dark:text-slate-200 focus:outline-none">
+            {cabinets.map(c => <option key={c} value={c}>{c === 'all' ? 'Cabinete' : c}</option>)}
+          </select>
         </div>
 
         {/* ── KPI Cards ──────────────────────────────────── */}
@@ -460,7 +491,7 @@ const LocationPLDetail = () => {
         {!loading && !error && displayed.length > 0 && (
           <>
           {/* ── Summary Tables Row ────────────────────────────── */}
-          <div className={`grid gap-4 mt-2 mb-4 ${isAllLocations ? 'grid-cols-1 2xl:grid-cols-2' : 'grid-cols-1'}`}>
+          <div className={`grid gap-4 mt-2 mb-4 ${isAllLocations ? 'grid-cols-1 2xl:grid-cols-3' : 'grid-cols-1'}`}>
 
             {/* Left: Provider Summary Table */}
             {providerStats.length > 0 && (
@@ -474,16 +505,12 @@ const LocationPLDetail = () => {
                       <tr>
                         <th className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Producător</th>
                         <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Ap.</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">IN</th>
+                        <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Δ IN</th>
                         <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">GGR</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">BET</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Jackpot</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Raffles</th>
                         <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">%WIN/BET</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">%IN/OUT</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60 border-b border-slate-200 dark:border-slate-800/60">
                       {providerStats.map(s => {
                         const winBet = s.totalBet > 0 ? (s.totalWin / s.totalBet) * 100 : 0
                         const inOut = s.totalOut > 0 ? (s.totalIn / s.totalOut) * 100 : 0
@@ -491,13 +518,10 @@ const LocationPLDetail = () => {
                           <tr key={s.provider} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                             <td className="px-2 py-2 text-slate-800 dark:text-slate-200 font-medium">{s.provider}</td>
                             <td className="px-2 py-2 text-right text-slate-500 dark:text-slate-400 tabular-nums">{s.count}</td>
-                            <td className="px-2 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalIn)}</td>
+                            <td className="px-2 py-2 text-right"><DynBadge current={s.totalIn} previous={prevInByProvider[s.provider]} /></td>
                             <td className={`px-2 py-2 text-right font-bold tabular-nums ${s.totalProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>
                               {fmt(s.totalProfit)}
                             </td>
-                            <td className="px-2 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalBet)}</td>
-                            <td className="px-2 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalJackpot)}</td>
-                            <td className="px-2 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalRaffle)}</td>
                             <td className="px-2 py-2 text-right tabular-nums">
                               <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${winBet >= 98 ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300'
                                 : winBet >= 95 ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
@@ -506,38 +530,58 @@ const LocationPLDetail = () => {
                                 {pct(winBet)}
                               </span>
                             </td>
-                            <td className="px-2 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{pct(inOut)}</td>
                           </tr>
                         )
                       })}
                     </tbody>
                   </table>
                 </div>
+                {(() => {
+                  const t = providerStats.reduce((acc, s) => ({
+                    count: acc.count + s.count, totalIn: acc.totalIn + s.totalIn,
+                    totalBet: acc.totalBet + s.totalBet, totalWin: acc.totalWin + s.totalWin,
+                    totalProfit: acc.totalProfit + s.totalProfit,
+                  }), { count: 0, totalIn: 0, totalBet: 0, totalWin: 0, totalProfit: 0 })
+                  const tWinBet = t.totalBet > 0 ? (t.totalWin / t.totalBet) * 100 : 0
+                  return (
+                    <div className="mt-auto bg-slate-100 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shrink-0">
+                      <table className="w-full text-sm"><tbody>
+                        <tr className="font-bold text-slate-900 dark:text-slate-100">
+                          <td className="px-2 py-2 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">TOTAL</td>
+                          <td className="px-2 py-2 text-right tabular-nums">{t.count}</td>
+                          <td className="px-2 py-2 text-right"><DynBadge current={t.totalIn} previous={prevTotalIn} /></td>
+                          <td className={`px-2 py-2 text-right tabular-nums ${t.totalProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>{fmt(t.totalProfit)}</td>
+                          <td className="px-2 py-2 text-right tabular-nums">{pct(tWinBet)}</td>
+                        </tr>
+                      </tbody></table>
+                    </div>
+                  )
+                })()}
               </div>
             )}
 
             {/* Centralizator Locații (only in 'all' mode) */}
             {isAllLocations && locationStats.length > 0 && (
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden flex flex-col h-full">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden flex flex-col h-full 2xl:col-span-2">
                 <div className="px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 shrink-0">
                   <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Centralizator Locații</h3>
                 </div>
-                <div className="overflow-x-auto flex-1">
+                <div className="overflow-x-auto flex-1 border-b border-slate-200 dark:border-slate-700">
                   <table className="w-full text-sm">
                     <thead className="bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
                       <tr>
                         <th className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Locație</th>
                         <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Ap.</th>
                         <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">IN</th>
+                        <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Δ IN</th>
                         <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">GGR</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">BET</th>
                         <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Jackpot</th>
                         <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Raffles</th>
                         <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">%WIN/BET</th>
                         <th className="px-2 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">%IN/OUT</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60 border-b border-slate-200 dark:border-slate-800/60">
                       {locationStats.map(s => {
                         const winBet = s.totalBet > 0 ? (s.totalWin / s.totalBet) * 100 : 0
                         const inOut = s.totalOut > 0 ? (s.totalIn / s.totalOut) * 100 : 0
@@ -546,10 +590,10 @@ const LocationPLDetail = () => {
                             <td className="px-2 py-2 text-slate-800 dark:text-slate-200 font-medium capitalize">{s.location}</td>
                             <td className="px-2 py-2 text-right text-slate-500 dark:text-slate-400 tabular-nums">{s.count}</td>
                             <td className="px-2 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalIn)}</td>
+                            <td className="px-2 py-2 text-right"><DynBadge current={s.totalIn} previous={prevInByLocation[s.location]} /></td>
                             <td className={`px-2 py-2 text-right font-bold tabular-nums ${s.totalProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>
                               {fmt(s.totalProfit)}
                             </td>
-                            <td className="px-2 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalBet)}</td>
                             <td className="px-2 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalJackpot)}</td>
                             <td className="px-2 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(s.totalRaffle)}</td>
                             <td className="px-2 py-2 text-right tabular-nums">
@@ -560,13 +604,46 @@ const LocationPLDetail = () => {
                                 {pct(winBet)}
                               </span>
                             </td>
-                            <td className="px-2 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{pct(inOut)}</td>
+                            <td className="px-2 py-2 text-right tabular-nums">
+                              <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${inOut >= 110 ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300'
+                                : inOut >= 105 ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                                  : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                                }`}>
+                                {pct(inOut)}
+                              </span>
+                            </td>
                           </tr>
                         )
                       })}
                     </tbody>
                   </table>
                 </div>
+                {(() => {
+                  const t = locationStats.reduce((acc, s) => ({
+                    count: acc.count + s.count, totalIn: acc.totalIn + s.totalIn, totalOut: acc.totalOut + s.totalOut,
+                    totalProfit: acc.totalProfit + s.totalProfit, totalBet: acc.totalBet + s.totalBet,
+                    totalWin: acc.totalWin + s.totalWin, totalJackpot: acc.totalJackpot + s.totalJackpot, totalRaffle: acc.totalRaffle + s.totalRaffle,
+                  }), { count: 0, totalIn: 0, totalOut: 0, totalProfit: 0, totalBet: 0, totalWin: 0, totalJackpot: 0, totalRaffle: 0 })
+                  const tWinBet = t.totalBet > 0 ? (t.totalWin / t.totalBet) * 100 : 0
+                  const tInOut = t.totalOut > 0 ? (t.totalIn / t.totalOut) * 100 : 0
+                  return (
+                    <div className="mt-auto bg-slate-100 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shrink-0">
+                      <table className="w-full text-sm"><tbody>
+                        <tr className="font-bold text-slate-900 dark:text-slate-100">
+                          <td className="px-2 py-2 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">TOTAL</td>
+                          <td className="px-2 py-2 text-right tabular-nums">{t.count}</td>
+                          <td className="px-2 py-2 text-right tabular-nums">{fmt(t.totalIn)}</td>
+                          <td className="px-2 py-2 text-right"><DynBadge current={t.totalIn} previous={prevTotalIn} /></td>
+                          <td className={`px-2 py-2 text-right tabular-nums ${t.totalProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>{fmt(t.totalProfit)}</td>
+                          <td className="px-2 py-2 text-right tabular-nums">{fmt(t.totalJackpot)}</td>
+                          <td className="px-2 py-2 text-right tabular-nums">{fmt(t.totalRaffle)}</td>
+                          <td className="px-2 py-2 text-right tabular-nums">{pct(tWinBet)}</td>
+                          <td className="px-2 py-2 text-right tabular-nums">{pct(tInOut)}</td>
+                        </tr>
+                      </tbody></table>
+                    </div>
+                  )
+                })()}
               </div>
             )}
           </div>
@@ -574,7 +651,7 @@ const LocationPLDetail = () => {
             {/* Charts Row: Pie Charts + GGR Bar */}
             <div className={`grid gap-4 mb-4 ${isAllLocations ? 'grid-cols-1 lg:grid-cols-3' : 'grid-cols-1 lg:grid-cols-2'}`}>
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col">
-                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4 text-center shrink-0">Distribuție BET pe Cabinete (Top 10)</h3>
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4 text-center shrink-0">BET Mediu pe Cabinete (Top 10)</h3>
                 <div className="flex-1 min-h-[200px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -624,7 +701,7 @@ const LocationPLDetail = () => {
               </div>
 
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col">
-                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4 text-center shrink-0">Distribuție BET pe Mix-uri (Top 10)</h3>
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4 text-center shrink-0">BET Mediu pe Mix-uri (Top 10)</h3>
                 <div className="flex-1 min-h-[200px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -721,6 +798,7 @@ const LocationPLDetail = () => {
                     <Th col="cabinet">Cabinet</Th>
                     <Th col="gameMix">Mix</Th>
                     <Th col="totalIn" right>IN (lei)</Th>
+                    <Th col="dynInPct" right>Δ IN</Th>
                     <Th col="totalOut" right>OUT (lei)</Th>
                     <Th col="totalWin" right>WIN (lei)</Th>
                     <Th col="totalBet" right>BET (lei)</Th>
@@ -741,6 +819,7 @@ const LocationPLDetail = () => {
                         <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{row.cabinet}</td>
                         <td className="px-3 py-2 text-xs text-slate-700 dark:text-slate-300">{row.gameMix || ''}</td>
                         <td className="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(row.totalIn)}</td>
+                        <td className="px-3 py-2 text-right"><DynBadge current={row.totalIn} previous={prevInBySerial[row.serialNumber]} /></td>
                         <td className="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(row.totalOut)}</td>
                         <td className="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(row.totalWin)}</td>
                         <td className="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(row.totalBet)}</td>
@@ -762,10 +841,11 @@ const LocationPLDetail = () => {
                 </tbody>
                 <tfoot className="bg-slate-100 dark:bg-slate-800 border-t-2 border-slate-300 dark:border-slate-600">
                   <tr className="font-bold text-slate-900 dark:text-slate-100 text-sm">
-                    <td colSpan={isAllLocations ? 6 : 5} className="px-3 py-2.5 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <td colSpan={isAllLocations ? 7 : 6} className="px-3 py-2.5 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       TOTAL · {displayed.length} aparate
                     </td>
                     <td className="px-3 py-2.5 text-right text-slate-800 dark:text-slate-200 tabular-nums">{fmt(totals.in)}</td>
+                    <td className="px-3 py-2.5 text-right"><DynBadge current={totals.in} previous={prevTotalIn} /></td>
                     <td className="px-3 py-2.5 text-right text-slate-800 dark:text-slate-200 tabular-nums">{fmt(totals.out)}</td>
                     <td className="px-3 py-2.5 text-right text-slate-800 dark:text-slate-200 tabular-nums">{fmt(totals.win)}</td>
                     <td className="px-3 py-2.5 text-right text-slate-800 dark:text-slate-200 tabular-nums">{fmt(totals.bet)}</td>
