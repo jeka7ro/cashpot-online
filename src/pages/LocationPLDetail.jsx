@@ -122,7 +122,7 @@ const LocationPLDetail = () => {
   const [cabFilter, setCabFilter] = useState('all')
   const [locFilter, setLocFilter] = useState('all')
   const [activeQuick, setActiveQuick] = useState(null)
-  const [monthlyComparison, setMonthlyComparison] = useState([])
+  const [monthlyComparison, setMonthlyComparison] = useState({ data: [], startDay: 1, endDay: 1 })
 
   const decoded = decodeURIComponent(locationName)
   const isAllLocations = decoded === 'all'
@@ -207,24 +207,31 @@ const LocationPLDetail = () => {
     }
   }, [locationName, dateRange.startDate, dateRange.endDate, prevPeriod.startDate, prevPeriod.endDate])
 
-  /* ── fetch 12-month comparison ──────────────────────────── */
+  /* ── fetch 13-month comparison ──────────────────────────── */
   const fetchComparison = useCallback(async () => {
     try {
+      const selStart = new Date(dateRange.startDate + 'T00:00:00')
+      const selEnd = new Date(dateRange.endDate + 'T00:00:00')
+      // Cap end date to yesterday if it's today or in the future
       const today = new Date(); today.setHours(0, 0, 0, 0)
       const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1)
-      // Always compare: day 1 to yesterday of the current month
-      const currentMonth = yesterday.getMonth()
-      const currentYear = yesterday.getFullYear()
-      const endDay = yesterday.getDate() // e.g., 8 for March 8
+      const effectiveEnd = selEnd >= today ? yesterday : selEnd
+
+      // Always compare same day range for fairness
+      const startDay = selStart.getDate()
+      const endDay = effectiveEnd.getDate()
+      // Reference month = effectiveEnd's month (latest month with data)
+      const refMonth = effectiveEnd.getMonth()
+      const refYear = effectiveEnd.getFullYear()
 
       const months = []
-      for (let i = 0; i < 12; i++) {
-        const ms = new Date(currentYear, currentMonth - i, 1)
+      for (let i = 0; i < 13; i++) {
+        const ms = new Date(refYear, refMonth - i, startDay)
         const lastDayOfMonth = new Date(ms.getFullYear(), ms.getMonth() + 1, 0).getDate()
         const cappedEndDay = Math.min(endDay, lastDayOfMonth)
         const me = new Date(ms.getFullYear(), ms.getMonth(), cappedEndDay)
         const label = ms.toLocaleDateString('ro-RO', { month: 'short', year: '2-digit' })
-        months.push({ label, startDate: fmtDate(ms), endDate: fmtDate(me), days: cappedEndDay })
+        months.push({ label, startDate: fmtDate(ms), endDate: fmtDate(me), startDay, endDay: cappedEndDay })
       }
 
       const params = isAllLocations ? {} : { location: decoded }
@@ -238,16 +245,17 @@ const LocationPLDetail = () => {
         const r = results[i]
         if (r.status === 'fulfilled' && r.value.data?.success) {
           const d = r.value.data
-          return { label: m.label, ggr: Math.round(d.totalProfit || 0), in: Math.round(d.totalIn || 0) }
+          const bonusTotal = (d.totalJackpot || 0) + (d.totalRaffle || 0) + (d.totalHh || 0) + (d.totalCbReal || 0) + (d.totalCbBirthday || 0)
+          return { label: m.label, ggr: Math.round(d.totalProfit || 0), in: Math.round(d.totalIn || 0), bet: Math.round(d.totalBet || 0), win: Math.round(d.totalWin || 0), out: Math.round(d.totalOut || 0), bonusTotal: Math.round(bonusTotal) }
         }
-        return { label: m.label, ggr: 0, in: 0 }
+        return { label: m.label, ggr: 0, in: 0, bet: 0, win: 0, out: 0, bonusTotal: 0 }
       }).reverse()
 
-      setMonthlyComparison(data)
+      setMonthlyComparison({ data, startDay, endDay })
     } catch (err) {
       console.error('Comparison fetch error:', err)
     }
-  }, [isAllLocations, decoded])
+  }, [isAllLocations, decoded, dateRange.startDate, dateRange.endDate])
 
   useEffect(() => { fetchData() }, [fetchData])
   useEffect(() => { fetchComparison() }, [fetchComparison])
@@ -544,7 +552,7 @@ const LocationPLDetail = () => {
                   <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Centralizator Producători</h3>
                 </div>
                 <div className="overflow-x-auto flex-1">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm h-full">
                     <thead className="bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
                       <tr>
                         <th className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Producător</th>
@@ -577,6 +585,7 @@ const LocationPLDetail = () => {
                           </tr>
                         )
                       })}
+                      <tr className="h-4"><td colSpan={5}></td></tr>
                     </tbody>
                     {(() => {
                       const t = providerStats.reduce((acc, s) => ({
@@ -604,12 +613,12 @@ const LocationPLDetail = () => {
 
             {/* Centralizator Locații (only in 'all' mode) */}
             {isAllLocations && locationStats.length > 0 && (
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden flex flex-col h-full 2xl:col-span-2">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden 2xl:col-span-2 flex flex-col h-full">
                 <div className="px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 shrink-0">
                   <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Centralizator Locații</h3>
                 </div>
-                <div className="overflow-x-auto flex-1 border-b border-slate-200 dark:border-slate-700">
-                  <table className="w-full text-sm">
+                <div className="overflow-x-auto flex-1">
+                  <table className="w-full text-sm h-full">
                     <thead className="bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
                       <tr>
                         <th className="px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Locație</th>
@@ -657,6 +666,7 @@ const LocationPLDetail = () => {
                           </tr>
                         )
                       })}
+                      <tr className="h-4"><td colSpan={9}></td></tr>
                     </tbody>
                     {(() => {
                       const t = locationStats.reduce((acc, s) => ({
@@ -812,29 +822,87 @@ const LocationPLDetail = () => {
               )}
             </div>
 
-            {/* ── 12-Month GGR & IN Comparison ─────────────────── */}
-            {monthlyComparison.length > 0 && (
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
-                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4 text-center">Dinamică GGR & IN — Zilele 1-{new Date().getDate() - 1} din ultimele 12 luni</h3>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={monthlyComparison} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
-                      <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                      <YAxis yAxisId="left" tick={{ fontSize: 9, fill: '#3b82f6' }} tickFormatter={v => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
-                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 9, fill: '#10b981' }} tickFormatter={v => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
-                      <Tooltip
-                        formatter={(value, name) => [fmt(value) + ' lei', name === 'ggr' ? 'GGR' : 'IN']}
-                        contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '8px', fontSize: '12px', color: '#f8fafc' }}
-                      />
-                      <Legend wrapperStyle={{ fontSize: '11px' }} />
-                      <Bar yAxisId="left" dataKey="in" name="IN" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={16} opacity={0.7} />
-                      <Bar yAxisId="right" dataKey="ggr" name="GGR" fill="#10b981" radius={[4, 4, 0, 0]} barSize={16} />
-                    </BarChart>
-                  </ResponsiveContainer>
+            {/* ── 13-Month GGR & IN Comparison Table ─────────────── */}
+            {monthlyComparison.data.length > 0 && (() => {
+              const compData = monthlyComparison.data
+              const current = compData[compData.length - 1]
+              const pctChg = (cur, ref) => ref === 0 ? null : (((cur - ref) / ref) * 100).toFixed(1)
+              const { startDay, endDay } = monthlyComparison
+              const pctCell = (val) => {
+                if (val === null) return <span className="text-slate-400">—</span>
+                return <span className={val > 0 ? 'text-emerald-600 dark:text-emerald-400' : val < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}>{val > 0 ? '+' : ''}{val}%</span>
+              }
+              const pctCellInv = (val) => {
+                if (val === null) return <span className="text-slate-400">—</span>
+                return <span className={val > 0 ? 'text-rose-600 dark:text-rose-400' : val < 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}>{val > 0 ? '+' : ''}{val}%</span>
+              }
+              return (
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+                    <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Dinamică GGR & IN — {monthlyComparison.startDay === monthlyComparison.endDay ? `Ziua ${monthlyComparison.startDay}` : `Zilele ${monthlyComparison.startDay}-${monthlyComparison.endDay}`} (ultimele 13 luni)</h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Luna</th>
+                          <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">IN</th>
+                          <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-blue-500 dark:text-blue-400">vs Cur</th>
+                          <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">MoM</th>
+                          <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">GGR</th>
+                          <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-blue-500 dark:text-blue-400">vs Cur</th>
+                          <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">MoM</th>
+                          <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">%W/B</th>
+                          <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">MoM</th>
+                          <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">B.Cost%</th>
+                          <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-blue-500 dark:text-blue-400">vs Cur</th>
+                          <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">MoM</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
+                        {compData.map((m, i) => {
+                          const isLast = i === compData.length - 1
+                          const prev = i > 0 ? compData[i - 1] : null
+                          const vsCurIn = isLast ? null : pctChg(current.in, m.in)
+                          const vsCurGgr = isLast ? null : pctChg(current.ggr, m.ggr)
+                          const momIn = prev ? pctChg(m.in, prev.in) : null
+                          const momGgr = prev ? pctChg(m.ggr, prev.ggr) : null
+                          const winBet = m.bet > 0 ? (m.win / m.bet * 100) : 0
+                          const prevWinBet = prev && prev.bet > 0 ? (prev.win / prev.bet * 100) : 0
+                          const momWb = prev ? pctChg(winBet, prevWinBet) : null
+                          const momOut = prev ? pctChg(m.out, prev.out) : null
+                          const bonusCost = m.bet > 0 ? (m.bonusTotal / m.bet * 100) : 0
+                          const prevBonusCost = prev && prev.bet > 0 ? (prev.bonusTotal / prev.bet * 100) : 0
+                          const curBonusCost = current.bet > 0 ? (current.bonusTotal / current.bet * 100) : 0
+                          const vsCurBonus = isLast ? null : pctChg(curBonusCost, bonusCost)
+                          const momBonus = prev ? pctChg(bonusCost, prevBonusCost) : null
+                          return (
+                            <tr key={i} className={isLast ? 'bg-slate-50 dark:bg-slate-800/40 border-l-4 border-l-blue-500' : 'hover:bg-slate-50 dark:hover:bg-slate-800/30'}>
+                              <td className="px-3 py-1.5 text-slate-800 dark:text-slate-200 capitalize">{isLast ? `▶ ${m.label}` : m.label}</td>
+                              <td className="px-3 py-1.5 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(m.in)}</td>
+                              <td className="px-3 py-1.5 text-right tabular-nums font-semibold">{pctCell(vsCurIn)}</td>
+                              <td className="px-3 py-1.5 text-right tabular-nums font-semibold">{pctCell(momIn)}</td>
+                              <td className={`px-3 py-1.5 text-right tabular-nums ${m.ggr >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>{fmt(m.ggr)}</td>
+                              <td className="px-3 py-1.5 text-right tabular-nums font-semibold">{pctCell(vsCurGgr)}</td>
+                              <td className="px-3 py-1.5 text-right tabular-nums font-semibold">{pctCell(momGgr)}</td>
+                              <td className="px-3 py-1.5 text-right tabular-nums">
+                                <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${winBet >= 98 ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300' : winBet >= 95 ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300' : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'}`}>
+                                  {pct(winBet)}
+                                </span>
+                              </td>
+                              <td className="px-3 py-1.5 text-right tabular-nums font-semibold">{pctCellInv(momWb)}</td>
+                              <td className="px-3 py-1.5 text-right tabular-nums text-slate-700 dark:text-slate-300">{pct(bonusCost)}</td>
+                              <td className="px-3 py-1.5 text-right tabular-nums font-semibold">{pctCellInv(vsCurBonus)}</td>
+                              <td className="px-3 py-1.5 text-right tabular-nums font-semibold">{pctCellInv(momBonus)}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            )}
+              )
+            })()}
           </>
         )}
 
@@ -877,9 +945,9 @@ const LocationPLDetail = () => {
                     return (
                       <tr key={row.serialNumber} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                         <td className="px-3 py-2 text-slate-500 text-xs">{idx + 1}</td>
-                        {isAllLocations && <td className="px-3 py-2 text-slate-800 dark:text-slate-200 font-medium capitalize">{row.locationName || '—'}</td>}
-                        <td className="px-3 py-2 font-mono text-xs text-slate-500 dark:text-slate-400">{row.serialNumber}</td>
-                        <td className="px-3 py-2 text-slate-800 dark:text-slate-200 font-medium">{row.provider}</td>
+                        {isAllLocations && <td className="px-3 py-2 text-slate-800 dark:text-slate-200 capitalize">{row.locationName || '—'}</td>}
+                        <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{row.serialNumber}</td>
+                        <td className="px-3 py-2 text-slate-800 dark:text-slate-200">{row.provider}</td>
                         <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{row.cabinet}</td>
                         <td className="px-3 py-2 text-xs text-slate-700 dark:text-slate-300">{row.gameMix || ''}</td>
                         <td className="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{fmt(row.totalIn)}</td>
@@ -896,7 +964,7 @@ const LocationPLDetail = () => {
                           </span>
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{pct(row.inOutPct)}</td>
-                        <td className={`px-3 py-2 text-right font-bold tabular-nums ${ggrPos ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>
+                        <td className={`px-3 py-2 text-right tabular-nums ${ggrPos ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>
                           {fmt(row.totalProfit)}
                         </td>
                       </tr>
@@ -904,8 +972,8 @@ const LocationPLDetail = () => {
                   })}
                 </tbody>
                 <tfoot className="bg-slate-100 dark:bg-slate-800 border-t-2 border-slate-300 dark:border-slate-600">
-                  <tr className="font-bold text-slate-900 dark:text-slate-100 text-sm">
-                    <td colSpan={isAllLocations ? 7 : 6} className="px-3 py-2.5 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  <tr className="text-slate-900 dark:text-slate-100 text-sm">
+                    <td colSpan={isAllLocations ? 6 : 5} className="px-3 py-2.5 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       TOTAL · {displayed.length} aparate
                     </td>
                     <td className="px-3 py-2.5 text-right text-slate-800 dark:text-slate-200 tabular-nums">{fmt(totals.in)}</td>
@@ -919,7 +987,7 @@ const LocationPLDetail = () => {
                     <td className="px-3 py-2.5 text-right text-cyan-600 dark:text-cyan-400 tabular-nums">
                       {totals.out > 0 ? pct((totals.in / totals.out) * 100) : '—'}
                     </td>
-                    <td className={`px-3 py-2.5 text-right font-bold tabular-nums ${totals.profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>
+                    <td className={`px-3 py-2.5 text-right tabular-nums ${totals.profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>
                       {fmt(totals.profit)}
                     </td>
                   </tr>

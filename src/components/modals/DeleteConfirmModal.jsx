@@ -1,8 +1,21 @@
-import React from 'react'
-import { AlertCircle, X } from 'lucide-react'
+import React, { useState } from 'react'
+import { AlertCircle, X, Loader2 } from 'lucide-react'
 
 const DeleteConfirmModal = ({ isOpen, title = "Confirmă ștergerea", message, onConfirm, onCancel, itemName }) => {
+    const [isDeleting, setIsDeleting] = useState(false);
+
     if (!isOpen) return null;
+
+    const handleConfirm = async () => {
+        if (isDeleting) return;
+        setIsDeleting(true);
+        try {
+            await onConfirm();
+        } catch (e) {
+            console.error('Delete error:', e);
+            setIsDeleting(false);
+        }
+    };
 
     return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
@@ -30,17 +43,19 @@ const DeleteConfirmModal = ({ isOpen, title = "Confirmă ștergerea", message, o
                 <div className="flex space-x-3">
                     <button
                         onClick={onCancel}
-                        className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors font-medium"
+                        disabled={isDeleting}
+                        className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors font-medium disabled:opacity-50"
                     >
                         Anulează
                     </button>
                     <button
-                        onClick={onConfirm}
-                        className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 shadow-md shadow-red-500/20 transition-all font-medium"
+                        onClick={handleConfirm}
+                        disabled={isDeleting}
+                        className={`flex-1 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 shadow-md shadow-red-500/20 transition-all font-medium ${isDeleting ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                         <div className="flex items-center justify-center space-x-2">
-                            <X className="w-4 h-4" />
-                            <span>Șterge Definitiv</span>
+                            {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                            <span>{isDeleting ? 'Se șterge...' : 'Șterge Definitiv'}</span>
                         </div>
                     </button>
                 </div>

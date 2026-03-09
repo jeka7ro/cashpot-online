@@ -423,9 +423,18 @@ const Metrology = () => {
     },
     {
       key: 'approval_type',
-      label: 'APROBARE',
+      label: 'SERIE APARAT & APROBARE',
       sortable: true,
-      render: (item) => item.approval_type || '-'
+      render: (item) => (
+        <div className="flex flex-col">
+          <span className="font-bold text-slate-800 dark:text-slate-200">
+            {item.serial_number || '-'}
+          </span>
+          <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            {item.approval_type || '-'}
+          </span>
+        </div>
+      )
     },
     {
       key: 'software',

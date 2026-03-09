@@ -4001,17 +4001,38 @@ app.post('/api/metrology/parse', async (req, res) => {
       ]);
 
       // --- Cabinet ---
-      // OCR example: "Cabinet/ (Cabinet): EGT-VS13 (P-27/32H St))"
-      // IMPORTANT: must match "Cabinet/" at field-label position, NOT "cu cabinet" mid-line
-      let parsedCabinet = getFirstMatch([
-        /(?:^|\n)\s*Cabinet\/\s*\(?Cabinet\)?[^:]*:\s*([^\n]+)/i,
-        /(?:^|\n)\s*Cabinet[\s/]*[^:]*:\s*([^\n]+)/i
-      ]);
-      // Validate: reject if it looks like a wrong field (e.g. starts with "Solicitare", "VIDEO", etc.)
-      if (parsedCabinet && /^(Solicitare|VIDEO|SLOT|Tip|aie|garn)/i.test(parsedCabinet)) {
-        // Try to extract cabinet from game type line: "cu cabinet EGT-VS13 (P-27/32H St)"
-        const fromGameType = text.match(/cu\s+cabinet\s+([A-Z][A-Z0-9\-]+(?:\s*\([^)]*\))?)/i);
-        parsedCabinet = fromGameType ? fromGameType[1] : '';
+      // Multiple strategies to extract cabinet model name
+      let parsedCabinet = '';
+      
+      // Strategy 1: Explicit "Cabinet/ (Cabinet): MODEL" field label
+      const cabinetFieldMatch = text.match(/Cabinet\/?\s*\(?Cabinet\)?[^:]*:\s*([A-Z][A-Z0-9\-]+(?:\s*\([^)]*\))?)/i);
+      if (cabinetFieldMatch && cabinetFieldMatch[1]) {
+        parsedCabinet = cabinetFieldMatch[1].trim();
+      }
+      
+      // Strategy 2: "cu cabinet MODEL" from game type line (e.g. "VIDEO MULTIGAME - RED COLLECTION cu cabinet EGT-VS9-1(P-27/27 St Slim)")
+      if (!parsedCabinet || parsedCabinet.length < 3) {
+        const cuCabinetMatch = text.match(/cu\s+cabinet\s+([A-Z][A-Z0-9\-]+(?:\s*\([^)]*\))?)/i);
+        if (cuCabinetMatch && cuCabinetMatch[1]) {
+          const candidate = cuCabinetMatch[1].trim();
+          // If this is longer/more complete than what we have, use it
+          if (candidate.length > (parsedCabinet || '').length) {
+            parsedCabinet = candidate;
+          }
+        }
+      }
+      
+      // Strategy 3: Any "Cabinet" followed by a colon and model
+      if (!parsedCabinet || parsedCabinet.length < 3) {
+        const anyMatch = text.match(/Cabinet[^:]{0,20}:\s*([A-Z][A-Z0-9\-]+(?:\s*\([^)]*\))?)/i);
+        if (anyMatch && anyMatch[1]) {
+          parsedCabinet = anyMatch[1].trim();
+        }
+      }
+      
+      // Clean up: reject if it looks like a wrong field capture
+      if (parsedCabinet && /^(Solicitare|VIDEO|SLOT|Tip\s|aie|garn|Organiz)/i.test(parsedCabinet)) {
+        parsedCabinet = '';
       }
 
       // --- Game type (Tip mijloc de joc) ---

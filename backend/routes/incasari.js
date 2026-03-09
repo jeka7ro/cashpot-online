@@ -681,6 +681,11 @@ router.get('/summary', authenticateToken, async (req, res) => {
           COALESCE(SUM(profit), 0) AS total_profit,
           COALESCE(SUM(bet), 0) AS total_bet,
           COALESCE(SUM(win), 0) AS total_win,
+          COALESCE(SUM(jackpot), 0) AS total_jackpot,
+          COALESCE(SUM(cb_raffle), 0) AS total_raffle,
+          COALESCE(SUM(hh), 0) AS total_hh,
+          COALESCE(SUM(cb_real), 0) AS total_cb_real,
+          COALESCE(SUM(cb_birthday), 0) AS total_cb_birthday,
           COUNT(DISTINCT audit_date) AS days_count
         FROM incasari_daily
         WHERE audit_date BETWEEN $1 AND $2
@@ -696,6 +701,11 @@ router.get('/summary', authenticateToken, async (req, res) => {
           COALESCE(SUM(profit), 0) AS total_profit,
           COALESCE(SUM(bet), 0) AS total_bet,
           COALESCE(SUM(win), 0) AS total_win,
+          COALESCE(SUM(jackpot), 0) AS total_jackpot,
+          COALESCE(SUM(cb_raffle), 0) AS total_raffle,
+          COALESCE(SUM(hh), 0) AS total_hh,
+          COALESCE(SUM(cb_real), 0) AS total_cb_real,
+          COALESCE(SUM(cb_birthday), 0) AS total_cb_birthday,
           COUNT(DISTINCT audit_date) AS days_count
         FROM incasari_daily
         WHERE audit_date BETWEEN $1 AND $2
@@ -743,6 +753,11 @@ router.get('/summary', authenticateToken, async (req, res) => {
       totalProfit: Number(row.total_profit || 0),
       totalBet,
       totalWin,
+      totalJackpot: Number(row.total_jackpot || 0),
+      totalRaffle: Number(row.total_raffle || 0),
+      totalHh: Number(row.total_hh || 0),
+      totalCbReal: Number(row.total_cb_real || 0),
+      totalCbBirthday: Number(row.total_cb_birthday || 0),
       winBetPercent,
       daysCount: days,
       slotsCount: slots,
@@ -751,7 +766,7 @@ router.get('/summary', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('❌ Error in /api/incasari/summary:', error)
     console.error('Stack trace:', error.stack)
-    console.error('Request params:', { startDate, endDate, location, provider, cabinet, gameMix, includeLocations })
+    console.error('Request params:', req.query)
     return res.status(500).json({
       success: false,
       error: error.message || 'Eroare la calculul sumarului de încasări',
@@ -4944,6 +4959,157 @@ router.get('/slots-by-location', authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error('❌ Error in /api/incasari/slots-by-location:', error)
+    return res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+// GET /api/incasari/inactive-machines
+// Returnează aparatele sortate după IN ascendent (cele mai nejucate primele)
+// Include: IN ieri, zile consecutive cu IN=0, IN total luna curentă
+router.get('/inactive-machines', authenticateToken, async (req, res) => {
+  try {
+    const pool = req.app.get('pool')
+    if (!pool) {
+      return res.status(500).json({ success: false, error: 'Database pool not available' })
+    }
+
+    // Current month range — find last day with real data (handles timezone offset)
+    const lastDayResult = await pool.query(`
+      SELECT audit_date::date AS last_date
+      FROM incasari_daily
+      WHERE in_amount > 0
+      ORDER BY audit_date DESC
+      LIMIT 1
+    `)
+    if (lastDayResult.rows.length === 0) {
+      return res.json({ success: true, rows: [], monthStart: null, yesterday: null, totalMachines: 0 })
+    }
+    const lastDate = lastDayResult.rows[0].last_date  // e.g. '2026-03-07' (real yesterday with data)
+    const lastDateObj = new Date(lastDate)
+    const monthStart = new Date(lastDateObj.getFullYear(), lastDateObj.getMonth(), 1)
+    const fmtD = (d) => d.toISOString().slice(0, 10)
+    const yesterdayStr = typeof lastDate === 'string' ? lastDate.slice(0, 10) : fmtD(lastDateObj)
+    const monthStartStr = fmtD(monthStart)
+
+    // 1. Get per-machine totals for the current month (up to last day with data)
+    const monthlyResult = await pool.query(`
+      SELECT
+        machine_id,
+        serial_number,
+        location_id,
+        COALESCE(SUM(in_amount), 0) AS month_in,
+        COALESCE(SUM(out_amount), 0) AS month_out,
+        COALESCE(SUM(profit), 0) AS month_ggr,
+        COUNT(DISTINCT audit_date) AS days_active
+      FROM incasari_daily
+      WHERE audit_date::date BETWEEN $1 AND $2
+      GROUP BY machine_id, serial_number, location_id
+      ORDER BY month_in ASC
+    `, [monthStartStr, yesterdayStr])
+
+    // 2. Get last day's IN per machine
+    const yesterdayResult = await pool.query(`
+      SELECT machine_id, COALESCE(in_amount, 0) AS yesterday_in
+      FROM incasari_daily
+      WHERE audit_date::date = $1
+    `, [yesterdayStr])
+    const yesterdayMap = new Map()
+    yesterdayResult.rows.forEach(r => yesterdayMap.set(r.machine_id, Number(r.yesterday_in)))
+
+    // 3. Get daily IN per machine for consecutive zero-day calculation (last 30 days)
+    const thirtyDaysAgo = new Date(lastDateObj); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const dailyResult = await pool.query(`
+      SELECT machine_id, audit_date::date AS audit_date, COALESCE(in_amount, 0) AS daily_in
+      FROM incasari_daily
+      WHERE audit_date::date BETWEEN $1 AND $2
+      ORDER BY machine_id, audit_date DESC
+    `, [fmtD(thirtyDaysAgo), yesterdayStr])
+
+    // Build consecutive zero-days map
+    const dailyByMachine = new Map()
+    dailyResult.rows.forEach(r => {
+      if (!dailyByMachine.has(r.machine_id)) dailyByMachine.set(r.machine_id, [])
+      dailyByMachine.get(r.machine_id).push({ date: r.audit_date, in: Number(r.daily_in) })
+    })
+
+    const consecutiveZeroDays = new Map()
+    dailyByMachine.forEach((days, machineId) => {
+      // days are sorted DESC (most recent first)
+      let count = 0
+      for (const day of days) {
+        if (day.in === 0) count++
+        else break
+      }
+      consecutiveZeroDays.set(machineId, count)
+    })
+
+    // 4. Enrich with slot metadata
+    const allSlots = getActiveSlots()
+    const slotByMachineId = new Map()
+    const slotBySerial = new Map()
+    allSlots.forEach(slot => {
+      if (slot?.id) slotByMachineId.set(Number(slot.id), slot)
+      if (slot?.serial_number) slotBySerial.set(String(slot.serial_number).trim(), slot)
+    })
+
+    // Load location names
+    const locationsData = loadExportedData('locations.json')
+    const locationIdNameMap = new Map()
+    if (Array.isArray(locationsData)) {
+      locationsData.forEach(loc => {
+        if (loc && typeof loc.id !== 'undefined') {
+          const rawName = (loc.name || loc.location || `Loc ${loc.id}`).toString().trim()
+          const displayName = rawName.replace(/\b\w/g, c => c.toUpperCase())
+          locationIdNameMap.set(Number(loc.id), displayName)
+        }
+      })
+    }
+
+    // Build set of Depozit location IDs to exclude
+    const depozitIds = new Set()
+    if (Array.isArray(locationsData)) {
+      locationsData.forEach(loc => {
+        const name = (loc.name || loc.location || '').toString().trim().toLowerCase()
+        if (name === 'depozit') depozitIds.add(Number(loc.id))
+      })
+    }
+
+    const rows = monthlyResult.rows
+      .filter(r => !depozitIds.has(Number(r.location_id)))
+      .map(r => {
+      const mId = Number(r.machine_id)
+      const sn = String(r.serial_number || '').trim()
+      const meta = slotByMachineId.get(mId) || (sn ? slotBySerial.get(sn) : null) || {}
+      const serialDisplay = sn || (meta.serial_number ? String(meta.serial_number).trim() : String(mId))
+      const yIn = yesterdayMap.get(mId)
+      // If machine has no daily records but month_in is 0, count all month days as zero
+      const daysInRange = Math.round((lastDateObj - monthStart) / (1000 * 60 * 60 * 24)) + 1
+      const zeroDays = consecutiveZeroDays.get(mId) || (Number(r.month_in) === 0 ? daysInRange : 0)
+
+      return {
+        machineId: mId,
+        serialNumber: serialDisplay,
+        provider: meta.provider || meta.manufacturer || '—',
+        cabinet: meta.cabinet || meta.cabinet_name || '—',
+        gameMix: meta.game_mix || '—',
+        locationName: locationIdNameMap.get(Number(r.location_id)) || `Loc ${r.location_id}`,
+        monthIn: Number(r.month_in),
+        monthGgr: Number(r.month_ggr),
+        yesterdayIn: yIn !== undefined ? yIn : 0,
+        consecutiveZeroDays: zeroDays,
+        daysActive: Number(r.days_active)
+      }
+    })
+
+    return res.json({
+      success: true,
+      rows,
+      monthStart: fmtD(monthStart),
+      yesterday: yesterdayStr,
+      totalMachines: rows.length
+    })
+  } catch (error) {
+    console.error('❌ Error in /api/incasari/inactive-machines:', error)
     return res.status(500).json({ success: false, error: error.message })
   }
 })

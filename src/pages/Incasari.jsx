@@ -124,6 +124,7 @@ const Incasari = () => {
   const [prevMonthByLocation, setPrevMonthByLocation] = useState([]) // Pentru dinamica Bonus Cost
   const [avgInByCabinet, setAvgInByCabinet] = useState([])
   const [locationExpenditures, setLocationExpenditures] = useState([])
+  const [inactiveMachines, setInactiveMachines] = useState([])
   const [slotsByMonthLocation, setSlotsByMonthLocation] = useState(() => {
     try {
       const saved = localStorage.getItem('incasari_slots_by_month_location_cache')
@@ -262,6 +263,19 @@ const Incasari = () => {
   useEffect(() => {
     localStorage.setItem('incasari_gameMix_filter', gameMixFilter)
   }, [gameMixFilter])
+
+  // Fetch inactive machines (always current month)
+  useEffect(() => {
+    const fetchInactive = async () => {
+      try {
+        const res = await axios.get('/api/incasari/inactive-machines')
+        if (res.data?.success) setInactiveMachines(res.data.rows || [])
+      } catch (err) {
+        console.error('Error fetching inactive machines:', err)
+      }
+    }
+    fetchInactive()
+  }, [])
   const [visibleLocations, setVisibleLocations] = useState(() => {
     try {
       const saved = localStorage.getItem('incasari_visible_locations')
@@ -3876,6 +3890,71 @@ const Incasari = () => {
                 </ResponsiveContainer>
               )}
             </div>
+
+            {/* ── Aparate Inactive / Cele mai puțin jucate ─── */}
+            {inactiveMachines.length > 0 && (
+              <div className="bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg p-10 mt-10">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">Aparate Inactive / Cele mai puțin jucate</h2>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Luna curentă — sortate după IN ascendent</p>
+                  </div>
+                  <span className="text-xs bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 px-2.5 py-1 rounded-full font-semibold">
+                    {inactiveMachines.filter(m => m.yesterdayIn === 0).length} cu IN=0 ieri
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 w-8">#</th>
+                        <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Locație</th>
+                        <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Serial</th>
+                        <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Provider</th>
+                        <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Cabinet</th>
+                        <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Mix</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">IN Ieri</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-rose-500 dark:text-rose-400">Zile IN=0</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">IN Luna</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">GGR Luna</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
+                      {inactiveMachines.map((m, idx) => (
+                        <tr key={m.machineId} className={`hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors ${m.yesterdayIn === 0 ? 'bg-rose-50/50 dark:bg-rose-900/10' : ''}`}>
+                          <td className="px-3 py-2 text-slate-500 text-xs">{idx + 1}</td>
+                          <td className="px-3 py-2 text-slate-800 dark:text-slate-200 capitalize">{m.locationName}</td>
+                          <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{m.serialNumber}</td>
+                          <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{m.provider}</td>
+                          <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{m.cabinet}</td>
+                          <td className="px-3 py-2 text-xs text-slate-700 dark:text-slate-300">{m.gameMix}</td>
+                          <td className={`px-3 py-2 text-right tabular-nums ${m.yesterdayIn === 0 ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-slate-700 dark:text-slate-300'}`}>
+                            {formatNumber(m.yesterdayIn)}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            {m.consecutiveZeroDays > 0 ? (
+                              <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${
+                                m.consecutiveZeroDays >= 7 ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300'
+                                : m.consecutiveZeroDays >= 3 ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                                : 'bg-slate-200/60 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                              }`}>
+                                {m.consecutiveZeroDays}z
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{formatNumber(m.monthIn)}</td>
+                          <td className={`px-3 py-2 text-right tabular-nums ${m.monthGgr >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>
+                            {formatNumber(m.monthGgr)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             <div className="bg-white dark:bg-slate-800/60 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-2xl shadow-lg p-10">
               <div className="flex items-center justify-between mb-10">

@@ -3,9 +3,11 @@ import { X, Save, Activity, FileCheck, Calendar, CheckCircle, FileText, Wand2, L
 import { toast } from 'react-hot-toast'
 import axios from 'axios'
 import PDFViewer from '../PDFViewer'
+import { extractTextFromPdf } from '../../utils/pdfOcr'
 
 const MetrologyModal = ({ item, onClose, onSave }) => {
   const [isParsing, setIsParsing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [parserSource, setParserSource] = useState('BMM Testlabs')
   const [authorities, setAuthorities] = useState([])
   const [providers, setProviders] = useState([])
@@ -277,10 +279,24 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
     });
 
     try {
-      // Send the base64 string to the parse API
+      // Step 1: Client-side OCR first (handles scanned PDFs)
+      let preExtractedText = '';
+      try {
+        preExtractedText = await extractTextFromPdf(formData.cvtPreview, (stage, pct) => {
+          toast.loading(`${stage} (${pct}%)`, { id: loadingId });
+        });
+        console.log('[MetrologyModal] Client OCR extracted', preExtractedText.length, 'chars');
+      } catch (ocrErr) {
+        console.warn('[MetrologyModal] Client OCR failed:', ocrErr.message);
+      }
+
+      toast.loading('Se analizează datele extrase...', { id: loadingId });
+
+      // Step 2: Send to backend for regex parsing
       const response = await axios.post('/api/metrology/parse', {
         base64: formData.cvtPreview,
-        parserSource: parserSource
+        parserSource: parserSource,
+        preExtractedText: preExtractedText
       });
 
       if (response.data && response.data.success) {
@@ -337,6 +353,8 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (isSaving) return
+    setIsSaving(true)
 
     // Prepare payload - Base64 direct (EXACT CA LocationModal!)
     const dataToSave = {
@@ -357,6 +375,7 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
     console.log('   cvt_file length:', dataToSave.cvt_file?.length || 0, 'chars')
 
     onSave(dataToSave)
+    // Modal will be closed by parent
   }
 
   return (
@@ -670,10 +689,11 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
               </button>
               <button
                 type="submit"
-                className="btn-primary flex items-center space-x-2"
+                disabled={isSaving}
+                className={`btn-primary flex items-center space-x-2 ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <Activity className="w-4 h-4" />
-                <span>{item ? 'Actualizează' : 'Creează'} Certificat</span>
+                <span>{isSaving ? 'Se salvează...' : (item ? 'Actualizează' : 'Creează')} {!isSaving && 'Certificat'}</span>
               </button>
             </div>
           </form>
