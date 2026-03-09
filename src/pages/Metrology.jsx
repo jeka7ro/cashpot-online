@@ -201,7 +201,7 @@ const Metrology = () => {
   // Batch import: auto-save each parsed CVT directly to database
   const handleBatchImport = async (data) => {
     try {
-      await createItem('metrology', data)
+      await createItem('metrology', data, true)
       return { saved: true }
     } catch (err) {
       console.error('Batch import error:', err)
@@ -309,11 +309,11 @@ const Metrology = () => {
     try {
       if (type === 'bulk') {
         for (const id of selectedItems) {
-          await deleteItem('metrology', id)
+          await deleteItem('metrology', id, true)
         }
         setSelectedItems([])
         setShowBulkActions(false)
-        toast.success('Elementele selectate au fost șterse!')
+        toast.success(`${selectedItems.length} elementele selectate au fost șterse!`)
       } else if (type === 'metrology') {
         await deleteItem('metrology', item.id)
         toast.success('CVT-ul a fost șters!')

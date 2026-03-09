@@ -359,7 +359,7 @@ export const DataProvider = ({ children }) => {
   }
 
   // Create item
-  const createItem = async (entity, data) => {
+  const createItem = async (entity, data, silent = false) => {
     try {
       console.log(`🚀 Creating ${entity} with data:`, data)
 
@@ -411,42 +411,38 @@ export const DataProvider = ({ children }) => {
           setPromotions(prev => [...prev, testPromotion])
 
           // Salvare directă în AWS - singura opțiune validă
-          try {
-            // Trimite direct către AWS backend - DOAR AWS, FĂRĂ LOCAL STORAGE
-            axios.post('https://cashpot-backend.onrender.com/api/promotions', testPromotion)
-              .then(response => {
-                console.log('✅ Promotion saved to AWS successfully:', response.data)
-              })
-              .catch(err => {
-                console.error('❌ AWS save error:', err)
+          console.log('📡 Saving promotion directly to AWS...')
 
-                // Retry cu un delay dacă eșuează
-                setTimeout(() => {
-                  console.log('🔄 Retrying AWS save...')
-                  axios.post('https://cashpot-backend.onrender.com/api/promotions', testPromotion)
-                    .then(retryResponse => {
-                      console.log('✅ AWS retry successful:', retryResponse.data)
-                    })
-                    .catch(retryErr => {
-                      console.error('❌ AWS retry failed:', retryErr)
+          const directResponse = await axios.post('/api/promotions', testPromotion)
+          if (directResponse.data) {
+            const newItem = directResponse.data
+            entityConfig[entity].setState(prev => [newItem, ...prev])
 
-                      // Ultimă încercare cu alt endpoint
-                      setTimeout(() => {
-                        console.log('🔄 Final AWS save attempt...')
-                        axios.post('https://cashpot-backend.onrender.com/api/promotions/direct', testPromotion)
-                          .catch(finalErr => {
-                            console.error('❌ All AWS save attempts failed:', finalErr)
-                          })
-                      }, 3000)
-                    })
-                }, 2000)
-              })
-          } catch (awsError) {
-            console.error('❌ AWS save attempt error:', awsError)
+            // Sincronizare asincronă cu backup MW
+            try {
+              setTimeout(() => {
+                console.log('🔄 Triggering backup sync to MW...')
+                axios.post('https://cashpot-backend.onrender.com/api/promotions', testPromotion)
+                  .catch(retryErr => {
+                    console.error('❌ AWS retry failed:', retryErr)
+
+                    // Ultimă încercare cu alt endpoint
+                    setTimeout(() => {
+                      console.log('🔄 Final AWS save attempt...')
+                      axios.post('https://cashpot-backend.onrender.com/api/promotions/direct', testPromotion)
+                        .catch(finalErr => {
+                          console.error('❌ All AWS save attempts failed:', finalErr)
+                        })
+                    }, 3000)
+                  })
+              }, 2000)
+            } catch (awsError) {
+              console.error('❌ AWS save attempt error:', awsError)
+            }
+
+            if (!silent) toast.success('Promoție adăugată cu succes!')
+            return { success: true, data: testPromotion }
           }
-
-          toast.success('Promoție adăugată cu succes!')
-          return { success: true, data: testPromotion }
         } catch (directError) {
           console.error('❌ Direct promotions endpoint failed:', directError)
           // Fall through to regular endpoint
@@ -458,7 +454,7 @@ export const DataProvider = ({ children }) => {
         const newItem = response.data
 
         // Verifică dacă există informații de comprimare PDF
-        if (newItem.compression) {
+        if (newItem.compression && !silent) {
           const { originalSize, compressedSize, compressionRatio, savedBytes } = newItem.compression
           const originalMB = (originalSize / 1024 / 1024).toFixed(2)
           const compressedMB = (compressedSize / 1024 / 1024).toFixed(2)
@@ -468,7 +464,7 @@ export const DataProvider = ({ children }) => {
             `Adăugat cu succes! PDF comprimat: ${originalMB}MB → ${compressedMB}MB (${compressionRatio}% reducere, ${savedKB}KB economisite)`,
             { duration: 6000 }
           )
-        } else {
+        } else if (!silent) {
           toast.success('Adăugat cu succes!')
         }
 
