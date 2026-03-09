@@ -3924,10 +3924,12 @@ app.post('/api/metrology/parse', async (req, res) => {
           const fs = await import('fs');
           fs.writeFileSync(tmpPath, pdfBuffer);
 
-          // Scale 1.5 balances OCR quality vs memory (works on Render 512MB too)
-          const ocrScale = 1.5;
-          const maxPages = 2;
-          console.log(`[PDF Parse] Using OCR scale ${ocrScale}, max ${maxPages} pages`);
+          // Render.com free tier = 512MB RAM. Scale 1.0 + 1 page avoids OOM crash.
+          // Local dev = 1.5 scale + 2 pages for better OCR quality.
+          const isRender = process.env.RENDER === 'true';
+          const ocrScale = isRender ? 1.0 : 1.5;
+          const maxPages = isRender ? 1 : 2;
+          console.log(`[PDF Parse] OCR: scale=${ocrScale}, pages=${maxPages}, render=${isRender}`);
           const document = await pdfToImg(tmpPath, { scale: ocrScale });
           let ocrText = '';
           let pageNum = 0;
