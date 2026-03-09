@@ -579,29 +579,27 @@ const LocationPLDetail = () => {
                         )
                       })}
                     </tbody>
+                    {(() => {
+                      const t = providerStats.reduce((acc, s) => ({
+                        count: acc.count + s.count, totalIn: acc.totalIn + s.totalIn,
+                        totalBet: acc.totalBet + s.totalBet, totalWin: acc.totalWin + s.totalWin,
+                        totalProfit: acc.totalProfit + s.totalProfit,
+                      }), { count: 0, totalIn: 0, totalBet: 0, totalWin: 0, totalProfit: 0 })
+                      const tWinBet = t.totalBet > 0 ? (t.totalWin / t.totalBet) * 100 : 0
+                      return (
+                        <tfoot className="bg-slate-100 dark:bg-slate-800 border-t-2 border-slate-300 dark:border-slate-600">
+                          <tr className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                            <td className="px-2 py-2 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">TOTAL</td>
+                            <td className="px-2 py-2 text-right tabular-nums">{t.count}</td>
+                            <td className="px-2 py-2 text-right"><DynBadge current={t.totalIn} previous={prevTotalIn} /></td>
+                            <td className={`px-2 py-2 text-right tabular-nums ${t.totalProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>{fmt(t.totalProfit)}</td>
+                            <td className="px-2 py-2 text-right tabular-nums">{pct(tWinBet)}</td>
+                          </tr>
+                        </tfoot>
+                      )
+                    })()}
                   </table>
                 </div>
-                {(() => {
-                  const t = providerStats.reduce((acc, s) => ({
-                    count: acc.count + s.count, totalIn: acc.totalIn + s.totalIn,
-                    totalBet: acc.totalBet + s.totalBet, totalWin: acc.totalWin + s.totalWin,
-                    totalProfit: acc.totalProfit + s.totalProfit,
-                  }), { count: 0, totalIn: 0, totalBet: 0, totalWin: 0, totalProfit: 0 })
-                  const tWinBet = t.totalBet > 0 ? (t.totalWin / t.totalBet) * 100 : 0
-                  return (
-                    <div className="mt-auto bg-slate-100 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shrink-0">
-                      <table className="w-full text-sm"><tbody>
-                        <tr className="font-bold text-slate-900 dark:text-slate-100">
-                          <td className="px-2 py-2 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">TOTAL</td>
-                          <td className="px-2 py-2 text-right tabular-nums">{t.count}</td>
-                          <td className="px-2 py-2 text-right"><DynBadge current={t.totalIn} previous={prevTotalIn} /></td>
-                          <td className={`px-2 py-2 text-right tabular-nums ${t.totalProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>{fmt(t.totalProfit)}</td>
-                          <td className="px-2 py-2 text-right tabular-nums">{pct(tWinBet)}</td>
-                        </tr>
-                      </tbody></table>
-                    </div>
-                  )
-                })()}
               </div>
             )}
 
@@ -661,34 +659,32 @@ const LocationPLDetail = () => {
                         )
                       })}
                     </tbody>
+                    {(() => {
+                      const t = locationStats.reduce((acc, s) => ({
+                        count: acc.count + s.count, totalIn: acc.totalIn + s.totalIn, totalOut: acc.totalOut + s.totalOut,
+                        totalProfit: acc.totalProfit + s.totalProfit, totalBet: acc.totalBet + s.totalBet,
+                        totalWin: acc.totalWin + s.totalWin, totalJackpot: acc.totalJackpot + s.totalJackpot, totalRaffle: acc.totalRaffle + s.totalRaffle,
+                      }), { count: 0, totalIn: 0, totalOut: 0, totalProfit: 0, totalBet: 0, totalWin: 0, totalJackpot: 0, totalRaffle: 0 })
+                      const tWinBet = t.totalBet > 0 ? (t.totalWin / t.totalBet) * 100 : 0
+                      const tInOut = t.totalOut > 0 ? (t.totalIn / t.totalOut) * 100 : 0
+                      return (
+                        <tfoot className="bg-slate-100 dark:bg-slate-800 border-t-2 border-slate-300 dark:border-slate-600">
+                          <tr className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                            <td className="px-2 py-2 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">TOTAL</td>
+                            <td className="px-2 py-2 text-right tabular-nums">{t.count}</td>
+                            <td className="px-2 py-2 text-right tabular-nums">{fmt(t.totalIn)}</td>
+                            <td className="px-2 py-2 text-right"><DynBadge current={t.totalIn} previous={prevTotalIn} /></td>
+                            <td className={`px-2 py-2 text-right tabular-nums ${t.totalProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>{fmt(t.totalProfit)}</td>
+                            <td className="px-2 py-2 text-right tabular-nums">{fmt(t.totalJackpot)}</td>
+                            <td className="px-2 py-2 text-right tabular-nums">{fmt(t.totalRaffle)}</td>
+                            <td className="px-2 py-2 text-right tabular-nums">{pct(tWinBet)}</td>
+                            <td className="px-2 py-2 text-right tabular-nums">{pct(tInOut)}</td>
+                          </tr>
+                        </tfoot>
+                      )
+                    })()}
                   </table>
                 </div>
-                {(() => {
-                  const t = locationStats.reduce((acc, s) => ({
-                    count: acc.count + s.count, totalIn: acc.totalIn + s.totalIn, totalOut: acc.totalOut + s.totalOut,
-                    totalProfit: acc.totalProfit + s.totalProfit, totalBet: acc.totalBet + s.totalBet,
-                    totalWin: acc.totalWin + s.totalWin, totalJackpot: acc.totalJackpot + s.totalJackpot, totalRaffle: acc.totalRaffle + s.totalRaffle,
-                  }), { count: 0, totalIn: 0, totalOut: 0, totalProfit: 0, totalBet: 0, totalWin: 0, totalJackpot: 0, totalRaffle: 0 })
-                  const tWinBet = t.totalBet > 0 ? (t.totalWin / t.totalBet) * 100 : 0
-                  const tInOut = t.totalOut > 0 ? (t.totalIn / t.totalOut) * 100 : 0
-                  return (
-                    <div className="mt-auto bg-slate-100 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shrink-0">
-                      <table className="w-full text-sm"><tbody>
-                        <tr className="font-bold text-slate-900 dark:text-slate-100">
-                          <td className="px-2 py-2 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">TOTAL</td>
-                          <td className="px-2 py-2 text-right tabular-nums">{t.count}</td>
-                          <td className="px-2 py-2 text-right tabular-nums">{fmt(t.totalIn)}</td>
-                          <td className="px-2 py-2 text-right"><DynBadge current={t.totalIn} previous={prevTotalIn} /></td>
-                          <td className={`px-2 py-2 text-right tabular-nums ${t.totalProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-500'}`}>{fmt(t.totalProfit)}</td>
-                          <td className="px-2 py-2 text-right tabular-nums">{fmt(t.totalJackpot)}</td>
-                          <td className="px-2 py-2 text-right tabular-nums">{fmt(t.totalRaffle)}</td>
-                          <td className="px-2 py-2 text-right tabular-nums">{pct(tWinBet)}</td>
-                          <td className="px-2 py-2 text-right tabular-nums">{pct(tInOut)}</td>
-                        </tr>
-                      </tbody></table>
-                    </div>
-                  )
-                })()}
               </div>
             )}
           </div>
@@ -826,13 +822,15 @@ const LocationPLDetail = () => {
                     <BarChart data={monthlyComparison} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
                       <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                      <YAxis tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
+                      <YAxis yAxisId="left" tick={{ fontSize: 9, fill: '#3b82f6' }} tickFormatter={v => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
+                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 9, fill: '#10b981' }} tickFormatter={v => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
                       <Tooltip
                         formatter={(value, name) => [fmt(value) + ' lei', name === 'ggr' ? 'GGR' : 'IN']}
                         contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '8px', fontSize: '12px', color: '#f8fafc' }}
                       />
-                      <Bar dataKey="in" name="IN" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={18} />
-                      <Bar dataKey="ggr" name="GGR" fill="#10b981" radius={[4, 4, 0, 0]} barSize={18} />
+                      <Legend wrapperStyle={{ fontSize: '11px' }} />
+                      <Bar yAxisId="left" dataKey="in" name="IN" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={16} opacity={0.7} />
+                      <Bar yAxisId="right" dataKey="ggr" name="GGR" fill="#10b981" radius={[4, 4, 0, 0]} barSize={16} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
