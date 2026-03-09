@@ -109,7 +109,7 @@ const SmartScanCvtModal = ({ onClose, onScanComplete }) => {
         onScanComplete({
           ...extracted,
           cvt_file: base64Preview, // Save the actual PDF
-          cvt_filename: file?.name || 'Document Scanned.pdf',
+          cvt_filename: extracted.serial_number ? `${extracted.serial_number}.pdf` : (file?.name || 'Document Scanned.pdf'),
           commission_name: selectedCommission || '' // Trimitere opțională comisie extrasă manual sau prescriptă
         });
       } else {
