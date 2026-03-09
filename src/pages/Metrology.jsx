@@ -198,6 +198,17 @@ const Metrology = () => {
     setShowModal(true)
   }
 
+  // Batch import: auto-save each parsed CVT directly to database
+  const handleBatchImport = async (data) => {
+    try {
+      await createItem('metrology', data)
+      return { saved: true }
+    } catch (err) {
+      console.error('Batch import error:', err)
+      return { saved: false, error: err.message || 'Eroare la salvare' }
+    }
+  }
+
   // View CVT document in new tab (EXACT CA ÎN LOCATIONS!)
   const handleViewDocument = (item) => {
     const cvtFileUrl = getCvtPdfUrl(item)
@@ -1224,8 +1235,9 @@ const Metrology = () => {
           {/* Modals */}
           {showSmartScanModal && (
             <SmartScanCvtModal
-              onClose={() => setShowSmartScanModal(false)}
+              onClose={() => { setShowSmartScanModal(false); }}
               onScanComplete={handleScanComplete}
+              onBatchImport={handleBatchImport}
             />
           )}
 
