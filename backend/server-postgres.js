@@ -3872,9 +3872,9 @@ app.delete('/api/metrology', async (req, res) => {
 // Endpoint pentru parsarea PDF-ului BMM
 app.post('/api/metrology/parse', async (req, res) => {
   try {
-    const { base64, parserSource } = req.body;
+    const { base64, parserSource, preExtractedText } = req.body;
 
-    let extractedData = {
+    const extractedData = {
       cvt_series: "",
       cvt_number: "",
       serial_number: "",
@@ -3891,81 +3891,30 @@ app.post('/api/metrology/parse', async (req, res) => {
     };
 
     try {
-      const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
-      const pdfBuffer = Buffer.from(base64Data, 'base64');
-
-      // Step 1: Try pdf-parse first (works on text-based PDFs)
       let text = '';
-      try {
-        const pdfMod = await import('pdf-parse');
-        // pdf-parse v2+ exports PDFParse class; v1 exports default function
-        if (typeof pdfMod.default === 'function') {
-          const data = await pdfMod.default(pdfBuffer);
-          text = data.text || '';
-        } else if (pdfMod.PDFParse) {
-          const parser = new pdfMod.PDFParse(null, { verbosity: 0 });
-          await parser.loadPDF(pdfBuffer);
-          text = parser.getRawTextContent?.() || '';
-        }
-      } catch (e) {
-        console.log('[PDF Parse] pdf-parse text extraction failed:', e.message);
-        text = '';
-      }
 
-      // Step 2: If no text extracted, use Tesseract OCR (for scanned image PDFs)
-      if (text.trim().length < 50) {
-        console.log('[PDF Parse] Text-based extraction failed (' + text.trim().length + ' chars), switching to OCR...');
+      // PRIMARY: Client-side OCR text (sent from browser)
+      if (preExtractedText && preExtractedText.trim().length > 30) {
+        console.log('[PDF Parse] Using PRE-EXTRACTED text from client (' + preExtractedText.length + ' chars)');
+        text = preExtractedText;
+      } else if (base64) {
+        // FALLBACK: Server-side pdf-parse (works on text-based PDFs only)
+        const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
+        const pdfBuffer = Buffer.from(base64Data, 'base64');
+
         try {
-          console.log('[PDF Parse] Importing pdf-to-img...');
-          const { pdf: pdfToImg } = await import('pdf-to-img');
-          console.log('[PDF Parse] Importing tesseract.js...');
-          const Tesseract = (await import('tesseract.js')).default;
-
-          // Write temp PDF file for pdf-to-img
-          const tmpPath = `/tmp/cvt-parse-${Date.now()}.pdf`;
-          const fs = await import('fs');
-          fs.writeFileSync(tmpPath, pdfBuffer);
-          console.log('[PDF Parse] Temp file written:', tmpPath);
-
-          // Render free = 512MB. Scale 0.5 + 1 page = ~100MB memory usage.
-          // Local = 1.5 scale + 2 pages for best quality.
-          const isRender = process.env.RENDER === 'true';
-          const ocrScale = isRender ? 0.5 : 1.5;
-          const maxPages = isRender ? 1 : 2;
-          console.log(`[PDF Parse] OCR: scale=${ocrScale}, pages=${maxPages}, render=${isRender}, mem=${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB`);
-          
-          const document = await pdfToImg(tmpPath, { scale: ocrScale });
-          console.log('[PDF Parse] PDF converted to images OK');
-          let ocrText = '';
-          let pageNum = 0;
-
-          // INIT TESSERACT WORKER
-          console.log('[PDF Parse] Creating Tesseract worker...');
-          const worker = await Tesseract.createWorker('ron', 1, {
-            cachePath: '/tmp'
-          });
-          console.log('[PDF Parse] Tesseract worker ready, mem=' + Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB');
-
-          for await (const image of document) {
-            pageNum++;
-            if (pageNum > maxPages) break;
-
-            console.log(`[PDF Parse] OCR page ${pageNum}, image size: ${image.length} bytes, mem=${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB`);
-            const result = await worker.recognize(image);
-            ocrText += result.data.text + '\n';
-            console.log(`[PDF Parse] Page ${pageNum}: ${result.data.text.length} chars extracted`);
+          const pdfMod = await import('pdf-parse');
+          if (typeof pdfMod.default === 'function') {
+            const data = await pdfMod.default(pdfBuffer);
+            text = data.text || '';
           }
+        } catch (e) {
+          console.log('[PDF Parse] pdf-parse failed:', e.message);
+        }
 
-          await worker.terminate();
-          console.log('[PDF Parse] Worker terminated, mem=' + Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB');
-
-          // Cleanup temp file
-          try { fs.unlinkSync(tmpPath); } catch (e) { }
-
-          text = ocrText;
-          console.log('[PDF Parse] OCR extracted', text.length, 'chars from', pageNum, 'pages');
-        } catch (ocrErr) {
-          console.error('[PDF Parse] OCR FAILED:', ocrErr.message, ocrErr.stack?.substring(0, 300));
+        // Server-side OCR is disabled — runs on client instead
+        if (text.trim().length < 50) {
+          console.log('[PDF Parse] Server extraction got only ' + text.trim().length + ' chars. Client-side OCR required.');
         }
       }
 

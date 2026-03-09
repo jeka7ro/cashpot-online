@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Wand2, Upload, Loader2, Sparkles, FolderOpen, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
+import { extractTextFromPdf } from '../../utils/pdfOcr';
 
 const SmartScanCvtModal = ({ onClose, onScanComplete, onBatchImport }) => {
   const [isParsing, setIsParsing] = useState(false);
@@ -83,14 +84,29 @@ const SmartScanCvtModal = ({ onClose, onScanComplete, onBatchImport }) => {
     }
 
     setIsParsing(true);
-    const loadingId = toast.loading('Se scanează documentul cu AI...', {
+    const loadingId = toast.loading('Se extrage textul din PDF...', {
       style: { background: '#1e293b', color: '#f8fafc', border: '1px solid #3b82f6' },
     });
 
     try {
+      // Step 1: Client-side OCR
+      let preExtractedText = '';
+      try {
+        preExtractedText = await extractTextFromPdf(base64Preview, (stage, pct) => {
+          toast.loading(`${stage} (${pct}%)`, { id: loadingId });
+        });
+        console.log('[SmartScan] Client OCR extracted', preExtractedText.length, 'chars');
+      } catch (ocrErr) {
+        console.warn('[SmartScan] Client OCR failed:', ocrErr.message);
+      }
+
+      toast.loading('Se analizează datele extrase...', { id: loadingId });
+
+      // Step 2: Send to backend for regex parsing
       const response = await axios.post('/api/metrology/parse', {
         base64: base64Preview,
         parserSource: parserSource,
+        preExtractedText: preExtractedText,
         fileName: file?.name || 'document_nespecificat.pdf'
       });
 
@@ -162,9 +178,18 @@ const SmartScanCvtModal = ({ onClose, onScanComplete, onBatchImport }) => {
       try {
         const base64 = await readFileAsBase64(currentFile);
 
+        // Client-side OCR first
+        let preExtractedText = '';
+        try {
+          preExtractedText = await extractTextFromPdf(base64);
+        } catch (ocrErr) {
+          console.warn('[Batch] Client OCR failed for', currentFile.name, ocrErr.message);
+        }
+
         const response = await axios.post('/api/metrology/parse', {
           base64,
           parserSource,
+          preExtractedText,
           fileName: currentFile.name
         }, { timeout: 120000 });
 
