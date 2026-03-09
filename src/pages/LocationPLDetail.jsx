@@ -9,7 +9,7 @@ import {
 import Layout from '../components/Layout'
 import KPICard from '../components/KPICard'
 import axios from 'axios'
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, XAxis, YAxis } from 'recharts'
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
 
 import * as XLSX from 'xlsx'
 
@@ -122,6 +122,7 @@ const LocationPLDetail = () => {
   const [cabFilter, setCabFilter] = useState('all')
   const [locFilter, setLocFilter] = useState('all')
   const [activeQuick, setActiveQuick] = useState(null)
+  const [monthlyComparison, setMonthlyComparison] = useState([])
 
   const decoded = decodeURIComponent(locationName)
   const isAllLocations = decoded === 'all'
@@ -206,7 +207,51 @@ const LocationPLDetail = () => {
     }
   }, [locationName, dateRange.startDate, dateRange.endDate, prevPeriod.startDate, prevPeriod.endDate])
 
+  /* ── fetch 12-month comparison ──────────────────────────── */
+  const fetchComparison = useCallback(async () => {
+    try {
+      const s = new Date(dateRange.startDate + 'T00:00:00')
+      const e = new Date(dateRange.endDate + 'T00:00:00')
+      const today = new Date(); today.setHours(0, 0, 0, 0)
+      const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1)
+      const cappedEnd = e > yesterday ? yesterday : e
+      const dayOfMonthEnd = cappedEnd.getDate()
+      const dayOfMonthStart = s.getDate()
+
+      const months = []
+      for (let i = 0; i < 12; i++) {
+        const ms = new Date(s.getFullYear(), s.getMonth() - i, dayOfMonthStart)
+        const lastDayOfMonth = new Date(ms.getFullYear(), ms.getMonth() + 1, 0).getDate()
+        const endDay = Math.min(dayOfMonthEnd, lastDayOfMonth)
+        const me = new Date(ms.getFullYear(), ms.getMonth(), endDay)
+        const label = ms.toLocaleDateString('ro-RO', { month: 'short', year: '2-digit' })
+        months.push({ label, startDate: fmtDate(ms), endDate: fmtDate(me) })
+      }
+
+      const params = isAllLocations ? {} : { location: decoded }
+      const results = await Promise.allSettled(
+        months.map(m =>
+          axios.get('/api/incasari/summary', { params: { ...params, startDate: m.startDate, endDate: m.endDate } })
+        )
+      )
+
+      const data = months.map((m, i) => {
+        const r = results[i]
+        if (r.status === 'fulfilled' && r.value.data?.success) {
+          const d = r.value.data
+          return { label: m.label, ggr: Math.round(d.totalProfit || 0), in: Math.round(d.totalIn || 0) }
+        }
+        return { label: m.label, ggr: 0, in: 0 }
+      }).reverse()
+
+      setMonthlyComparison(data)
+    } catch (err) {
+      console.error('Comparison fetch error:', err)
+    }
+  }, [dateRange.startDate, dateRange.endDate, isAllLocations, decoded])
+
   useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { fetchComparison() }, [fetchComparison])
 
   /* ── aggregate totals ─────────────────────────────────────── */
   const totals = useMemo(() =>
@@ -771,6 +816,28 @@ const LocationPLDetail = () => {
                 </div>
               )}
             </div>
+
+            {/* ── 12-Month GGR & IN Comparison ─────────────────── */}
+            {monthlyComparison.length > 0 && (
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4 text-center">Dinamică GGR & IN — Ultimele 12 Luni (aceleași zile)</h3>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={monthlyComparison} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+                      <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                      <YAxis tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
+                      <Tooltip
+                        formatter={(value, name) => [fmt(value) + ' lei', name === 'ggr' ? 'GGR' : 'IN']}
+                        contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '8px', fontSize: '12px', color: '#f8fafc' }}
+                      />
+                      <Bar dataKey="in" name="IN" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={18} />
+                      <Bar dataKey="ggr" name="GGR" fill="#10b981" radius={[4, 4, 0, 0]} barSize={18} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
           </>
         )}
 
