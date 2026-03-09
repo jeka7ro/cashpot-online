@@ -3914,42 +3914,50 @@ app.post('/api/metrology/parse', async (req, res) => {
 
       // Step 2: If no text extracted, use Tesseract OCR (for scanned image PDFs)
       if (text.trim().length < 50) {
-        console.log('[PDF Parse] Text-based extraction failed, switching to OCR...');
+        console.log('[PDF Parse] Text-based extraction failed (' + text.trim().length + ' chars), switching to OCR...');
         try {
+          console.log('[PDF Parse] Importing pdf-to-img...');
           const { pdf: pdfToImg } = await import('pdf-to-img');
+          console.log('[PDF Parse] Importing tesseract.js...');
           const Tesseract = (await import('tesseract.js')).default;
 
           // Write temp PDF file for pdf-to-img
           const tmpPath = `/tmp/cvt-parse-${Date.now()}.pdf`;
           const fs = await import('fs');
           fs.writeFileSync(tmpPath, pdfBuffer);
+          console.log('[PDF Parse] Temp file written:', tmpPath);
 
-          // Render.com free tier = 512MB RAM. Scale 1.0 + 1 page avoids OOM crash.
-          // Local dev = 1.5 scale + 2 pages for better OCR quality.
+          // Render free = 512MB. Scale 0.5 + 1 page = ~100MB memory usage.
+          // Local = 1.5 scale + 2 pages for best quality.
           const isRender = process.env.RENDER === 'true';
-          const ocrScale = isRender ? 1.0 : 1.5;
+          const ocrScale = isRender ? 0.5 : 1.5;
           const maxPages = isRender ? 1 : 2;
-          console.log(`[PDF Parse] OCR: scale=${ocrScale}, pages=${maxPages}, render=${isRender}`);
+          console.log(`[PDF Parse] OCR: scale=${ocrScale}, pages=${maxPages}, render=${isRender}, mem=${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB`);
+          
           const document = await pdfToImg(tmpPath, { scale: ocrScale });
+          console.log('[PDF Parse] PDF converted to images OK');
           let ocrText = '';
           let pageNum = 0;
 
-          // INIT TESSERACT WORKER — v5+ API: pass lang directly to createWorker
+          // INIT TESSERACT WORKER
+          console.log('[PDF Parse] Creating Tesseract worker...');
           const worker = await Tesseract.createWorker('ron', 1, {
             cachePath: '/tmp'
           });
+          console.log('[PDF Parse] Tesseract worker ready, mem=' + Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB');
 
           for await (const image of document) {
             pageNum++;
             if (pageNum > maxPages) break;
 
-            console.log(`[PDF Parse] OCR processing page ${pageNum}...`);
+            console.log(`[PDF Parse] OCR page ${pageNum}, image size: ${image.length} bytes, mem=${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB`);
             const result = await worker.recognize(image);
             ocrText += result.data.text + '\n';
             console.log(`[PDF Parse] Page ${pageNum}: ${result.data.text.length} chars extracted`);
           }
 
-          await worker.terminate(); // VERY IMPORTANT: FREE MEMORY
+          await worker.terminate();
+          console.log('[PDF Parse] Worker terminated, mem=' + Math.round(process.memoryUsage().rss / 1024 / 1024) + 'MB');
 
           // Cleanup temp file
           try { fs.unlinkSync(tmpPath); } catch (e) { }
@@ -3957,7 +3965,7 @@ app.post('/api/metrology/parse', async (req, res) => {
           text = ocrText;
           console.log('[PDF Parse] OCR extracted', text.length, 'chars from', pageNum, 'pages');
         } catch (ocrErr) {
-          console.error('[PDF Parse] OCR failed:', ocrErr.message);
+          console.error('[PDF Parse] OCR FAILED:', ocrErr.message, ocrErr.stack?.substring(0, 300));
         }
       }
 
