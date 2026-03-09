@@ -210,22 +210,21 @@ const LocationPLDetail = () => {
   /* ── fetch 12-month comparison ──────────────────────────── */
   const fetchComparison = useCallback(async () => {
     try {
-      const s = new Date(dateRange.startDate + 'T00:00:00')
-      const e = new Date(dateRange.endDate + 'T00:00:00')
       const today = new Date(); today.setHours(0, 0, 0, 0)
       const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1)
-      const cappedEnd = e > yesterday ? yesterday : e
-      const dayOfMonthEnd = cappedEnd.getDate()
-      const dayOfMonthStart = s.getDate()
+      // Always compare: day 1 to yesterday of the current month
+      const currentMonth = yesterday.getMonth()
+      const currentYear = yesterday.getFullYear()
+      const endDay = yesterday.getDate() // e.g., 8 for March 8
 
       const months = []
       for (let i = 0; i < 12; i++) {
-        const ms = new Date(s.getFullYear(), s.getMonth() - i, dayOfMonthStart)
+        const ms = new Date(currentYear, currentMonth - i, 1)
         const lastDayOfMonth = new Date(ms.getFullYear(), ms.getMonth() + 1, 0).getDate()
-        const endDay = Math.min(dayOfMonthEnd, lastDayOfMonth)
-        const me = new Date(ms.getFullYear(), ms.getMonth(), endDay)
+        const cappedEndDay = Math.min(endDay, lastDayOfMonth)
+        const me = new Date(ms.getFullYear(), ms.getMonth(), cappedEndDay)
         const label = ms.toLocaleDateString('ro-RO', { month: 'short', year: '2-digit' })
-        months.push({ label, startDate: fmtDate(ms), endDate: fmtDate(me) })
+        months.push({ label, startDate: fmtDate(ms), endDate: fmtDate(me), days: cappedEndDay })
       }
 
       const params = isAllLocations ? {} : { location: decoded }
@@ -248,7 +247,7 @@ const LocationPLDetail = () => {
     } catch (err) {
       console.error('Comparison fetch error:', err)
     }
-  }, [dateRange.startDate, dateRange.endDate, isAllLocations, decoded])
+  }, [isAllLocations, decoded])
 
   useEffect(() => { fetchData() }, [fetchData])
   useEffect(() => { fetchComparison() }, [fetchComparison])
@@ -816,7 +815,7 @@ const LocationPLDetail = () => {
             {/* ── 12-Month GGR & IN Comparison ─────────────────── */}
             {monthlyComparison.length > 0 && (
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
-                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4 text-center">Dinamică GGR & IN — Ultimele 12 Luni (aceleași zile)</h3>
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-4 text-center">Dinamică GGR & IN — Zilele 1-{new Date().getDate() - 1} din ultimele 12 luni</h3>
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={monthlyComparison} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
