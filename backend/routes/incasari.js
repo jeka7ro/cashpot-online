@@ -4751,32 +4751,42 @@ router.get('/slots-by-location', authenticateToken, async (req, res) => {
     const pool = req.app.get('pool')
     const { startDate, endDate, location } = req.query
 
-    if (!startDate || !endDate || !location) {
-      return res.status(400).json({ success: false, error: 'Lipsesc parametri: startDate, endDate, location' })
+    if (!startDate || !endDate) {
+      return res.status(400).json({ success: false, error: 'Lipsesc parametri: startDate, endDate' })
     }
 
-    const decodedLocation = decodeURIComponent(location)
-    const normalizedTarget = normalizeLocationName(decodedLocation)
+    const decodedLocation = location ? decodeURIComponent(location) : null
+    const normalizedTarget = decodedLocation ? normalizeLocationName(decodedLocation) : null
 
     // 1. Găsește location_id din locations.json
     let locationIds = []
     try {
       const locationsData = loadExportedData('locations.json')
       if (Array.isArray(locationsData)) {
-        const matched = locationsData.filter(loc => {
-          const n = normalizeLocationName(loc.name || loc.location || '')
-          // Match exact sau match fără sufixul E.S.
-          return n === normalizedTarget
-        })
-        locationIds = matched.map(l => Number(l.id)).filter(id => Number.isFinite(id))
-        console.log(`🔍 [slots-by-location] "${decodedLocation}" → location_ids:`, locationIds)
+        if (normalizedTarget) {
+          // Filter by specific location
+          const matched = locationsData.filter(loc => {
+            const n = normalizeLocationName(loc.name || loc.location || '')
+            return n === normalizedTarget
+          })
+          locationIds = matched.map(l => Number(l.id)).filter(id => Number.isFinite(id))
+        } else {
+          // All locations (no filter)
+          locationIds = locationsData
+            .filter(loc => {
+              const n = normalizeLocationName(loc.name || loc.location || '')
+              return n.toLowerCase() !== 'depozit'
+            })
+            .map(l => Number(l.id)).filter(id => Number.isFinite(id))
+        }
+        console.log(`🔍 [slots-by-location] "${decodedLocation || 'ALL'}" → location_ids:`, locationIds)
       }
     } catch (e) {
       console.error('❌ Eroare la încărcarea locations.json:', e)
     }
 
     if (locationIds.length === 0) {
-      return res.json({ success: true, rows: [], location: decodedLocation, source: 'none', debug: 'no location_ids found' })
+      return res.json({ success: true, rows: [], location: decodedLocation || 'all', source: 'none', debug: 'no location_ids found' })
     }
 
     // 2. Build slot map (machine_id → metadata) din slots.json

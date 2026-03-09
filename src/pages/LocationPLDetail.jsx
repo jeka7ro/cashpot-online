@@ -110,6 +110,7 @@ const LocationPLDetail = () => {
   const [activeQuick, setActiveQuick] = useState(null)
 
   const decoded = decodeURIComponent(locationName)
+  const isAllLocations = decoded === 'all'
 
   /* ── parse dateRange from URL ─────────────────────────────── */
   const dateRange = useMemo(() => {
@@ -137,13 +138,12 @@ const LocationPLDetail = () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await axios.get('/api/incasari/slots-by-location', {
-        params: {
+      const params = {
           startDate: dateRange.startDate,
-          endDate: dateRange.endDate,
-          location: decoded
+          endDate: dateRange.endDate
         }
-      })
+      if (!isAllLocations) params.location = decoded
+      const res = await axios.get('/api/incasari/slots-by-location', { params })
       if (res.data?.success) {
         setSlots(res.data.rows || [])
       } else {
@@ -313,7 +313,7 @@ const LocationPLDetail = () => {
           </button>
 
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold text-white">{decoded}</h1>
+            <h1 className="text-2xl font-bold text-white">{isAllLocations ? 'Toate locațiile' : decoded}</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
               Încasări per aparat ·{' '}
               <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
