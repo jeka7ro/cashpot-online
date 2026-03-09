@@ -3421,15 +3421,19 @@ const Incasari = () => {
                       <tr key={label} className={rowClass}>
                         <td className="py-2 px-3 font-medium text-xs">{label}</td>
                         <td className="py-2 px-3 text-right text-xs">{formatNumber(data?.slotsCount || 0)}</td>
-                        {/* GGR + dynamics merged */}
+                        {/* GGR + dynamics inline */}
                         <td className="py-2 px-3 text-right">
-                          <div className="text-emerald-500 font-semibold text-xs">{formatNumber(data?.ggr || 0)}</div>
-                          <DynBadge value={ggrDyn} positive={ggrPos} />
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="text-emerald-500 font-semibold text-xs">{formatNumber(data?.ggr || 0)}</span>
+                            <DynBadge value={ggrDyn} positive={ggrPos} />
+                          </div>
                         </td>
-                        {/* IN + dynamics merged */}
+                        {/* IN + dynamics inline */}
                         <td className="py-2 px-3 text-right">
-                          <div className="text-xs">{formatNumber(data?.in || 0)}</div>
-                          <DynBadge value={inDyn} positive={inPos} />
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="text-xs">{formatNumber(data?.in || 0)}</span>
+                            <DynBadge value={inDyn} positive={inPos} />
+                          </div>
                         </td>
                         <td className="py-2 px-3 text-right text-xs">{formatNumber(data?.bet || 0)}</td>
                         <td className="py-2 px-3 text-right text-xs">{formatNumber(marketingValue)}</td>
