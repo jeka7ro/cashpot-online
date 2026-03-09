@@ -4013,10 +4013,10 @@ app.post('/api/metrology/parse', async (req, res) => {
       if (parsedProvider.toUpperCase().includes("INTERBLOCK")) parsedProvider = "InterBlock";
       if (parsedProvider.toUpperCase().includes("AMATIC")) parsedProvider = "Amatic";
 
-      // --- Approval type (Aprobare de tip / Marca de autentificare) ---
+      // --- Approval type (Aprobare de tip / Type approval) ---
+      // e.g. "Aprobare de tip/ Type approval: BMM 0264/24"
       const parsedApproval = getFirstMatch([
-        /Aprobare de tip[^:]*(?:Type approval)?[^:]*:\s*([^\n]+)/i,
-        /Marca de autentificare[^:]*(?:Authentication mark)?[^:]*:\s*\|?\s*([^\n]+)/i
+        /Aprobare de tip[^:]*(?:Type approval)?[^:]*:\s*\|?\s*([A-Z][A-Z0-9 /\-]+)/i
       ]);
 
       // --- Issuer (Emitent) ---
@@ -4043,10 +4043,17 @@ app.post('/api/metrology/parse', async (req, res) => {
 
       // --- Cabinet ---
       // OCR example: "Cabinet/ (Cabinet): EGT-VS13 (P-27/32H St))"
+      // IMPORTANT: must match "Cabinet/" at field-label position, NOT "cu cabinet" mid-line
       let parsedCabinet = getFirstMatch([
-        /Cabinet[^:]*\(?Cabinet\)?[^:]*:\s*([^\n]+)/i,
-        /Cabinet[^:]*:\s*([^\n]+)/i
+        /(?:^|\n)\s*Cabinet\/\s*\(?Cabinet\)?[^:]*:\s*([^\n]+)/i,
+        /(?:^|\n)\s*Cabinet[\s/]*[^:]*:\s*([^\n]+)/i
       ]);
+      // Validate: reject if it looks like a wrong field (e.g. starts with "Solicitare", "VIDEO", etc.)
+      if (parsedCabinet && /^(Solicitare|VIDEO|SLOT|Tip|aie|garn)/i.test(parsedCabinet)) {
+        // Try to extract cabinet from game type line: "cu cabinet EGT-VS13 (P-27/32H St)"
+        const fromGameType = text.match(/cu\s+cabinet\s+([A-Z][A-Z0-9\-]+(?:\s*\([^)]*\))?)/i);
+        parsedCabinet = fromGameType ? fromGameType[1] : '';
+      }
 
       // --- Game type (Tip mijloc de joc) ---
       let parsedGameType = getFirstMatch([
@@ -4117,20 +4124,22 @@ app.post('/api/metrology/parse', async (req, res) => {
         }
       }
 
-      // --- Fix approval_type: use Aprobare de tip (e.g. BMM 0264/24), NOT Marca de autentificare ---
-      const parsedApprovalTip = getFirstMatch([
-        /Aprobare de tip[^:]*(?:Type approval)?[^:]*:\s*([^\n]+)/i
-      ]);
+      // --- Authentication mark (Marca de autentificare) → separate field ---
       const parsedAuthMark = getFirstMatch([
-        /Marca de autentificare[^:]*(?:Authentication mark)?[^:]*:\s*\|?\s*([^\n]+)/i
+        /Marca de autentificare[^:]*(?:Authentication mark)?[^:]*:\s*\|?\s*([A-Z]{2,4}-AT-\d+)/i,
+        /Marca de autentificare[^:]*(?:Authentication mark)?[^:]*:\s*\|?\s*([A-Z][A-Z0-9\-]{3,})/i
       ]);
 
       if (cleanOcr(parsedCvtSeries)) extractedData.cvt_series = cleanOcr(parsedCvtSeries);
       if (cleanOcr(parsedCvtNumber)) extractedData.cvt_number = cleanOcr(parsedCvtNumber);
       if (parsedSerialNumber) extractedData.serial_number = parsedSerialNumber;
       if (parsedProvider) extractedData.provider = parsedProvider;
-      if (parsedApprovalTip) extractedData.approval_type = cleanOcr(parsedApprovalTip);
-      else if (parsedAuthMark) extractedData.approval_type = cleanOcr(parsedAuthMark);
+      // Approval: prefer Aprobare de tip, fallback to Marca de autentificare
+      if (parsedApproval && parsedApproval.length > 2 && !/^(garn|IMs|_|Tip )/i.test(parsedApproval)) {
+        extractedData.approval_type = cleanOcr(parsedApproval).split('\n')[0].trim();
+      } else if (parsedAuthMark) {
+        extractedData.approval_type = cleanOcr(parsedAuthMark).split('\n')[0].trim();
+      }
       if (finalIssuer) extractedData.issuing_authority = finalIssuer;
       if (parsedSoftware) {
         extractedData.software = cleanOcr(parsedSoftware);
@@ -4260,11 +4269,19 @@ app.post('/api/metrology', async (req, res) => {
 
     const params = [cvt_series, finalCvtNumber, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, cvt_filename, notes, 'admin', additional_files ? JSON.stringify(additional_files) : '[]', storedRawData]
     const result = await pool.query(
-      'INSERT INTO metrology (cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvt_file, cvt_filename, notes, created_by, additional_files, raw_cvt_data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb, $18::jsonb) RETURNING *, cvt_file as "cvtFile"',
+      `INSERT INTO metrology (cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvt_file, cvt_filename, notes, created_by, additional_files, raw_cvt_data)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb, $18::jsonb)
+       ON CONFLICT (cvt_number) DO UPDATE SET
+         cvt_series = EXCLUDED.cvt_series, serial_number = EXCLUDED.serial_number, cvt_type = EXCLUDED.cvt_type,
+         cvt_date = EXCLUDED.cvt_date, expiry_date = EXCLUDED.expiry_date, issuing_authority = EXCLUDED.issuing_authority,
+         provider = EXCLUDED.provider, cabinet = EXCLUDED.cabinet, game_mix = EXCLUDED.game_mix,
+         approval_type = EXCLUDED.approval_type, software = EXCLUDED.software, cvt_file = EXCLUDED.cvt_file,
+         cvt_filename = EXCLUDED.cvt_filename, notes = EXCLUDED.notes, raw_cvt_data = EXCLUDED.raw_cvt_data, updated_at = NOW()
+       RETURNING *, cvt_file as "cvtFile"`,
       params
     )
 
-    res.status(201).json(result.rows[0])
+    res.status(201).json({ ...result.rows[0], _saved: true })
   } catch (error) {
     console.error('Metrology POST error:', error)
     import('fs').then(fs => {
