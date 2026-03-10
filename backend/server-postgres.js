@@ -4233,6 +4233,21 @@ app.post('/api/metrology', async (req, res) => {
       finalCvtNumber = cvt_series ? cvt_series : `AUTO-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     }
 
+    // AVOID ON CONFLICT DO UPDATE OVERWRITES FOR DIFFERENT MACHINES (e.g. OCR misses last digit)
+    try {
+      if (finalCvtNumber && serial_number) {
+        const checkExist = await pool.query('SELECT serial_number FROM metrology WHERE cvt_number = $1', [finalCvtNumber]);
+        if (checkExist.rows.length > 0) {
+          const existingSerial = checkExist.rows[0].serial_number;
+          if (String(existingSerial) !== String(serial_number)) {
+            // This CVT number belongs to a different machine! Make it unique so it doesn't overwrite it.
+            finalCvtNumber = `${finalCvtNumber}_${serial_number}`;
+            console.log(`[Metrology] Prevented overwrite. Renamed CVT number to: ${finalCvtNumber}`);
+          }
+        }
+      }
+    } catch(err) { console.error('Error checking cvt existence:', err.message); }
+
     // Calculate expiry_date automatically for Periodică and Inițială (1 year - 1 day from cvt_date)
     // Fallback: if no cvt_date provided, use today
     const safeCvtDate = cvt_date || new Date().toISOString().split('T')[0];
@@ -4277,8 +4292,8 @@ app.post('/api/metrology', async (req, res) => {
     const result = await pool.query(
       `INSERT INTO metrology (cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvt_file, cvt_filename, notes, created_by, additional_files, raw_cvt_data)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb, $18::jsonb)
-       ON CONFLICT (cvt_number) DO UPDATE SET
-         cvt_series = EXCLUDED.cvt_series, serial_number = EXCLUDED.serial_number, cvt_type = EXCLUDED.cvt_type,
+       ON CONFLICT (serial_number) DO UPDATE SET
+         cvt_series = EXCLUDED.cvt_series, cvt_number = EXCLUDED.cvt_number, cvt_type = EXCLUDED.cvt_type,
          cvt_date = EXCLUDED.cvt_date, expiry_date = EXCLUDED.expiry_date, issuing_authority = EXCLUDED.issuing_authority,
          provider = EXCLUDED.provider, cabinet = EXCLUDED.cabinet, game_mix = EXCLUDED.game_mix,
          approval_type = EXCLUDED.approval_type, software = EXCLUDED.software, cvt_file = EXCLUDED.cvt_file,
