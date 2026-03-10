@@ -1,0 +1,4282 @@
+[
+  {
+    "serial_number": "100388",
+    "location": "Craiova",
+    "cabinet": "AMS-ST-50",
+    "mix": "Amusebox",
+    "producator": "Amusnet",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100389",
+    "location": "Craiova",
+    "cabinet": "AMS-ST-50",
+    "mix": "Amusebox",
+    "producator": "Amusnet",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100390",
+    "location": "Craiova",
+    "cabinet": "AMS-ST-50",
+    "mix": "Amusebox",
+    "producator": "Amusnet",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100391",
+    "location": "Craiova",
+    "cabinet": "AMS-ST-50",
+    "mix": "Amusebox",
+    "producator": "Amusnet",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100392",
+    "location": "Craiova",
+    "cabinet": "AMS-ST-50",
+    "mix": "Amusebox",
+    "producator": "Amusnet",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100393",
+    "location": "Craiova",
+    "cabinet": "AMS-ST-50",
+    "mix": "Amusebox",
+    "producator": "Amusnet",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100394",
+    "location": "Pitesti",
+    "cabinet": "AMS-ST-50",
+    "mix": "Amusebox",
+    "producator": "Amusnet",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100395",
+    "location": "Pitesti",
+    "cabinet": "AMS-ST-50",
+    "mix": "Amusebox",
+    "producator": "Amusnet",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100396",
+    "location": "Pitesti",
+    "cabinet": "AMS-ST-50",
+    "mix": "Amusebox",
+    "producator": "Amusnet",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100397",
+    "location": "Pitesti",
+    "cabinet": "AMS-ST-50",
+    "mix": "Amusebox",
+    "producator": "Amusnet",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100398",
+    "location": "Pitesti",
+    "cabinet": "AMS-ST-50",
+    "mix": "Amusebox",
+    "producator": "Amusnet",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100399",
+    "location": "Pitesti",
+    "cabinet": "AMS-ST-50",
+    "mix": "Amusebox",
+    "producator": "Amusnet",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100400",
+    "location": "Depozit",
+    "cabinet": "AMS-ST-50",
+    "mix": "EGT - Green Power",
+    "producator": "Amusnet",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100401",
+    "location": "Depozit",
+    "cabinet": "AMS-ST-50",
+    "mix": "IGT - Edition Orange",
+    "producator": "Amusnet",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100402",
+    "location": "Depozit",
+    "cabinet": "AMS-ST-50",
+    "mix": "EGT - Blue Power HD",
+    "producator": "Amusnet",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100403",
+    "location": "Depozit",
+    "cabinet": "AMS-ST-50",
+    "mix": "EGT - Green Power",
+    "producator": "Amusnet",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100404",
+    "location": "Depozit",
+    "cabinet": "AMS-ST-50",
+    "mix": "Alfa-Street",
+    "producator": "Amusnet",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100405",
+    "location": "Depozit",
+    "cabinet": "AMS-ST-50",
+    "mix": "Organic G4",
+    "producator": "Amusnet",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100406",
+    "location": "Depozit",
+    "cabinet": "AMS-ST-50",
+    "mix": "Impera HD7",
+    "producator": "Amusnet",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100407",
+    "location": "Depozit",
+    "cabinet": "AMS-ST-50",
+    "mix": "Organic G4",
+    "producator": "Amusnet",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100408",
+    "location": "Depozit",
+    "cabinet": "AMS-ST-50",
+    "mix": "Organic G4",
+    "producator": "Amusnet",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100409",
+    "location": "Depozit",
+    "cabinet": "AMS-ST-50",
+    "mix": "IGT - Purple Pack",
+    "producator": "Amusnet",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100410",
+    "location": "Depozit",
+    "cabinet": "AMS-ST-50",
+    "mix": "EGT - Power HD",
+    "producator": "Amusnet",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "100411",
+    "location": "Depozit",
+    "cabinet": "AMS-ST-50",
+    "mix": "Novomatic Legend 3",
+    "producator": "Amusnet",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2025
+  },
+  {
+    "serial_number": "118856",
+    "location": "Craiova",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "118857",
+    "location": "Pitesti",
+    "cabinet": "P 32/32 H ST",
+    "mix": "Novomatic Legend 3",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "118858",
+    "location": "Pitesti",
+    "cabinet": "P 32/32 H ST",
+    "mix": "Alfa-Street",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "118859",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "118860",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "118861",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "118862",
+    "location": "Valcea",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "118863",
+    "location": "Valcea",
+    "cabinet": "P 32/32 H ST",
+    "mix": "Alfa-Street",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "118864",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "Alfa-Street",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "118865",
+    "location": "Craiova",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Green Power",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "118866",
+    "location": "Ploiesti (centru)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Power HD",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "118867",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "118868",
+    "location": "Craiova",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Fruits Power HD",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "118869",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "118870",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "118871",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "118872",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "Amusebox",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "118873",
+    "location": "Craiova",
+    "cabinet": "P 32/32 H ST",
+    "mix": "Alfa-Street",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "118874",
+    "location": "Craiova",
+    "cabinet": "P 32/32 H ST",
+    "mix": "Impera HD7",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "118875",
+    "location": "Craiova",
+    "cabinet": "P 32/32 H ST",
+    "mix": "IGT - Edition Orange",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "129047",
+    "location": "Depozit",
+    "cabinet": "Upright 623A",
+    "mix": "IGT - Purple Pack",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "129407",
+    "location": "Pitesti",
+    "cabinet": "Upright 623A",
+    "mix": "EGT - S-line",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "130619",
+    "location": "Pitesti",
+    "cabinet": "Upright 623A",
+    "mix": "Impera HD7",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "130676",
+    "location": "Craiova",
+    "cabinet": "P 27/27 ST",
+    "mix": "EGT - Green Power",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "130677",
+    "location": "Craiova",
+    "cabinet": "P 27/27 ST",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "130678",
+    "location": "Craiova",
+    "cabinet": "P 27/27 ST",
+    "mix": "EGT - Green Power",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "130679",
+    "location": "Craiova",
+    "cabinet": "P 27/27 ST",
+    "mix": "IGT - Edition Orange",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "130680",
+    "location": "Craiova",
+    "cabinet": "P 27/27 ST",
+    "mix": "IGT - Edition Azure",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "130681",
+    "location": "Craiova",
+    "cabinet": "P 27/27 ST",
+    "mix": "EGT - Power HD",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "130682",
+    "location": "Craiova",
+    "cabinet": "P 32/32 H ST",
+    "mix": "Impera HD7",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "130683",
+    "location": "Craiova",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Power HD",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "130684",
+    "location": "Craiova",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "130685",
+    "location": "Craiova",
+    "cabinet": "P 32/32 H ST",
+    "mix": "Amusebox",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "130686",
+    "location": "Craiova",
+    "cabinet": "P 32/32 H ST",
+    "mix": "Novomatic Legend 3",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "130687",
+    "location": "Craiova",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "130688",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "130689",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "130690",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "IGT - Edition Orange",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "130691",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Fruits Power HD",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "130692",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "130693",
+    "location": "Valcea",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "130694",
+    "location": "Valcea",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Fruits Power HD",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "130695",
+    "location": "Valcea",
+    "cabinet": "P 32/32 H ST",
+    "mix": "Alfa-Street",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "130696",
+    "location": "Valcea",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "130705",
+    "location": "Ploiesti (centru)",
+    "cabinet": "Stork",
+    "mix": "Alfa-Street",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "130707",
+    "location": "Ploiesti (centru)",
+    "cabinet": "Stork",
+    "mix": "Impera HD7",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "130708",
+    "location": "Ploiesti (centru)",
+    "cabinet": "Stork",
+    "mix": "IGT - Edition Orange",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "130709",
+    "location": "Ploiesti (centru)",
+    "cabinet": "Stork",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "131197",
+    "location": "Pitesti",
+    "cabinet": "Upright 623A",
+    "mix": "EGT - Fruits Power HD",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "131919",
+    "location": "Ploiesti (nord)",
+    "cabinet": "Upright 623A",
+    "mix": "Novomatic Legend 3",
+    "producator": "Novomatic",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "132532",
+    "location": "Pitesti",
+    "cabinet": "Upright 623A",
+    "mix": "Impera HD7",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "132664",
+    "location": "Pitesti",
+    "cabinet": "Upright 623A",
+    "mix": "EGT - S-line",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "132665",
+    "location": "Ploiesti (nord)",
+    "cabinet": "Upright 623A",
+    "mix": "Novomatic Legend 3",
+    "producator": "Novomatic",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "134862",
+    "location": "Pitesti",
+    "cabinet": "VIP 27/2x42",
+    "mix": "EGT - Fruits Power HD",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "134863",
+    "location": "Valcea",
+    "cabinet": "VIP 27/2x42",
+    "mix": "EGT - Power HD",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "135225",
+    "location": "Craiova",
+    "cabinet": "VIP 27/2x42",
+    "mix": "EGT - Green Power",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "135226",
+    "location": "Pitesti",
+    "cabinet": "VIP 27/2x42",
+    "mix": "IGT - Edition Azure",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "135227",
+    "location": "Valcea",
+    "cabinet": "VIP 27/2x42",
+    "mix": "Novomatic Legend 3",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "135228",
+    "location": "Craiova",
+    "cabinet": "VIP 27/2x42",
+    "mix": "EGT - Power HD",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "141053",
+    "location": "Ploiesti (nord)",
+    "cabinet": "Upright 623A",
+    "mix": "Novomatic Legend 3",
+    "producator": "Novomatic",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "141054",
+    "location": "Pitesti",
+    "cabinet": "Upright 623A",
+    "mix": "EGT - Union",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "142270",
+    "location": "Pitesti",
+    "cabinet": "P42V Curved UP",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "142845",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P42V Curved UP",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "142847",
+    "location": "Valcea",
+    "cabinet": "P42V Curved UP",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "142848",
+    "location": "Pitesti",
+    "cabinet": "P42V Curved UP",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "142850",
+    "location": "Valcea",
+    "cabinet": "P42V Curved UP",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "142851",
+    "location": "Pitesti",
+    "cabinet": "P42V Curved UP",
+    "mix": "Alfa-Street",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "142852",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P42V Curved UP",
+    "mix": "IGT - Edition Orange",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "142854",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P42V Curved UP",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "142855",
+    "location": "Pitesti",
+    "cabinet": "P42V Curved UP",
+    "mix": "IGT - Green Pack",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "147576",
+    "location": "Depozit",
+    "cabinet": "Upright 623A",
+    "mix": "Organic G4",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "149580",
+    "location": "Ploiesti (centru)",
+    "cabinet": "VIP 27/2x42",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149581",
+    "location": "Ploiesti (centru)",
+    "cabinet": "VIP 27/2x42",
+    "mix": "IGT - Edition Orange",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149582",
+    "location": "Pitesti",
+    "cabinet": "VIP 27/2x42",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149583",
+    "location": "Pitesti",
+    "cabinet": "VIP 27/2x42",
+    "mix": "EGT - Green Power",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149584",
+    "location": "Pitesti",
+    "cabinet": "P 27/27 ST",
+    "mix": "Alfa-Street",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149585",
+    "location": "Pitesti",
+    "cabinet": "VIP 27/2x42",
+    "mix": "Novomatic Legend 3",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149586",
+    "location": "Craiova",
+    "cabinet": "P 27/27 ST",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149587",
+    "location": "Craiova",
+    "cabinet": "P 27/27 ST",
+    "mix": "EGT - Green Power",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149588",
+    "location": "Pitesti",
+    "cabinet": "P 27/27 ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149589",
+    "location": "Pitesti",
+    "cabinet": "P 27/27 ST",
+    "mix": "Impera HD7",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149590",
+    "location": "Craiova",
+    "cabinet": "P 27/27 ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149591",
+    "location": "Craiova",
+    "cabinet": "P 27/27 ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149592",
+    "location": "Pitesti",
+    "cabinet": "P 27/27 ST",
+    "mix": "Alfa-Street",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149593",
+    "location": "Pitesti",
+    "cabinet": "P 27/27 ST",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149594",
+    "location": "Craiova",
+    "cabinet": "P 27/27 ST",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149595",
+    "location": "Craiova",
+    "cabinet": "P 27/27 ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149596",
+    "location": "Valcea",
+    "cabinet": "P 32/32 H ST",
+    "mix": "Amusebox",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149597",
+    "location": "Ploiesti (centru)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "Impera HD7",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149598",
+    "location": "Ploiesti (centru)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "Novomatic Legend 3",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149599",
+    "location": "Ploiesti (centru)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149600",
+    "location": "Ploiesti (centru)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "Impera HD7",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149601",
+    "location": "Ploiesti (centru)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "IGT - Edition Azure",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149602",
+    "location": "Valcea",
+    "cabinet": "P 32/32 H ST",
+    "mix": "IGT - Purple Pack",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149603",
+    "location": "Ploiesti (centru)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "Amusebox",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149604",
+    "location": "Ploiesti (centru)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149605",
+    "location": "Valcea",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149606",
+    "location": "Valcea",
+    "cabinet": "P 32/32 H ST",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149607",
+    "location": "Ploiesti (centru)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "IGT - Edition Orange",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149608",
+    "location": "Ploiesti (centru)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "Alfa-Street",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149609",
+    "location": "Ploiesti (centru)",
+    "cabinet": "P 32/32 H ST",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149610",
+    "location": "Valcea",
+    "cabinet": "P42V Curved ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149611",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P42V Curved ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149612",
+    "location": "Pitesti",
+    "cabinet": "P42V Curved ST",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149613",
+    "location": "Valcea",
+    "cabinet": "P42V Curved ST",
+    "mix": "EGT - Fruits Power HD",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149614",
+    "location": "Pitesti",
+    "cabinet": "P42V Curved ST",
+    "mix": "EGT - Green Power",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149615",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P42V Curved ST",
+    "mix": "Amusebox",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149616",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P42V Curved ST",
+    "mix": "Novomatic Legend 3",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149617",
+    "location": "Valcea",
+    "cabinet": "P42V Curved ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149618",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P42V Curved ST",
+    "mix": "EGT - Fruits Power HD",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149619",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P42V Curved ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149620",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P42V Curved ST",
+    "mix": "IGT - Edition Orange",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149621",
+    "location": "Pitesti",
+    "cabinet": "P42V Curved ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149622",
+    "location": "Ploiesti (centru)",
+    "cabinet": "P42V Curved ST",
+    "mix": "IGT - Purple Pack",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149623",
+    "location": "Valcea",
+    "cabinet": "P42V Curved ST",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149624",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P42V Curved ST",
+    "mix": "IGT - Edition Orange",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149625",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P42V Curved ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149626",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P42V Curved ST",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149627",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P42V Curved ST",
+    "mix": "EGT - Power HD",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149628",
+    "location": "Pitesti",
+    "cabinet": "P42V Curved ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149629",
+    "location": "Valcea",
+    "cabinet": "P42V Curved ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149630",
+    "location": "Ploiesti (centru)",
+    "cabinet": "P42V Curved ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149631",
+    "location": "Ploiesti (centru)",
+    "cabinet": "P42V Curved ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149632",
+    "location": "Ploiesti (centru)",
+    "cabinet": "P42V Curved ST",
+    "mix": "IGT - Edition Azure",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149633",
+    "location": "Valcea",
+    "cabinet": "P42V Curved ST",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149634",
+    "location": "Ploiesti (nord)",
+    "cabinet": "P42V Curved ST",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149635",
+    "location": "Pitesti",
+    "cabinet": "P42V Curved ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149636",
+    "location": "Pitesti",
+    "cabinet": "P42V Curved ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149637",
+    "location": "Pitesti",
+    "cabinet": "P42V Curved ST",
+    "mix": "Amusebox",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "149638",
+    "location": "Pitesti",
+    "cabinet": "P42V Curved ST",
+    "mix": "IGT - Edition Orange",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "150042",
+    "location": "Depozit",
+    "cabinet": "Upright 623A",
+    "mix": "IGT - Purple Pack",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "150053",
+    "location": "Pitesti",
+    "cabinet": "Upright 623A",
+    "mix": "Novomatic Legend 3",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "150066",
+    "location": "Ploiesti (centru)",
+    "cabinet": "Upright 623A",
+    "mix": "Organic G4",
+    "producator": "Novomatic",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "150075",
+    "location": "Depozit",
+    "cabinet": "Upright 623A",
+    "mix": "IGT - Purple Pack",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "1502-139",
+    "location": "Craiova",
+    "cabinet": "Upright CT",
+    "mix": "EGT - Fruits Power HD",
+    "producator": "Casino Technology",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "150242",
+    "location": "Pitesti",
+    "cabinet": "P42V Curved UP",
+    "mix": "IGT - Purple Pack",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "150243",
+    "location": "Pitesti",
+    "cabinet": "P42V Curved UP",
+    "mix": "Novomatic Legend 3",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "150243.",
+    "location": "Valcea",
+    "cabinet": "Upright 623A",
+    "mix": "EGT - Green Power",
+    "producator": "Novomatic",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "150244",
+    "location": "Pitesti",
+    "cabinet": "P42V Curved UP",
+    "mix": "EGT - Power HD",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "150246",
+    "location": "Pitesti",
+    "cabinet": "P42V Curved UP",
+    "mix": "Novomatic Legend 3",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "150247",
+    "location": "Pitesti",
+    "cabinet": "P42V Curved UP",
+    "mix": "Amusebox",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "150252",
+    "location": "Pitesti",
+    "cabinet": "Upright 623A",
+    "mix": "Novomatic Legend 3",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "150253",
+    "location": "Pitesti",
+    "cabinet": "Upright 623A",
+    "mix": "Novomatic Legend 3",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "1503-193",
+    "location": "Craiova",
+    "cabinet": "Upright CT",
+    "mix": "Amusebox",
+    "producator": "Casino Technology",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "1503-194",
+    "location": "Craiova",
+    "cabinet": "Upright CT",
+    "mix": "IGT - Purple Pack",
+    "producator": "Casino Technology",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "1503-195",
+    "location": "Craiova",
+    "cabinet": "Upright CT",
+    "mix": "EGT - Union",
+    "producator": "Casino Technology",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "1503-196",
+    "location": "Craiova",
+    "cabinet": "Upright CT",
+    "mix": "Organic G4",
+    "producator": "Casino Technology",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "155700",
+    "location": "Pitesti",
+    "cabinet": "P42V Curved UP",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2018
+  },
+  {
+    "serial_number": "155706",
+    "location": "Pitesti",
+    "cabinet": "P42V Curved UP",
+    "mix": "IGT - Purple Pack",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2018
+  },
+  {
+    "serial_number": "155707",
+    "location": "Pitesti",
+    "cabinet": "P42V Curved UP",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2018
+  },
+  {
+    "serial_number": "155708",
+    "location": "Valcea",
+    "cabinet": "P42V Curved UP",
+    "mix": "IGT - Purple Pack",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2018
+  },
+  {
+    "serial_number": "155709",
+    "location": "Valcea",
+    "cabinet": "P42V Curved UP",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2018
+  },
+  {
+    "serial_number": "155710",
+    "location": "Valcea",
+    "cabinet": "P42V Curved UP",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2018
+  },
+  {
+    "serial_number": "155719",
+    "location": "Pitesti",
+    "cabinet": "Upright 623A",
+    "mix": "Novomatic Legend 3",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "169130",
+    "location": "Pitesti",
+    "cabinet": "Upright 623A",
+    "mix": "Novomatic Legend 3",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "169136",
+    "location": "Depozit",
+    "cabinet": "Upright 623A",
+    "mix": "IGT - Edition Orange",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "170748",
+    "location": "Depozit",
+    "cabinet": "Upright 623A",
+    "mix": "EGT - S-line",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "186755",
+    "location": "Ploiesti (nord)",
+    "cabinet": "Upright 623",
+    "mix": "Amusebox",
+    "producator": "Novomatic",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "188795",
+    "location": "Ploiesti (nord)",
+    "cabinet": "Upright 623",
+    "mix": "IGT - Green Pack",
+    "producator": "Novomatic",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "189196",
+    "location": "Depozit",
+    "cabinet": "Upright 623A",
+    "mix": "Alfa-Street",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "190267",
+    "location": "Ploiesti (nord)",
+    "cabinet": "G 27/32 ST",
+    "mix": "IGT - Edition Orange",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "190268",
+    "location": "Pitesti",
+    "cabinet": "G 27/32 ST",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "190269",
+    "location": "Pitesti",
+    "cabinet": "G 27/32 ST",
+    "mix": "IGT - Green Pack",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "190270",
+    "location": "Pitesti",
+    "cabinet": "G 27/32 ST",
+    "mix": "IGT - Edition Azure",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "190271",
+    "location": "Pitesti",
+    "cabinet": "G 27/32 ST",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "190272",
+    "location": "Ploiesti (nord)",
+    "cabinet": "G 27/32 ST",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "190273",
+    "location": "Pitesti",
+    "cabinet": "G 27/32 ST",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "190274",
+    "location": "Pitesti",
+    "cabinet": "G 27/32 ST",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "190275",
+    "location": "Craiova",
+    "cabinet": "G 27/32 ST",
+    "mix": "IGT - Edition Orange",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "190276",
+    "location": "Ploiesti (nord)",
+    "cabinet": "G 27/32 ST",
+    "mix": "Novomatic Legend 3",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "190277",
+    "location": "Craiova",
+    "cabinet": "G 27/32 ST",
+    "mix": "Amusebox",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "190278",
+    "location": "Craiova",
+    "cabinet": "G 27/32 ST",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "190279",
+    "location": "Craiova",
+    "cabinet": "G 27/32 ST",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "190280",
+    "location": "Ploiesti (nord)",
+    "cabinet": "G 27/32 ST",
+    "mix": "EGT - Power HD",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "190281",
+    "location": "Valcea",
+    "cabinet": "G 27/32 ST",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "190282",
+    "location": "Valcea",
+    "cabinet": "G 27/32 ST",
+    "mix": "Alfa-Street",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "190283",
+    "location": "Valcea",
+    "cabinet": "G 27/32 ST",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "190284",
+    "location": "Valcea",
+    "cabinet": "G 27/32 ST",
+    "mix": "Alfa-Street",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "190285",
+    "location": "Ploiesti (centru)",
+    "cabinet": "G 27/32 ST",
+    "mix": "IGT - Edition Azure",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "190286",
+    "location": "Ploiesti (centru)",
+    "cabinet": "G 27/32 ST",
+    "mix": "IGT - Purple Pack",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "190287",
+    "location": "Ploiesti (centru)",
+    "cabinet": "G 27/32 ST",
+    "mix": "IGT - Edition Azure",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "190288",
+    "location": "Ploiesti (centru)",
+    "cabinet": "G 27/32 ST",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "1903-097",
+    "location": "Pitesti",
+    "cabinet": "EZ-Modulo 32\"/32\"",
+    "mix": "IGT - Purple Pack",
+    "producator": "Casino Technology",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "1903-098",
+    "location": "Pitesti",
+    "cabinet": "EZ-Modulo 32\"/32\"",
+    "mix": "IGT - Purple Pack",
+    "producator": "Casino Technology",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "1903-099",
+    "location": "Pitesti",
+    "cabinet": "EZ-Modulo 32\"/32\"",
+    "mix": "EGT - Union",
+    "producator": "Casino Technology",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "1903-100",
+    "location": "Pitesti",
+    "cabinet": "EZ-Modulo 32\"/32\"",
+    "mix": "IGT - Edition Orange",
+    "producator": "Casino Technology",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "1903-101",
+    "location": "Valcea",
+    "cabinet": "EZ-Modulo 32\"/32\"",
+    "mix": "Amusebox",
+    "producator": "Casino Technology",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "1903-102",
+    "location": "Valcea",
+    "cabinet": "EZ-Modulo 32\"/32\"",
+    "mix": "Organic G4",
+    "producator": "Casino Technology",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "1903-103",
+    "location": "Valcea",
+    "cabinet": "EZ-Modulo 32\"/32\"",
+    "mix": "Alfa-Street",
+    "producator": "Casino Technology",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "1903-105",
+    "location": "Valcea",
+    "cabinet": "EZ-Modulo 32\"/32\"",
+    "mix": "IGT - Edition Azure",
+    "producator": "Casino Technology",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "1903-106",
+    "location": "Craiova",
+    "cabinet": "EZ-Modulo 32\"/32\"",
+    "mix": "IGT - Purple Pack",
+    "producator": "Casino Technology",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "1903-107",
+    "location": "Craiova",
+    "cabinet": "EZ-Modulo 32\"/32\"",
+    "mix": "Amusebox",
+    "producator": "Casino Technology",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "1903-108",
+    "location": "Craiova",
+    "cabinet": "EZ-Modulo 32\"/32\"",
+    "mix": "IGT - Edition Azure",
+    "producator": "Casino Technology",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "1903-109",
+    "location": "Craiova",
+    "cabinet": "EZ-Modulo 32\"/32\"",
+    "mix": "EGT - Blue Power HD",
+    "producator": "Casino Technology",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "191500",
+    "location": "Craiova",
+    "cabinet": "VIP 27/2x42",
+    "mix": "IGT - Green Pack",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "191501",
+    "location": "Valcea",
+    "cabinet": "VIP 27/2x42",
+    "mix": "Impera HD7",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "194603",
+    "location": "Craiova",
+    "cabinet": "Upright 623A",
+    "mix": "Novomatic Legend 3",
+    "producator": "Novomatic",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "200406",
+    "location": "Pitesti",
+    "cabinet": "G 32/32 ST VIP",
+    "mix": "IGT - Edition Azure",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "200407",
+    "location": "Pitesti",
+    "cabinet": "G 32/32 ST VIP",
+    "mix": "IGT - Edition Azure",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "200408",
+    "location": "Pitesti",
+    "cabinet": "G 32/32 ST VIP",
+    "mix": "EGT - Fruits Power HD",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "200409",
+    "location": "Pitesti",
+    "cabinet": "G 32/32 ST VIP",
+    "mix": "IGT - Edition Azure",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "200410",
+    "location": "Pitesti",
+    "cabinet": "G 32/32 ST VIP",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "200411",
+    "location": "Pitesti",
+    "cabinet": "G 32/32 ST VIP",
+    "mix": "Amusebox",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "200412",
+    "location": "Craiova",
+    "cabinet": "G 32/32 ST VIP",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "200413",
+    "location": "Craiova",
+    "cabinet": "G 32/32 ST VIP",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "200414",
+    "location": "Craiova",
+    "cabinet": "G 32/32 ST VIP",
+    "mix": "EGT - Fruits Power HD",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "200416",
+    "location": "Craiova",
+    "cabinet": "G 32/32 ST VIP",
+    "mix": "EGT - Green Power",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "200417",
+    "location": "Valcea",
+    "cabinet": "G 32/32 ST VIP",
+    "mix": "EGT - Green Power",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "200418",
+    "location": "Valcea",
+    "cabinet": "G 32/32 ST VIP",
+    "mix": "IGT - Edition Orange",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "200419",
+    "location": "Valcea",
+    "cabinet": "G 32/32 ST VIP",
+    "mix": "EGT - Power HD",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "200420",
+    "location": "Valcea",
+    "cabinet": "G 32/32 ST VIP",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "200421",
+    "location": "Ploiesti (centru)",
+    "cabinet": "G 32/32 ST VIP",
+    "mix": "EGT - Green Power",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "200423",
+    "location": "Ploiesti (centru)",
+    "cabinet": "G 32/32 ST VIP",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "200424",
+    "location": "Ploiesti (centru)",
+    "cabinet": "G 32/32 ST VIP",
+    "mix": "IGT - Edition Azure",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "200425",
+    "location": "Pitesti",
+    "cabinet": "VIP 27/2x42",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "200426",
+    "location": "Pitesti",
+    "cabinet": "VIP 27/2x42",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "2015-12-3227-1",
+    "location": "Valcea",
+    "cabinet": "Roulette R8/R5",
+    "mix": "Alfa-Street",
+    "producator": "Alfastreet",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "2015-12-3227-2",
+    "location": "Valcea",
+    "cabinet": "Roulette R8/R5",
+    "mix": "Alfa-Street",
+    "producator": "Alfastreet",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "2015-12-3227-3",
+    "location": "Valcea",
+    "cabinet": "Roulette R8/R5",
+    "mix": "Alfa-Street",
+    "producator": "Alfastreet",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "2015-12-3227-4",
+    "location": "Valcea",
+    "cabinet": "Roulette R8/R5",
+    "mix": "Alfa-Street",
+    "producator": "Alfastreet",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "2015-12-3227-5",
+    "location": "Valcea",
+    "cabinet": "Roulette R8/R5",
+    "mix": "Alfa-Street",
+    "producator": "Alfastreet",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "2015-12-3227-6",
+    "location": "Valcea",
+    "cabinet": "Roulette R8/R5",
+    "mix": "Alfa-Street",
+    "producator": "Alfastreet",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "2015-12-3227-7",
+    "location": "Valcea",
+    "cabinet": "Roulette R8/R5",
+    "mix": "Alfa-Street",
+    "producator": "Alfastreet",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "2015-12-3227-8",
+    "location": "Valcea",
+    "cabinet": "Roulette R8/R5",
+    "mix": "Alfa-Street",
+    "producator": "Alfastreet",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "2303-525",
+    "location": "Craiova",
+    "cabinet": "Next",
+    "mix": "EGT - Fruits Power HD",
+    "producator": "Casino Technology",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "2303-547",
+    "location": "Craiova",
+    "cabinet": "Next",
+    "mix": "IGT - Edition Azure",
+    "producator": "Casino Technology",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "2304-500",
+    "location": "Craiova",
+    "cabinet": "Next",
+    "mix": "EGT - Green Power",
+    "producator": "Casino Technology",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "2304-501",
+    "location": "Craiova",
+    "cabinet": "Next",
+    "mix": "Novomatic Legend 3",
+    "producator": "Casino Technology",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "2304-502",
+    "location": "Craiova",
+    "cabinet": "Next",
+    "mix": "IGT - Purple Pack",
+    "producator": "Casino Technology",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "2304-503",
+    "location": "Craiova",
+    "cabinet": "Next",
+    "mix": "EGT - Power HD",
+    "producator": "Casino Technology",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "2304-504",
+    "location": "Craiova",
+    "cabinet": "Next",
+    "mix": "EGT - Union",
+    "producator": "Casino Technology",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "2304-505",
+    "location": "Craiova",
+    "cabinet": "Next",
+    "mix": "EGT - Union",
+    "producator": "Casino Technology",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "233025",
+    "location": "Craiova",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233026",
+    "location": "Craiova E.S",
+    "cabinet": "S-Line 32/55",
+    "mix": "IGT - Edition Orange",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "233027",
+    "location": "Craiova",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233028",
+    "location": "Craiova",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233029",
+    "location": "Pitesti",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233030",
+    "location": "Pitesti",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233031",
+    "location": "Pitesti",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233032",
+    "location": "Pitesti",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233033",
+    "location": "Ploiesti (nord) E.S",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - Fruits Power HD",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "233034",
+    "location": "Ploiesti (nord) E.S",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "233035",
+    "location": "Ploiesti (nord) E.S",
+    "cabinet": "S-Line 32/55",
+    "mix": "Impera HD7",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "233036",
+    "location": "Ploiesti (nord)",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233037",
+    "location": "Ploiesti (nord) E.S",
+    "cabinet": "S-Line 32/55",
+    "mix": "IGT - Edition Orange",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "233038",
+    "location": "Ploiesti (centru)",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233039",
+    "location": "Ploiesti (nord)",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233040",
+    "location": "Ploiesti (centru)",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233041",
+    "location": "Ploiesti (nord)",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233042",
+    "location": "Ploiesti (nord)",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233043",
+    "location": "Ploiesti (nord)",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233046",
+    "location": "Ploiesti (centru) E.S",
+    "cabinet": "S-Line 32/55",
+    "mix": "Novomatic Legend 3",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "233048",
+    "location": "Ploiesti (centru)",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233049",
+    "location": "Ploiesti (centru)",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233050",
+    "location": "Ploiesti (centru)",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233051",
+    "location": "Ploiesti (centru) E.S",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "233052",
+    "location": "Ploiesti (centru)",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233053",
+    "location": "Pitesti E.S",
+    "cabinet": "S-Line 32/55",
+    "mix": "IGT - Purple Pack",
+    "producator": "EGT",
+    "address": "Str. Ion C. Bratianu Bl.D1",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "233054",
+    "location": "Pitesti E.S",
+    "cabinet": "S-Line 32/55",
+    "mix": "IGT - Edition Azure",
+    "producator": "EGT",
+    "address": "Str. Ion C. Bratianu Bl.D1",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "233055",
+    "location": "Pitesti",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233056",
+    "location": "Pitesti",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233057",
+    "location": "Pitesti",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233058",
+    "location": "Pitesti E.S",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - Green Power",
+    "producator": "EGT",
+    "address": "Str. Ion C. Bratianu Bl.D1",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "233059",
+    "location": "Pitesti",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233060",
+    "location": "Pitesti",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233062",
+    "location": "Pitesti",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233063",
+    "location": "Valcea",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233064",
+    "location": "Valcea",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233065",
+    "location": "Valcea E.S",
+    "cabinet": "S-Line 32/55",
+    "mix": "IGT - Purple Pack",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "233066",
+    "location": "Valcea E.S",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - Power HD",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "233067",
+    "location": "Valcea",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233068",
+    "location": "Valcea",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233069",
+    "location": "Valcea",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233070",
+    "location": "Valcea",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233071",
+    "location": "Craiova",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233072",
+    "location": "Craiova",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "233073",
+    "location": "Craiova E.S",
+    "cabinet": "S-Line 32/55",
+    "mix": "Alfa-Street",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "233074",
+    "location": "Craiova",
+    "cabinet": "S-Line 32/55",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "235411",
+    "location": "Ploiesti (nord)",
+    "cabinet": "VIP 27/2x42",
+    "mix": "IGT - Green Pack",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "235412",
+    "location": "Ploiesti (nord)",
+    "cabinet": "VIP 27/2x42",
+    "mix": "EGT - Power HD",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "235413",
+    "location": "Ploiesti (nord)",
+    "cabinet": "VIP 27/2x42",
+    "mix": "Novomatic Legend 3",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "235414",
+    "location": "Pitesti",
+    "cabinet": "G 55\" C VIP",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "235415",
+    "location": "Pitesti",
+    "cabinet": "G 55\" C VIP",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "235416",
+    "location": "Craiova",
+    "cabinet": "G 55\" C VIP",
+    "mix": "IGT - Edition Orange",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "235417",
+    "location": "Valcea",
+    "cabinet": "G 55\" C VIP",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "235418",
+    "location": "Ploiesti (nord)",
+    "cabinet": "G 55\" C VIP",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "235419",
+    "location": "Pitesti",
+    "cabinet": "G 55\" C VIP",
+    "mix": "IGT - Green Pack",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "235420",
+    "location": "Craiova",
+    "cabinet": "G 55\" C VIP",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "235421",
+    "location": "Valcea",
+    "cabinet": "G 55\" C VIP",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "235422",
+    "location": "Ploiesti (nord)",
+    "cabinet": "G 55\" C VIP",
+    "mix": "Impera HD7",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "235423",
+    "location": "Pitesti",
+    "cabinet": "G 55\" C VIP",
+    "mix": "Amusebox",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "235424",
+    "location": "Craiova",
+    "cabinet": "G 55\" C VIP",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "235425",
+    "location": "Valcea",
+    "cabinet": "G 55\" C VIP",
+    "mix": "EGT - Fruits Power HD",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "235426",
+    "location": "Ploiesti (nord)",
+    "cabinet": "G 55\" C VIP",
+    "mix": "IGT - Green Pack",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "235427",
+    "location": "Craiova",
+    "cabinet": "G 55\" C VIP",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "235428",
+    "location": "Pitesti",
+    "cabinet": "G 50\" C ST",
+    "mix": "Amusebox",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "235429",
+    "location": "Pitesti",
+    "cabinet": "G 50\" C ST",
+    "mix": "Novomatic Legend 3",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "235430",
+    "location": "Pitesti",
+    "cabinet": "G 50\" C ST",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "235431",
+    "location": "Pitesti",
+    "cabinet": "G 50\" C ST",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "238776",
+    "location": "Craiova",
+    "cabinet": "Upright 623A",
+    "mix": "Novomatic Legend 3",
+    "producator": "Novomatic",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "2438739",
+    "location": "Valcea",
+    "cabinet": "Crystal ST 32",
+    "mix": "IGT - Purple Pack",
+    "producator": "IGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "2438740",
+    "location": "Valcea",
+    "cabinet": "Crystal ST 32",
+    "mix": "IGT - Green Pack",
+    "producator": "IGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "2438741",
+    "location": "Valcea",
+    "cabinet": "Crystal ST 32",
+    "mix": "IGT - Purple Pack",
+    "producator": "IGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "2438742",
+    "location": "Valcea",
+    "cabinet": "Crystal ST 32",
+    "mix": "IGT - Green Pack",
+    "producator": "IGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "2522026648",
+    "location": "Pitesti",
+    "cabinet": "Alfastreet Live",
+    "mix": "IGT - Green Pack",
+    "producator": "Alfastreet",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "2522046669",
+    "location": "Pitesti",
+    "cabinet": "Alfastreet Live",
+    "mix": "Alfa-Street",
+    "producator": "Alfastreet",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2022
+  },
+  {
+    "serial_number": "2522046670",
+    "location": "Pitesti",
+    "cabinet": "Alfastreet Live",
+    "mix": "Alfa-Street",
+    "producator": "Alfastreet",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2022
+  },
+  {
+    "serial_number": "2522076801",
+    "location": "Craiova",
+    "cabinet": "Alfastreet Live",
+    "mix": "IGT - Edition Azure",
+    "producator": "Alfastreet",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "2522076802",
+    "location": "Craiova",
+    "cabinet": "Alfastreet Live",
+    "mix": "IGT - Edition Orange",
+    "producator": "Alfastreet",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "2522076803",
+    "location": "Craiova",
+    "cabinet": "Alfastreet Live",
+    "mix": "Organic G4",
+    "producator": "Alfastreet",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "2522076816",
+    "location": "Pitesti",
+    "cabinet": "Alfastreet Live",
+    "mix": "EGT - Green Power",
+    "producator": "Alfastreet",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "2522076817",
+    "location": "Pitesti",
+    "cabinet": "Alfastreet Live",
+    "mix": "EGT - Power HD",
+    "producator": "Alfastreet",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "2522076818",
+    "location": "Pitesti",
+    "cabinet": "Alfastreet Live",
+    "mix": "EGT - Fruits Power HD",
+    "producator": "Alfastreet",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "2523057149",
+    "location": "Craiova",
+    "cabinet": "Alfastreet Live",
+    "mix": "Alfa-Street",
+    "producator": "Alfastreet",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "2523057150",
+    "location": "Craiova",
+    "cabinet": "Alfastreet Live",
+    "mix": "Alfa-Street",
+    "producator": "Alfastreet",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "2538644",
+    "location": "Ploiesti (nord)",
+    "cabinet": "Peakslant 49",
+    "mix": "IGT - Edition Azure",
+    "producator": "IGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2022
+  },
+  {
+    "serial_number": "2538645",
+    "location": "Ploiesti (nord)",
+    "cabinet": "Peakslant 49",
+    "mix": "IGT - Edition Orange",
+    "producator": "IGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2022
+  },
+  {
+    "serial_number": "2547364",
+    "location": "Ploiesti (nord)",
+    "cabinet": "Peakslant 49",
+    "mix": "IGT - Edition Azure",
+    "producator": "IGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2022
+  },
+  {
+    "serial_number": "2547366",
+    "location": "Ploiesti (nord)",
+    "cabinet": "Peakslant 49",
+    "mix": "IGT - Edition Orange",
+    "producator": "IGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2022
+  },
+  {
+    "serial_number": "2548499",
+    "location": "Pitesti",
+    "cabinet": "Peakslant 49",
+    "mix": "IGT - Edition Azure",
+    "producator": "IGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2022
+  },
+  {
+    "serial_number": "2548500",
+    "location": "Pitesti",
+    "cabinet": "Peakslant 49",
+    "mix": "IGT - Edition Orange",
+    "producator": "IGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2022
+  },
+  {
+    "serial_number": "2549886",
+    "location": "Pitesti",
+    "cabinet": "Peakslant 49",
+    "mix": "IGT - Edition Azure",
+    "producator": "IGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2022
+  },
+  {
+    "serial_number": "2549887",
+    "location": "Pitesti",
+    "cabinet": "Peakslant 49",
+    "mix": "IGT - Edition Orange",
+    "producator": "IGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2022
+  },
+  {
+    "serial_number": "275653",
+    "location": "Pitesti",
+    "cabinet": "Upright 623",
+    "mix": "IGT - Purple Pack",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "299720",
+    "location": "Pitesti",
+    "cabinet": "G 55\" C VIP",
+    "mix": "Amusebox",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "299721",
+    "location": "Pitesti",
+    "cabinet": "G 55\" C VIP",
+    "mix": "EGT - Fruits Power HD",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "299722",
+    "location": "Pitesti",
+    "cabinet": "G 55\" C VIP",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "299723",
+    "location": "Pitesti",
+    "cabinet": "G 55\" C VIP",
+    "mix": "EGT - Blue Power HD",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "299724",
+    "location": "Ploiesti (nord)",
+    "cabinet": "G 55\" C VIP",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "299725",
+    "location": "Ploiesti (nord)",
+    "cabinet": "G 55\" C VIP",
+    "mix": "EGT - Fruits Power HD",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "299726",
+    "location": "Ploiesti (nord)",
+    "cabinet": "G 55\" C VIP",
+    "mix": "EGT - S-line",
+    "producator": "EGT",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "299727",
+    "location": "Valcea",
+    "cabinet": "G 55\" C VIP",
+    "mix": "Amusebox",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "299728",
+    "location": "Valcea",
+    "cabinet": "G 55\" C VIP",
+    "mix": "Novomatic Legend 3",
+    "producator": "EGT",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "299734",
+    "location": "Craiova",
+    "cabinet": "G 55\" C VIP",
+    "mix": "IGT - Green Pack",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "299735",
+    "location": "Craiova",
+    "cabinet": "G 55\" C VIP",
+    "mix": "EGT - Fruits Power HD",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "299736",
+    "location": "Craiova",
+    "cabinet": "G 55\" C VIP",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "299737",
+    "location": "Pitesti",
+    "cabinet": "G 55\" C VIP",
+    "mix": "Alfa-Street",
+    "producator": "EGT",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "299738",
+    "location": "Ploiesti (centru)",
+    "cabinet": "G 55\" C VIP",
+    "mix": "EGT - Power HD",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "299739",
+    "location": "Ploiesti (centru)",
+    "cabinet": "G 55\" C VIP",
+    "mix": "EGT - Union",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "299740",
+    "location": "Ploiesti (centru)",
+    "cabinet": "G 55\" C VIP",
+    "mix": "EGT - Green Power",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "299741",
+    "location": "Ploiesti (centru)",
+    "cabinet": "G 55\" C VIP",
+    "mix": "Organic G4",
+    "producator": "EGT",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2023
+  },
+  {
+    "serial_number": "330216",
+    "location": "Pitesti",
+    "cabinet": "Upright 623",
+    "mix": "Alfa-Street",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "330219",
+    "location": "Pitesti",
+    "cabinet": "Upright 623",
+    "mix": "EGT - Union",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "330230",
+    "location": "Pitesti",
+    "cabinet": "Upright 623",
+    "mix": "EGT - Green Power",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "343392",
+    "location": "Pitesti",
+    "cabinet": "Upright 623",
+    "mix": "Organic G4",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "343400",
+    "location": "Ploiesti (nord)",
+    "cabinet": "Upright 623",
+    "mix": "EGT - S-line",
+    "producator": "Novomatic",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "343406",
+    "location": "Pitesti",
+    "cabinet": "Upright 623",
+    "mix": "EGT - Blue Power HD",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "3618-01-0079-1",
+    "location": "Depozit",
+    "cabinet": "Roulette R8/R5",
+    "mix": "Impera HD7",
+    "producator": "Alfastreet",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "3618-01-0079-2",
+    "location": "Depozit",
+    "cabinet": "Roulette R8/R5",
+    "mix": "IGT - Edition Orange",
+    "producator": "Alfastreet",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "3618-01-0079-3",
+    "location": "Depozit",
+    "cabinet": "Roulette R8/R5",
+    "mix": "EGT - S-line",
+    "producator": "Alfastreet",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "3618-01-0079-4",
+    "location": "Depozit",
+    "cabinet": "Roulette R8/R5",
+    "mix": "EGT - S-line",
+    "producator": "Alfastreet",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "3618-01-0079-5",
+    "location": "Depozit",
+    "cabinet": "Roulette R8/R5",
+    "mix": "EGT - Power HD",
+    "producator": "Alfastreet",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "544159",
+    "location": "Pitesti",
+    "cabinet": "Upright 623A",
+    "mix": "Novomatic Legend 3",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2016
+  },
+  {
+    "serial_number": "729346",
+    "location": "Craiova",
+    "cabinet": "VIP Lounge FV834",
+    "mix": "Impera HD7",
+    "producator": "Novomatic",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "729347",
+    "location": "Craiova",
+    "cabinet": "VIP Lounge FV834",
+    "mix": "Impera HD7",
+    "producator": "Novomatic",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "729348",
+    "location": "Depozit",
+    "cabinet": "VIP Lounge FV834",
+    "mix": "EGT - Power HD",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "729349",
+    "location": "Valcea",
+    "cabinet": "VIP Lounge FV834",
+    "mix": "Impera HD7",
+    "producator": "Novomatic",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "729350",
+    "location": "Valcea",
+    "cabinet": "VIP Lounge FV834",
+    "mix": "Impera HD7",
+    "producator": "Novomatic",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "729351",
+    "location": "Depozit",
+    "cabinet": "VIP Lounge FV834",
+    "mix": "IGT - Edition Orange",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "729352",
+    "location": "Depozit",
+    "cabinet": "VIP Lounge FV834",
+    "mix": "Amusebox",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "729353",
+    "location": "Depozit",
+    "cabinet": "VIP Lounge FV834",
+    "mix": "Alfa-Street",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "729354",
+    "location": "Depozit",
+    "cabinet": "VIP Lounge FV834",
+    "mix": "IGT - Green Pack",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "729355",
+    "location": "Depozit",
+    "cabinet": "VIP Lounge FV834",
+    "mix": "EGT - Fruits Power HD",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "729356",
+    "location": "Depozit",
+    "cabinet": "VIP Lounge FV834",
+    "mix": "EGT - Blue Power HD",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "729357",
+    "location": "Depozit",
+    "cabinet": "VIP Lounge FV834",
+    "mix": "IGT - Green Pack",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2017
+  },
+  {
+    "serial_number": "798915",
+    "location": "Pitesti",
+    "cabinet": "VIP Eagle III FV880A",
+    "mix": "Impera HD7",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "798916",
+    "location": "Pitesti",
+    "cabinet": "VIP Eagle III FV880A",
+    "mix": "Impera HD7",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "798917",
+    "location": "Pitesti",
+    "cabinet": "VIP Eagle III FV880A",
+    "mix": "Impera HD7",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "798918",
+    "location": "Pitesti",
+    "cabinet": "VIP Eagle III FV880A",
+    "mix": "Impera HD7",
+    "producator": "Novomatic",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "798919",
+    "location": "Ploiesti (centru)",
+    "cabinet": "VIP Eagle III FV880A",
+    "mix": "Impera HD7",
+    "producator": "Novomatic",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "798920",
+    "location": "Valcea",
+    "cabinet": "VIP Eagle III FV880A",
+    "mix": "Impera HD7",
+    "producator": "Novomatic",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "798921",
+    "location": "Valcea",
+    "cabinet": "VIP Eagle III FV880A",
+    "mix": "Impera HD7",
+    "producator": "Novomatic",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "798922",
+    "location": "Valcea",
+    "cabinet": "VIP Eagle III FV880A",
+    "mix": "Impera HD7",
+    "producator": "Novomatic",
+    "address": "Str. General Magheru , Nr.16 , Bl. H",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "798923",
+    "location": "Craiova",
+    "cabinet": "VIP Eagle III FV880A",
+    "mix": "Impera HD7",
+    "producator": "Novomatic",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "798924",
+    "location": "Craiova",
+    "cabinet": "VIP Eagle III FV880A",
+    "mix": "Impera HD7",
+    "producator": "Novomatic",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "798925",
+    "location": "Ploiesti (centru)",
+    "cabinet": "VIP Eagle III FV880A",
+    "mix": "Impera HD7",
+    "producator": "Novomatic",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "798926",
+    "location": "Ploiesti (centru)",
+    "cabinet": "VIP Eagle III FV880A",
+    "mix": "Impera HD7",
+    "producator": "Novomatic",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "823623",
+    "location": "Depozit",
+    "cabinet": "FV637C F2",
+    "mix": "IGT - Green Pack",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2020
+  },
+  {
+    "serial_number": "823624",
+    "location": "Depozit",
+    "cabinet": "FV637C F2",
+    "mix": "EGT - S-line",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2020
+  },
+  {
+    "serial_number": "823625",
+    "location": "Depozit",
+    "cabinet": "FV637C F2",
+    "mix": "Organic G4",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2020
+  },
+  {
+    "serial_number": "823635",
+    "location": "Depozit",
+    "cabinet": "FV637C F2",
+    "mix": "IGT - Purple Pack",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2020
+  },
+  {
+    "serial_number": "823638",
+    "location": "Depozit",
+    "cabinet": "FV637C F2",
+    "mix": "EGT - Union",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2020
+  },
+  {
+    "serial_number": "823639",
+    "location": "Depozit",
+    "cabinet": "FV637C F2",
+    "mix": "Impera HD7",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2020
+  },
+  {
+    "serial_number": "823642",
+    "location": "Depozit",
+    "cabinet": "FV637C F2",
+    "mix": "Novomatic Legend 3",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2020
+  },
+  {
+    "serial_number": "823643",
+    "location": "Depozit",
+    "cabinet": "FV637C F2",
+    "mix": "Amusebox",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2020
+  },
+  {
+    "serial_number": "823644",
+    "location": "Depozit",
+    "cabinet": "FV637C F2",
+    "mix": "Impera HD7",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2020
+  },
+  {
+    "serial_number": "823645",
+    "location": "Depozit",
+    "cabinet": "FV637C F2",
+    "mix": "EGT - Union",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2020
+  },
+  {
+    "serial_number": "823646",
+    "location": "Depozit",
+    "cabinet": "FV637C F2",
+    "mix": "Novomatic Legend 3",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2020
+  },
+  {
+    "serial_number": "850455",
+    "location": "Depozit",
+    "cabinet": "FV637C F2",
+    "mix": "IGT - Edition Azure",
+    "producator": "Novomatic",
+    "address": "Charlles de Gaulle 3-5",
+    "status": "Inactive",
+    "manufacture_year": 2021
+  },
+  {
+    "serial_number": "9134161527",
+    "location": "Craiova",
+    "cabinet": "Terminal Live",
+    "mix": "EGT - Fruits Power HD",
+    "producator": "InterBlock",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "9134161528",
+    "location": "Craiova",
+    "cabinet": "Terminal Live",
+    "mix": "Organic G4",
+    "producator": "InterBlock",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2018
+  },
+  {
+    "serial_number": "9134161529",
+    "location": "Ploiesti (centru)",
+    "cabinet": "Terminal Live",
+    "mix": "Organic G4",
+    "producator": "InterBlock",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2018
+  },
+  {
+    "serial_number": "9134161530",
+    "location": "Ploiesti (centru)",
+    "cabinet": "Terminal Live",
+    "mix": "Organic G4",
+    "producator": "InterBlock",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Active",
+    "manufacture_year": 2018
+  },
+  {
+    "serial_number": "9134161532",
+    "location": "Pitesti",
+    "cabinet": "Terminal Live",
+    "mix": "Organic G4",
+    "producator": "InterBlock",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2018
+  },
+  {
+    "serial_number": "9134161533",
+    "location": "Pitesti",
+    "cabinet": "Terminal Live",
+    "mix": "Organic G4",
+    "producator": "InterBlock",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2018
+  },
+  {
+    "serial_number": "9134161534",
+    "location": "Pitesti",
+    "cabinet": "Terminal Live",
+    "mix": "Organic G4",
+    "producator": "InterBlock",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2018
+  },
+  {
+    "serial_number": "9134162899",
+    "location": "Ploiesti (nord)",
+    "cabinet": "Terminal Live",
+    "mix": "Organic G4",
+    "producator": "InterBlock",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2018
+  },
+  {
+    "serial_number": "9134162900",
+    "location": "Pitesti",
+    "cabinet": "Terminal Live",
+    "mix": "Organic G4",
+    "producator": "InterBlock",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Active",
+    "manufacture_year": 2018
+  },
+  {
+    "serial_number": "9134162901",
+    "location": "Ploiesti (nord)",
+    "cabinet": "Terminal Live",
+    "mix": "EGT - Power HD",
+    "producator": "InterBlock",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "9134162902",
+    "location": "Craiova",
+    "cabinet": "Terminal Live",
+    "mix": "Organic G4",
+    "producator": "InterBlock",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2018
+  },
+  {
+    "serial_number": "9134172858",
+    "location": "Ploiesti (nord)",
+    "cabinet": "Terminal Live",
+    "mix": "Organic G4",
+    "producator": "InterBlock",
+    "address": "Sos. Nordului Nr.1",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "9134172859",
+    "location": "Craiova",
+    "cabinet": "Terminal Live",
+    "mix": "Organic G4",
+    "producator": "InterBlock",
+    "address": "Str. Infratirii, Nr.2",
+    "status": "Active",
+    "manufacture_year": 2019
+  },
+  {
+    "serial_number": "9134172860",
+    "location": "Ploiesti (centru)",
+    "cabinet": "Terminal Live",
+    "mix": "IGT - Edition Orange",
+    "producator": "InterBlock",
+    "address": "Bld Republicii Nr.21, Bloc A5",
+    "status": "Inactive",
+    "manufacture_year": null
+  },
+  {
+    "serial_number": "9134172861",
+    "location": "Pitesti",
+    "cabinet": "Terminal Live",
+    "mix": "EGT - Blue Power HD",
+    "producator": "InterBlock",
+    "address": "str. Ion C. Bratianu, Bl. D1,P",
+    "status": "Inactive",
+    "manufacture_year": null
+  }
+]

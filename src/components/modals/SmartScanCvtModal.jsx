@@ -3,6 +3,8 @@ import { X, Wand2, Upload, Loader2, Sparkles, FolderOpen, CheckCircle, XCircle, 
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { extractTextFromPdf } from '../../utils/pdfOcr';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 const SmartScanCvtModal = ({ onClose, onScanComplete, onBatchImport }) => {
   const [isParsing, setIsParsing] = useState(false);
@@ -23,6 +25,7 @@ const SmartScanCvtModal = ({ onClose, onScanComplete, onBatchImport }) => {
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, results: [] });
   const [isBatchProcessing, setIsBatchProcessing] = useState(false);
   const [batchComplete, setBatchComplete] = useState(false);
+  const [downloadingZip, setDownloadingZip] = useState(false);
 
   React.useEffect(() => {
     const fetchSelectData = async () => {
