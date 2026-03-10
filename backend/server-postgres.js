@@ -4254,6 +4254,25 @@ app.post('/api/metrology', async (req, res) => {
     // Rename file to serial number if serial number exists
     const finalFilename = serial_number ? `${String(serial_number).trim()}.pdf` : cvt_filename;
 
+    // --- SAVE LOCAL COPY IN RENAMED FOLDER ---
+    if (cvtFileData && cvtFileData.startsWith('data:application/pdf;base64,')) {
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        // Go one level up from backend to cashpot_online root, then 'renamed_cvts'
+        const renamedDir = path.join(__dirname, '..', 'renamed_cvts');
+        if (!fs.existsSync(renamedDir)) {
+          fs.mkdirSync(renamedDir, { recursive: true });
+        }
+        const base64Data = cvtFileData.split(',')[1];
+        const filePath = path.join(renamedDir, finalFilename);
+        fs.writeFileSync(filePath, base64Data, 'base64');
+        console.log(`[Metrology] Saved renamed local copy to: ${filePath}`);
+      } catch (saveErr) {
+        console.error('Failed to save renamed local copy:', saveErr.message);
+      }
+    }
+
     const params = [cvt_series, finalCvtNumber, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, finalFilename, notes, 'admin', additional_files ? JSON.stringify(additional_files) : '[]', storedRawData]
     const result = await pool.query(
       `INSERT INTO metrology (cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvt_file, cvt_filename, notes, created_by, additional_files, raw_cvt_data)
@@ -4305,10 +4324,31 @@ app.put('/api/metrology/:id', async (req, res) => {
     const cleanExpiryDate = normalizeDate(calculatedExpiryDate)
     const storedRawData = raw_cvt_data ? JSON.stringify(raw_cvt_data) : null;
 
+    // Rename file to serial number if serial number exists
+    const finalFilename = serial_number ? `${String(serial_number).trim()}.pdf` : cvt_filename;
+
     // Build update query - include cvt_filename and additional_files
     let query, params
     let additionalFilesParam = additional_files !== undefined ? JSON.stringify(additional_files) : null;
     const isNewPdf = cvtFileData && cvtFileData !== 'true' && cvtFileData !== 'false' && cvtFileData !== true && cvtFileData !== false;
+
+    // --- SAVE LOCAL COPY IN RENAMED FOLDER ---
+    if (isNewPdf && cvtFileData.startsWith('data:application/pdf;base64,')) {
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const renamedDir = path.join(__dirname, '..', 'renamed_cvts');
+        if (!fs.existsSync(renamedDir)) {
+          fs.mkdirSync(renamedDir, { recursive: true });
+        }
+        const base64Data = cvtFileData.split(',')[1];
+        const filePath = path.join(renamedDir, finalFilename);
+        fs.writeFileSync(filePath, base64Data, 'base64');
+        console.log(`[Metrology PUT] Saved renamed local copy to: ${filePath}`);
+      } catch (saveErr) {
+        console.error('Failed to save renamed local copy:', saveErr.message);
+      }
+    }
     const isClearPdf = req.body.cvt_file === null || req.body.cvtFile === null;
 
     if (isNewPdf || isClearPdf) {
@@ -4333,7 +4373,7 @@ app.put('/api/metrology/:id', async (req, res) => {
         updated_at = CURRENT_TIMESTAMP 
         WHERE id = $18 
         RETURNING *, cvt_file as "cvtFile"`
-      params = [cvt_series, cvt_number, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, cvt_filename, notes, additionalFilesParam, storedRawData, id]
+      params = [cvt_series, cvt_number, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, finalFilename, notes, additionalFilesParam, storedRawData, id]
     } else {
       query = `UPDATE metrology SET 
         cvt_series = COALESCE($1, cvt_series), 
