@@ -5014,7 +5014,7 @@ router.get('/inactive-machines', authenticateToken, async (req, res) => {
       WHERE audit_date::date = $1
     `, [yesterdayStr])
     const yesterdayMap = new Map()
-    yesterdayResult.rows.forEach(r => yesterdayMap.set(r.machine_id, Number(r.yesterday_in)))
+    yesterdayResult.rows.forEach(r => yesterdayMap.set(String(r.machine_id), Number(r.yesterday_in)))
 
     // 3. Get daily IN per machine for consecutive zero-day calculation (last 30 days)
     const thirtyDaysAgo = new Date(lastDateObj); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
@@ -5077,10 +5077,10 @@ router.get('/inactive-machines', authenticateToken, async (req, res) => {
     const rows = monthlyResult.rows
       .filter(r => !depozitIds.has(Number(r.location_id)))
       .map(r => {
-      const mId = Number(r.machine_id)
+      const mId = String(r.machine_id)
       const sn = String(r.serial_number || '').trim()
-      const meta = slotByMachineId.get(mId) || (sn ? slotBySerial.get(sn) : null) || {}
-      const serialDisplay = sn || (meta.serial_number ? String(meta.serial_number).trim() : String(mId))
+      const meta = slotByMachineId.get(Number(r.machine_id)) || (sn ? slotBySerial.get(sn) : null) || {}
+      const serialDisplay = sn || (meta.serial_number ? String(meta.serial_number).trim() : mId)
       const yIn = yesterdayMap.get(mId)
       // If machine has no daily records but month_in is 0, count all month days as zero
       const daysInRange = Math.round((lastDateObj - monthStart) / (1000 * 60 * 60 * 24)) + 1
