@@ -4291,7 +4291,7 @@ app.post('/api/metrology', async (req, res) => {
 
   try {
     const {
-      cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFile, cvt_file, cvt_filename, notes, additional_files, raw_cvt_data
+      cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFile, cvt_file, cvt_filename, notes, additional_files, raw_cvt_data, games
     } = req.body
 
     // Accept BOTH cvtFile (old) and cvt_file (new) for compatibility
@@ -4334,7 +4334,16 @@ app.post('/api/metrology', async (req, res) => {
 
     const cleanCvtDate = normalizeDate(safeCvtDate)
     const cleanExpiryDate = normalizeDate(safeExpiryDate)
-    const storedRawData = raw_cvt_data ? JSON.stringify(raw_cvt_data) : '{}';
+    
+    // Asamblează raw_cvt_data cu jocurile extrase
+    let finalRawData = raw_cvt_data || {};
+    if (typeof finalRawData === 'string') {
+      try { finalRawData = JSON.parse(finalRawData); } catch(e) { finalRawData = {}; }
+    }
+    if (games && Array.isArray(games)) {
+      finalRawData.games = games;
+    }
+    const storedRawData = Object.keys(finalRawData).length > 0 ? JSON.stringify(finalRawData) : '{}';
 
     // Rename file to serial number if serial number exists
     // Format: [SerialNumber]_[Date].pdf
