@@ -151,6 +151,9 @@ const GameMixDetailModal = ({ item, onClose }) => {
                         <th className="px-6 py-3 font-semibold text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900">
                           Denumire Joc
                         </th>
+                        <th className="px-6 py-3 font-semibold text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900 w-32 text-center">
+                          RTP / ID
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -161,6 +164,9 @@ const GameMixDetailModal = ({ item, onClose }) => {
                           </td>
                           <td className="px-6 py-3 text-slate-700 dark:text-slate-200 font-medium">
                             {game.name}
+                          </td>
+                          <td className="px-6 py-3 text-slate-500 text-center font-mono text-sm bg-slate-50/20 dark:bg-slate-900/5">
+                            {game.rtp_id || '-'}
                           </td>
                         </tr>
                       ))}

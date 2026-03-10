@@ -4140,23 +4140,27 @@ app.post('/api/metrology/parse', async (req, res) => {
           // Extract text from here onwards to find the table
           const textAfterTitle = text.substring(matchIndex);
           
-          // Match lines that look like "1. GAME NAME" or "1 GAME NAME 95%"
-          // We look for a digit (1-99), an optional dot or space, then uppercase/mixed string, then optionally numbers at the end
-          const gameLineRegex = /^(?:[1-9][0-9]?)\s*[\.\-]?\s+([A-Z0-9\s\-\&]+?)(?:\s+\d[\d\.\,]*[%]?|\s*$)/gm;
+          // Match lines that look like "1. GAME NAME" or "1 GAME NAME 95%" or "1 GAME NAME 94.67"
+          // Capture Group 1: Game Name (uppercase/mixed string)
+          // Capture Group 2: The optional trailing number (RTP or Paytable ID)
+          const gameLineRegex = /^(?:[1-9][0-9]?)\s*[\.\-]?\s+([A-Z0-9\s\-\&]+?)(?:\s+([\d\.\,]+[%]?)\s*)?$/gm;
           
           let gameMatch;
           let counter = 1;
           while ((gameMatch = gameLineRegex.exec(textAfterTitle)) !== null) {
             const gameName = gameMatch[1].trim();
+            const rtpId = gameMatch[2] ? gameMatch[2].trim() : null;
+            
             // Filter out obvious noise like "DENUMIRE", "NR", "JOC"
             if (gameName.length > 2 && !/^(DENUMIRE|VARIANTE|NR|CRT|JOC|RTP|LINII)/i.test(gameName)) {
               parsedGames.push({
                 nr: counter++,
-                name: gameName
+                name: gameName,
+                rtp_id: rtpId
               });
             }
           }
-          console.log(`[PDF Parse] Extracted ${parsedGames.length} games for the Game Mix.`);
+          console.log(`[PDF Parse] Extracted ${parsedGames.length} games for the Game Mix. Example rtp_id: ${parsedGames[0]?.rtp_id}`);
         }
       } catch (err) {
         console.error('[PDF Parse] Error extracting games list:', err.message);

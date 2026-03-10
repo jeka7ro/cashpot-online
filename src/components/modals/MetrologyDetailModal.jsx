@@ -393,6 +393,53 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                   <p className="text-slate-800 dark:text-slate-200 whitespace-pre-wrap">{itemToUse.notes}</p>
                 </div>
               )}
+
+              {/* Games Nomenclature Table (if extracted from PDF) */}
+              {itemToUse.raw_cvt_data?.games && Array.isArray(itemToUse.raw_cvt_data.games) && itemToUse.raw_cvt_data.games.length > 0 && (
+                <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                  <div className="bg-slate-50 dark:bg-slate-900/50 p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-800 dark:text-white">Nomenclator Jocuri</h3>
+                      <p className="text-sm text-slate-500">Programul extras automat din CVT</p>
+                    </div>
+                    <div className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 px-3 py-1 rounded-full text-sm font-bold">
+                      {itemToUse.raw_cvt_data.games.length} Jocuri
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto max-h-[300px] overflow-y-auto w-full">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-slate-50 dark:bg-slate-900/30 sticky top-0 z-10 shadow-sm shadow-slate-200 dark:shadow-slate-800">
+                        <tr>
+                          <th className="px-6 py-3 font-semibold text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900 w-16 text-center">
+                            Nr.
+                          </th>
+                          <th className="px-6 py-3 font-semibold text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900">
+                            Denumire Joc
+                          </th>
+                          <th className="px-6 py-3 font-semibold text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900 w-32 text-center">
+                            RTP / ID
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {itemToUse.raw_cvt_data.games.map((game, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/80 border-b border-slate-100 dark:border-slate-800 last:border-0 transition-colors">
+                            <td className="px-6 py-3 text-slate-500 text-center font-medium bg-slate-50/30 dark:bg-slate-900/10">
+                              {game.nr || idx + 1}
+                            </td>
+                            <td className="px-6 py-3 text-slate-700 dark:text-slate-200 font-medium">
+                              {game.name}
+                            </td>
+                            <td className="px-6 py-3 text-slate-500 text-center font-mono text-sm bg-slate-50/20 dark:bg-slate-900/5">
+                              {game.rtp_id || '-'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
               </div>
 
               {/* Right Column - Documente CVT - EXACT CA LA CONTRACTE */}
