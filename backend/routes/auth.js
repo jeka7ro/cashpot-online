@@ -68,7 +68,7 @@ router.post('/login', [
     }
 
     // Check if user is active
-    if (user.status !== 'active') {
+    if (!user.status || user.status.toLowerCase() !== 'active') {
       console.log('⚠️ Inactive user attempted login:', username)
       return res.status(401).json({
         success: false,
