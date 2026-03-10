@@ -44,7 +44,7 @@ export async function extractTextFromPdf(base64DataUrl, onProgress) {
     }
 
     const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
-    const totalPages = Math.min(pdf.numPages, 10);
+    const totalPages = Math.min(pdf.numPages, 15); // Increased to 15 to ensure we reach the games table
     console.log('[OCR] PDF loaded:', totalPages, 'pages');
 
     // Try direct text first

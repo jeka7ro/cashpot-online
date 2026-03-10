@@ -3905,7 +3905,7 @@ app.post('/api/metrology/parse', async (req, res) => {
         try {
           const pdfMod = await import('pdf-parse');
           if (typeof pdfMod.default === 'function') {
-            const data = await pdfMod.default(pdfBuffer);
+            const data = await pdfMod.default(pdfBuffer, { max: 15 }); // parse up to 15 pages instead of default/truncation to find the game table
             text = data.text || '';
           }
         } catch (e) {
@@ -3918,9 +3918,9 @@ app.post('/api/metrology/parse', async (req, res) => {
         }
       }
 
-      import('fs').then(fs => fs.appendFileSync('debug-bmm-parse.log', "\n--- NEW PARSE ---\n" + text.substring(0, 2000) + "\n----------------\n")).catch(e => e);
+      import('fs').then(fs => fs.appendFileSync('debug-bmm-parse.log', "\n--- NEW PARSE ---\n" + text.substring(0, 5000) + "\n----------------\n")).catch(e => e);
 
-      extractedData.raw_cvt_data = { fullText: text.substring(0, 1000) };
+      extractedData.raw_cvt_data = { fullText: text.substring(0, 15000) }; // Include up to 15K chars to catch the game table on page 5+
 
       // --- Flexible regex helper: tries multiple patterns ---
       const getMatch = (regex, fallback = '') => {

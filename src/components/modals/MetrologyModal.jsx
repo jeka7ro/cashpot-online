@@ -601,11 +601,72 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
                       <option value={formData.software}>{formData.software} (Nou/Extras)</option>
                     )}
                   </select>
-                  {!formData.game_mix && (
-                    <p className="text-xs text-slate-500">Software-ul depinde de game mix-ul selectat</p>
-                  )}
                 </div>
               </div>
+
+              {/* Tabel Jocuri (dacă au fost extrase prin OCR) */}
+              {(() => {
+                let gamesList = [];
+                try {
+                  const rawData = typeof formData.raw_cvt_data === 'string' 
+                    ? JSON.parse(formData.raw_cvt_data) 
+                    : (formData.raw_cvt_data || {});
+                    
+                  if (rawData && rawData.games && Array.isArray(rawData.games)) {
+                    gamesList = rawData.games;
+                  }
+                } catch (e) {
+                  console.warn('Could not parse raw_cvt_data for games in Edit Modal', e);
+                }
+
+                if (gamesList.length === 0) return null;
+
+                return (
+                  <div className="mt-6 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                    <div className="bg-slate-50 dark:bg-slate-900/50 p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-800 dark:text-white">Nomenclator Jocuri</h3>
+                        <p className="text-sm text-slate-500">Programul extras automat din CVT pentru acest slot</p>
+                      </div>
+                      <div className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 px-3 py-1 rounded-full text-sm font-bold">
+                        {gamesList.length} Jocuri
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto max-h-[250px] overflow-y-auto w-full">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-50 dark:bg-slate-900/30 sticky top-0 z-10 shadow-sm shadow-slate-200 dark:shadow-slate-800">
+                          <tr>
+                            <th className="px-6 py-3 font-semibold text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900 w-16 text-center">
+                              Nr.
+                            </th>
+                            <th className="px-6 py-3 font-semibold text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900">
+                              Denumire Joc
+                            </th>
+                            <th className="px-6 py-3 font-semibold text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900 w-32 text-center">
+                              RTP / ID
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {gamesList.map((game, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/80 border-b border-slate-100 dark:border-slate-800 last:border-0 transition-colors">
+                              <td className="px-6 py-3 text-slate-500 text-center font-medium bg-slate-50/30 dark:bg-slate-900/10">
+                                {game.nr || idx + 1}
+                              </td>
+                              <td className="px-6 py-3 text-slate-700 dark:text-slate-200 font-medium">
+                                {game.name}
+                              </td>
+                              <td className="px-6 py-3 text-slate-500 text-center font-mono text-sm bg-slate-50/20 dark:bg-slate-900/5">
+                                {game.rtp_id || '-'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* CVT PDF Upload Section */}
