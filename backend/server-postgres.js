@@ -4288,6 +4288,29 @@ app.post('/api/metrology', async (req, res) => {
       params
     )
 
+    // Append serial_number to the selected commission if provided
+    const commission_name = req.body.commission_name;
+    if (commission_name && serial_number) {
+      try {
+        const commissionResult = await pool.query('SELECT id, serial_numbers FROM commissions WHERE name = $1 OR id::text = $1', [commission_name]);
+        if (commissionResult.rows.length > 0) {
+          const commId = commissionResult.rows[0].id;
+          const currentSerialsStr = commissionResult.rows[0].serial_numbers || '';
+          
+          // Check if serial is already in the list to avoid duplicates
+          const serialsArray = currentSerialsStr.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+          if (!serialsArray.includes(String(serial_number).trim())) {
+            serialsArray.push(String(serial_number).trim());
+            const updatedSerialsList = serialsArray.join('\n');
+            await pool.query('UPDATE commissions SET serial_numbers = $1, updated_at = NOW() WHERE id = $2', [updatedSerialsList, commId]);
+            console.log(`[Metrology Import] Appended serial ${serial_number} to commission ${commission_name}`);
+          }
+        }
+      } catch (commErr) {
+        console.error('[Metrology Import] Error appending to commission:', commErr.message);
+      }
+    }
+
     res.status(201).json({ ...result.rows[0], _saved: true })
   } catch (error) {
     console.error('Metrology POST error:', error)
