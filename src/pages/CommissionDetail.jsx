@@ -1443,6 +1443,7 @@ const CommissionDetail = () => {
                             <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">Cabinet</th>
                             <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">Game Mix</th>
                             <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">Locație</th>
+                            <th className="px-4 py-3 text-center font-semibold text-slate-700 dark:text-slate-300">Acțiuni</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
@@ -1467,6 +1468,15 @@ const CommissionDetail = () => {
                               <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{item.cabinet}</td>
                               <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{item.gameMix}</td>
                               <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{item.locationName}</td>
+                              <td className="px-4 py-3 text-center">
+                                <button
+                                  onClick={() => setSelectedSerials(selectedSerials.filter(s => s !== item.serialNumber))}
+                                  className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                                  title="Elimină din comisie"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
