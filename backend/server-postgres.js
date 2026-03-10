@@ -4113,7 +4113,26 @@ app.post('/api/metrology/parse', async (req, res) => {
       if (cleanOcr(parsedCvtSeries)) extractedData.cvt_series = cleanOcr(parsedCvtSeries);
       if (cleanOcr(parsedCvtNumber)) extractedData.cvt_number = cleanOcr(parsedCvtNumber);
       if (parsedSerialNumber) extractedData.serial_number = parsedSerialNumber;
-      if (parsedProvider) extractedData.provider = parsedProvider;
+      // --- Normalize Provider Name ---
+      const normalizeProviderName = (name) => {
+        if (!name) return name;
+        const n = name.toUpperCase();
+        if (n.includes('CT GAMING') || n.includes('CASINO TECHNOLOGY')) return 'Casino Technology';
+        if (n.includes('EURO GAMES') || n.includes('EGT') || n.includes('AMUSNET')) return 'EGT - Amusnet';
+        if (n.includes('NOVOMATIC') || n.includes('ADMIRAL')) return 'Novomatic';
+        if (n.includes('ALFASTREET')) return 'Alfastreet';
+        if (n.includes('APEX')) return 'Apex';
+        if (n.includes('IGT')) return 'IGT';
+        if (n.includes('ARISTOCRAT')) return 'Aristocrat';
+        if (n.includes('MERKUR')) return 'Merkur';
+        if (n.includes('SYNOT')) return 'Synot';
+        if (n.includes('BAUM')) return 'Baum Games';
+        
+        // If no strict alias matched, return original cleaned name
+        return name;
+      };
+
+      if (parsedProvider) extractedData.provider = normalizeProviderName(cleanOcr(parsedProvider));
       // Approval: prefer Aprobare de tip, fallback to Marca de autentificare
       if (parsedApproval && parsedApproval.length > 2 && !/^(garn|IMs|_|Tip )/i.test(parsedApproval)) {
         extractedData.approval_type = cleanOcr(parsedApproval).split('\n')[0].trim();
