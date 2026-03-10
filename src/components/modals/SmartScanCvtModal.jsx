@@ -209,7 +209,7 @@ const SmartScanCvtModal = ({ onClose, onScanComplete, onBatchImport }) => {
           const dataToSave = {
             ...extracted,
             cvt_file: base64,
-            cvt_filename: extracted.serial_number ? `${extracted.serial_number}.pdf` : currentFile.name,
+            cvt_filename: extracted.serial_number ? `${extracted.serial_number}${extracted.cvt_date ? '_' + extracted.cvt_date : ''}.pdf` : currentFile.name,
             commission_name: selectedCommission || '',
             cvt_number: extracted.cvt_series || `AUTO-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
           };
@@ -230,7 +230,9 @@ const SmartScanCvtModal = ({ onClose, onScanComplete, onBatchImport }) => {
             serial: extracted.serial_number || '—',
             provider: extracted.provider || '—',
             message: saveResult.saved ? 'Importat cu succes' : (saveResult.error || 'Extras dar nesalvat'),
-            data: dataToSave
+            data: dataToSave,
+            base64Content: base64,
+            finalName: dataToSave.cvt_filename
           });
         } else {
           results.push({
@@ -265,6 +267,38 @@ const SmartScanCvtModal = ({ onClose, onScanComplete, onBatchImport }) => {
       toast.success(`✅ Import complet: ${successCount}/${results.length} importate cu succes`);
     } else {
       toast.error(`⚠️ Import: ${successCount} ok, ${warningCount} avertismente, ${errorCount} erori din ${results.length}`);
+    }
+  };
+
+  const handleDownloadZip = async () => {
+    try {
+      setDownloadingZip(true);
+      const zip = new JSZip();
+      let addedAtLeastOne = false;
+
+      batchProgress.results.forEach(res => {
+        if (res.status === 'success' && res.base64Content) {
+          const base64Data = res.base64Content.split(',')[1];
+          if (base64Data) {
+             zip.file(res.finalName, base64Data, { base64: true });
+             addedAtLeastOne = true;
+          }
+        }
+      });
+
+      if (!addedAtLeastOne) {
+         toast.error("Nu există fișiere redenumite valide de descărcat.");
+         return;
+      }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      saveAs(zipBlob, `CVT_Redenumite_${new Date().toISOString().split('T')[0]}.zip`);
+      toast.success("Arhiva a fost descărcată!");
+    } catch (e) {
+      toast.error("Eroare la crearea arhivei ZIP.");
+      console.error(e);
+    } finally {
+       setDownloadingZip(false);
     }
   };
 
@@ -508,8 +542,19 @@ const SmartScanCvtModal = ({ onClose, onScanComplete, onBatchImport }) => {
                   </div>
                 )}
 
-                {/* Batch action button */}
-                <div className="pt-4">
+                {/* Batch action buttons */}
+                <div className="pt-4 flex flex-col gap-2">
+                  {batchComplete && batchProgress.results.some(r => r.status === 'success') && (
+                    <button
+                      type="button"
+                      onClick={handleDownloadZip}
+                      disabled={downloadingZip}
+                      className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold transition-all shadow-md active:scale-95 text-md bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 disabled:opacity-50"
+                    >
+                      {downloadingZip ? <Loader2 className="w-5 h-5 animate-spin" /> : <FolderOpen className="w-5 h-5" />}
+                      {downloadingZip ? 'Se generează arhiva...' : 'Descarcă PDF-uri redenumite (ZIP)'}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={batchComplete ? onClose : handleBatchProcess}
