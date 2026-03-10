@@ -4251,7 +4251,10 @@ app.post('/api/metrology', async (req, res) => {
     const cleanExpiryDate = normalizeDate(safeExpiryDate)
     const storedRawData = raw_cvt_data ? JSON.stringify(raw_cvt_data) : '{}';
 
-    const params = [cvt_series, finalCvtNumber, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, cvt_filename, notes, 'admin', additional_files ? JSON.stringify(additional_files) : '[]', storedRawData]
+    // Rename file to serial number if serial number exists
+    const finalFilename = serial_number ? `${String(serial_number).trim()}.pdf` : cvt_filename;
+
+    const params = [cvt_series, finalCvtNumber, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, finalFilename, notes, 'admin', additional_files ? JSON.stringify(additional_files) : '[]', storedRawData]
     const result = await pool.query(
       `INSERT INTO metrology (cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvt_file, cvt_filename, notes, created_by, additional_files, raw_cvt_data)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb, $18::jsonb)
