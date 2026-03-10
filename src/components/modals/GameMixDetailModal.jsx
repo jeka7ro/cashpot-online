@@ -108,6 +108,69 @@ const GameMixDetailModal = ({ item, onClose }) => {
             </div>
           )}
 
+          {/* Games Nomenclature Table */}
+          {item.games && (Array.isArray(JSON.parse(item.games || '[]')) || typeof item.games === 'string') && (() => {
+            let gamesList = [];
+            try {
+              const parsed = typeof item.games === 'string' ? JSON.parse(item.games) : item.games;
+              if (Array.isArray(parsed)) {
+                // If the array contains strings (legacy format) or items without properties
+                gamesList = parsed.map((g, i) => {
+                  if (typeof g === 'string') return { nr: i + 1, name: g };
+                  return g;
+                });
+              } else if (typeof parsed === 'string') {
+                gamesList = parsed.split('\\n').filter(Boolean).map((g, i) => ({ nr: i + 1, name: g }));
+              }
+            } catch (e) {
+              if (typeof item.games === 'string') {
+                gamesList = item.games.split('\\n').filter(Boolean).map((g, i) => ({ nr: i + 1, name: g }));
+              }
+            }
+
+            if (gamesList.length === 0) return null;
+
+            return (
+              <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                <div className="bg-slate-50 dark:bg-slate-900/50 p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white">Nomenclator Jocuri</h3>
+                    <p className="text-sm text-slate-500">Programul de joc atașat acestui mix</p>
+                  </div>
+                  <div className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 px-3 py-1 rounded-full text-sm font-bold">
+                    {gamesList.length} Jocuri
+                  </div>
+                </div>
+                <div className="overflow-x-auto max-h-[400px] overflow-y-auto w-full">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-50 dark:bg-slate-900/30 sticky top-0 z-10 shadow-sm shadow-slate-200 dark:shadow-slate-800">
+                      <tr>
+                        <th className="px-6 py-3 font-semibold text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900 w-16 text-center">
+                          Nr.
+                        </th>
+                        <th className="px-6 py-3 font-semibold text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900">
+                          Denumire Joc
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {gamesList.map((game, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/80 border-b border-slate-100 dark:border-slate-800 last:border-0 transition-colors">
+                          <td className="px-6 py-3 text-slate-500 text-center font-medium bg-slate-50/30 dark:bg-slate-900/10">
+                            {game.nr || idx + 1}
+                          </td>
+                          <td className="px-6 py-3 text-slate-700 dark:text-slate-200 font-medium">
+                            {game.name}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Notes */}
           {item.notes && (
             <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-600 p-6 rounded-xl">

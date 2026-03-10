@@ -4129,6 +4129,39 @@ app.post('/api/metrology/parse', async (req, res) => {
       if (parsedDate) extractedData.cvt_date = parsedDate;
       if (parsedExpiry) extractedData.expiry_date = parsedExpiry;
 
+      // --- Extract Game Mix Table (Programul de joc) ---
+      let parsedGames = [];
+      try {
+        // Look for "Programul de joc [Nume Game Mix]" or similar
+        const programTitleRegex = /Programul\s+de\s+joc/i;
+        const matchIndex = text.search(programTitleRegex);
+        
+        if (matchIndex !== -1) {
+          // Extract text from here onwards to find the table
+          const textAfterTitle = text.substring(matchIndex);
+          
+          // Match lines that look like "1. GAME NAME" or "1 GAME NAME 95%"
+          // We look for a digit (1-99), an optional dot or space, then uppercase/mixed string, then optionally numbers at the end
+          const gameLineRegex = /^(?:[1-9][0-9]?)\s*[\.\-]?\s+([A-Z0-9\s\-\&]+?)(?:\s+\d[\d\.\,]*[%]?|\s*$)/gm;
+          
+          let gameMatch;
+          let counter = 1;
+          while ((gameMatch = gameLineRegex.exec(textAfterTitle)) !== null) {
+            const gameName = gameMatch[1].trim();
+            // Filter out obvious noise like "DENUMIRE", "NR", "JOC"
+            if (gameName.length > 2 && !/^(DENUMIRE|VARIANTE|NR|CRT|JOC|RTP|LINII)/i.test(gameName)) {
+              parsedGames.push({
+                nr: counter++,
+                name: gameName
+              });
+            }
+          }
+          console.log(`[PDF Parse] Extracted ${parsedGames.length} games for the Game Mix.`);
+        }
+      } catch (err) {
+        console.error('[PDF Parse] Error extracting games list:', err.message);
+      }
+
       console.log('[PDF Parse] Extracted fields:', JSON.stringify({
         cvt_series: extractedData.cvt_series,
         serial_number: extractedData.serial_number,
@@ -4138,8 +4171,11 @@ app.post('/api/metrology/parse', async (req, res) => {
         cabinet: extractedData.cabinet,
         software: extractedData.software,
         cvt_date: extractedData.cvt_date,
-        expiry_date: extractedData.expiry_date
+        expiry_date: extractedData.expiry_date,
+        games_count: parsedGames.length
       }));
+      
+      extractedData.games = parsedGames.length > 0 ? parsedGames : null;
 
     } catch (err) {
       console.error("PDF Parsing dynamically failed", err);
@@ -4150,7 +4186,7 @@ app.post('/api/metrology/parse', async (req, res) => {
     if (extractedData.provider) {
       const provCheck = await pool.query('SELECT * FROM providers WHERE name = $1', [extractedData.provider]);
       if (provCheck.rows.length === 0) {
-        await pool.query('INSERT INTO providers (name, contact, phone, status) VALUES ($1, $2, $3, $4)', [extractedData.provider, 'Auto', 'Auto', 'Active']);
+        await pool.query('INSERT INTO providers (name, contact, phone, status, created_by) VALUES ($1, $2, $3, $4, $5)', [extractedData.provider, 'Auto', 'Auto', 'Active', createdByValue]);
       }
     }
 
@@ -4158,15 +4194,26 @@ app.post('/api/metrology/parse', async (req, res) => {
     if (extractedData.cabinet) {
       const cabCheck = await pool.query('SELECT * FROM cabinets WHERE name = $1', [extractedData.cabinet]);
       if (cabCheck.rows.length === 0) {
-        await pool.query('INSERT INTO cabinets (name, provider) VALUES ($1, $2)', [extractedData.cabinet, extractedData.provider]);
+        await pool.query('INSERT INTO cabinets (name, provider, created_by) VALUES ($1, $2, $3)', [extractedData.cabinet, extractedData.provider, createdByValue]);
       }
     }
+
+    // Get actual user name for created_by
+    const createdByValue = req.user ? (req.user.full_name || req.user.username) : 'System';
 
     // 3. Game Mixes
     if (extractedData.game_mix) {
       const mixCheck = await pool.query('SELECT * FROM game_mixes WHERE name = $1', [extractedData.game_mix]);
+      const gamesJson = extractedData.games ? JSON.stringify(extractedData.games) : null;
+      
       if (mixCheck.rows.length === 0) {
-        await pool.query('INSERT INTO game_mixes (name, provider) VALUES ($1, $2)', [extractedData.game_mix, extractedData.provider]);
+        // Insert new with games
+        await pool.query('INSERT INTO game_mixes (name, provider, games, created_by) VALUES ($1, $2, $3::jsonb, $4)', 
+          [extractedData.game_mix, extractedData.provider, gamesJson, createdByValue]);
+      } else if (extractedData.games && (!mixCheck.rows[0].games || mixCheck.rows[0].games.length === 0)) {
+        // Update existing if it has no games but we just parsed them
+        await pool.query('UPDATE game_mixes SET games = $1::jsonb, updated_at = NOW() WHERE id = $2', 
+          [gamesJson, mixCheck.rows[0].id]);
       }
     }
 
@@ -4174,7 +4221,7 @@ app.post('/api/metrology/parse', async (req, res) => {
     if (extractedData.software) {
       const softCheck = await pool.query('SELECT * FROM software WHERE name = $1', [extractedData.software]);
       if (softCheck.rows.length === 0) {
-        await pool.query('INSERT INTO software (name, provider, cabinet, game_mix) VALUES ($1, $2, $3, $4)', [extractedData.software, extractedData.provider, extractedData.cabinet, extractedData.game_mix]);
+        await pool.query('INSERT INTO software (name, provider, cabinet, game_mix, created_by) VALUES ($1, $2, $3, $4, $5)', [extractedData.software, extractedData.provider, extractedData.cabinet, extractedData.game_mix, createdByValue]);
       }
     }
 
@@ -4182,7 +4229,7 @@ app.post('/api/metrology/parse', async (req, res) => {
     if (extractedData.approval_type) {
       const appCheck = await pool.query('SELECT * FROM approvals WHERE name = $1', [extractedData.approval_type]);
       if (appCheck.rows.length === 0) {
-        await pool.query('INSERT INTO approvals (name, provider, cabinet, software) VALUES ($1, $2, $3, $4)', [extractedData.approval_type, extractedData.provider, extractedData.cabinet, extractedData.software]);
+        await pool.query('INSERT INTO approvals (name, provider, cabinet, software, created_by) VALUES ($1, $2, $3, $4, $5)', [extractedData.approval_type, extractedData.provider, extractedData.cabinet, extractedData.software, createdByValue]);
       }
     }
 
@@ -4190,7 +4237,7 @@ app.post('/api/metrology/parse', async (req, res) => {
     if (extractedData.issuing_authority && extractedData.issuing_authority !== "Altele (General)") {
       const authCheck = await pool.query('SELECT * FROM authorities WHERE name = $1', [extractedData.issuing_authority]);
       if (authCheck.rows.length === 0) {
-        await pool.query('INSERT INTO authorities (name) VALUES ($1)', [extractedData.issuing_authority]);
+        await pool.query('INSERT INTO authorities (name, created_by) VALUES ($1, $2)', [extractedData.issuing_authority, createdByValue]);
       }
     }
 
@@ -4274,7 +4321,9 @@ app.post('/api/metrology', async (req, res) => {
         finalFilename = `${String(serial_number).trim()}${dateSuffix}.pdf`;
     }
 
-    const params = [cvt_series, finalCvtNumber, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, finalFilename, notes, 'admin', additional_files ? JSON.stringify(additional_files) : '[]', storedRawData]
+    const createdByValue = req.user ? (req.user.full_name || req.user.username) : 'System';
+
+    const params = [cvt_series, finalCvtNumber, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, finalFilename, notes, createdByValue, additional_files ? JSON.stringify(additional_files) : '[]', storedRawData]
     const result = await pool.query(
       `INSERT INTO metrology (cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvt_file, cvt_filename, notes, created_by, additional_files, raw_cvt_data)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb, $18::jsonb)

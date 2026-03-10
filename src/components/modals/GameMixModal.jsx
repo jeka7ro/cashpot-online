@@ -20,11 +20,19 @@ const GameMixModal = ({ item, onClose, onSave }) => {
     if (item) {
       let gamesString = ''
       try {
+        let parsedGames = item.games;
         if (typeof item.games === 'string') {
-          const gamesArray = JSON.parse(item.games)
-          gamesString = Array.isArray(gamesArray) ? gamesArray.join('\n') : ''
-        } else if (Array.isArray(item.games)) {
-          gamesString = item.games.join('\n')
+          parsedGames = JSON.parse(item.games);
+        }
+        
+        if (Array.isArray(parsedGames)) {
+          gamesString = parsedGames.map(g => {
+            if (typeof g === 'string') return g;
+            if (g && typeof g === 'object' && g.name) return g.name;
+            return '';
+          }).filter(Boolean).join('\n');
+        } else if (typeof parsedGames === 'string') {
+          gamesString = parsedGames;
         }
       } catch (error) {
         console.error('Error parsing games:', error)
