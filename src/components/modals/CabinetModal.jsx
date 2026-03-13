@@ -9,6 +9,7 @@ const CabinetModal = ({ item, onClose, onSave }) => {
     name: '',
     model: '',
     platform: '',
+    cvt_name: '',
     status: 'Activ',
     notes: ''
   })
@@ -20,6 +21,7 @@ const CabinetModal = ({ item, onClose, onSave }) => {
         name: item.name || '',
         model: item.model || '',
         platform: item.platform || '',
+        cvt_name: item.cvt_name || '',
         status: item.status || 'Activ',
         notes: item.notes || ''
       })
@@ -108,6 +110,22 @@ const CabinetModal = ({ item, onClose, onSave }) => {
                 placeholder="Ex: Deluxe 2024"
               />
               <p className="text-xs text-slate-500">Modelul cabinetului</p>
+            </div>
+
+            {/* CVT Name Alias */}
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-slate-700">
+                Denumire Cabinet pe CVT (Alias)
+              </label>
+              <input 
+                type="text" 
+                name="cvt_name" 
+                value={formData.cvt_name} 
+                onChange={handleChange} 
+                className="input-field" 
+                placeholder="Ex: EGT-VS13"
+              />
+              <p className="text-xs text-slate-500">Porecla cabinetului pentru detecție automată OCR</p>
             </div>
 
             {/* Platformă */}

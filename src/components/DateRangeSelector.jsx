@@ -609,6 +609,7 @@ export const QuickDateButtons = ({ onChange }) => {
 
   const quickActions = [
     { id: 'today', label: 'Azi', icon: <CalendarDays className="w-4 h-4" /> },
+    { id: 'yesterday', label: 'Ieri', icon: <CalendarDays className="w-4 h-4" /> },
     { id: 'thisWeek', label: 'Săpt', icon: <Clock className="w-4 h-4" /> },
     { id: 'thisMonth', label: 'Luna curentă', icon: <CalendarRange className="w-4 h-4" /> },
     { id: 'lastMonth', label: 'Luna trecută', icon: <CalendarX className="w-4 h-4" /> },
@@ -625,6 +626,10 @@ export const QuickDateButtons = ({ onChange }) => {
       case 'today':
         newStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
         newEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        break
+      case 'yesterday':
+        newStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
+        newEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
         break
       case 'thisWeek':
         const dayOfWeek = now.getDay()

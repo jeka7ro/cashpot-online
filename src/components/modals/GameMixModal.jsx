@@ -12,6 +12,7 @@ const GameMixModal = ({ item, onClose, onSave }) => {
     denomination: 0.01,
     max_bet: '',
     gaming_places: 1,
+    cvt_name: '',
     status: 'Active',
     notes: ''
   })
@@ -47,6 +48,7 @@ const GameMixModal = ({ item, onClose, onSave }) => {
         denomination: item.denomination || 0.01,
         max_bet: item.max_bet || '',
         gaming_places: item.gaming_places || 1,
+        cvt_name: item.cvt_name || '',
         status: item.status || 'Active',
         notes: item.notes || ''
       })
@@ -130,6 +132,22 @@ const GameMixModal = ({ item, onClose, onSave }) => {
                   placeholder="ex: Mix Clasice Novomatic"
                   required
                 />
+              </div>
+
+              {/* CVT Name Alias */}
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-slate-700">
+                  Denumire Game Mix pe CVT (Alias)
+                </label>
+                <input 
+                  type="text" 
+                  name="cvt_name" 
+                  value={formData.cvt_name} 
+                  onChange={handleChange} 
+                  className="input-field" 
+                  placeholder="ex: Program Joc FRUITS 2"
+                />
+                <p className="text-xs text-slate-500">Porecla Game Mix-ului pentru detecție automată OCR</p>
               </div>
 
               {/* Provider */}

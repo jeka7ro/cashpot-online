@@ -10,11 +10,10 @@ const dbInfo = {
 
 async function test() {
   const c = await mysql.createConnection(dbInfo);
-  const [tables] = await c.query('SHOW TABLES LIKE "%machine_audit_games%"');
-  console.log('Tables:', tables.map(t => Object.values(t)[0]));
-  const [cols] = await c.query('DESCRIBE machine_audit_games_g_s');
-  console.log('Columns in g_s:');
-  console.log(cols.map(c => c.Field));
+  try {
+     const [sample] = await c.query('SELECT COUNT(*) as cnt, machine_id FROM machine_audit_games_g_s GROUP BY machine_id ORDER BY cnt DESC LIMIT 5');
+     console.log('Rows per machine in g_s:', sample);
+  } catch(e) { console.log(e.message); }
   
   process.exit(0);
 }

@@ -25,10 +25,12 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
     expiry_date: '',
     issuing_authority: '',
     provider: '',
+    cvt_provider: '',
     cabinet: '',
     game_mix: '',
     approval_type: '',
     software: '',
+    cvt_cabinet: '',
     cvtFile: null,
     cvtPreview: null,
     cvtFileName: null,
@@ -127,10 +129,13 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
         expiry_date: formatDateForInput(item.expiry_date),
         issuing_authority: item.issuing_authority || '',
         provider: item.provider || '',
+        cvt_provider: item.cvt_provider || item.raw_cvt_data?.provider || '',
         cabinet: item.cabinet || '',
         game_mix: item.game_mix || '',
         approval_type: item.approval_type || '',
         software: item.software || '',
+        cvt_cabinet: item.cvt_cabinet || item.raw_cvt_data?.cabinet || '',
+        cvt_game_mix: item.cvt_game_mix || item.raw_cvt_data?.game_mix || '',
         cvtFile: item.cvt_file || item.cvtFile || null, // Base64 string from DB
         cvtPreview: item.cvt_file || item.cvtFile || null,
         cvtFileName: item.cvt_file ? 'Document CVT existent' : null,
@@ -506,6 +511,30 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
                   </select>
                 </div>
                 <div className="space-y-1">
+                  <label className="block text-sm font-semibold text-slate-700">Denumire Furnizor pe CVT</label>
+                  <input
+                    type="text"
+                    name="cvt_provider"
+                    value={formData.cvt_provider || ''}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 bg-amber-50/30 font-mono"
+                    placeholder="Ex: CT Gaming AD, BULGARIA"
+                  />
+                  <p className="text-xs text-slate-500">Doar referință document (Provider Alias)</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-sm font-semibold text-slate-700">Denumire Game Mix pe CVT</label>
+                  <input
+                    type="text"
+                    name="cvt_game_mix"
+                    value={formData.cvt_game_mix || ''}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 bg-amber-50/30 font-mono"
+                    placeholder="Ex: Program Joc FRUITS C2 (extras)"
+                  />
+                  <p className="text-xs text-slate-500">Doar pentru referință la document (Game Mix Alias)</p>
+                </div>
+                <div className="space-y-1">
                   <label className="block text-sm font-semibold text-slate-700">Cabinet</label>
                   <select
                     name="cabinet"
@@ -529,6 +558,18 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
                   {!formData.provider && (
                     <p className="text-xs text-slate-500">Cabinetul depinde de furnizorul selectat</p>
                   )}
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-sm font-semibold text-slate-700">Denumire Cabinet pe CVT</label>
+                  <input
+                    type="text"
+                    name="cvt_cabinet"
+                    value={formData.cvt_cabinet}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 bg-amber-50/30 font-mono"
+                    placeholder="Ex: EGT-VS13 (extras automat din PDF)"
+                  />
+                  <p className="text-xs text-slate-500">Doar pentru referință la document (Cabinet Alias)</p>
                 </div>
                 <div className="space-y-1">
                   <label className="block text-sm font-semibold text-slate-700">Game Mix</label>
@@ -607,16 +648,23 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
               {/* Tabel Jocuri (dacă au fost extrase prin OCR) */}
               {(() => {
                 let gamesList = [];
-                try {
-                  const rawData = typeof formData.raw_cvt_data === 'string' 
-                    ? JSON.parse(formData.raw_cvt_data) 
-                    : (formData.raw_cvt_data || {});
-                    
-                  if (rawData && rawData.games && Array.isArray(rawData.games)) {
-                    gamesList = rawData.games;
+                
+                // 1) Fresh scan injects it directly into formData
+                if (formData.games && Array.isArray(formData.games)) {
+                  gamesList = formData.games;
+                } else {
+                  // 2) Previously saved CVT loads it from the DB JSON field
+                  try {
+                    const rawData = typeof formData.raw_cvt_data === 'string' 
+                      ? JSON.parse(formData.raw_cvt_data) 
+                      : (formData.raw_cvt_data || {});
+                      
+                    if (rawData && rawData.games && Array.isArray(rawData.games)) {
+                      gamesList = rawData.games;
+                    }
+                  } catch (e) {
+                    console.warn('Could not parse raw_cvt_data for games in Edit Modal', e);
                   }
-                } catch (e) {
-                  console.warn('Could not parse raw_cvt_data for games in Edit Modal', e);
                 }
 
                 if (gamesList.length === 0) return null;
@@ -697,14 +745,39 @@ const MetrologyModal = ({ item, onClose, onSave }) => {
                         </p>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleDeleteCvt}
-                      className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                      title="Șterge documentul"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        type="button"
+                        onClick={handleSmartParse}
+                        disabled={isParsing}
+                        className={`flex items-center px-4 py-2 text-sm font-bold text-white rounded-xl shadow-sm transition-all duration-300 ${
+                          isParsing
+                            ? 'bg-slate-400 cursor-not-allowed'
+                            : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 shadow-indigo-500/25'
+                        }`}
+                        title="Re-extrage datele din document utilizând OCR și dicționarele"
+                      >
+                        {isParsing ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Se scanează...
+                          </>
+                        ) : (
+                          <>
+                            <Wand2 className="w-4 h-4 mr-2" />
+                            Scanează cu AI
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDeleteCvt}
+                        className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                        title="Șterge documentul"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* PDF Viewer - FIXED pentru afișare corectă */}

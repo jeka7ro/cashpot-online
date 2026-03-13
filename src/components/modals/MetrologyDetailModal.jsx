@@ -6,7 +6,7 @@ import { formatGameMixName } from '../../utils/gameMixFormatter'
 import { useData } from '../../contexts/DataContext'
 
 const MetrologyDetailModal = ({ item, onClose }) => {
-  const { approvals } = useData()
+  const { approvals, gameMixes } = useData()
   const [currentItem, setCurrentItem] = useState(item)
 
   // Re-load item from approvals array to get latest attachments
@@ -394,16 +394,29 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                 </div>
               )}
 
-              {/* Games Nomenclature Table (if extracted from PDF) */}
+              {/* Games Nomenclature Table (if extracted from PDF or matched by Game Mix) */}
               {(() => {
                 let gamesList = [];
                 try {
-                  const rawData = typeof itemToUse.raw_cvt_data === 'string' 
-                    ? JSON.parse(itemToUse.raw_cvt_data) 
-                    : (itemToUse.raw_cvt_data || {});
+                  // Strategy 1: Look directly in the raw_cvt_data (if OCR caught it or dictionary injected it)
+                  let rawData = itemToUse.raw_cvt_data || {};
+                  if (typeof rawData === 'string') {
+                    try { rawData = JSON.parse(rawData); } catch (e) {}
+                  }
+                  if (typeof rawData === 'string') {
+                    try { rawData = JSON.parse(rawData); } catch (e) {}
+                  }
                     
                   if (rawData && rawData.games && Array.isArray(rawData.games)) {
                     gamesList = rawData.games;
+                  }
+                  
+                  // Strategy 2: If it's empty, try to match the itemToUse.game_mix string against the global DataContext (Nomenclatoare)
+                  if ((!gamesList || gamesList.length === 0) && itemToUse.game_mix && gameMixes) {
+                    const matchedMix = gameMixes.find(m => m.name === itemToUse.game_mix);
+                    if (matchedMix && matchedMix.games && Array.isArray(matchedMix.games)) {
+                      gamesList = matchedMix.games;
+                    }
                   }
                 } catch (e) {
                   console.warn('Could not parse raw_cvt_data for games', e);
@@ -412,11 +425,11 @@ const MetrologyDetailModal = ({ item, onClose }) => {
                 if (gamesList.length === 0) return null;
 
                 return (
-                  <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                  <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm mt-8">
                     <div className="bg-slate-50 dark:bg-slate-900/50 p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                       <div>
                         <h3 className="text-lg font-bold text-slate-800 dark:text-white">Nomenclator Jocuri</h3>
-                        <p className="text-sm text-slate-500">Programul extras automat din CVT</p>
+                        <p className="text-sm text-slate-500">Programul de joc atașat acestui slot ({itemToUse.game_mix || 'Neprecizat'})</p>
                       </div>
                       <div className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 px-3 py-1 rounded-full text-sm font-bold">
                         {gamesList.length} Jocuri

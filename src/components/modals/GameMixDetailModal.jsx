@@ -109,7 +109,8 @@ const GameMixDetailModal = ({ item, onClose }) => {
           )}
 
           {/* Games Nomenclature Table */}
-          {item.games && (Array.isArray(JSON.parse(item.games || '[]')) || typeof item.games === 'string') && (() => {
+          {(() => {
+            if (!item.games) return null;
             let gamesList = [];
             try {
               const parsed = typeof item.games === 'string' ? JSON.parse(item.games) : item.games;
@@ -120,11 +121,11 @@ const GameMixDetailModal = ({ item, onClose }) => {
                   return g;
                 });
               } else if (typeof parsed === 'string') {
-                gamesList = parsed.split('\\n').filter(Boolean).map((g, i) => ({ nr: i + 1, name: g }));
+                gamesList = parsed.split('\n').filter(Boolean).map((g, i) => ({ nr: i + 1, name: g }));
               }
             } catch (e) {
               if (typeof item.games === 'string') {
-                gamesList = item.games.split('\\n').filter(Boolean).map((g, i) => ({ nr: i + 1, name: g }));
+                gamesList = item.games.split('\n').filter(Boolean).map((g, i) => ({ nr: i + 1, name: g }));
               }
             }
 

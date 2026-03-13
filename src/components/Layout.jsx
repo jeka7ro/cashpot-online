@@ -36,14 +36,24 @@ import {
   DollarSign,
   Dices,
   TrendingDown,
-  Wallet
+  Wallet,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
 
 const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [openSubmenus, setOpenSubmenus] = useState({})
   const [currentTime, setCurrentTime] = useState(new Date())
   const [showNotifications, setShowNotifications] = useState(false)
   const { user, logout } = useAuth()
+
+  const toggleSubmenu = (id) => {
+    setOpenSubmenus(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }))
+  }
 
   // Show sidebar for all users, but filter menu items based on permissions
   const shouldShowSidebar = true
@@ -269,37 +279,49 @@ const Layout = ({ children }) => {
       path: '/competitors',
       module: MODULES.LOCATIONS // Același permision ca Locații
     },
+
     {
-      id: 'providers',
-      label: 'Furnizori',
-      icon: Users,
-      path: '/providers',
-      count: providers.length,
-      module: MODULES.PROVIDERS
-    },
-    {
-      id: 'cabinets',
-      label: 'Cabinete',
-      icon: Gamepad2,
-      path: '/cabinets',
-      count: cabinets.length,
-      module: MODULES.CABINETS
-    },
-    {
-      id: 'game-mixes',
-      label: 'Game Mixes',
-      icon: MixIcon,
-      path: '/game-mixes',
-      count: gameMixes.length,
-      module: MODULES.GAME_MIXES
-    },
-    {
-      id: 'slots',
-      label: 'Sloturi',
-      icon: Dices,
-      path: '/slots',
-      count: slots.length,
-      module: MODULES.SLOTS
+      id: 'operational',
+      label: 'Operațional',
+      icon: Activity,
+      module: MODULES.SLOTS,
+      subItems: [
+        {
+          id: 'operational-providers',
+          label: 'Provideri',
+          path: '/providers'
+        },
+        {
+          id: 'operational-cabinets',
+          label: 'Cabinete',
+          path: '/cabinets'
+        },
+        {
+          id: 'operational-game-mixes',
+          label: 'Game Mixes',
+          path: '/game-mixes'
+        },
+        {
+          id: 'operational-slots',
+          label: 'Sloturi',
+          path: '/slots'
+        },
+        {
+          id: 'operational-multigames',
+          label: 'Multigames',
+          path: '/operational/multigames'
+        },
+        {
+          id: 'operational-active-machines',
+          label: 'Aparate Active',
+          path: '/operational/active-machines'
+        },
+        {
+          id: 'operational-performance-mix',
+          label: 'Mix Performanță',
+          path: '/operational/performance-mix'
+        }
+      ]
     },
     {
       id: 'warehouse',
@@ -648,7 +670,68 @@ const Layout = ({ children }) => {
 
             <nav className="space-y-1">
               {menuItems.map(item => {
-                const isActive = location.pathname === item.path
+                const isActive = item.path ? location.pathname === item.path : (item.subItems && item.subItems.some(sub => location.pathname === sub.path))
+                const isOpen = openSubmenus[item.id] || (isActive && !openSubmenus.hasOwnProperty(item.id)) // Auto-open if child is active and not explicitly closed
+
+                // Când se deschide automat, îl marcăm în state (opțional devine un efect, dar simplificăm așa)
+                if (isActive && !openSubmenus.hasOwnProperty(item.id)) {
+                  // Mutat direct via defaultValue pattern în render logic
+                }
+
+                if (item.subItems) {
+                  return (
+                    <div key={item.id} className="space-y-1">
+                      <button
+                        onClick={() => toggleSubmenu(item.id)}
+                        className={`w-full flex items-center ${sidebarOpen ? 'justify-between' : 'justify-center'} p-2 md:p-3 rounded-2xl text-left transition-all duration-200 group ${isActive
+                          ? 'bg-blue-50/50 dark:bg-slate-700/50 text-blue-700 dark:text-blue-300'
+                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors'
+                          }`}
+                        title={!sidebarOpen ? item.label : ''}
+                      >
+                        <div className={`flex items-center ${sidebarOpen ? 'space-x-3' : 'justify-center'}`}>
+                          <item.icon className="text-lg md:text-xl transition-transform group-hover:scale-110" />
+                          {sidebarOpen && (
+                            <span className="font-semibold text-sm md:text-base">
+                              {item.label}
+                            </span>
+                          )}
+                        </div>
+                        {sidebarOpen && (
+                          <div className="text-slate-400">
+                            {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                          </div>
+                        )}
+                      </button>
+
+                      {/* Sub-menu items */}
+                      {sidebarOpen && isOpen && (
+                        <div className="pl-11 pr-2 py-1 space-y-1 relative">
+                          {/* Vertical guiding line */}
+                          <div className="absolute left-6 top-0 bottom-2 w-px bg-slate-200 dark:bg-slate-700"></div>
+
+                          {item.subItems.map(subItem => {
+                            const isSubActive = location.pathname === subItem.path;
+                            return (
+                              <Link
+                                key={subItem.id}
+                                to={subItem.path}
+                                className={`block w-full text-left py-2 px-3 rounded-xl text-sm transition-all duration-200 ${isSubActive
+                                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 font-semibold'
+                                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
+                                  }`}
+                              >
+                                {subItem.label}
+                              </Link>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                }
+
+                // Normal Item
                 return (
                   <Link
                     key={item.id}
@@ -669,7 +752,7 @@ const Layout = ({ children }) => {
                         </span>
                       )}
                     </div>
-                    {sidebarOpen && item.count !== null && (
+                    {sidebarOpen && item.count !== null && item.count !== undefined && (
                       <span className={`text-xs px-3 md:px-4 py-1.5 md:py-2 rounded-full font-bold transition-all duration-200 ${isActive
                         ? 'bg-white/20 text-white backdrop-blur-sm border border-white/30'
                         : 'bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-slate-600 dark:to-slate-700 text-blue-700 dark:text-slate-300 group-hover:from-blue-200 group-hover:to-indigo-200 dark:group-hover:from-slate-500 dark:group-hover:to-slate-600'

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Edit, Trash2, ChevronLeft, ChevronRight, FileText, Building2, Eye } from 'lucide-react'
 
 const DataTable = ({
@@ -80,9 +80,10 @@ const DataTable = ({
 
   const currentColor = moduleColors[moduleColor] || moduleColors.blue
 
-  const totalPages = Math.ceil(data.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const paginatedData = data.slice(startIndex, startIndex + itemsPerPage)
+  // Reset la pagina 1 când se schimbă filtrele / datele
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [data.length])
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -93,18 +94,38 @@ const DataTable = ({
     }
   }
 
-  const sortedData = [...paginatedData].sort((a, b) => {
+  const sortedData = [...data].sort((a, b) => {
     if (!sortField) return 0
 
-    const aValue = a[sortField] || ''
-    const bValue = b[sortField] || ''
+    let aValue = a[sortField]
+    let bValue = b[sortField]
+
+    if (aValue === null || aValue === undefined) aValue = ''
+    if (bValue === null || bValue === undefined) bValue = ''
+
+    // If both are numbers, use standard numeric sort
+    if (typeof aValue === 'number' && typeof bValue === 'number') {
+      return sortDirection === 'asc' ? aValue - bValue : bValue - aValue
+    }
+
+    // Try to parse them as numbers if they look like strings representing numbers
+    const numA = Number(aValue)
+    const numB = Number(bValue)
+
+    if (aValue !== '' && bValue !== '' && !isNaN(numA) && !isNaN(numB)) {
+      return sortDirection === 'asc' ? numA - numB : numB - numA
+    }
 
     if (sortDirection === 'asc') {
-      return aValue.toString().localeCompare(bValue.toString())
+      return aValue.toString().localeCompare(bValue.toString(), undefined, { numeric: true, sensitivity: 'base' })
     } else {
-      return bValue.toString().localeCompare(aValue.toString())
+      return bValue.toString().localeCompare(aValue.toString(), undefined, { numeric: true, sensitivity: 'base' })
     }
   })
+
+  const totalPages = Math.ceil(sortedData.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const paginatedData = sortedData.slice(startIndex, startIndex + itemsPerPage)
 
   if (loading) {
     return (
@@ -159,9 +180,9 @@ const DataTable = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200/50 dark:divide-slate-700/50">
-            {sortedData.map((item, idx) => (
+            {paginatedData.map((item, idx) => (
               <tr
-                key={item._id || item.id}
+                key={item._id || item.id || idx}
                 className={`table-row hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
                 onClick={() => onRowClick && onRowClick(item)}
               >

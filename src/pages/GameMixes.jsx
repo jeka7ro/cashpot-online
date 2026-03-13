@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import DataTable from '../components/DataTable'
 import GameMixModal from '../components/modals/GameMixModal'
-import GameMixDetailModal from '../components/modals/GameMixDetailModal'
 import GamesLibrary from './GamesLibrary'
 import { Cherry, Plus, Search, Filter, Download, Upload, Edit, Trash2, Gamepad2 } from 'lucide-react'
 import { useData } from '../contexts/DataContext'
 
 const GameMixes = () => {
+  const navigate = useNavigate()
   const { gameMixes, createItem, updateItem, deleteItem, refreshData } = useData()
   const [activeTab, setActiveTab] = useState('mixes')
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -16,8 +17,6 @@ const GameMixes = () => {
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedItems, setSelectedItems] = useState([])
   const [showBulkActions, setShowBulkActions] = useState(false)
-  const [viewingItem, setViewingItem] = useState(null)
-  const [showDetailModal, setShowDetailModal] = useState(false)
 
   useEffect(() => {
     setShowBulkActions(selectedItems.length > 0)
@@ -118,14 +117,9 @@ const GameMixes = () => {
       label: 'Nume Game Mix',
       sortable: true,
       render: (item) => (
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center text-white font-bold shadow-lg">
-            <Cherry className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="font-bold text-slate-900">{item.name}</div>
-            <div className="text-sm text-slate-500">ID: {item.id}</div>
-          </div>
+        <div>
+          <div className="font-semibold text-slate-800 text-sm">{item.name}</div>
+          <div className="text-[11px] text-slate-500">ID: {item.id}</div>
         </div>
       )
     },
@@ -134,8 +128,8 @@ const GameMixes = () => {
       label: 'Furnizor',
       sortable: true,
       render: (item) => (
-        <span className="bg-gradient-to-r from-purple-100 to-violet-100 text-purple-800 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm">
-          {item.provider || 'N/A'}
+        <span className="text-xs font-semibold text-slate-700">
+          {item.provider || '-'}
         </span>
       )
     },
@@ -146,14 +140,9 @@ const GameMixes = () => {
         const games = typeof item.games === 'string' ? JSON.parse(item.games) : item.games
         const gameCount = Array.isArray(games) ? games.length : 0
         return (
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold shadow-lg">
-              {gameCount}
-            </div>
-            <span className="text-sm font-medium text-slate-700">
-              {gameCount} jocuri
-            </span>
-          </div>
+          <span className="text-sm font-medium text-slate-700">
+            {gameCount}
+          </span>
         )
       }
     },
@@ -164,12 +153,11 @@ const GameMixes = () => {
       render: (item) => {
         const status = item.status?.toLowerCase() || ''
         const isActive = status === 'activ' || status === 'active'
-        
         return (
-          <span className={`px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm ${
+          <span className={`px-2 py-0.5 rounded text-[11px] font-semibold tracking-wide border ${
             isActive
-              ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-800'
-              : 'bg-gradient-to-r from-red-100 to-pink-100 text-red-800'
+              ? 'bg-green-50 text-green-700 border-green-200'
+              : 'bg-red-50 text-red-700 border-red-200'
           }`}>
             {item.status}
           </span>
@@ -178,15 +166,15 @@ const GameMixes = () => {
     },
     {
       key: 'created_info',
-      label: 'CREAT DE / DATA',
+      label: 'Creat De / Data',
       sortable: true,
       render: (item) => (
-        <div className="space-y-1">
-          <div className="text-slate-800 font-medium text-base">
-            {item.created_by || 'N/A'}
+        <div>
+          <div className="text-slate-800 font-medium text-[13px]">
+            {item.created_by || '-'}
           </div>
-          <div className="text-slate-500 text-sm">
-            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : 'N/A'}
+          <div className="text-slate-500 text-[11px]">
+            {item.created_at ? new Date(item.created_at).toLocaleDateString('ro-RO') : '-'}
           </div>
         </div>
       )
@@ -196,73 +184,72 @@ const GameMixes = () => {
   return (
     <Layout>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="card p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-4">
-            <div className="p-3 bg-gradient-to-r from-red-500 to-pink-500 rounded-2xl shadow-lg shadow-red-500/25">
-              <Cherry className="w-6 h-6 text-white" />
-            </div>
+        {/* Header & Tabs */}
+        <div className="bg-white border border-slate-200 rounded-lg p-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-slate-100 rounded-md">
+                <Gamepad2 className="w-5 h-5 text-slate-600" />
+              </div>
               <div>
-                <h2 className="text-2xl font-bold text-slate-800">Management Game Mixes</h2>
-                <p className="text-slate-600">Gestionează mixurile de jocuri și biblioteca de jocuri</p>
+                <h2 className="text-lg font-bold text-slate-800 leading-tight">Management Game Mixes</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Gestionează mixurile și biblioteca de jocuri</p>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
+            
+            <div className="flex items-center space-x-6">
+              <div className="flex bg-slate-100 p-0.5 rounded border border-slate-200">
+                <button
+                  onClick={() => setActiveTab('mixes')}
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
+                    activeTab === 'mixes'
+                      ? 'bg-white text-slate-800 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  Game Mixes
+                </button>
+                <button
+                  onClick={() => setActiveTab('games')}
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
+                    activeTab === 'games'
+                      ? 'bg-white text-slate-800 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  Biblioteca Jocuri
+                </button>
+              </div>
+
               {activeTab === 'mixes' && showBulkActions && (
-                <>
+                <div className="flex space-x-2">
                   <button
                     onClick={handleBulkEdit}
-                    className="btn-secondary flex items-center space-x-2"
+                    className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs transition-colors border border-slate-200"
                   >
-                    <Edit className="w-4 h-4" />
-                    <span>Bulk Edit ({selectedItems.length})</span>
+                    <Edit className="w-3.5 h-3.5" />
+                    <span className="font-semibold">Bulk Edit ({selectedItems.length})</span>
                   </button>
                   <button
                     onClick={handleBulkDelete}
-                    className="btn-danger flex items-center space-x-2"
+                    className="flex items-center space-x-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded text-xs transition-colors border border-red-200"
                   >
-                    <Trash2 className="w-4 h-4" />
-                    <span>Bulk Delete ({selectedItems.length})</span>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span className="font-semibold">Bulk Delete ({selectedItems.length})</span>
                   </button>
-                </>
+                </div>
               )}
+
               {activeTab === 'mixes' && (
                 <button
                   onClick={handleAdd}
-                  className="btn-primary flex items-center space-x-2"
+                  className="flex items-center space-x-1.5 px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded text-xs transition-colors shadow-sm font-semibold tracking-wide"
                 >
-                  <Plus className="w-5 h-5" />
+                  <Plus className="w-3.5 h-3.5" />
                   <span>Adaugă Game Mix</span>
                 </button>
               )}
             </div>
-          </div>
-
-          {/* Tabs */}
-          <div className="flex space-x-1 bg-slate-100 p-1 rounded-lg">
-            <button
-              onClick={() => setActiveTab('mixes')}
-              className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-md transition-all duration-200 ${
-                activeTab === 'mixes'
-                  ? 'bg-white text-red-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-800 hover:bg-slate-50'
-              }`}
-            >
-              <Cherry className="w-4 h-4" />
-              <span className="font-medium">Game Mixes</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('games')}
-              className={`flex-1 flex items-center justify-center space-x-2 py-3 px-4 rounded-md transition-all duration-200 ${
-                activeTab === 'games'
-                  ? 'bg-white text-purple-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-800 hover:bg-slate-50'
-              }`}
-            >
-              <Gamepad2 className="w-4 h-4" />
-              <span className="font-medium">Biblioteca Jocuri</span>
-            </button>
           </div>
         </div>
 
@@ -270,56 +257,55 @@ const GameMixes = () => {
         {activeTab === 'mixes' ? (
           <>
             {/* Filters */}
-            <div className="card p-6">
-              <div className="flex flex-wrap gap-4 items-center">
-                <div className="flex-1 min-w-64">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+            <div className="bg-white border border-slate-200 rounded-lg p-4">
+              <div className="flex flex-wrap gap-4 items-center justify-between">
+                <div className="flex items-center space-x-4 flex-1">
+                  <div className="relative w-64 text-sm">
+                    <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                     <input
                       type="text"
-                      placeholder="Caută game mix sau furnizor..."
+                      placeholder="Caută game mix..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="input-field pl-10"
+                      className="w-full pl-9 pr-4 py-1.5 bg-slate-50 border border-slate-200 text-slate-800 rounded outline-none focus:border-slate-400 focus:bg-white transition-colors"
                     />
                   </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Filter className="w-4 h-4 text-slate-400" />
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded px-3 py-1.5 outline-none focus:border-slate-400 cursor-pointer"
+                    >
+                      <option value="all">Toate statusurile</option>
+                      <option value="Activ">Activ</option>
+                      <option value="Inactiv">Inactiv</option>
+                    </select>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Filter className="w-5 h-5 text-slate-500" />
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="input-field"
-                  >
-                    <option value="all">Toate statusurile</option>
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button className="btn-secondary flex items-center space-x-2">
-                    <Download className="w-4 h-4" />
+
+                <div className="flex items-center space-x-2 border-l border-slate-200 pl-4">
+                  <button className="flex items-center space-x-1.5 px-3 py-1.5 text-slate-600 hover:bg-slate-50 border border-slate-200 rounded text-xs font-semibold uppercase tracking-wide transition-colors">
+                    <Download className="w-3.5 h-3.5" />
                     <span>Export</span>
                   </button>
-                  <button className="btn-secondary flex items-center space-x-2">
-                    <Upload className="w-4 h-4" />
+                  <button className="flex items-center space-x-1.5 px-3 py-1.5 text-slate-600 hover:bg-slate-50 border border-slate-200 rounded text-xs font-semibold uppercase tracking-wide transition-colors">
+                    <Upload className="w-3.5 h-3.5" />
                     <span>Import</span>
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* Data Table */}
-            <div className="card">
+            {/* Table */}
+            <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
               <DataTable
                 data={filteredGameMixes}
                 columns={columns}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
-                onRowClick={(item) => {
-                  setViewingItem(item)
-                  setShowDetailModal(true)
-                }}
+                onRowClick={(item) => navigate(`/game-mixes/${item.id}`)}
                 searchTerm={searchTerm}
                 emptyMessage="Nu există game mixes în sistem"
                 selectedItems={selectedItems}
@@ -339,16 +325,6 @@ const GameMixes = () => {
             item={selectedItem}
             onClose={handleCloseModal}
             onSave={handleSave}
-          />
-        )}
-        {/* Detail Modal */}
-        {showDetailModal && (
-          <GameMixDetailModal
-            item={viewingItem}
-            onClose={() => {
-              setShowDetailModal(false)
-              setViewingItem(null)
-            }}
           />
         )}
       </div>

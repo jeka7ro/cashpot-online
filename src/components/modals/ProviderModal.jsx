@@ -10,6 +10,7 @@ const ProviderModal = ({ item, onClose, onSave }) => {
     contact: '',
     phone: '',
     company: '',
+    cvt_name: '',
     status: 'Activ',
     notes: '',
     logo: {
@@ -27,6 +28,7 @@ const ProviderModal = ({ item, onClose, onSave }) => {
         contact: item.contact || '',
         phone: item.phone || '',
         company: item.company || '',
+        cvt_name: item.cvt_name || '',
         status: item.status || 'Activ',
         notes: item.notes || '',
         logo: item.logo ? (typeof item.logo === 'object' ? item.logo : {
@@ -127,6 +129,22 @@ const ProviderModal = ({ item, onClose, onSave }) => {
                   placeholder="ex: EGT Digital"
                   required
                 />
+              </div>
+
+              {/* CVT Name Alias */}
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-slate-700">
+                  Denumire Furnizor pe CVT (Alias)
+                </label>
+                <input 
+                  type="text" 
+                  name="cvt_name" 
+                  value={formData.cvt_name} 
+                  onChange={handleChange} 
+                  className="input-field" 
+                  placeholder="ex: CT Gaming AD, BULGARIA"
+                />
+                <p className="text-xs text-slate-500">Porecla furnizorului pentru detecție automată OCR</p>
               </div>
 
               {/* Contact Person */}

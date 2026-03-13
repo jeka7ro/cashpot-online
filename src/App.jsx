@@ -16,6 +16,7 @@ import Competitors from './pages/Competitors'
 import Providers from './pages/Providers'
 import Cabinets from './pages/Cabinets'
 import GameMixes from './pages/GameMixes'
+import GameMixView from './pages/GameMixView'
 import Marketing from './pages/Marketing'
 import MarketingAI from './pages/MarketingAI'
 import PromotionDetail from './pages/PromotionDetail'
@@ -76,6 +77,9 @@ import AIInsights from './pages/AIInsights'
 import Settings from './pages/Settings'
 import Tasks from './pages/Tasks'
 import Messages from './pages/Messages'
+import OperationalMultigames from './pages/OperationalMultigames'
+import ActiveMachines from './pages/ActiveMachines'
+import OperationalPerformanceMix from './pages/OperationalPerformanceMix'
 
 function App() {
   // Keep-Alive: Previne cold starts pe backend (Render.com)
@@ -89,7 +93,7 @@ function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            
+
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/companies" element={<RoleProtectedRoute module={MODULES.COMPANIES}><Companies /></RoleProtectedRoute>} />
             <Route path="/companies/:id" element={<RoleProtectedRoute module={MODULES.COMPANIES}><CompanyDetail /></RoleProtectedRoute>} />
@@ -100,6 +104,7 @@ function App() {
             <Route path="/providers" element={<RoleProtectedRoute module={MODULES.PROVIDERS}><Providers /></RoleProtectedRoute>} />
             <Route path="/cabinets" element={<RoleProtectedRoute module={MODULES.CABINETS}><Cabinets /></RoleProtectedRoute>} />
             <Route path="/game-mixes" element={<RoleProtectedRoute module={MODULES.GAME_MIXES}><GameMixes /></RoleProtectedRoute>} />
+            <Route path="/game-mixes/:id" element={<RoleProtectedRoute module={MODULES.GAME_MIXES}><GameMixView /></RoleProtectedRoute>} />
             <Route path="/games/:gameId" element={<RoleProtectedRoute module={MODULES.SLOTS}><GameDetail /></RoleProtectedRoute>} />
             <Route path="/slots" element={<RoleProtectedRoute module={MODULES.SLOTS}><Slots /></RoleProtectedRoute>} />
             <Route path="/slots/history" element={<RoleProtectedRoute module={MODULES.SLOTS}><SlotHistory /></RoleProtectedRoute>} />
@@ -137,6 +142,11 @@ function App() {
             <Route path="/onjn-operators/brand/:brandName" element={<RoleProtectedRoute module={MODULES.ONJN}><ONJNBrandDetails /></RoleProtectedRoute>} />
             <Route path="/legal-documents" element={<RoleProtectedRoute module={MODULES.LEGAL}><LegalDocuments /></RoleProtectedRoute>} />
             <Route path="/slot-regulations" element={<RoleProtectedRoute module={MODULES.LEGAL}><SlotRegulations /></RoleProtectedRoute>} />
+
+            {/* Operational */}
+            <Route path="/operational/multigames" element={<RoleProtectedRoute module={MODULES.SLOTS}><OperationalMultigames /></RoleProtectedRoute>} />
+            <Route path="/operational/active-machines" element={<RoleProtectedRoute module={MODULES.SLOTS}><ActiveMachines /></RoleProtectedRoute>} />
+            <Route path="/operational/performance-mix" element={<RoleProtectedRoute module={MODULES.SLOTS}><OperationalPerformanceMix /></RoleProtectedRoute>} />
             <Route path="/slot-taxes" element={<RoleProtectedRoute module={MODULES.LEGAL}><SlotTaxesCentralizer /></RoleProtectedRoute>} />
             <Route path="/legal/article/:law/:articleNumber" element={<RoleProtectedRoute module={MODULES.LEGAL}><LegalArticleDetail /></RoleProtectedRoute>} />
             <Route path="/expenditures" element={<RoleProtectedRoute module={MODULES.EXPENDITURES}><Expenditures /></RoleProtectedRoute>} />
@@ -167,7 +177,7 @@ function App() {
             <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
             <Route path="/users" element={<RoleProtectedRoute requiredRole="admin"><UsersPage /></RoleProtectedRoute>} />
             <Route path="/settings" element={<RoleProtectedRoute module={MODULES.SETTINGS}><Settings /></RoleProtectedRoute>} />
-            
+
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </div>

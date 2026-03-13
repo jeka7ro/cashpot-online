@@ -1,0 +1,1967 @@
+
+> cashpot-backend@2.0.1 dev
+> nodemon server-postgres.js
+
+[33m[nodemon] 3.1.10[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): *.*[39m
+[33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #145277 - 10.03.2026, 14:21
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+🚀 Server running on 0.0.0.0:5001
+📊 Database: PostgreSQL
+🌐 Environment: production
+📅 Build: 145277 (10.03.2026, 14:21)
+✅ Server is LIVE - Health checks will PASS!
+✅ All routes registered - login endpoint available at /api/auth/login
+⏳ Database initialization running in background...
+✅ Connected to PostgreSQL
+⏰ Database time: 2026-03-10T12:21:18.308Z
+✅ Slots table columns updated
+✅ Added manufacture_year column to slots table
+✅ Proprietari table created
+✅ Contracts table updated
+✅ Providers table updated
+✅ Locations table: Added competitors JSONB column
+✅ Users table: Added phone VARCHAR(20) column
+✅ Locations table: Added gallery JSONB column
+✅ Locations table: Added nlc_code column and index
+✅ Added invoice_total_amount column to electric_invoices_nlc table
+✅ Created electric_invoices_nlc table for centralizing NLC data
+ValidationError: The Express 'trust proxy' setting is true, which allows anyone to trivially bypass IP-based rate limiting. See https://express-rate-limit.github.io/ERR_ERL_PERMISSIVE_TRUST_PROXY/ for more information.
+    at Object.trustProxy (file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/node_modules/express-rate-limit/dist/index.mjs:139:13)
+    at wrappedValidations.<computed> [as trustProxy] (file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/node_modules/express-rate-limit/dist/index.mjs:369:22)
+    at Object.keyGenerator (file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/node_modules/express-rate-limit/dist/index.mjs:629:20)
+    at file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/node_modules/express-rate-limit/dist/index.mjs:682:32
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/node_modules/express-rate-limit/dist/index.mjs:663:5 {
+  code: 'ERR_ERL_PERMISSIVE_TRUST_PROXY',
+  help: 'https://express-rate-limit.github.io/ERR_ERL_PERMISSIVE_TRUST_PROXY/'
+}
+✅ Platforms table updated
+✅ Platforms table created
+✅ Jackpots table created
+✅ Metrology table updated with additional columns
+✅ Metrology table created
+✅ Invoices table created
+✅ Warehouse table created
+✅ Game mixes table updated with missing columns
+✅ [OPERATIONAL] Pool MariaDB (Cyber) creat pentru data fetching
+✅ Invoices table updated with seller column
+✅ Companies table updated with documents column
+✅ Users table updated with avatar column
+✅ Legal Documents table created
+✅ ONJN Reports table created
+❌ Error fetching Operational Multigames data: Error: Unknown column 'm.Manufacturer' in 'field list'
+    at PromisePool.query (/Users/eugeniucazmal/Downloads/dev_office/03 martie 2026/cashpot_online/backend/node_modules/mysql2/lib/promise/pool.js:36:22)
+    at file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/routes/operational.js:67:34
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  code: 'ER_BAD_FIELD_ERROR',
+  errno: 1054,
+  sql: '\n' +
+    '      SELECT \n' +
+    '        loc.code AS Venue,\n' +
+    '        m.Manufacturer AS Manufacturer,\n' +
+    '        m.Cabinet AS Cabinet,\n' +
+    '        m.Games AS Game_Slot,\n' +
+    '        mg.name AS Game_Name_Mutligame,\n' +
+    '        mag.c_52_games AS Played_Games,\n' +
+    '        mag.c_52_bet AS Bet,\n' +
+    '        mag.c_52_win AS Win,\n' +
+    '        mag.updated_at AS Last_Update\n' +
+    '      FROM cyberslot_dbn.machine_audit_games_g_s mag\n' +
+    '      LEFT JOIN cyberslot_dbn.locations loc ON loc.id = mag.location_id\n' +
+    '      LEFT JOIN cyberslot_dbn.machines m ON m.id = mag.machine_id\n' +
+    '      LEFT JOIN cyberslot_dbn.machine_games mg ON mg.id = mag.machine_game_id\n' +
+    '      ORDER BY mag.updated_at DESC\n' +
+    '      LIMIT 1000\n' +
+    '    ',
+  sqlState: '42S22',
+  sqlMessage: "Unknown column 'm.Manufacturer' in 'field list'"
+}
+127.0.0.1 - - [10/Mar/2026:12:21:21 +0000] "GET /api/operational/multigames?limit=1000 HTTP/1.1" 500 75 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:21:21 +0000] "GET /api/global-settings HTTP/1.1" 200 264402 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+✅ ONJN Operators table created
+✅ Authorities table created
+❌ Error fetching Operational Multigames data: Error: Unknown column 'm.Manufacturer' in 'field list'
+    at PromisePool.query (/Users/eugeniucazmal/Downloads/dev_office/03 martie 2026/cashpot_online/backend/node_modules/mysql2/lib/promise/pool.js:36:22)
+    at file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/routes/operational.js:67:34
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  code: 'ER_BAD_FIELD_ERROR',
+  errno: 1054,
+  sql: '\n' +
+    '      SELECT \n' +
+    '        loc.code AS Venue,\n' +
+    '        m.Manufacturer AS Manufacturer,\n' +
+    '        m.Cabinet AS Cabinet,\n' +
+    '        m.Games AS Game_Slot,\n' +
+    '        mg.name AS Game_Name_Mutligame,\n' +
+    '        mag.c_52_games AS Played_Games,\n' +
+    '        mag.c_52_bet AS Bet,\n' +
+    '        mag.c_52_win AS Win,\n' +
+    '        mag.updated_at AS Last_Update\n' +
+    '      FROM cyberslot_dbn.machine_audit_games_g_s mag\n' +
+    '      LEFT JOIN cyberslot_dbn.locations loc ON loc.id = mag.location_id\n' +
+    '      LEFT JOIN cyberslot_dbn.machines m ON m.id = mag.machine_id\n' +
+    '      LEFT JOIN cyberslot_dbn.machine_games mg ON mg.id = mag.machine_game_id\n' +
+    '      ORDER BY mag.updated_at DESC\n' +
+    '      LIMIT 1000\n' +
+    '    ',
+  sqlState: '42S22',
+  sqlMessage: "Unknown column 'm.Manufacturer' in 'field list'"
+}
+127.0.0.1 - - [10/Mar/2026:12:21:21 +0000] "GET /api/operational/multigames?limit=1000 HTTP/1.1" 500 75 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+✅ Software table created
+✅ Approvals table created
+✅ providers table updated with created_by and created_at columns
+✅ cabinets table updated with created_by and created_at columns
+✅ game_mixes table updated with created_by and created_at columns
+✅ slots table updated with created_by and created_at columns
+✅ locations table updated with created_by and created_at columns
+✅ warehouse table updated with created_by and created_at columns
+✅ metrology table updated with created_by and created_at columns
+✅ jackpots table updated with created_by and created_at columns
+✅ invoices table updated with created_by and created_at columns
+✅ legalDocuments table updated with created_by and created_at columns
+✅ onjnReports table updated with created_by and created_at columns
+✅ authorities table updated with created_by and created_at columns
+✅ users table updated with created_by and created_at columns
+✅ Tasks table updated with approval workflow columns
+✅ Admin user status updated to active
+✅ Metrology sub-pages tables created
+✅ Slot history table created
+✅ Added missing columns to promotions table
+🔍 Found constraints on slot_history: []
+✅ No foreign key constraints found on slot_history table
+✅ Companies table updated with CUI fields
+✅ Metrology table updated with new fields
+Auth middleware error: JsonWebTokenError: jwt malformed
+    at module.exports [as verify] (/Users/eugeniucazmal/Downloads/dev_office/03 martie 2026/cashpot_online/backend/node_modules/jsonwebtoken/verify.js:70:17)
+    at authenticateUser (file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/server-postgres.js:99:25)
+    at Layer.handle [as handle_request] (/Users/eugeniucazmal/Downloads/dev_office/03 martie 2026/cashpot_online/backend/node_modules/express/lib/router/layer.js:95:5)
+    at trim_prefix (/Users/eugeniucazmal/Downloads/dev_office/03 martie 2026/cashpot_online/backend/node_modules/express/lib/router/index.js:328:13)
+    at /Users/eugeniucazmal/Downloads/dev_office/03 martie 2026/cashpot_online/backend/node_modules/express/lib/router/index.js:286:9
+    at router.process_params (/Users/eugeniucazmal/Downloads/dev_office/03 martie 2026/cashpot_online/backend/node_modules/express/lib/router/index.js:346:12)
+    at next (/Users/eugeniucazmal/Downloads/dev_office/03 martie 2026/cashpot_online/backend/node_modules/express/lib/router/index.js:280:10)
+    at file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/node_modules/express-rate-limit/dist/index.mjs:779:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/node_modules/express-rate-limit/dist/index.mjs:663:5
+❌ Token verification failed: jwt malformed
+127.0.0.1 - - [10/Mar/2026:12:21:25 +0000] "HEAD /api/operational/multigames HTTP/1.1" 403 41 "-" "curl/8.7.1"
+✅ Approvals table updated with new fields
+✅ Users table updated with new fields including preferences and location_id
+✅ Tasks table created
+✅ Messages table created
+✅ Notifications table created
+✅ Global settings table created
+✅ Expenditures sync table created
+✅ Added data_source column to expenditures_sync
+✅ Added description column to expenditures_sync
+✅ Created UNIQUE INDEX on expenditures_sync to prevent duplicates
+✅ Added created_by column to expenditures_sync
+✅ Added updated_by column to expenditures_sync
+✅ Added updated_at column to expenditures_sync
+✅ Expenditure location mapping table created
+✅ Expenditures backup rules table created
+✅ Database schema initialized
+🔄 Pornire scheduler pentru import automat cheltuieli...
+⏰ [SCHEDULED IMPORT] Scheduler pornit - verifică regulile la fiecare minut
+   Scheduler-ul va verifica regulile active și va executa importul când este timpul
+✅ [SCHEDULED IMPORT] Scheduler activ - verificare la fiecare minut, regulă din setări la 30 min
+✅ [SCHEDULED IMPORT] Regulă actualizată din setări user: zilnic la 12:00
+🔍 [SCHEDULED IMPORT] Verificare inițială a regulilor...
+📋 [SCHEDULED IMPORT] Găsite 2 reguli active:
+   - Import automat (setări Auto-Sincronizare): daily la 12:00
+   - Import zilnic cheltuieli: daily la 02:00
+Auth middleware error: JsonWebTokenError: jwt malformed
+    at module.exports [as verify] (/Users/eugeniucazmal/Downloads/dev_office/03 martie 2026/cashpot_online/backend/node_modules/jsonwebtoken/verify.js:70:17)
+    at authenticateUser (file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/server-postgres.js:99:25)
+    at Layer.handle [as handle_request] (/Users/eugeniucazmal/Downloads/dev_office/03 martie 2026/cashpot_online/backend/node_modules/express/lib/router/layer.js:95:5)
+    at trim_prefix (/Users/eugeniucazmal/Downloads/dev_office/03 martie 2026/cashpot_online/backend/node_modules/express/lib/router/index.js:328:13)
+    at /Users/eugeniucazmal/Downloads/dev_office/03 martie 2026/cashpot_online/backend/node_modules/express/lib/router/index.js:286:9
+    at router.process_params (/Users/eugeniucazmal/Downloads/dev_office/03 martie 2026/cashpot_online/backend/node_modules/express/lib/router/index.js:346:12)
+    at next (/Users/eugeniucazmal/Downloads/dev_office/03 martie 2026/cashpot_online/backend/node_modules/express/lib/router/index.js:280:10)
+    at file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/node_modules/express-rate-limit/dist/index.mjs:779:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/node_modules/express-rate-limit/dist/index.mjs:663:5
+❌ Token verification failed: jwt malformed
+127.0.0.1 - - [10/Mar/2026:12:21:46 +0000] "GET /api/operational/multigames HTTP/1.1" 403 41 "-" "curl/8.7.1"
+❌ Error fetching Operational Multigames data: Error: Unknown column 'm.Manufacturer' in 'field list'
+    at PromisePool.query (/Users/eugeniucazmal/Downloads/dev_office/03 martie 2026/cashpot_online/backend/node_modules/mysql2/lib/promise/pool.js:36:22)
+    at file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/routes/operational.js:67:34
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  code: 'ER_BAD_FIELD_ERROR',
+  errno: 1054,
+  sql: '\n' +
+    '      SELECT \n' +
+    '        loc.code AS Venue,\n' +
+    '        m.Manufacturer AS Manufacturer,\n' +
+    '        m.Cabinet AS Cabinet,\n' +
+    '        m.Games AS Game_Slot,\n' +
+    '        mg.name AS Game_Name_Mutligame,\n' +
+    '        mag.c_52_games AS Played_Games,\n' +
+    '        mag.c_52_bet AS Bet,\n' +
+    '        mag.c_52_win AS Win,\n' +
+    '        mag.updated_at AS Last_Update\n' +
+    '      FROM cyberslot_dbn.machine_audit_games_g_s mag\n' +
+    '      LEFT JOIN cyberslot_dbn.locations loc ON loc.id = mag.location_id\n' +
+    '      LEFT JOIN cyberslot_dbn.machines m ON m.id = mag.machine_id\n' +
+    '      LEFT JOIN cyberslot_dbn.machine_games mg ON mg.id = mag.machine_game_id\n' +
+    '      ORDER BY mag.updated_at DESC\n' +
+    '      LIMIT 1000\n' +
+    '    ',
+  sqlState: '42S22',
+  sqlMessage: "Unknown column 'm.Manufacturer' in 'field list'"
+}
+127.0.0.1 - - [10/Mar/2026:12:21:46 +0000] "GET /api/operational/multigames?limit=1000 HTTP/1.1" 500 75 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+❌ Error fetching Operational Multigames data: Error: Unknown column 'm.Manufacturer' in 'field list'
+    at PromisePool.query (/Users/eugeniucazmal/Downloads/dev_office/03 martie 2026/cashpot_online/backend/node_modules/mysql2/lib/promise/pool.js:36:22)
+    at file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/routes/operational.js:67:34
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  code: 'ER_BAD_FIELD_ERROR',
+  errno: 1054,
+  sql: '\n' +
+    '      SELECT \n' +
+    '        loc.code AS Venue,\n' +
+    '        m.Manufacturer AS Manufacturer,\n' +
+    '        m.Cabinet AS Cabinet,\n' +
+    '        m.Games AS Game_Slot,\n' +
+    '        mg.name AS Game_Name_Mutligame,\n' +
+    '        mag.c_52_games AS Played_Games,\n' +
+    '        mag.c_52_bet AS Bet,\n' +
+    '        mag.c_52_win AS Win,\n' +
+    '        mag.updated_at AS Last_Update\n' +
+    '      FROM cyberslot_dbn.machine_audit_games_g_s mag\n' +
+    '      LEFT JOIN cyberslot_dbn.locations loc ON loc.id = mag.location_id\n' +
+    '      LEFT JOIN cyberslot_dbn.machines m ON m.id = mag.machine_id\n' +
+    '      LEFT JOIN cyberslot_dbn.machine_games mg ON mg.id = mag.machine_game_id\n' +
+    '      ORDER BY mag.updated_at DESC\n' +
+    '      LIMIT 1000\n' +
+    '    ',
+  sqlState: '42S22',
+  sqlMessage: "Unknown column 'm.Manufacturer' in 'field list'"
+}
+127.0.0.1 - - [10/Mar/2026:12:21:47 +0000] "GET /api/operational/multigames?limit=1000 HTTP/1.1" 500 75 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+❌ Error fetching Operational Multigames data: Error: Unknown column 'm.Manufacturer' in 'field list'
+    at PromisePool.query (/Users/eugeniucazmal/Downloads/dev_office/03 martie 2026/cashpot_online/backend/node_modules/mysql2/lib/promise/pool.js:36:22)
+    at file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/routes/operational.js:67:34
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  code: 'ER_BAD_FIELD_ERROR',
+  errno: 1054,
+  sql: '\n' +
+    '      SELECT \n' +
+    '        loc.code AS Venue,\n' +
+    '        m.Manufacturer AS Manufacturer,\n' +
+    '        m.Cabinet AS Cabinet,\n' +
+    '        m.Games AS Game_Slot,\n' +
+    '        mg.name AS Game_Name_Mutligame,\n' +
+    '        mag.c_52_games AS Played_Games,\n' +
+    '        mag.c_52_bet AS Bet,\n' +
+    '        mag.c_52_win AS Win,\n' +
+    '        mag.updated_at AS Last_Update\n' +
+    '      FROM cyberslot_dbn.machine_audit_games_g_s mag\n' +
+    '      LEFT JOIN cyberslot_dbn.locations loc ON loc.id = mag.location_id\n' +
+    '      LEFT JOIN cyberslot_dbn.machines m ON m.id = mag.machine_id\n' +
+    '      LEFT JOIN cyberslot_dbn.machine_games mg ON mg.id = mag.machine_game_id\n' +
+    '      ORDER BY mag.updated_at DESC\n' +
+    '      LIMIT 1000\n' +
+    '    ',
+  sqlState: '42S22',
+  sqlMessage: "Unknown column 'm.Manufacturer' in 'field list'"
+}
+127.0.0.1 - - [10/Mar/2026:12:21:48 +0000] "GET /api/operational/multigames?limit=1000 HTTP/1.1" 500 75 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:22:25 +0000] "GET /health HTTP/1.1" 200 125 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #145425 - 10.03.2026, 14:23
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5001
+}
+
+Node.js v24.13.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #145754 - 10.03.2026, 14:29
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+🚀 Server running on 0.0.0.0:5001
+📊 Database: PostgreSQL
+🌐 Environment: production
+📅 Build: 145754 (10.03.2026, 14:29)
+✅ Server is LIVE - Health checks will PASS!
+✅ All routes registered - login endpoint available at /api/auth/login
+⏳ Database initialization running in background...
+✅ Connected to PostgreSQL
+⏰ Database time: 2026-03-10T12:29:15.415Z
+✅ Slots table columns updated
+✅ Added manufacture_year column to slots table
+✅ Proprietari table created
+✅ Contracts table updated
+✅ Providers table updated
+✅ Locations table: Added competitors JSONB column
+✅ Users table: Added phone VARCHAR(20) column
+✅ Locations table: Added gallery JSONB column
+✅ Locations table: Added nlc_code column and index
+✅ Added invoice_total_amount column to electric_invoices_nlc table
+✅ Created electric_invoices_nlc table for centralizing NLC data
+✅ Platforms table updated
+✅ Platforms table created
+✅ Jackpots table created
+✅ Metrology table updated with additional columns
+✅ Metrology table created
+✅ Invoices table created
+✅ Warehouse table created
+✅ Game mixes table updated with missing columns
+✅ Invoices table updated with seller column
+✅ Companies table updated with documents column
+✅ Users table updated with avatar column
+✅ Legal Documents table created
+✅ ONJN Reports table created
+✅ ONJN Operators table created
+✅ Authorities table created
+✅ Software table created
+✅ Approvals table created
+✅ providers table updated with created_by and created_at columns
+✅ cabinets table updated with created_by and created_at columns
+✅ game_mixes table updated with created_by and created_at columns
+✅ slots table updated with created_by and created_at columns
+✅ locations table updated with created_by and created_at columns
+✅ warehouse table updated with created_by and created_at columns
+✅ metrology table updated with created_by and created_at columns
+✅ jackpots table updated with created_by and created_at columns
+✅ invoices table updated with created_by and created_at columns
+✅ legalDocuments table updated with created_by and created_at columns
+✅ onjnReports table updated with created_by and created_at columns
+✅ authorities table updated with created_by and created_at columns
+✅ users table updated with created_by and created_at columns
+✅ Tasks table updated with approval workflow columns
+✅ Admin user status updated to active
+✅ Metrology sub-pages tables created
+✅ Slot history table created
+✅ Added missing columns to promotions table
+🔍 Found constraints on slot_history: []
+✅ No foreign key constraints found on slot_history table
+✅ Companies table updated with CUI fields
+✅ Metrology table updated with new fields
+✅ Approvals table updated with new fields
+✅ Users table updated with new fields including preferences and location_id
+✅ Tasks table created
+✅ Messages table created
+✅ Notifications table created
+✅ Global settings table created
+✅ Expenditures sync table created
+✅ Added data_source column to expenditures_sync
+✅ Added description column to expenditures_sync
+✅ Created UNIQUE INDEX on expenditures_sync to prevent duplicates
+✅ Added created_by column to expenditures_sync
+✅ Added updated_by column to expenditures_sync
+✅ Added updated_at column to expenditures_sync
+✅ Expenditure location mapping table created
+✅ Expenditures backup rules table created
+✅ Database schema initialized
+🔄 Pornire scheduler pentru import automat cheltuieli...
+⏰ [SCHEDULED IMPORT] Scheduler pornit - verifică regulile la fiecare minut
+   Scheduler-ul va verifica regulile active și va executa importul când este timpul
+✅ [SCHEDULED IMPORT] Scheduler activ - verificare la fiecare minut, regulă din setări la 30 min
+✅ [SCHEDULED IMPORT] Regulă actualizată din setări user: zilnic la 12:00
+🔍 [SCHEDULED IMPORT] Verificare inițială a regulilor...
+📋 [SCHEDULED IMPORT] Găsite 2 reguli active:
+   - Import automat (setări Auto-Sincronizare): daily la 12:00
+   - Import zilnic cheltuieli: daily la 02:00
+127.0.0.1 - - [10/Mar/2026:12:29:44 +0000] "GET /health HTTP/1.1" 200 125 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+ValidationError: The Express 'trust proxy' setting is true, which allows anyone to trivially bypass IP-based rate limiting. See https://express-rate-limit.github.io/ERR_ERL_PERMISSIVE_TRUST_PROXY/ for more information.
+    at Object.trustProxy (file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/node_modules/express-rate-limit/dist/index.mjs:139:13)
+    at wrappedValidations.<computed> [as trustProxy] (file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/node_modules/express-rate-limit/dist/index.mjs:369:22)
+    at Object.keyGenerator (file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/node_modules/express-rate-limit/dist/index.mjs:629:20)
+    at file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/node_modules/express-rate-limit/dist/index.mjs:682:32
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/node_modules/express-rate-limit/dist/index.mjs:663:5 {
+  code: 'ERR_ERL_PERMISSIVE_TRUST_PROXY',
+  help: 'https://express-rate-limit.github.io/ERR_ERL_PERMISSIVE_TRUST_PROXY/'
+}
+127.0.0.1 - - [10/Mar/2026:12:30:02 +0000] "GET /api/global-settings HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:02 +0000] "GET /api/slots HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:02 +0000] "GET /api/warehouse HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+✅ [OPERATIONAL] Pool MariaDB (Cyber) creat pentru data fetching
+127.0.0.1 - - [10/Mar/2026:12:30:02 +0000] "GET /api/providers HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:03 +0000] "GET /api/operational/multigames?limit=1000&startDate=2026-03-01&endDate=2026-03-31 HTTP/1.1" 200 251394 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:03 +0000] "GET /api/metrology HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:03 +0000] "GET /api/cabinets HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:03 +0000] "GET /api/operational/multigames?limit=1000&startDate=2026-03-01&endDate=2026-03-31 HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:03 +0000] "GET /api/gameMixes HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:03 +0000] "GET /api/companies HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:03 +0000] "GET /api/locations HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:04 +0000] "GET /api/onjnReports HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:04 +0000] "GET /api/legalDocuments HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:04 +0000] "GET /api/games HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:04 +0000] "GET /api/jackpots HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:04 +0000] "GET /api/invoices HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:04 +0000] "GET /api/commissions HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:04 +0000] "GET /api/proprietari HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:04 +0000] "GET /api/messages HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:04 +0000] "GET /api/notifications HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:04 +0000] "GET /api/platforms HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:04 +0000] "GET /api/promotions HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:04 +0000] "GET /api/approvals HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:04 +0000] "GET /api/tasks HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:30:06 +0000] "GET /api/contracts HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+✅ GET /api/users - Returned 7 users
+   Managers with location_id: [ { name: 'Razvan Stanciu', location_id: 6, phone: null } ]
+127.0.0.1 - - [10/Mar/2026:12:30:06 +0000] "GET /api/users HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:34:12 +0000] "GET /api/operational/multigames?limit=1000&startDate=2026-03-01&endDate=2026-03-31 HTTP/1.1" 200 251422 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:34:29 +0000] "GET /api/operational/multigames?limit=1000&startDate=2026-03-01&endDate=2026-03-31 HTTP/1.1" 200 251430 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:34:32 +0000] "GET /api/operational/multigames?limit=1000&startDate=2026-02-01&endDate=2026-02-28 HTTP/1.1" 200 249890 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:34:44 +0000] "GET /health HTTP/1.1" 200 125 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:19 +0000] "GET /api/operational/multigames?limit=1000&startDate=2026-03-01&endDate=2026-03-31 HTTP/1.1" 200 251441 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:51 +0000] "GET /api/global-settings HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:51 +0000] "GET /api/slots HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:51 +0000] "GET /api/warehouse HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:51 +0000] "GET /api/metrology HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:51 +0000] "GET /api/gameMixes HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:52 +0000] "GET /api/operational/multigames?limit=1000&startDate=2026-03-01&endDate=2026-03-31 HTTP/1.1" 200 251411 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:52 +0000] "GET /api/locations HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:52 +0000] "GET /api/companies HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:52 +0000] "GET /api/operational/multigames?limit=1000&startDate=2026-03-01&endDate=2026-03-31 HTTP/1.1" 200 251406 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:52 +0000] "GET /api/providers HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:52 +0000] "GET /api/cabinets HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:52 +0000] "GET /api/onjnReports HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:52 +0000] "GET /api/jackpots HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:52 +0000] "GET /api/invoices HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:52 +0000] "GET /api/commissions HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:52 +0000] "GET /api/legalDocuments HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:52 +0000] "GET /api/proprietari HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:53 +0000] "GET /api/promotions HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:53 +0000] "GET /api/games HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:53 +0000] "GET /api/platforms HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:53 +0000] "GET /api/notifications HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:53 +0000] "GET /api/messages HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:53 +0000] "GET /api/approvals HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:53 +0000] "GET /api/tasks HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+✅ GET /api/users - Returned 7 users
+   Managers with location_id: [ { name: 'Razvan Stanciu', location_id: 6, phone: null } ]
+127.0.0.1 - - [10/Mar/2026:12:35:54 +0000] "GET /api/users HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:35:57 +0000] "GET /api/contracts HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:36:09 +0000] "GET /api/operational/multigames?limit=1000&startDate=2026-03-01&endDate=2026-03-31 HTTP/1.1" 200 251407 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:36:41 +0000] "GET /api/operational/multigames?limit=1000&startDate=2026-03-10&endDate=2026-03-10 HTTP/1.1" 200 251342 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:36:55 +0000] "GET /api/operational/multigames?limit=1000&startDate=2026-03-09&endDate=2026-03-15 HTTP/1.1" 200 251324 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:37:02 +0000] "GET /api/operational/multigames?limit=1000&startDate=2026-03-10&endDate=2026-03-10 HTTP/1.1" 200 251302 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:39:44 +0000] "GET /health HTTP/1.1" 200 122 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:41:21 +0000] "GET /api/operational/multigames?startDate=2026-03-10&endDate=2026-03-10 HTTP/1.1" 200 251338 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #146503 - 10.03.2026, 14:41
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+🚀 Server running on 0.0.0.0:5001
+📊 Database: PostgreSQL
+🌐 Environment: production
+📅 Build: 146503 (10.03.2026, 14:41)
+✅ Server is LIVE - Health checks will PASS!
+✅ All routes registered - login endpoint available at /api/auth/login
+⏳ Database initialization running in background...
+✅ Connected to PostgreSQL
+⏰ Database time: 2026-03-10T12:41:44.332Z
+✅ Slots table columns updated
+✅ Added manufacture_year column to slots table
+✅ Proprietari table created
+✅ Contracts table updated
+✅ Providers table updated
+✅ Locations table: Added competitors JSONB column
+✅ Users table: Added phone VARCHAR(20) column
+✅ Locations table: Added gallery JSONB column
+✅ Locations table: Added nlc_code column and index
+✅ Added invoice_total_amount column to electric_invoices_nlc table
+✅ Created electric_invoices_nlc table for centralizing NLC data
+✅ Platforms table updated
+✅ Platforms table created
+✅ Jackpots table created
+✅ Metrology table updated with additional columns
+✅ Metrology table created
+✅ Invoices table created
+✅ Warehouse table created
+✅ Game mixes table updated with missing columns
+✅ Invoices table updated with seller column
+✅ Companies table updated with documents column
+✅ Users table updated with avatar column
+✅ Legal Documents table created
+✅ ONJN Reports table created
+✅ ONJN Operators table created
+✅ Authorities table created
+✅ Software table created
+✅ Approvals table created
+✅ providers table updated with created_by and created_at columns
+✅ cabinets table updated with created_by and created_at columns
+✅ game_mixes table updated with created_by and created_at columns
+✅ slots table updated with created_by and created_at columns
+✅ locations table updated with created_by and created_at columns
+✅ warehouse table updated with created_by and created_at columns
+✅ metrology table updated with created_by and created_at columns
+✅ jackpots table updated with created_by and created_at columns
+✅ invoices table updated with created_by and created_at columns
+✅ legalDocuments table updated with created_by and created_at columns
+✅ onjnReports table updated with created_by and created_at columns
+✅ authorities table updated with created_by and created_at columns
+✅ users table updated with created_by and created_at columns
+✅ Tasks table updated with approval workflow columns
+✅ Admin user status updated to active
+✅ Metrology sub-pages tables created
+✅ Slot history table created
+✅ Added missing columns to promotions table
+🔍 Found constraints on slot_history: []
+✅ No foreign key constraints found on slot_history table
+✅ Companies table updated with CUI fields
+✅ Metrology table updated with new fields
+✅ Approvals table updated with new fields
+✅ Users table updated with new fields including preferences and location_id
+✅ Tasks table created
+✅ Messages table created
+✅ Notifications table created
+✅ Global settings table created
+✅ Expenditures sync table created
+✅ Added data_source column to expenditures_sync
+✅ Added description column to expenditures_sync
+✅ Created UNIQUE INDEX on expenditures_sync to prevent duplicates
+✅ Added created_by column to expenditures_sync
+✅ Added updated_by column to expenditures_sync
+✅ Added updated_at column to expenditures_sync
+✅ Expenditure location mapping table created
+✅ Expenditures backup rules table created
+✅ Database schema initialized
+🔄 Pornire scheduler pentru import automat cheltuieli...
+⏰ [SCHEDULED IMPORT] Scheduler pornit - verifică regulile la fiecare minut
+   Scheduler-ul va verifica regulile active și va executa importul când este timpul
+✅ [SCHEDULED IMPORT] Scheduler activ - verificare la fiecare minut, regulă din setări la 30 min
+✅ [SCHEDULED IMPORT] Regulă actualizată din setări user: zilnic la 12:00
+🔍 [SCHEDULED IMPORT] Verificare inițială a regulilor...
+📋 [SCHEDULED IMPORT] Găsite 2 reguli active:
+   - Import automat (setări Auto-Sincronizare): daily la 12:00
+   - Import zilnic cheltuieli: daily la 02:00
+ValidationError: The Express 'trust proxy' setting is true, which allows anyone to trivially bypass IP-based rate limiting. See https://express-rate-limit.github.io/ERR_ERL_PERMISSIVE_TRUST_PROXY/ for more information.
+    at Object.trustProxy (file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/node_modules/express-rate-limit/dist/index.mjs:139:13)
+    at wrappedValidations.<computed> [as trustProxy] (file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/node_modules/express-rate-limit/dist/index.mjs:369:22)
+    at Object.keyGenerator (file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/node_modules/express-rate-limit/dist/index.mjs:629:20)
+    at file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/node_modules/express-rate-limit/dist/index.mjs:682:32
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async file:///Users/eugeniucazmal/Downloads/dev_office/03%20martie%202026/cashpot_online/backend/node_modules/express-rate-limit/dist/index.mjs:663:5 {
+  code: 'ERR_ERL_PERMISSIVE_TRUST_PROXY',
+  help: 'https://express-rate-limit.github.io/ERR_ERL_PERMISSIVE_TRUST_PROXY/'
+}
+127.0.0.1 - - [10/Mar/2026:12:42:58 +0000] "GET /api/companies HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:42:58 +0000] "GET /api/providers HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:42:58 +0000] "GET /api/metrology HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:42:58 +0000] "GET /api/locations HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:42:58 +0000] "GET /api/slots HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:42:59 +0000] "GET /api/warehouse HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+✅ [OPERATIONAL] Pool MariaDB (Cyber) creat pentru data fetching
+127.0.0.1 - - [10/Mar/2026:12:42:59 +0000] "GET /api/cabinets HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:42:59 +0000] "GET /api/global-settings HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:42:59 +0000] "GET /api/gameMixes HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:42:59 +0000] "GET /api/onjnReports HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:42:59 +0000] "GET /api/legalDocuments HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:42:59 +0000] "GET /api/proprietari HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:42:59 +0000] "GET /api/jackpots HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:42:59 +0000] "GET /api/invoices HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:42:59 +0000] "GET /api/games HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:42:59 +0000] "GET /api/commissions HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:42:59 +0000] "GET /api/approvals HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:42:59 +0000] "GET /api/platforms HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:42:59 +0000] "GET /api/messages HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:00 +0000] "GET /api/notifications HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:00 +0000] "GET /api/promotions HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+✅ GET /api/users - Returned 7 users
+   Managers with location_id: [ { name: 'Razvan Stanciu', location_id: 6, phone: null } ]
+127.0.0.1 - - [10/Mar/2026:12:43:01 +0000] "GET /api/users HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:01 +0000] "GET /api/contracts HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:01 +0000] "GET /api/tasks HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:37 +0000] "GET /api/operational/multigames?startDate=2026-03-01&endDate=2026-03-31 HTTP/1.1" - - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:37 +0000] "GET /api/operational/multigames?startDate=2026-03-01&endDate=2026-03-31 HTTP/1.1" - - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:37 +0000] "GET /health HTTP/1.1" 200 126 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:38 +0000] "GET /health HTTP/1.1" 200 126 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:38 +0000] "GET /api/auth/verify HTTP/1.1" 200 136038 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:38 +0000] "GET /api/companies HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:38 +0000] "GET /api/warehouse HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:39 +0000] "GET /api/global-settings HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:39 +0000] "GET /api/slots HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:39 +0000] "GET /api/metrology HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:39 +0000] "GET /api/gameMixes HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:39 +0000] "GET /api/cabinets HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:40 +0000] "GET /api/providers HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:40 +0000] "GET /api/locations HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:40 +0000] "GET /api/legalDocuments HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:40 +0000] "GET /api/onjnReports HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:41 +0000] "GET /api/proprietari HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:41 +0000] "GET /api/invoices HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:41 +0000] "GET /api/games HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:41 +0000] "GET /api/jackpots HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:41 +0000] "GET /api/platforms HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:41 +0000] "GET /api/commissions HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:41 +0000] "GET /api/promotions HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:41 +0000] "GET /api/messages HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:42 +0000] "GET /api/notifications HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:42 +0000] "GET /api/approvals HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:42 +0000] "GET /api/tasks HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+✅ GET /api/users - Returned 7 users
+   Managers with location_id: [ { name: 'Razvan Stanciu', location_id: 6, phone: null } ]
+127.0.0.1 - - [10/Mar/2026:12:43:42 +0000] "GET /api/users HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:43:46 +0000] "GET /api/contracts HTTP/1.1" 304 - "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:44:46 +0000] "GET /api/operational/multigames?startDate=2026-03-01&endDate=2026-03-31 HTTP/1.1" 200 28655370 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:45:16 +0000] "GET /api/operational/multigames?startDate=2026-03-01&endDate=2026-03-31 HTTP/1.1" 200 28656438 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:45:51 +0000] "GET /api/operational/multigames?startDate=2026-03-01&endDate=2026-03-31 HTTP/1.1" 200 28658517 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:46:41 +0000] "GET /api/operational/multigames?startDate=2026-03-09&endDate=2026-03-15 HTTP/1.1" 200 6805910 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+127.0.0.1 - - [10/Mar/2026:12:47:12 +0000] "GET /api/operational/multigames?startDate=2026-03-09&endDate=2026-03-09 HTTP/1.1" 200 5010509 "http://localhost:5173/operational/multigames" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #146873 - 10.03.2026, 14:47
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5001
+}
+
+Node.js v24.13.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #147343 - 10.03.2026, 14:55
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5001
+}
+
+Node.js v24.13.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #147349 - 10.03.2026, 14:55
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5001
+}
+
+Node.js v24.13.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #147357 - 10.03.2026, 14:55
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5001
+}
+
+Node.js v24.13.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #147365 - 10.03.2026, 14:56
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5001
+}
+
+Node.js v24.13.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #147372 - 10.03.2026, 14:56
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5001
+}
+
+Node.js v24.13.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #147379 - 10.03.2026, 14:56
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5001
+}
+
+Node.js v24.13.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #147385 - 10.03.2026, 14:56
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5001
+}
+
+Node.js v24.13.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #147444 - 10.03.2026, 14:57
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5001
+}
+
+Node.js v24.13.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+(node:98982) MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 exit listeners added to [Bus]. MaxListeners is 10. Use emitter.setMaxListeners() to increase limit
+(Use `node --trace-warnings ...` to show where the warning was created)
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #147475 - 10.03.2026, 14:57
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5001
+}
+
+Node.js v24.13.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #147862 - 10.03.2026, 15:04
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5001
+}
+
+Node.js v24.13.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #147950 - 10.03.2026, 15:05
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5001
+}
+
+Node.js v24.13.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #148297 - 10.03.2026, 15:11
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5001
+}
+
+Node.js v24.13.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #148362 - 10.03.2026, 15:12
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5001
+}
+
+Node.js v24.13.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #148865 - 10.03.2026, 15:21
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5001
+}
+
+Node.js v24.13.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #148904 - 10.03.2026, 15:21
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5001
+}
+
+Node.js v24.13.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #149432 - 10.03.2026, 15:30
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5001
+}
+
+Node.js v24.13.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #149505 - 10.03.2026, 15:31
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5001
+}
+
+Node.js v24.13.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #149658 - 10.03.2026, 15:34
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+🚀 Server running on 0.0.0.0:5001
+📊 Database: PostgreSQL
+🌐 Environment: production
+📅 Build: 149658 (10.03.2026, 15:34)
+✅ Server is LIVE - Health checks will PASS!
+✅ All routes registered - login endpoint available at /api/auth/login
+⏳ Database initialization running in background...
+✅ Connected to PostgreSQL
+⏰ Database time: 2026-03-10T13:34:19.507Z
+✅ Slots table columns updated
+✅ Added manufacture_year column to slots table
+✅ Proprietari table created
+✅ Contracts table updated
+✅ Providers table updated
+✅ Locations table: Added competitors JSONB column
+✅ Users table: Added phone VARCHAR(20) column
+✅ Locations table: Added gallery JSONB column
+✅ Locations table: Added nlc_code column and index
+✅ Added invoice_total_amount column to electric_invoices_nlc table
+✅ Created electric_invoices_nlc table for centralizing NLC data
+✅ Platforms table updated
+✅ Platforms table created
+✅ Jackpots table created
+✅ Metrology table updated with additional columns
+✅ Metrology table created
+✅ Invoices table created
+✅ Warehouse table created
+✅ Game mixes table updated with missing columns
+✅ Invoices table updated with seller column
+✅ Companies table updated with documents column
+✅ Users table updated with avatar column
+✅ Legal Documents table created
+✅ ONJN Reports table created
+✅ ONJN Operators table created
+✅ Authorities table created
+⚠️ operational_multigames_cache table might exist: column "location_id" does not exist
+✅ Software table created
+✅ Approvals table created
+✅ providers table updated with created_by and created_at columns
+✅ cabinets table updated with created_by and created_at columns
+✅ game_mixes table updated with created_by and created_at columns
+✅ slots table updated with created_by and created_at columns
+✅ locations table updated with created_by and created_at columns
+✅ warehouse table updated with created_by and created_at columns
+✅ metrology table updated with created_by and created_at columns
+✅ jackpots table updated with created_by and created_at columns
+✅ invoices table updated with created_by and created_at columns
+✅ legalDocuments table updated with created_by and created_at columns
+✅ onjnReports table updated with created_by and created_at columns
+✅ authorities table updated with created_by and created_at columns
+✅ users table updated with created_by and created_at columns
+✅ Tasks table updated with approval workflow columns
+✅ Admin user status updated to active
+✅ Metrology sub-pages tables created
+✅ Slot history table created
+✅ Added missing columns to promotions table
+🔍 Found constraints on slot_history: []
+✅ No foreign key constraints found on slot_history table
+✅ Companies table updated with CUI fields
+✅ Metrology table updated with new fields
+✅ Approvals table updated with new fields
+✅ Users table updated with new fields including preferences and location_id
+✅ Tasks table created
+✅ Messages table created
+✅ Notifications table created
+✅ Global settings table created
+✅ Expenditures sync table created
+✅ Added data_source column to expenditures_sync
+✅ Added description column to expenditures_sync
+✅ Created UNIQUE INDEX on expenditures_sync to prevent duplicates
+✅ Added created_by column to expenditures_sync
+✅ Added updated_by column to expenditures_sync
+✅ Added updated_at column to expenditures_sync
+✅ Expenditure location mapping table created
+✅ Expenditures backup rules table created
+✅ Database schema initialized
+🔄 Pornire scheduler pentru import automat cheltuieli...
+⏰ [SCHEDULED IMPORT] Scheduler pornit - verifică regulile la fiecare minut
+   Scheduler-ul va verifica regulile active și va executa importul când este timpul
+✅ [SCHEDULED IMPORT] Scheduler activ - verificare la fiecare minut, regulă din setări la 30 min
+✅ [SCHEDULED IMPORT] Regulă actualizată din setări user: zilnic la 12:00
+🔍 [SCHEDULED IMPORT] Verificare inițială a regulilor...
+📋 [SCHEDULED IMPORT] Găsite 2 reguli active:
+   - Import automat (setări Auto-Sincronizare): daily la 12:00
+   - Import zilnic cheltuieli: daily la 02:00
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m
+🚨🚨🚨 PROMOTIONS ROUTES FILE LOADED! 🚨🚨🚨
+🔥🔥🔥 IMMEDIATELY AFTER IMPORTS! 🔥🔥🔥
+💥💥💥 FIRST LINE AFTER DOTENV! 💥💥💥
+🚨🚨🚨 NUCLEAR DEPLOY v1.0.49 - DIRECT ENDPOINT IN ROUTES! 🚨🚨🚨
+💥💥💥 ROUTES FIXED - APIS WILL WORK NOW! 💥💥💥
+🚀 SERVER STARTING - All imports loaded successfully!
+🔥 CRITICAL BUILD v1.0.39 - NUCLEAR ROUTE FIX!
+📦 Building for Render deployment - Route registration fix!
+💥 THIS MUST APPEAR IN LOGS OR RENDER IS BROKEN!
+🚀 BUILD #149691 - 10.03.2026, 15:34
+🔥 ROUTE REGISTRATION FIX - ALL ENDPOINTS MUST WORK
+📦 Version: 1.0.35 - RENDER MUST REBUILD NOW!
+📁 Static files served from /uploads
+🔥 BEFORE ROUTE REGISTRATION - Express middleware configured!
+🌐 CORS allowed origins: [
+  'https://www.w1n.ro',
+  'https://w1n.ro',
+  'https://cashpot-frontend.vercel.app',
+  'https://cashpot-online-2jxdj8yif-jeka7ros-projects.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+]
+🚨🚨🚨 IMMEDIATE ROUTE REGISTRATION v1.0.49! 🚨🚨🚨
+📋 Registering /api/promotions router IMMEDIATELY...
+📋 Registering /api/cyber IMMEDIATELY...
+📋 Registering /api/tasks IMMEDIATELY...
+📋 Registering /api/messages IMMEDIATELY...
+📋 Registering /api/notifications IMMEDIATELY...
+📋 Registering /api/expenditures IMMEDIATELY...
+📋 Registering /api/incasari IMMEDIATELY...
+✅✅✅ IMMEDIATE SUCCESS: ALL ROUTES REGISTERED! ✅✅✅
+🚀🚀🚀 STARTING SERVER IMMEDIATELY (before DB init)...
+🚨🚨🚨 DIRECT PROMOTIONS ENDPOINTS ADDED AFTER ROUTE REGISTRATION! 🚨🚨🚨
+✅ Server startup complete - all endpoints registered
+node:events:486
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5001
+    at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1976:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EADDRINUSE',
+  errno: -48,
+  syscall: 'listen',
+  address: '0.0.0.0',
+  port: 5001
+}
+
+Node.js v24.13.0
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server-postgres.js`[39m

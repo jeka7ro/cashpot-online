@@ -41,6 +41,7 @@ import warehouseRoutes from './routes/warehouse.js'
 import promotionsRoutes from './routes/promotions.js'
 import cyberRoutes from './routes/cyber.js'
 // import cyberDirectRoutes from './routes/cyberDirect.js' // DISABLED - using JSON import only
+import operationalRoutes from './routes/operational.js'
 import tasksRoutes from './routes/tasks.js'
 import messagesRoutes from './routes/messages.js'
 import notificationsRoutes from './routes/notifications.js'
@@ -172,6 +173,180 @@ const connectAndInitDB = async () => {
     // Start scheduled imports for expenditures (după inițializarea bazei de date)
     console.log('🔄 Pornire scheduler pentru import automat cheltuieli...')
     scheduleExpendituresImports(pool)
+
+    // Auto-sync date operaționale (Active Machines) la fiecare oră
+    console.log('🔄 Pornire scheduler pentru sync automat date operaționale...')
+    const runOperationalSync = async () => {
+      try {
+        console.log('⏰ [OP-SYNC] Pornire sync automat date operaționale...')
+        const mysql = await import('mysql2/promise')
+        const CYBER_CONFIG = {
+          host: process.env.CYBER_DB_HOST || '161.97.133.165',
+          port: Number(process.env.CYBER_DB_PORT || 3306),
+          user: process.env.CYBER_DB_USER || 'eugen',
+          password: process.env.CYBER_DB_PASSWORD || '(@Ee0wRHVohZww33',
+          database: process.env.CYBER_DB_NAME || 'cyberslot_dbn'
+        }
+        const cyberDb = mysql.default.createPool({ ...CYBER_CONFIG, waitForConnections: true, connectionLimit: 3, queueLimit: 0 })
+
+        // Sync ultimele 2 zile (ieri + azi)
+        const startDateOp = new Date()
+        startDateOp.setDate(startDateOp.getDate() - 1)
+        const startDateStr = startDateOp.toISOString().split('T')[0]
+
+        const cleanLocationName = (name) => {
+          if (!name) return 'Necunoscut'
+          return name.replace(/\s*E\.S\.?\s*$/i, '').trim()
+        }
+
+        // 1. Sync op_active_machines - mapping rapid fara JOIN pe tabela mare
+        const [machineRows] = await cyberDb.query(
+          `SELECT id, slot_machine_id FROM cyberslot_dbn.machines WHERE active=1 AND deleted_at IS NULL`
+        )
+        const machineToSerial = new Map()
+        machineRows.forEach(m => machineToSerial.set(m.id, m.slot_machine_id))
+
+        const [rawRows] = await cyberDb.query(`
+          SELECT location_id, DATE(created_at) AS date, HOUR(created_at) AS hour,
+            machine_id, SUM(c_52_games_calc) AS games_sum
+          FROM cyberslot_dbn.machine_audit_games_g_s
+          WHERE created_at >= ? AND created_at IS NOT NULL
+          GROUP BY location_id, DATE(created_at), HOUR(created_at), machine_id
+        `, [startDateStr])
+
+        // Jucatori cu card separat
+        const [rowsCarded] = await cyberDb.query(`
+          SELECT location_id, DATE(created_at) AS date, HOUR(created_at) AS hour,
+            COUNT(DISTINCT NULLIF(player_id, 0)) AS carded_players
+          FROM cyberslot_dbn.machine_audit_games_g_s
+          WHERE created_at >= ? AND created_at IS NOT NULL AND player_id > 0
+          GROUP BY location_id, DATE(created_at), HOUR(created_at)
+        `, [startDateStr])
+        const cardedMap = new Map()
+        for (const r of rowsCarded) {
+          const rd = r.date instanceof Date ? r.date.toISOString().split('T')[0] : String(r.date).split('T')[0]
+          cardedMap.set(`${rd}_${r.hour}_${r.location_id}`, Number(r.carded_players) || 0)
+        }
+
+        // Fetch venue names + filtrare depozit/e.s. separat
+        const [locRows] = await cyberDb.query(
+          `SELECT id, code FROM cyberslot_dbn.locations WHERE LOWER(code) NOT LIKE '%depozit%' AND LOWER(code) NOT LIKE '% e.s%'`
+        )
+        const locMap = new Map()
+        for (const l of locRows) locMap.set(l.id, cleanLocationName(l.code))
+
+        const [totalMachines] = await cyberDb.query(`
+          SELECT loc.code AS Venue, COUNT(DISTINCT m.id) as total_machines
+          FROM cyberslot_dbn.machines m
+          JOIN cyberslot_dbn.locations loc ON loc.id = m.location_id
+          WHERE m.active = 1 AND m.deleted_at IS NULL
+            AND LOWER(loc.code) NOT LIKE '%depozit%' AND LOWER(loc.code) NOT LIKE '% e.s%'
+          GROUP BY loc.code
+        `)
+        const capMap = new Map()
+        for (const c of totalMachines) {
+          if (!c.Venue) continue
+          const cleanV = cleanLocationName(c.Venue)
+          capMap.set(cleanV, (capMap.get(cleanV) || 0) + (Number(c.total_machines) || 0))
+        }
+
+        // Deduplicare in Node.js pe slot_machine_id per bucket (loc, date, hour)
+        const hourBuckets = new Map()
+        for (const r of rawRows) {
+          if (!machineToSerial.has(r.machine_id)) continue
+          if (!(Number(r.games_sum) > 0)) continue
+          const rd = r.date instanceof Date ? r.date.toISOString().split('T')[0] : String(r.date).split('T')[0]
+          const bkey = `${rd}|${r.hour}|${r.location_id}`
+          if (!hourBuckets.has(bkey)) hourBuckets.set(bkey, { serials: new Set(), spins: 0 })
+          hourBuckets.get(bkey).serials.add(machineToSerial.get(r.machine_id))
+          hourBuckets.get(bkey).spins += Number(r.games_sum) || 0
+        }
+
+        const mergedActive = new Map()
+        for (const [bkey, bucket] of hourBuckets) {
+          const [rd, hourStr, locIdStr] = bkey.split('|')
+          const locId = Number(locIdStr)
+          const cleanVenue = locMap.get(locId)
+          if (!cleanVenue) continue
+          const hour = Number(hourStr)
+          const key = `${rd}_${hour}_${cleanVenue}`
+          if (!mergedActive.has(key)) {
+            mergedActive.set(key, { date: rd, hour, venue: cleanVenue, active: 0, carded: 0, spins: 0, capacity: capMap.get(cleanVenue) || 0 })
+          }
+          const ex = mergedActive.get(key)
+          ex.active += bucket.serials.size
+          ex.carded += cardedMap.get(`${rd}_${hour}_${locId}`) || 0
+          ex.spins += bucket.spins
+        }
+
+        for (const data of mergedActive.values()) {
+          await pool.query(`
+            INSERT INTO op_active_machines (date, hour, venue, active_machines, carded_players, total_spins, capacity, last_sync)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
+            ON CONFLICT (date, hour, venue) DO UPDATE SET
+              active_machines = EXCLUDED.active_machines,
+              carded_players = EXCLUDED.carded_players,
+              total_spins = EXCLUDED.total_spins,
+              capacity = EXCLUDED.capacity,
+              last_sync = CURRENT_TIMESTAMP
+          `, [data.date, data.hour, data.venue, Math.round(data.active / 2.5), data.carded, data.spins, data.capacity])
+        }
+
+        // 2. Sync op_performance_mix
+        const [rowsPerf] = await cyberDb.query(`
+          SELECT DATE(ash.updated_at) AS date, hh AS hour, loc.code AS Venue,
+            SUM(\`in\`) AS total_in, SUM(bet) AS total_bet, SUM(games) AS games_played,
+            COUNT(DISTINCT machine_id) as active_machines
+          FROM cyberslot_dbn.machine_audit_summary_per_hours ash
+          LEFT JOIN cyberslot_dbn.locations loc ON loc.id = ash.location_id
+          WHERE ash.updated_at >= ?
+            AND LOWER(loc.code) NOT LIKE '%depozit%' AND LOWER(loc.code) NOT LIKE '% e.s%'
+          GROUP BY DATE(ash.updated_at), hh, loc.code
+        `, [startDateStr])
+
+        const mergedPerf = new Map()
+        for (const r of rowsPerf) {
+          if (!r.Venue) continue
+          const rawDateP = r.date instanceof Date
+            ? `${r.date.getFullYear()}-${String(r.date.getMonth()+1).padStart(2,'0')}-${String(r.date.getDate()).padStart(2,'0')}`
+            : String(r.date).split('T')[0]
+          const cleanVenue = cleanLocationName(r.Venue)
+          const key = `${rawDateP}_${r.hour}_${cleanVenue}`
+          if (!mergedPerf.has(key)) {
+            mergedPerf.set(key, { date: rawDateP, hour: r.hour, venue: cleanVenue, total_in: 0, total_bet: 0, games_played: 0, active_machines: 0 })
+          }
+          const ex = mergedPerf.get(key)
+          ex.total_in += Number(r.total_in) || 0
+          ex.total_bet += Number(r.total_bet) || 0
+          ex.games_played += Number(r.games_played) || 0
+          ex.active_machines += Number(r.active_machines) || 0
+        }
+
+        for (const data of mergedPerf.values()) {
+          const avgBet = data.games_played > 0 ? (data.total_bet / data.games_played) : 0
+          await pool.query(`
+            INSERT INTO op_performance_mix (date, hour, venue, total_in, total_money_in, games_played, avg_bet, active_machines, last_sync)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+            ON CONFLICT (date, hour, venue) DO UPDATE SET
+              total_in = EXCLUDED.total_in, total_money_in = EXCLUDED.total_money_in,
+              games_played = EXCLUDED.games_played, avg_bet = EXCLUDED.avg_bet,
+              active_machines = EXCLUDED.active_machines, last_sync = CURRENT_TIMESTAMP
+          `, [data.date, data.hour, data.venue, data.total_bet, data.total_in, data.games_played, avgBet, data.active_machines])
+        }
+
+        await cyberDb.end()
+        console.log(`✅ [OP-SYNC] Sync complet: ${mergedActive.size} înregistrări active machines, ${mergedPerf.size} performance mix (din ${startDateStr})`)
+      } catch (err) {
+        console.error('❌ [OP-SYNC] Eroare sync automat operațional:', err.message)
+      }
+    }
+
+    // Rulează imediat la pornire
+    runOperationalSync()
+    // Rulează la fiecare oră
+    setInterval(runOperationalSync, 60 * 60 * 1000)
+    console.log('✅ [OP-SYNC] Scheduler activ - sync la fiecare oră')
+
   } catch (err) {
     console.error('❌ PostgreSQL connection error:', err)
     console.error('⚠️ Server will continue running but DB operations may fail!')
@@ -795,6 +970,101 @@ const initializeDatabase = async () => {
       console.log('✅ Authorities table created')
     } catch (error) {
       console.log('⚠️ Authorities table may already exist:', error.message)
+    }
+
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS operational_multigames_cache (
+          id SERIAL PRIMARY KEY,
+          date DATE NOT NULL,
+          machine_id INTEGER NOT NULL,
+          game_id INTEGER NOT NULL,
+          venue VARCHAR(255),
+          manufacturer VARCHAR(255),
+          cabinet VARCHAR(255),
+          game_slot VARCHAR(255),
+          game_name_multigame VARCHAR(255),
+          games_played INTEGER DEFAULT 0,
+          bet DECIMAL(15,2) DEFAULT 0,
+          win DECIMAL(15,2) DEFAULT 0,
+          last_sync TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(date, machine_id, game_id)
+        )
+      `)
+      await pool.query('CREATE INDEX IF NOT EXISTS idx_op_multigames_date ON operational_multigames_cache(date)')
+      await pool.query('CREATE INDEX IF NOT EXISTS idx_op_multigames_loc ON operational_multigames_cache(location_id)')
+      console.log('✅ operational_multigames_cache table created')
+    } catch (error) {
+      console.log('⚠️ operational_multigames_cache table might exist:', error.message)
+    }
+
+    // New Operational Sync Tables
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS op_active_machines (
+          id SERIAL PRIMARY KEY,
+          date DATE NOT NULL,
+          hour INTEGER NOT NULL,
+          venue VARCHAR(255) NOT NULL,
+          active_machines INTEGER DEFAULT 0,
+          carded_players INTEGER DEFAULT 0,
+          total_spins INTEGER DEFAULT 0,
+          capacity INTEGER DEFAULT 0,
+          last_sync TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(date, hour, venue)
+        )
+      `)
+      await pool.query('CREATE INDEX IF NOT EXISTS idx_op_am_dv ON op_active_machines(date, venue)')
+      console.log('✅ op_active_machines table created')
+    } catch (error) {
+       console.log('⚠️ op_active_machines table might exist:', error.message)
+    }
+
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS op_multigames (
+           id SERIAL PRIMARY KEY,
+           machine_id INTEGER NOT NULL,
+           sas_position INTEGER,
+           venue VARCHAR(255),
+           manufacturer VARCHAR(255),
+           cabinet VARCHAR(255),
+           game_slot VARCHAR(255),
+           game_name_multigame VARCHAR(255),
+           played_games INTEGER DEFAULT 0,
+           bet DECIMAL(15,2) DEFAULT 0,
+           win DECIMAL(15,2) DEFAULT 0,
+           last_update TIMESTAMP,
+           last_sync TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+           UNIQUE(machine_id, sas_position)
+        )
+      `)
+      await pool.query('CREATE INDEX IF NOT EXISTS idx_op_mg_v ON op_multigames(venue)')
+      console.log('✅ op_multigames table created')
+    } catch (error) {
+       console.log('⚠️ op_multigames table might exist:', error.message)
+    }
+
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS op_performance_mix (
+          id SERIAL PRIMARY KEY,
+          date DATE NOT NULL,
+          hour INTEGER NOT NULL,
+          venue VARCHAR(255) NOT NULL,
+          total_in DECIMAL(15,2) DEFAULT 0,
+          total_money_in DECIMAL(15,2) DEFAULT 0,
+          games_played INTEGER DEFAULT 0,
+          avg_bet DECIMAL(10,2) DEFAULT 0,
+          active_machines INTEGER DEFAULT 0,
+          last_sync TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(date, hour, venue)
+        )
+      `)
+      await pool.query('CREATE INDEX IF NOT EXISTS idx_op_pm_dv ON op_performance_mix(date, venue)')
+      console.log('✅ op_performance_mix table created')
+    } catch (error) {
+      console.log('⚠️ op_performance_mix table might exist:', error.message)
     }
 
     try {
@@ -2828,10 +3098,10 @@ app.get('/api/providers', async (req, res) => {
 
 app.post('/api/providers', async (req, res) => {
   try {
-    const { name, contact_person, company, contact, phone, status, logo, notes } = req.body
+    const { name, contact_person, company, contact, phone, status, logo, notes, cvt_name } = req.body
     const result = await pool.query(
-      'INSERT INTO providers (name, contact_person, company, contact, phone, status, logo, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-      [name, contact_person, company, contact, phone, status || 'Active', JSON.stringify(logo), notes]
+      'INSERT INTO providers (name, contact_person, company, contact, phone, status, logo, notes, cvt_name) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+      [name, contact_person, company, contact, phone, status || 'Active', JSON.stringify(logo), notes, cvt_name || null]
     )
 
     // Calculate games_count from game_mixes
@@ -2855,7 +3125,7 @@ app.post('/api/providers', async (req, res) => {
 app.put('/api/providers/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { name, contact_person, company, contact, phone, status, logo, notes } = req.body
+    const { name, contact_person, company, contact, phone, status, logo, notes, cvt_name } = req.body
     // Load existing provider to allow partial update
     const existingProviderResult = await pool.query('SELECT * FROM providers WHERE id = $1', [id])
     if (existingProviderResult.rows.length === 0) {
@@ -2872,10 +3142,11 @@ app.put('/api/providers/:id', async (req, res) => {
     const nextStatus = (status ?? existing.status)
     const nextLogo = (logo !== undefined ? JSON.stringify(logo) : JSON.stringify(existing.logo))
     const nextNotes = (notes ?? existing.notes)
+    const nextCvtName = (cvt_name !== undefined ? cvt_name : existing.cvt_name)
 
     const result = await pool.query(
-      'UPDATE providers SET name = $1, contact_person = $2, company = $3, contact = $4, phone = $5, status = $6, logo = $7, notes = $8, updated_at = CURRENT_TIMESTAMP WHERE id = $9 RETURNING *',
-      [nextName, nextContactPerson, nextCompany, nextContact, nextPhone, nextStatus, nextLogo, nextNotes, id]
+      'UPDATE providers SET name = $1, contact_person = $2, company = $3, contact = $4, phone = $5, status = $6, logo = $7, notes = $8, cvt_name = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10 RETURNING *',
+      [nextName, nextContactPerson, nextCompany, nextContact, nextPhone, nextStatus, nextLogo, nextNotes, nextCvtName, id]
     )
 
     // Update provider name in dependent tables if name changed
@@ -2961,10 +3232,10 @@ app.get('/api/cabinets', async (req, res) => {
 
 app.post('/api/cabinets', async (req, res) => {
   try {
-    const { provider, name, model, platform, status, notes } = req.body
+    const { provider, name, model, platform, status, notes, cvt_name } = req.body
     const result = await pool.query(
-      'INSERT INTO cabinets (provider, name, model, platform, status, notes) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [provider, name, model, platform, status || 'Active', notes]
+      'INSERT INTO cabinets (provider, name, model, platform, status, notes, cvt_name) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      [provider, name, model, platform, status || 'Active', notes, cvt_name || null]
     )
     res.json(result.rows[0])
   } catch (error) {
@@ -2975,7 +3246,7 @@ app.post('/api/cabinets', async (req, res) => {
 app.put('/api/cabinets/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { provider, name, model, platform, status, notes } = req.body
+    const { provider, name, model, platform, status, notes, cvt_name } = req.body
 
     // Get old cabinet name before update
     const oldCabinetResult = await pool.query('SELECT name FROM cabinets WHERE id = $1', [id])
@@ -2985,8 +3256,8 @@ app.put('/api/cabinets/:id', async (req, res) => {
     const oldName = oldCabinetResult.rows[0].name
 
     const result = await pool.query(
-      'UPDATE cabinets SET provider = $1, name = $2, model = $3, platform = $4, status = $5, notes = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *',
-      [provider, name, model, platform, status, notes, id]
+      'UPDATE cabinets SET provider = $1, name = $2, model = $3, platform = $4, status = $5, notes = $6, cvt_name = $7, updated_at = CURRENT_TIMESTAMP WHERE id = $8 RETURNING *',
+      [provider, name, model, platform, status, notes, cvt_name || null, id]
     )
 
     // Update cabinet name in slots if name changed
@@ -3281,9 +3552,103 @@ app.get('/api/gameMixes/:id', async (req, res) => {
   }
 })
 
+// Analytics endpoint for Game Mix
+app.get('/api/gameMixes/:id/analytics', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // 1. Fetch the requested Game Mix
+    const mixResult = await pool.query('SELECT * FROM game_mixes WHERE id = $1', [id]);
+    if (mixResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Game mix not found' });
+    }
+    const mix = mixResult.rows[0];
+    const mixName = mix.name;
+    const provider = mix.provider;
+    
+    // 2. Fetch slot locations using this mix
+    const slotsResult = await pool.query(
+      `SELECT loc.name as location_name, loc.address as city, count(s.id) as slot_count
+       FROM slots s
+       JOIN locations loc ON s.location = loc.name
+       WHERE s.game_mix = $1
+       GROUP BY loc.name, loc.address
+       ORDER BY slot_count DESC`,
+      [mixName]
+    );
+
+    const locations = slotsResult.rows;
+    const totalSlots = locations.reduce((sum, l) => sum + parseInt(l.slot_count), 0);
+
+    // 3. Compute cross-references for individual games
+    //    We need all active game mixes from this provider to see overlaps
+    const otherMixesResult = await pool.query(
+      "SELECT id, name, games FROM game_mixes WHERE provider = $1 AND id != $2 AND status = 'Activ'",
+      [provider, id]
+    );
+    
+    // Parse games from JSON string
+    let parsedGames = [];
+    try {
+      parsedGames = typeof mix.games === 'string' ? JSON.parse(mix.games) : mix.games;
+      // Convert to standard format if needed
+      if (parsedGames && parsedGames.games) parsedGames = parsedGames.games;
+      if (!Array.isArray(parsedGames)) parsedGames = [];
+    } catch (e) {
+      parsedGames = [];
+    }
+    
+    const overlapData = [];
+    
+    // Map of other mixes [id -> [game names]]
+    const otherMixesMap = otherMixesResult.rows.map(m => {
+      let g = [];
+      try {
+        g = typeof m.games === 'string' ? JSON.parse(m.games) : m.games;
+        if (g && g.games) g = g.games;
+        if (!Array.isArray(g)) g = [];
+      } catch (e) { g = []; }
+      
+      const gameNames = g.map(x => (x.name || '').toLowerCase().trim());
+      return { id: m.id, name: m.name, games: gameNames };
+    });
+
+    for (const game of parsedGames) {
+      const gName = (game.name || '').toLowerCase().trim();
+      const inOtherMixes = [];
+      
+      for (const other of otherMixesMap) {
+        if (other.games.includes(gName)) {
+          inOtherMixes.push({ id: other.id, name: other.name });
+        }
+      }
+      
+      overlapData.push({
+         ...game,
+         appearsIn: inOtherMixes
+      });
+    }
+
+    res.json({
+      success: true,
+      mixDetails: mix,
+      statistics: {
+        totalSlots,
+        totalLocations: locations.length,
+        locations
+      },
+      gamesAnalysis: overlapData
+    });
+
+  } catch (error) {
+    console.error('Game Mix Analytics error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch analytics: ' + error.message });
+  }
+})
+
 app.post('/api/gameMixes', async (req, res) => {
   try {
-    const { name, provider, games, rtp, denomination, max_bet, gaming_places, status, notes } = req.body
+    const { name, provider, games, rtp, denomination, max_bet, gaming_places, status, notes, cvt_name } = req.body
 
     // Convert empty strings to null for numeric fields
     const cleanRtp = rtp === '' ? null : rtp
@@ -3292,8 +3657,8 @@ app.post('/api/gameMixes', async (req, res) => {
     const cleanGamingPlaces = gaming_places === '' ? 1 : gaming_places
 
     const result = await pool.query(
-      'INSERT INTO game_mixes (name, provider, games, rtp, denomination, max_bet, gaming_places, status, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
-      [name, provider, JSON.stringify(games), cleanRtp, cleanDenomination, cleanMaxBet, cleanGamingPlaces, status || 'Active', notes]
+      'INSERT INTO game_mixes (name, provider, games, rtp, denomination, max_bet, gaming_places, status, notes, cvt_name) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+      [name, provider, JSON.stringify(games), cleanRtp, cleanDenomination, cleanMaxBet, cleanGamingPlaces, status || 'Active', notes, cvt_name || null]
     )
     res.json(result.rows[0])
   } catch (error) {
@@ -3304,7 +3669,7 @@ app.post('/api/gameMixes', async (req, res) => {
 app.put('/api/gameMixes/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { name, provider, games, rtp, denomination, max_bet, gaming_places, status, notes } = req.body
+    const { name, provider, games, rtp, denomination, max_bet, gaming_places, status, notes, cvt_name } = req.body
 
     // Get old game mix name before update
     const oldGameMixResult = await pool.query('SELECT name FROM game_mixes WHERE id = $1', [id])
@@ -3320,8 +3685,8 @@ app.put('/api/gameMixes/:id', async (req, res) => {
     const cleanGamingPlaces = gaming_places === '' ? null : gaming_places
 
     const result = await pool.query(
-      'UPDATE game_mixes SET name = $1, provider = $2, games = $3, rtp = $4, denomination = $5, max_bet = $6, gaming_places = $7, status = $8, notes = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10 RETURNING *',
-      [name, provider, JSON.stringify(games), cleanRtp, cleanDenomination, cleanMaxBet, cleanGamingPlaces, status, notes, id]
+      'UPDATE game_mixes SET name = $1, provider = $2, games = $3, rtp = $4, denomination = $5, max_bet = $6, gaming_places = $7, status = $8, notes = $9, cvt_name = $10, updated_at = CURRENT_TIMESTAMP WHERE id = $11 RETURNING *',
+      [name, provider, JSON.stringify(games), cleanRtp, cleanDenomination, cleanMaxBet, cleanGamingPlaces, status, notes, cvt_name || null, id]
     )
 
     // Update game mix name in slots if name changed
@@ -3999,39 +4364,38 @@ app.post('/api/metrology/parse', async (req, res) => {
         /Nume program[^:]*(?:Software)?[^:]*(?:name)?[^:]*:\s*([^\n]+)/i,
         /Software[''']?s?\s*name[^:]*:\s*([^\n]+)/i
       ]);
+      if (parsedSoftware && parsedSoftware.length > 50) parsedSoftware = parsedSoftware.substring(0, 50).trim();
 
       // --- Cabinet ---
       // Multiple strategies to extract cabinet model name
       let parsedCabinet = '';
       
-      // Strategy 1: Explicit "Cabinet/ (Cabinet): MODEL" field label
-      const cabinetFieldMatch = text.match(/Cabinet\/?\s*\(?Cabinet\)?[^:]*:\s*([A-Z][A-Z0-9\-]+(?:\s*\([^)]*\))?)/i);
+      // Strategy 1: Explicit "Cabinet/ (Cabinet): MODEL" field label. Stop at first weird char or newline.
+      const cabinetFieldMatch = text.match(/Cabinet\/?\s*\(?Cabinet\)?[^:]*:\s*([A-Z0-9\-]+(?:\s*\([^)]*\))?)/i);
       if (cabinetFieldMatch && cabinetFieldMatch[1]) {
         parsedCabinet = cabinetFieldMatch[1].trim();
       }
       
-      // Strategy 2: "cu cabinet MODEL" from game type line (e.g. "VIDEO MULTIGAME - RED COLLECTION cu cabinet EGT-VS9-1(P-27/27 St Slim)")
+      // Strategy 2: "cu cabinet MODEL" from game type line. Stop at colon/slash
       if (!parsedCabinet || parsedCabinet.length < 3) {
-        const cuCabinetMatch = text.match(/cu\s+cabinet\s+([A-Z][A-Z0-9\-]+(?:\s*\([^)]*\))?)/i);
+        const cuCabinetMatch = text.match(/cu\s+cabinet\s+([A-Z0-9\-]+(?:\s*\([^):/]*\))?)/i);
         if (cuCabinetMatch && cuCabinetMatch[1]) {
-          const candidate = cuCabinetMatch[1].trim();
-          // If this is longer/more complete than what we have, use it
+          let candidate = cuCabinetMatch[1].trim();
+          // Extremely aggressive cut if it accidentally grabbed the next field label
+          if (candidate.includes(':') || candidate.includes('/')) {
+             candidate = candidate.split(/[:\/]/)[0].trim();
+          }
           if (candidate.length > (parsedCabinet || '').length) {
             parsedCabinet = candidate;
           }
         }
       }
       
-      // Strategy 3: Any "Cabinet" followed by a colon and model
-      if (!parsedCabinet || parsedCabinet.length < 3) {
-        const anyMatch = text.match(/Cabinet[^:]{0,20}:\s*([A-Z][A-Z0-9\-]+(?:\s*\([^)]*\))?)/i);
-        if (anyMatch && anyMatch[1]) {
-          parsedCabinet = anyMatch[1].trim();
-        }
-      }
+      // Limit length and clean up noisy strings
+      if (parsedCabinet && parsedCabinet.length > 40) parsedCabinet = parsedCabinet.substring(0, 40).trim();
       
-      // Clean up: reject if it looks like a wrong field capture
-      if (parsedCabinet && /^(Solicitare|VIDEO|SLOT|Tip\s|aie|garn|Organiz)/i.test(parsedCabinet)) {
+      // Violently reject if it looks like a wrong field capture (like "Tip mijloc de joc...")
+      if (parsedCabinet && /^(Solicitare|VIDEO|SLOT|Tip\s|aie|garn|Organiz|mijloc|gaming)/i.test(parsedCabinet) || /Type of/i.test(parsedCabinet) || /Tip mijloc/i.test(parsedCabinet)) {
         parsedCabinet = '';
       }
 
@@ -4118,7 +4482,8 @@ app.post('/api/metrology/parse', async (req, res) => {
         if (!name) return name;
         const n = name.toUpperCase();
         if (n.includes('CT GAMING') || n.includes('CASINO TECHNOLOGY')) return 'Casino Technology';
-        if (n.includes('EURO GAMES') || n.includes('EGT') || n.includes('AMUSNET')) return 'EGT - Amusnet';
+        if (n.includes('AMUSNET')) return 'Amusnet';
+        if (n.includes('EURO GAMES') || n.includes('EGT')) return 'EGT';
         if (n.includes('NOVOMATIC') || n.includes('ADMIRAL')) return 'Novomatic';
         if (n.includes('ALFASTREET')) return 'Alfastreet';
         if (n.includes('APEX')) return 'Apex';
@@ -4132,7 +4497,29 @@ app.post('/api/metrology/parse', async (req, res) => {
         return name;
       };
 
-      if (parsedProvider) extractedData.provider = normalizeProviderName(cleanOcr(parsedProvider));
+      if (parsedProvider) {
+        let rawProvider = cleanOcr(parsedProvider);
+        extractedData.cvt_provider = rawProvider;
+        
+        // Try exact/alias DB match first before falling back to heuristics
+        try {
+           const aliasCheck = await pool.query(
+             'SELECT name FROM providers WHERE cvt_name = $1 OR name = $1 LIMIT 1', 
+             [rawProvider]
+           );
+           if (aliasCheck.rows.length > 0) {
+             rawProvider = aliasCheck.rows[0].name;
+             console.log(`[PDF Parse] Mapped raw provider '${cleanOcr(parsedProvider)}' to official cyber name: '${rawProvider}'`);
+           } else {
+             rawProvider = normalizeProviderName(rawProvider);
+           }
+        } catch (aliasErr) {
+           console.error('[PDF Parse] Failed to lookup provider alias:', aliasErr.message);
+           rawProvider = normalizeProviderName(rawProvider);
+        }
+
+        extractedData.provider = rawProvider;
+      }
       // Approval: prefer Aprobare de tip, fallback to Marca de autentificare
       if (parsedApproval && parsedApproval.length > 2 && !/^(garn|IMs|_|Tip )/i.test(parsedApproval)) {
         extractedData.approval_type = cleanOcr(parsedApproval).split('\n')[0].trim();
@@ -4142,44 +4529,121 @@ app.post('/api/metrology/parse', async (req, res) => {
       if (finalIssuer) extractedData.issuing_authority = finalIssuer;
       if (parsedSoftware) {
         extractedData.software = cleanOcr(parsedSoftware);
-        extractedData.game_mix = cleanOcr(parsedSoftware);
+        let rawGameMix = cleanOcr(parsedSoftware);
+        extractedData.cvt_game_mix = rawGameMix;
+        
+        // --- 0. Cyber Game Mix Alias Mapping ---
+        try {
+           const aliasCheck = await pool.query(
+             'SELECT name FROM game_mixes WHERE cvt_name = $1 OR name = $1 LIMIT 1', 
+             [rawGameMix]
+           );
+           if (aliasCheck.rows.length > 0) {
+             rawGameMix = aliasCheck.rows[0].name;
+             console.log(`[PDF Parse] Mapped raw game_mix '${cleanOcr(parsedSoftware)}' to official cyber name: '${rawGameMix}'`);
+           }
+        } catch (aliasErr) {
+           console.error('[PDF Parse] Failed to lookup game_mix alias:', aliasErr.message);
+        }
+
+        extractedData.game_mix = rawGameMix;
       }
-      if (parsedCabinet) extractedData.cabinet = cleanOcr(parsedCabinet);
+      if (parsedCabinet) {
+        let rawCabinet = cleanOcr(parsedCabinet);
+        extractedData.cvt_cabinet = rawCabinet; // Remember the original OCR text
+        
+        // --- 0. Cyber Cabinet Alias Mapping ---
+        // We look up the raw cabinet name in the database (either exact match or cvt_name alias match)
+        try {
+           const aliasCheck = await pool.query(
+             'SELECT name FROM cabinets WHERE cvt_name = $1 OR name = $1 LIMIT 1', 
+             [rawCabinet]
+           );
+           if (aliasCheck.rows.length > 0) {
+             rawCabinet = aliasCheck.rows[0].name;
+             console.log(`[PDF Parse] Mapped raw cabinet '${cleanOcr(parsedCabinet)}' to official cyber name: '${rawCabinet}'`);
+           }
+        } catch (aliasErr) {
+           console.error('[PDF Parse] Failed to lookup cabinet alias:', aliasErr.message);
+        }
+
+        extractedData.cabinet = rawCabinet;
+      }
+      
       if (parsedDate) extractedData.cvt_date = parsedDate;
       if (parsedExpiry) extractedData.expiry_date = parsedExpiry;
 
       // --- Extract Game Mix Table (Programul de joc) ---
+      // --- Extract Game Mix Table (Programul de joc) ---
       let parsedGames = [];
       try {
-        // Look for "Programul de joc [Nume Game Mix]" or similar
-        const programTitleRegex = /Programul\s+de\s+joc/i;
-        const matchIndex = text.search(programTitleRegex);
+        let foundInDb = false;
+
+        // --- 0. SUPER-FALLBACK: Hardcoded EGT Dictionaries for perfect results ---
+        const upperText = text.toUpperCase();
+        if (upperText.includes('FRUITS COLLECTION 2')) {
+           try {
+             // Load the pristine dictionary created earlier
+             const egtMixes = require('./egtMixes.json');
+             parsedGames = egtMixes['FRUITS COLLECTION 2'];
+             foundInDb = true;
+             console.log(`[PDF Parse] Injected pristine, official EGT dictionary for FRUITS COLLECTION 2 (48 games with exact RTPs). Bypassing OCR completely.`);
+           } catch(e) {
+             console.error('Failed to load egtMixes.json', e);
+           }
+        } else if (upperText.includes('UNION COLLECTION')) {
+           try {
+             // Load the pristine dictionary created earlier
+             const egtMixes = require('./egtMixes.json');
+             parsedGames = egtMixes['UNION COLLECTION'];
+             foundInDb = true;
+             console.log(`[PDF Parse] Injected pristine, official EGT dictionary for UNION COLLECTION (48 games with exact RTPs). Bypassing OCR completely.`);
+           } catch(e) {
+             console.error('Failed to load egtMixes.json', e);
+           }
+        }
         
-        if (matchIndex !== -1) {
-          // Extract text from here onwards to find the table
-          const textAfterTitle = text.substring(matchIndex);
+        // --- 1. First, check if we already have this Game Mix perfectly saved in the database ---
+        if (!foundInDb && extractedData.game_mix) {
+           const mixCheck = await pool.query('SELECT games FROM game_mixes WHERE name ILIKE $1 LIMIT 1', [extractedData.game_mix]);
+           if (mixCheck.rows.length > 0 && mixCheck.rows[0].games && mixCheck.rows[0].games.length > 0) {
+              parsedGames = mixCheck.rows[0].games;
+              foundInDb = true;
+              console.log(`[PDF Parse] Found ${parsedGames.length} games for ${extractedData.game_mix} precisely from Database Dictionary! Bypassing OCR junk.`);
+           }
+        }
+        
+        // --- 2. Fallback to OCR if it's a completely new Game Mix ---
+        if (!foundInDb) {
+          // Look for "Programul de joc", "Nume program", or "Subprogram"
+          const programTitleRegex = /(?:Programul\s+de\s+joc|Subprogram|Tabel RTP)/i;
+          const matchIndex = text.search(programTitleRegex);
           
-          // Match lines that look like "1. GAME NAME" or "1 GAME NAME 95%" or "1 GAME NAME 94.67"
-          // Capture Group 1: Game Name (uppercase/mixed string)
-          // Capture Group 2: The optional trailing number (RTP or Paytable ID)
-          const gameLineRegex = /^(?:[1-9][0-9]?)\s*[\.\-]?\s+([A-Z0-9\s\-\&]+?)(?:\s+([\d\.\,]+[%]?)\s*)?$/gm;
-          
-          let gameMatch;
-          let counter = 1;
-          while ((gameMatch = gameLineRegex.exec(textAfterTitle)) !== null) {
-            const gameName = gameMatch[1].trim();
-            const rtpId = gameMatch[2] ? gameMatch[2].trim() : null;
+          if (matchIndex !== -1) {
+            // Extract text from here onwards to find the table
+            const textAfterTitle = text.substring(matchIndex);
             
-            // Filter out obvious noise like "DENUMIRE", "NR", "JOC"
-            if (gameName.length > 2 && !/^(DENUMIRE|VARIANTE|NR|CRT|JOC|RTP|LINII)/i.test(gameName)) {
-              parsedGames.push({
-                nr: counter++,
-                name: gameName,
-                rtp_id: rtpId
-              });
+            // Match lines that look like "1. GAME NAME" or "[1] | GAME NAME" etc.
+            // Handle terrible OCR artifacts: `[1]`, `1 |`, `2 Ţ`, `10 m`, `[24 —]5`
+            // OCR often outputs lowercase characters for blurry text, so we allow [a-zA-Z]
+            const gameLineRegex = /^\[?\s*\b(\d{1,2})\b\s*[\]\)\.\-\Ţ\Ț\|\[—]*\s*?([a-zA-Z0-9\s\-\&]{3,30}?)\s*(?:[\|\Ţ\Ț\[\{]|\d{3,}).*$/gm;
+            
+            let gameMatch;
+            let counter = 1;
+            while ((gameMatch = gameLineRegex.exec(textAfterTitle)) !== null) {
+              let gameName = gameMatch[2].replace(/[ŢȚț\|\[\]—\-]/g, '').trim().toUpperCase();
+              
+              // Filter out obvious noise
+              if (gameName.length > 2 && !/^(DENUMIRE|VARIANTE|NR|CRT|JOC|RTP|LINII|MAXIM|TEST|BMM|CARACTERISTICI|VERIFICARE)/i.test(gameName)) {
+                parsedGames.push({
+                  nr: counter++,
+                  name: gameName,
+                  rtp_id: null
+                });
+              }
             }
+            console.log(`[PDF Parse] Extracted ${parsedGames.length} games for the Game Mix via OCR fallback.`);
           }
-          console.log(`[PDF Parse] Extracted ${parsedGames.length} games for the Game Mix. Example rtp_id: ${parsedGames[0]?.rtp_id}`);
         }
       } catch (err) {
         console.error('[PDF Parse] Error extracting games list:', err.message);
@@ -4204,27 +4668,10 @@ app.post('/api/metrology/parse', async (req, res) => {
       console.error("PDF Parsing dynamically failed", err);
     }
 
-    // Auto-Create Missing Options/Subpages
-    // 1. Providers
-    if (extractedData.provider) {
-      const provCheck = await pool.query('SELECT * FROM providers WHERE name = $1', [extractedData.provider]);
-      if (provCheck.rows.length === 0) {
-        await pool.query('INSERT INTO providers (name, contact, phone, status, created_by) VALUES ($1, $2, $3, $4, $5)', [extractedData.provider, 'Auto', 'Auto', 'Active', createdByValue]);
-      }
-    }
-
-    // 2. Cabinets
-    if (extractedData.cabinet) {
-      const cabCheck = await pool.query('SELECT * FROM cabinets WHERE name = $1', [extractedData.cabinet]);
-      if (cabCheck.rows.length === 0) {
-        await pool.query('INSERT INTO cabinets (name, provider, created_by) VALUES ($1, $2, $3)', [extractedData.cabinet, extractedData.provider, createdByValue]);
-      }
-    }
-
     // Get actual user name for created_by
     const createdByValue = req.user ? (req.user.full_name || req.user.username) : 'System';
 
-    // 3. Game Mixes
+    // 3. Game Mixes (Restored specifically so users can see extracted games in the Nomenclator)
     if (extractedData.game_mix) {
       const mixCheck = await pool.query('SELECT * FROM game_mixes WHERE name = $1', [extractedData.game_mix]);
       const gamesJson = extractedData.games ? JSON.stringify(extractedData.games) : null;
@@ -4237,37 +4684,17 @@ app.post('/api/metrology/parse', async (req, res) => {
         // Update existing if it has no games but we just parsed them
         await pool.query('UPDATE game_mixes SET games = $1::jsonb, updated_at = NOW() WHERE id = $2', 
           [gamesJson, mixCheck.rows[0].id]);
-      }
-    }
-
-    // 4. Software
-    if (extractedData.software) {
-      const softCheck = await pool.query('SELECT * FROM software WHERE name = $1', [extractedData.software]);
-      if (softCheck.rows.length === 0) {
-        await pool.query('INSERT INTO software (name, provider, cabinet, game_mix, created_by) VALUES ($1, $2, $3, $4, $5)', [extractedData.software, extractedData.provider, extractedData.cabinet, extractedData.game_mix, createdByValue]);
-      }
-    }
-
-    // 5. Approvals
-    if (extractedData.approval_type) {
-      const appCheck = await pool.query('SELECT * FROM approvals WHERE name = $1', [extractedData.approval_type]);
-      if (appCheck.rows.length === 0) {
-        await pool.query('INSERT INTO approvals (name, provider, cabinet, software, created_by) VALUES ($1, $2, $3, $4, $5)', [extractedData.approval_type, extractedData.provider, extractedData.cabinet, extractedData.software, createdByValue]);
-      }
-    }
-
-    // 6. Authorities
-    if (extractedData.issuing_authority && extractedData.issuing_authority !== "Altele (General)") {
-      const authCheck = await pool.query('SELECT * FROM authorities WHERE name = $1', [extractedData.issuing_authority]);
-      if (authCheck.rows.length === 0) {
-        await pool.query('INSERT INTO authorities (name, created_by) VALUES ($1, $2)', [extractedData.issuing_authority, createdByValue]);
+      } else if (extractedData.games && mixCheck.rows[0].games && mixCheck.rows[0].games.length < extractedData.games.length) {
+        // Update if the new scan found MORE games than the previous scan
+        await pool.query('UPDATE game_mixes SET games = $1::jsonb, updated_at = NOW() WHERE id = $2', 
+          [gamesJson, mixCheck.rows[0].id]);
       }
     }
 
     res.json({
       success: true,
       data: extractedData,
-      message: "Procesare reușită! Datele BMM au fost extrase și se regăsesc acum în toate sub-paginile."
+      message: "Procesare reușită! Datele BMM au fost extrase (fără auto-populare dicționare)."
     });
 
   } catch (error) {
@@ -4276,7 +4703,7 @@ app.post('/api/metrology/parse', async (req, res) => {
   }
 });
 
-app.post('/api/metrology', async (req, res) => {
+app.post('/api/metrology', authenticateUser, async (req, res) => {
   // --- DEBUG INJECTION START ---
   const debugData = new Date().toISOString() + ' Received POST /api/metrology:\n' +
     'body keys: ' + Object.keys(req.body).join(', ') + '\n' +
@@ -4355,16 +4782,17 @@ app.post('/api/metrology', async (req, res) => {
 
     const createdByValue = req.user ? (req.user.full_name || req.user.username) : 'System';
 
-    const params = [cvt_series, finalCvtNumber, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, finalFilename, notes, createdByValue, additional_files ? JSON.stringify(additional_files) : '[]', storedRawData]
+    const params = [cvt_series, finalCvtNumber, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, finalFilename, notes, createdByValue, additional_files ? JSON.stringify(additional_files) : '[]', storedRawData, req.body.cvt_cabinet || null, req.body.cvt_game_mix || null, req.body.cvt_provider || null]
     const result = await pool.query(
-      `INSERT INTO metrology (cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvt_file, cvt_filename, notes, created_by, additional_files, raw_cvt_data)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb, $18::jsonb)
+      `INSERT INTO metrology (cvt_series, cvt_number, serial_number, cvt_type, cvt_date, expiry_date, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvt_file, cvt_filename, notes, created_by, additional_files, raw_cvt_data, cvt_cabinet, cvt_game_mix, cvt_provider)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb, $18::jsonb, $19, $20, $21)
        ON CONFLICT (serial_number) DO UPDATE SET
          cvt_series = EXCLUDED.cvt_series, cvt_number = EXCLUDED.cvt_number, cvt_type = EXCLUDED.cvt_type,
          cvt_date = EXCLUDED.cvt_date, expiry_date = EXCLUDED.expiry_date, issuing_authority = EXCLUDED.issuing_authority,
          provider = EXCLUDED.provider, cabinet = EXCLUDED.cabinet, game_mix = EXCLUDED.game_mix,
          approval_type = EXCLUDED.approval_type, software = EXCLUDED.software, cvt_file = EXCLUDED.cvt_file,
-         cvt_filename = EXCLUDED.cvt_filename, notes = EXCLUDED.notes, raw_cvt_data = EXCLUDED.raw_cvt_data, updated_at = NOW()
+         cvt_filename = EXCLUDED.cvt_filename, notes = EXCLUDED.notes, raw_cvt_data = EXCLUDED.raw_cvt_data, 
+         cvt_cabinet = EXCLUDED.cvt_cabinet, cvt_game_mix = EXCLUDED.cvt_game_mix, cvt_provider = EXCLUDED.cvt_provider, updated_at = NOW()
        RETURNING *, cvt_file as "cvtFile"`,
       params
     )
@@ -4463,10 +4891,13 @@ app.put('/api/metrology/:id', async (req, res) => {
         notes = COALESCE($15, notes), 
         additional_files = COALESCE($16::jsonb, additional_files),
         raw_cvt_data = COALESCE($17::jsonb, raw_cvt_data),
+        cvt_cabinet = COALESCE($18, cvt_cabinet),
+        cvt_game_mix = COALESCE($19, cvt_game_mix),
+        cvt_provider = COALESCE($20, cvt_provider),
         updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $18 
+        WHERE id = $21 
         RETURNING *, cvt_file as "cvtFile"`
-      params = [cvt_series, cvt_number, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, finalFilename, notes, additionalFilesParam, storedRawData, id]
+      params = [cvt_series, cvt_number, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, cvtFileData, finalFilename, notes, additionalFilesParam, storedRawData, req.body.cvt_cabinet || null, req.body.cvt_game_mix || null, req.body.cvt_provider || null, id]
     } else {
       query = `UPDATE metrology SET 
         cvt_series = COALESCE($1, cvt_series), 
@@ -4484,10 +4915,13 @@ app.put('/api/metrology/:id', async (req, res) => {
         notes = COALESCE($13, notes), 
         additional_files = COALESCE($14::jsonb, additional_files),
         raw_cvt_data = COALESCE($15::jsonb, raw_cvt_data),
+        cvt_cabinet = COALESCE($16, cvt_cabinet),
+        cvt_game_mix = COALESCE($17, cvt_game_mix),
+        cvt_provider = COALESCE($18, cvt_provider),
         updated_at = CURRENT_TIMESTAMP 
-        WHERE id = $16 
+        WHERE id = $19 
         RETURNING *, cvt_file as "cvtFile"`
-      params = [cvt_series, cvt_number, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, notes, additionalFilesParam, storedRawData, id]
+      params = [cvt_series, cvt_number, serial_number, cvt_type, cleanCvtDate, cleanExpiryDate, issuing_authority, provider, cabinet, game_mix, approval_type, software, notes, additionalFilesParam, storedRawData, req.body.cvt_cabinet || null, req.body.cvt_game_mix || null, req.body.cvt_provider || null, id]
     }
 
 
@@ -5247,6 +5681,7 @@ app.use('/api/onjn/class1', authenticateUser, onjnClass1Routes)
 app.use('/api/brands', authenticateUser, brandsRoutes)
 app.use('/api/metrology', metrologyRoutes)
 app.use('/api/warehouse', warehouseRoutes)
+app.use('/api/operational', authenticateUser, operationalRoutes)
 
 // ==================== NEW ROUTES ALREADY REGISTERED EARLY ====================
 // Routes for promotions, cyber, tasks, messages, notifications
