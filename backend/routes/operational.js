@@ -35,42 +35,48 @@ router.get('/multigames', authenticateToken, async (req, res) => {
     const pgPool = req.app.get('pool')
     if (!pgPool) return res.status(500).json({ success: false, error: 'Postgres Pool inexistent' })
 
+    await pgPool.query(`ALTER TABLE op_multigames ADD COLUMN IF NOT EXISTS serial_number TEXT`).catch(() => {})
+
     const { limit = 1000, startDate, endDate, locations } = req.query
 
     let sql = `
       SELECT 
-        machine_id,
-        sas_position,
-        venue AS "Venue",
-        manufacturer AS "Manufacturer",
-        cabinet AS "Cabinet",
-        game_slot AS "Game_Slot",
-        game_name_multigame AS "Game_Name_Mutligame",
-        played_games AS "Played_Games",
-        bet AS "Bet",
-        win AS "Win",
-        last_update AS "Last_Update"
-      FROM op_multigames
-      WHERE played_games > 0
+        om.machine_id,
+        om.sas_position,
+        COALESCE(
+          om.serial_number,
+          (SELECT serial_number FROM incasari_daily WHERE machine_id = om.machine_id AND serial_number IS NOT NULL LIMIT 1)
+        ) AS "Serial_Number",
+        om.venue AS "Venue",
+        om.manufacturer AS "Manufacturer",
+        om.cabinet AS "Cabinet",
+        om.game_slot AS "Game_Slot",
+        om.game_name_multigame AS "Game_Name_Mutligame",
+        om.played_games AS "Played_Games",
+        om.bet AS "Bet",
+        om.win AS "Win",
+        om.last_update AS "Last_Update"
+      FROM op_multigames om
+      WHERE om.played_games > 0
     `
 
     const queryParams = []
     let paramCount = 1
 
     if (startDate && endDate) {
-      sql += ` AND DATE(last_update) >= $${paramCount++} AND DATE(last_update) <= $${paramCount++} `
+      sql += ` AND DATE(om.last_update) >= $${paramCount++} AND DATE(om.last_update) <= $${paramCount++} `
       queryParams.push(startDate, endDate)
     }
 
     if (locations) {
       const locs = locations.split(',').filter(Boolean);
       if (locs.length > 0) {
-        sql += ` AND venue = ANY($${paramCount++}) `
+        sql += ` AND om.venue = ANY($${paramCount++}) `
         queryParams.push(locs)
       }
     }
 
-    sql += ` ORDER BY last_update DESC LIMIT $${paramCount}`
+    sql += ` ORDER BY om.last_update DESC LIMIT $${paramCount}`
     queryParams.push(Number(limit))
     
     const { rows } = await pgPool.query(sql, queryParams)
@@ -91,48 +97,102 @@ router.get('/multigames', authenticateToken, async (req, res) => {
 })
 
 // GET /api/operational/performance-mix
-// Extrage date financiare pentru vizualizarea TMI, TI, GP vs Ocupare
+// Single day → distributie orara; Multi-day → agregare zilnica din incasari_daily
 router.get('/performance-mix', authenticateToken, async (req, res) => {
   try {
-    const { date, locations } = req.query;
-    if (!date) return res.status(400).json({ success: false, error: 'Data este obligatorie.' });
-
+    const { date, startDate, endDate, locations } = req.query;
     const pgPool = req.app.get('pool');
     if (!pgPool) return res.status(500).json({ success: false, error: 'Postgres Pool inexistent' });
 
-    let sql = `
+    const start = startDate || date;
+    const end   = endDate   || date;
+    if (!start) return res.status(400).json({ success: false, error: 'Data este obligatorie.' });
+
+    const isRange = start !== end;
+    const locArray = locations ? locations.split(',').filter(Boolean) : [];
+
+    // ── MULTI-DAY: date range → grup pe zi din incasari_daily ──────────────
+    if (isRange) {
+      const { rows } = await pgPool.query(`
+        SELECT
+          audit_date AS day,
+          COALESCE(SUM(bet), 0)       AS total_in,
+          COALESCE(SUM(in_amount), 0)  AS total_money_in,
+          COALESCE(SUM(games), 0)      AS games_played
+        FROM incasari_daily
+        WHERE audit_date BETWEEN $1::date AND $2::date
+        GROUP BY audit_date
+        ORDER BY audit_date
+      `, [start, end]);
+
+      const data = rows.map(r => ({
+        day:             r.day,
+        label:           new Date(r.day).toLocaleDateString('ro-RO', { day: '2-digit', month: '2-digit' }),
+        total_in:        Number(r.total_in)        || 0,
+        total_money_in:  Number(r.total_money_in)  || 0,
+        games_played:    Number(r.games_played)    || 0,
+        avg_bet: Number(r.games_played) > 0 ? (Number(r.total_in) / Number(r.games_played)) : 0,
+      }));
+
+      return res.json({ success: true, mode: 'daily', data });
+    }
+
+    // ── SINGLE DAY: distributie orara per locatie ────────────────────────────
+    const { rows: dayRows } = await pgPool.query(`
       SELECT
-        hour,
-        venue AS "Venue",
+        COALESCE(SUM(bet), 0)       AS day_bet,
+        COALESCE(SUM(in_amount), 0)  AS day_tmi,
+        COALESCE(SUM(games), 0)      AS day_games
+      FROM incasari_daily
+      WHERE audit_date = $1::date
+    `, [start]);
+
+    const dayBet   = Number(dayRows[0]?.day_bet)   || 0;
+    const dayTmi   = Number(dayRows[0]?.day_tmi)   || 0;
+    const dayGames = Number(dayRows[0]?.day_games)  || 0;
+
+    let { rows: hourlyRows } = await pgPool.query(`
+      SELECT hour, venue AS "Venue", active_machines, total_spins, carded_players
+      FROM op_active_machines
+      WHERE date::date = $1::date
+      ORDER BY hour, venue
+    `, [start]);
+
+    if (locArray.length > 0) hourlyRows = hourlyRows.filter(r => locArray.includes(r.Venue));
+
+    // Total spins across all venues × all hours (pentru proportionalizare globala)
+    const totalSpinsAll = hourlyRows.reduce((s, r) => s + (Number(r.total_spins) || 0), 0);
+
+    // Returnam un rand per (venue, hour) cu bet distribuit proportional
+    const data = hourlyRows.map(r => {
+      const ratio        = totalSpinsAll > 0 ? (Number(r.total_spins) || 0) / totalSpinsAll : 0;
+      const total_in       = Math.round(dayBet   * ratio);
+      const total_money_in = Math.round(dayTmi   * ratio);
+      const games_played   = Math.round(dayGames * ratio);
+      return {
+        hour:            Number(r.hour),
+        label:           `${String(r.hour).padStart(2,'0')}:00`,
+        Venue:           r.Venue,
         total_in,
         total_money_in,
         games_played,
-        avg_bet,
-        active_machines
-      FROM op_performance_mix
-      WHERE date::date = $1::date
-    `;
-    const params = [date];
+        avg_bet:         games_played > 0 ? total_in / games_played : 0,
+        active_machines: Number(r.active_machines) || 0,
+        carded_players:  Number(r.carded_players)  || 0,
+      };
+    });
 
-    const { rows } = await pgPool.query(sql, params);
-    
-    let finalRows = rows;
-    if (locations) {
-       const locArray = locations.split(',').filter(Boolean);
-       if (locArray.length > 0) {
-           finalRows = finalRows.filter(r => locArray.includes(r.Venue));
-       }
-    }
+    return res.json({ success: true, mode: 'hourly', data });
 
-    return res.json({ success: true, data: finalRows });
   } catch (error) {
     console.error('❌ Error fetching Performance Mix data:', error)
-    return res.status(500).json({
-      success: false,
-      error: error.message || 'Server error reading performance mix from local DB'
-    })
+    return res.status(500).json({ success: false, error: error.message })
   }
 })
+
+
+
+
 
 // GET /api/operational/active-machines
 router.get('/active-machines', authenticateToken, async (req, res) => {
@@ -348,67 +408,61 @@ router.post('/sync', authenticateToken, async (req, res) => {
     }
 
 
-    // 2. Sync op_performance_mix
-    const sqlPerf = `
-      SELECT
-        DATE(ash.updated_at) AS date,
-        hh AS hour,
-        loc.code AS Venue,
-        SUM(\`in\`) AS total_in,
-        SUM(bet) AS total_bet,
-        SUM(games) AS games_played,
-        COUNT(DISTINCT machine_id) as active_machines
-      FROM cyberslot_dbn.machine_audit_summary_per_hours ash
-      LEFT JOIN cyberslot_dbn.locations loc ON loc.id = ash.location_id
-      WHERE ash.updated_at >= ?
-        AND LOWER(loc.code) NOT LIKE '%depozit%'
-        AND LOWER(loc.code) NOT LIKE '% e.s%'
-      GROUP BY DATE(ash.updated_at), hh, loc.code
-    `;
-    const [rowsPerf] = await cyberDb.query(sqlPerf, [startDateStr]);
+    // 2. Sync op_performance_mix — folosim aceeasi sursa ca active machines (delta, nu cumulativ)
+    // c_52_bet_calc = volumul de parieri (BET/TI) pe interval
+    // c_52_in_calc  = banii introdusi fizic in aparat (TMI) pe interval — fallback la 0 daca nu exista coloana
+    const [rowsPerfRaw] = await cyberDb.query(`
+      SELECT location_id, DATE(created_at) AS date, HOUR(created_at) AS hour,
+        machine_id,
+        SUM(c_52_games_calc) AS games_played,
+        SUM(c_52_bet_calc)   AS total_bet
+      FROM cyberslot_dbn.machine_audit_games_g_s
+      WHERE created_at >= ? AND created_at IS NOT NULL
+        AND c_52_games_calc > 0
+      GROUP BY location_id, DATE(created_at), HOUR(created_at), machine_id
+    `, [startDateStr]);
 
     const mergedPerf = new Map();
-    for (const r of rowsPerf) {
-      if (!r.Venue) continue;
+    for (const r of rowsPerfRaw) {
+      const cleanVenue = locMap.get(r.location_id);
+      if (!cleanVenue) continue;
       const rawDateP = r.date instanceof Date
         ? `${r.date.getFullYear()}-${String(r.date.getMonth()+1).padStart(2,'0')}-${String(r.date.getDate()).padStart(2,'0')}`
         : String(r.date).split('T')[0];
-      const cleanVenue = cleanLocationName(r.Venue);
-      const key = `${rawDateP}_${r.hour}_${cleanVenue}`;
+      const hour = Number(r.hour);
+      const key = `${rawDateP}_${hour}_${cleanVenue}`;
       if (!mergedPerf.has(key)) {
-        mergedPerf.set(key, {
-          date: rawDateP, hour: r.hour, venue: cleanVenue,
-          total_in: 0, total_bet: 0, games_played: 0, active_machines: 0
-        });
+        mergedPerf.set(key, { date: rawDateP, hour, venue: cleanVenue, total_bet: 0, games_played: 0, machineIds: new Set() });
       }
-      const existing = mergedPerf.get(key);
-      existing.total_in += Number(r.total_in) || 0;
-      existing.total_bet += Number(r.total_bet) || 0;
-      existing.games_played += Number(r.games_played) || 0;
-      existing.active_machines += Number(r.active_machines) || 0;
+      const ex = mergedPerf.get(key);
+      ex.total_bet    += Number(r.total_bet)    || 0;
+      ex.games_played += Number(r.games_played) || 0;
+      ex.machineIds.add(r.machine_id);
     }
 
     for (const data of mergedPerf.values()) {
-        const avgBet = data.games_played > 0 ? (data.total_bet / data.games_played) : 0;
-        await pgPool.query(`
-          INSERT INTO op_performance_mix (date, hour, venue, total_in, total_money_in, games_played, avg_bet, active_machines, last_sync)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
-          ON CONFLICT (date, hour, venue) DO UPDATE SET
-            total_in = EXCLUDED.total_in,
-            total_money_in = EXCLUDED.total_money_in,
-            games_played = EXCLUDED.games_played,
-            avg_bet = EXCLUDED.avg_bet,
-            active_machines = EXCLUDED.active_machines,
-            last_sync = CURRENT_TIMESTAMP
-        `, [data.date, data.hour, data.venue, data.total_bet, data.total_in, data.games_played, avgBet, data.active_machines]);
+      const avgBet = data.games_played > 0 ? data.total_bet / data.games_played : 0;
+      await pgPool.query(`
+        INSERT INTO op_performance_mix (date, hour, venue, total_in, total_money_in, games_played, avg_bet, active_machines, last_sync)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+        ON CONFLICT (date, hour, venue) DO UPDATE SET
+          total_in = EXCLUDED.total_in,
+          total_money_in = EXCLUDED.total_money_in,
+          games_played = EXCLUDED.games_played,
+          avg_bet = EXCLUDED.avg_bet,
+          active_machines = EXCLUDED.active_machines,
+          last_sync = CURRENT_TIMESTAMP
+      `, [data.date, data.hour, data.venue, data.total_bet, 0, data.games_played, avgBet, data.machineIds.size]);
     }
 
     // 3. Sync op_multigames
-    // We update all games modified since the startDateOp
+    await pgPool.query(`ALTER TABLE op_multigames ADD COLUMN IF NOT EXISTS serial_number TEXT`).catch(() => {})
+
     const sqlMulti = `
       SELECT 
         mag.machine_id,
         mag.sas_position,
+        m.slot_machine_id AS Serial,
         loc.code AS Venue,
         mt.manufacturer AS Manufacturer,
         cab.name AS Cabinet,
@@ -436,10 +490,11 @@ router.post('/sync', authenticateToken, async (req, res) => {
       const cleanVenue = cleanLocationName(r.Venue);
       await pgPool.query(`
          INSERT INTO op_multigames (
-           machine_id, sas_position, venue, manufacturer, cabinet, game_slot, 
+           machine_id, sas_position, serial_number, venue, manufacturer, cabinet, game_slot, 
            game_name_multigame, played_games, bet, win, last_update, last_sync
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
          ON CONFLICT (machine_id, sas_position) DO UPDATE SET
+           serial_number = EXCLUDED.serial_number,
            venue = EXCLUDED.venue,
            manufacturer = EXCLUDED.manufacturer,
            cabinet = EXCLUDED.cabinet,
@@ -451,7 +506,7 @@ router.post('/sync', authenticateToken, async (req, res) => {
            last_update = EXCLUDED.last_update,
            last_sync = CURRENT_TIMESTAMP
       `, [
-         r.machine_id, r.sas_position, cleanVenue, r.Manufacturer || '', r.Cabinet || '',
+         r.machine_id, r.sas_position, r.Serial || null, cleanVenue, r.Manufacturer || '', r.Cabinet || '',
          r.Game_Slot || '', r.Game_Name_Mutligame || '', r.Played_Games || 0,
          r.Bet || 0, r.Win || 0, r.Last_Update || new Date()
       ]);

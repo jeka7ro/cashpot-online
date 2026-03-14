@@ -111,6 +111,7 @@ const OperationalMultigames = () => {
       const searchLower = searchTerm.toLowerCase();
       const matchSearch = (
         (item.Venue && item.Venue.toLowerCase().includes(searchLower)) ||
+        (item.Serial_Number && item.Serial_Number.toLowerCase().includes(searchLower)) ||
         (item.Manufacturer && item.Manufacturer.toLowerCase().includes(searchLower)) ||
         (item.Cabinet && item.Cabinet.toLowerCase().includes(searchLower)) ||
         (item.Game_Slot && item.Game_Slot.toLowerCase().includes(searchLower)) ||
@@ -170,7 +171,7 @@ const OperationalMultigames = () => {
       .sort((a, b) => b.value - a.value)
       .slice(0, 6); // Top 6 mixuri
 
-    return { totalPlayed, totalBet, totalWin, topGames, mfgData, mixData };
+    return { totalPlayed, totalBet, totalWin, totalProfit: totalBet - totalWin, topGames, mfgData, mixData };
   }, [filteredData]);
 
   // Map data to include computed RTP values for sorting
@@ -181,15 +182,19 @@ const OperationalMultigames = () => {
       const liveRtp = bet > 0 ? Number(((win / bet) * 100).toFixed(2)) : 0;
       
       let rtpCvt = null;
+      let serialNumber = item.Serial_Number || null;
+
       if (slots && item.machine_id) {
         const slot = slots.find(s => String(s.id_server) === String(item.machine_id));
-        if (slot && slot.rtp) {
-          rtpCvt = Number(slot.rtp);
+        if (slot) {
+          if (slot.rtp) rtpCvt = Number(slot.rtp);
+          if (slot.serial_number && !serialNumber) serialNumber = slot.serial_number;
         }
       }
 
       return {
         ...item,
+        Serial_Number: serialNumber,
         Live_RTP: liveRtp,
         RTP_CVT: rtpCvt
       };
@@ -202,6 +207,12 @@ const OperationalMultigames = () => {
       label: 'Venue',
       sortable: true,
       render: (item) => <span className="font-semibold text-slate-800">{item.Venue || '-'}</span>
+    },
+    {
+      key: 'Serial_Number',
+      label: 'Nr. Serie',
+      sortable: true,
+      render: (item) => <span className="font-mono text-xs text-slate-600 bg-slate-50 px-1.5 py-0.5 rounded">{item.Serial_Number || '-'}</span>
     },
     {
       key: 'Manufacturer',
@@ -244,6 +255,17 @@ const OperationalMultigames = () => {
       label: 'Win',
       sortable: true,
       render: (item) => <span className="text-emerald-700 font-semibold">{((Number(item.Win) || 0) / 100).toLocaleString('ro-RO', { style: 'currency', currency: 'RON' })}</span>
+    },
+    {
+      key: 'Profit',
+      label: 'Profit (Bet−Win)',
+      sortable: true,
+      render: (item) => {
+        const profit = ((Number(item.Bet)||0) - (Number(item.Win)||0)) / 100
+        return <span className={`font-bold ${profit >= 0 ? 'text-violet-700' : 'text-red-600'}`}>
+          {profit.toLocaleString('ro-RO', { style: 'currency', currency: 'RON' })}
+        </span>
+      }
     },
     {
       key: 'Live_RTP',
@@ -396,7 +418,7 @@ const OperationalMultigames = () => {
         {/* Stats Cards */}
         {!loading && data.length > 0 && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200 p-5 rounded-2xl shadow-sm flex items-center space-x-4">
                 <div className="p-3 bg-blue-600 shadow-lg shadow-blue-500/30 text-white rounded-xl">
                   <Gamepad2 className="w-6 h-6" />
@@ -422,6 +444,15 @@ const OperationalMultigames = () => {
                 <div>
                   <p className="text-sm font-semibold text-emerald-800/70 uppercase tracking-wider mb-0.5">Total Win</p>
                   <p className="text-2xl font-bold text-emerald-900">RON {stats.totalWin.toLocaleString('ro-RO', {maximumFractionDigits: 0})}</p>
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-violet-50 to-violet-100/50 border border-violet-200 p-5 rounded-2xl shadow-sm flex items-center space-x-4">
+                <div className="p-3 bg-violet-600 shadow-lg shadow-violet-500/30 text-white rounded-xl">
+                  <Coins className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-violet-800/70 uppercase tracking-wider mb-0.5">Profit (Bet − Win)</p>
+                  <p className="text-2xl font-bold text-violet-900">RON {stats.totalProfit.toLocaleString('ro-RO', {maximumFractionDigits: 0})}</p>
                 </div>
               </div>
             </div>
@@ -533,6 +564,28 @@ const OperationalMultigames = () => {
             itemsPerPage={50}
             compact={true}
           />
+
+          {/* Total row - toate înregistrările filtrate */}
+          {!loading && tableData.length > 0 && (() => {
+            const totalBet   = tableData.reduce((s, r) => s + (Number(r.Bet)  || 0), 0) / 100
+            const totalWin   = tableData.reduce((s, r) => s + (Number(r.Win)  || 0), 0) / 100
+            const totalGames = tableData.reduce((s, r) => s + (Number(r.Played_Games) || 0), 0)
+            const totalProfit = totalBet - totalWin
+            const totalRTP   = totalBet > 0 ? (totalWin / totalBet * 100).toFixed(2) : '0.00'
+            const fmtRON = v => v.toLocaleString('ro-RO', { style: 'currency', currency: 'RON', maximumFractionDigits: 0 })
+            return (
+              <div className="border-t-2 border-slate-300 bg-slate-800 text-white px-4 py-2.5 flex flex-wrap gap-6 text-sm font-bold">
+                <span className="text-slate-400 uppercase text-xs tracking-wider self-center">
+                  TOTAL ({tableData.length.toLocaleString('ro-RO')} rânduri)
+                </span>
+                <span>Bet: <span className="text-blue-300">{fmtRON(totalBet)}</span></span>
+                <span>Win: <span className="text-emerald-300">{fmtRON(totalWin)}</span></span>
+                <span>Profit: <span className={totalProfit >= 0 ? 'text-violet-300' : 'text-red-400'}>{fmtRON(totalProfit)}</span></span>
+                <span>Jocuri: <span className="text-amber-300">{totalGames.toLocaleString('ro-RO')}</span></span>
+                <span>RTP Live: <span className="text-purple-300">{totalRTP}%</span></span>
+              </div>
+            )
+          })()}
         </div>
       </div>
     </Layout>

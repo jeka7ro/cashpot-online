@@ -22,16 +22,26 @@ const SHIFTS = [
   { id: 'night', label: 'Noapte (22:00 - 06:00)', hours: [22,23,0,1,2,3,4,5] }
 ]
 
+// Ziua operationala: 08:00 - 08:00 (urmatoarea zi)
+// Daca e inainte de 08:00, "azi" operational = ieri calendar
+const getOperationalToday = () => {
+  const now = new Date()
+  if (now.getHours() < 8) {
+    const d = new Date(now); d.setDate(d.getDate() - 1); return d
+  }
+  return now
+}
+
 const getQuickDates = () => {
-  const today = new Date()
-  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1)
-  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
-  const yearStart = new Date(today.getFullYear(), 0, 1)
+  const opToday = getOperationalToday()
+  const opYesterday = new Date(opToday); opYesterday.setDate(opToday.getDate() - 1)
+  const monthStart = new Date(opToday.getFullYear(), opToday.getMonth(), 1)
+  const yearStart  = new Date(opToday.getFullYear(), 0, 1)
   return {
-    azi: { start: formatDateLocal(today), end: formatDateLocal(today), label: 'Azi' },
-    ieri: { start: formatDateLocal(yesterday), end: formatDateLocal(yesterday), label: 'Ieri' },
-    luna: { start: formatDateLocal(monthStart), end: formatDateLocal(today), label: 'Luna curentă' },
-    an: { start: formatDateLocal(yearStart), end: formatDateLocal(today), label: 'Anul curent' },
+    azi:  { start: formatDateLocal(opToday),     end: formatDateLocal(opToday),     label: 'Azi' },
+    ieri: { start: formatDateLocal(opYesterday), end: formatDateLocal(opYesterday), label: 'Ieri' },
+    luna: { start: formatDateLocal(monthStart),  end: formatDateLocal(opToday),     label: 'Luna curentă' },
+    an:   { start: formatDateLocal(yearStart),   end: formatDateLocal(opToday),     label: 'Anul curent' },
   }
 }
 
@@ -42,9 +52,9 @@ const ActiveMachines = () => {
   const [error, setError] = useState(null)
   const [isRange, setIsRange] = useState(false)
 
-  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1)
-  const [startDate, setStartDate] = useState(formatDateLocal(yesterday))
-  const [endDate, setEndDate] = useState(formatDateLocal(yesterday))
+  const opYesterday = new Date(getOperationalToday()); opYesterday.setDate(opYesterday.getDate() - 1)
+  const [startDate, setStartDate] = useState(formatDateLocal(opYesterday))
+  const [endDate, setEndDate] = useState(formatDateLocal(opYesterday))
   const [activeQuick, setActiveQuick] = useState('ieri')
   const [selectedShift, setSelectedShift] = useState('all')
   const [selectedLocations, setSelectedLocations] = useState([])
@@ -163,7 +173,7 @@ const ActiveMachines = () => {
     })
 
     filteredData.forEach(row => {
-        const am = Math.max(0, Math.round((Number(row.active_machines) || 0) / 3))
+        const am = Number(row.active_machines) || 0
         const cp = Number(row.carded_players) || 0
         const sp = Number(row.total_spins) || 0
 
@@ -233,7 +243,7 @@ const ActiveMachines = () => {
         rawLocMap[c.Venue] = { total_capacity: c.total_machines, active_sessions: 0, hours_active: new Set() }
     })
     rawData.forEach(row => {
-        const am = Math.max(0, Math.round((Number(row.active_machines) || 0) / 3))
+        const am = Number(row.active_machines) || 0
         if (!rawLocMap[row.Venue]) rawLocMap[row.Venue] = { total_capacity: 0, active_sessions: 0, hours_active: new Set() }
         rawLocMap[row.Venue].active_sessions += am
         rawLocMap[row.Venue].hours_active.add(row.hour)
